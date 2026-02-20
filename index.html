@@ -7,15 +7,52 @@
     <style>
         /* Basic styling for testing */
         body { font-family: sans-serif; }
+        img {
+            transition: all .5s;
+            height:10vh;
+        }
+        span {
+            font-size: 3em;
+            margin-right:1em;
+        }
+        .track {
+            border-bottom: 1px solid gray;
+            padding:1vh;
+            overflow:hidden;
+        }
     </style>
 </head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-WBDG44VY1B"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-WBDG44VY1B');
+</script>
 <body>
     <h1>Test Page</h1>
     <p>This is an empty test HTML page.</p>
+    <!--
+    <div style="border:1px solid gray; border-radius: 5vh; width:50%; -height:50vh; margin:auto; padding:5vh">
+        <div class="track">
+            <span>1115</span>
+            <img id="tt" style="margin-left:100px" src="tiktok.png" /></div>
+        <div class="track"><span>50</span><img id="yt" src="youtube.png" /></div>
+        <div class="track"><span>1</span><img id="inst" src="instagram.png" /></div>
+        <div class="track"><span>0</span><img id="vk" src="vkvideo.png" /></div>
+    </div>
+<script>
+    setTimeout (e=> {
+        
+        tt.style.marginLeft="60%"
+        yt.style.marginLeft="30%"
+        inst.style.marginLeft="5%"
+        vk.style.marginLeft="1%"
+    }, 500)
+</script>
+-->
 
-    <script>
-        // JS testing can go here
-        console.log("Test page loaded");
-    </script>
 </body>
 </html>
