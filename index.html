@@ -6,19 +6,26 @@
     <title>Test Page</title>
     <style>
         /* Basic styling for testing */
-        body { font-family: sans-serif; }
+        body { 
+            font-family: sans-serif;
+            color: #555;
+            font-weight: bold; 
+            margin:0;
+        }
         img {
-            transition: all .5s;
-            height:10vh;
+            height:13cqw;
+            -transition: all 1s;
+            position:absolute;
+            left:10cqw
         }
         span {
             font-size: 3em;
-            margin-right:1em;
+            display:inline-block;
+            width: 10cqw;
+            position:absolute;
         }
         .track {
-            border-bottom: 1px solid gray;
-            padding:1vh;
-            overflow:hidden;
+            border-top:5px dotted gray; width:100%; height:10cqw; position:absolute; 
         }
     </style>
 </head>
@@ -32,27 +39,55 @@
   gtag('config', 'G-WBDG44VY1B');
 </script>
 <body>
-    <h1>Test Page</h1>
-    <p>This is an empty test HTML page.</p>
-    <!--
-    <div style="border:1px solid gray; border-radius: 5vh; width:50%; -height:50vh; margin:auto; padding:5vh">
-        <div class="track">
-            <span>1115</span>
-            <img id="tt" style="margin-left:100px" src="tiktok.png" /></div>
-        <div class="track"><span>50</span><img id="yt" src="youtube.png" /></div>
-        <div class="track"><span>1</span><img id="inst" src="instagram.png" /></div>
-        <div class="track"><span>0</span><img id="vk" src="vkvideo.png" /></div>
+    <h1 style="text-align: center; font-size: 4em;">tu3.me</h1>
+    <div style="-border:1px solid red; width:99%; max-width:60vh; height:80vh; margin:auto; container-type:size; position:relative; ">
+        <div class="track" style="top:20cqh"></div>
+        <div class="track" style="top:40cqh"></div>
+        <div class="track" style="top:60cqh"></div>
+        <div class="track" style="top:80cqh"></div>
+        <a href="https://www.tiktok.com/@tu3.me"><img id="tt"    style="top:10cqh" src="tt.jpg" /></a>
+        <a href="https://www.youtube.com/@tu3me"><img id="yt"    style="top:30cqh" src="yt.jpg" /></a>
+        <a href="https://www.instagram.com/tu3.me"><img id="it"  style="top:50cqh" src="in.jpg" /></a>
+        <a href="https://vkvideo.ru/@tu3me"><img id="vk"    style="top:70cqh" src="vk.jpg" /></a>
+        <a href="https://t.me/tu3me"><img id="tg"    style="top:90cqh; left:85cqw" src="tg.jpg" /></a>
+        <span id="ttCount" style="top:13cqh">0</span>
+        <span id="ytCount" style="top:33cqh">0</span>
+        <span id="inCount" style="top:53cqh">0</span>
+        <span id="vkCount" style="top:73cqh">0</span>
     </div>
 <script>
-    setTimeout (e=> {
-        
-        tt.style.marginLeft="60%"
-        yt.style.marginLeft="30%"
-        inst.style.marginLeft="5%"
-        vk.style.marginLeft="1%"
-    }, 500)
+    //document.querySelectorAll('img').forEach(e=>e.style.transition='left 1s')
+    tt.style.transition='left 1s' 
+    yt.style.transition='left 1s' 
+    it.style.transition='left 1s'
+    vk.style.transition='left 1s' 
+
+    setTimeout (e=> {         
+        tt.style.left=   70/1115*1115+10+"cqw"
+        yt.style.left=   70/1115*64+10+"cqw"
+        it.style.left= 70/1115*10+10+"cqw"
+        vk.style.left=   70/1115*1+10+"cqw"
+
+        runCounters(0)
+    }, 2000)
+
+    let runCounters= step=> {
+        if (step > .9) {
+            updateCounters(1)
+            return}
+        step += 0.1
+        console.log(step)
+        updateCounters(step)
+        setTimeout(()=> runCounters(step), 100)
+    }
+
+    let updateCounters= step=> {
+        ttCount.innerHTML = Math.round(step * 1198)
+        ytCount.innerHTML = Math.round(step * 75)
+        inCount.innerHTML = Math.round(step * 1)
+        vkCount.innerHTML = Math.round(step * 1)
+    }
 </script>
--->
 
 </body>
 </html>
