@@ -10,101 +10,146 @@
             font-family: sans-serif;
             color: #555;
             font-weight: bold; 
-            margin:0;
+            margin: 0;
         }
-        img {
-            height:13cqw;
-            -transition: all 1s;
-            position:absolute;
-            left:10cqw;
+        
+        .container {
+            /* Variable fallback, overridden by JS */
+            --cw: 1vw; 
+            width: 99%; 
+            max-width: 60vh; 
+            height: 80vh; 
+            margin: auto; 
+            position: relative;
         }
-        span {
-            font-size: 9cqw;
-            display:inline-block;
-            width: 10cqw;
-            left: 3cqw;
-            position:absolute;
-        }
-        .track {
-            border-top:5px dotted gray; width:96cqw; height:10cqw; 
-            left:2cqw;
-            position:absolute; 
-        }
-        @keyframes breathe {
-      0%, 25%, 50%, 75%, 100% {transform-origin:50% 100%; }
-      0%, 100% {scale:1; transform:skew(0deg, 0deg); }
-      25% {scale:1.01 1.05; transform:skew(2deg, 0deg)}
-      50% {scale:1; transform:skew(0deg, 0deg); rotate:-1deg; }
-      75% {scale:1.01 1.04; transform:skew(-1deg, 0deg) }
 
-}
+        img {
+            height: calc(13 * var(--cw));
+            -webkit-transition: all 1s;
+            transition: all 1s;
+            position: absolute;
+            left: calc(10 * var(--cw));
+        }
+
+        span {
+            font-size: calc(9 * var(--cw));
+            display: inline-block;
+            width: calc(10 * var(--cw));
+            left: calc(3 * var(--cw));
+            position: absolute;
+        }
+
+        .track {
+            border-top: 5px dotted gray; 
+            width: calc(96 * var(--cw)); 
+            height: calc(10 * var(--cw)); 
+            left: calc(2 * var(--cw));
+            position: absolute; 
+        }
+
+        /* Combined independent properties into standard transform for iOS Safari support */
+        @keyframes breathe {
+            0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+            0%, 100% { transform: scale(1) skew(0deg, 0deg) rotate(0deg); }
+            25% { transform: scale(1.01, 1.05) skew(2deg, 0deg) rotate(0deg); }
+            50% { transform: scale(1) skew(0deg, 0deg) rotate(-1deg); }
+            75% { transform: scale(1.01, 1.04) skew(-1deg, 0deg) rotate(0deg); }
+        }
+        
+        @-webkit-keyframes breathe {
+            0%, 25%, 50%, 75%, 100% { -webkit-transform-origin: 50% 100%; }
+            0%, 100% { -webkit-transform: scale(1) skew(0deg, 0deg) rotate(0deg); }
+            25% { -webkit-transform: scale(1.01, 1.05) skew(2deg, 0deg) rotate(0deg); }
+            50% { -webkit-transform: scale(1) skew(0deg, 0deg) rotate(-1deg); }
+            75% { -webkit-transform: scale(1.01, 1.04) skew(-1deg, 0deg) rotate(0deg); }
+        }
     </style>
 </head>
-<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBDG44VY1B"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-WBDG44VY1B');
 </script>
 <body>
-    <h1 style="text-align: center; font-size: 4em; margin-bottom: 0; padding-left: 10cqw;">tu3.me
-        <a href="https://t.me/tu3me"><img id="tg"    style="position: inherit;height:1em" src="tg.jpg" /></a>
+    <h1 style="text-align: center; font-size: 4em; margin-bottom: 0; padding-left: 10vw;">tu3.me
+        <a href="https://t.me/tu3me"><img id="tg" style="position: inherit; height: 1em" src="tg.jpg" /></a>
     </h1>
-    <div style="-border:1px solid red; width:99%; max-width:60vh; height:80vh; margin:auto; container-type:size; position:relative; ">
-        <div class="track" style="top:23cqw"></div>
-        <div class="track" style="top:43cqw"></div>
-        <div class="track" style="top:63cqw"></div>
-        <div class="track" style="top:83cqw"></div>
-        <a href="https://www.tiktok.com/@tu3.me"><img id="tt"    style="top:10cqw" src="tt.jpg" /></a>
-        <a href="https://www.youtube.com/@tu3me"><img id="yt"    style="top:30cqw" src="yt.jpg" /></a>
-        <a href="https://www.instagram.com/tu3.me"><img id="it"  style="top:50cqw" src="in.jpg" /></a>
-        <a href="https://vkvideo.ru/@tu3me"><img id="vk"    style="top:70cqw" src="vk.jpg" /></a>
-        <!--  <a href="https://t.me/tu3me"><img id="tg"    style="top:90cqw; left:85cqw" src="tg.jpg" /></a> -->
-        <span id="ttCount" style="top:13cqw">0</span>
-        <span id="ytCount" style="top:33cqw">0</span>
-        <span id="inCount" style="top:53cqw">0</span>
-        <span id="vkCount" style="top:73cqw">0</span>
+    
+    <div class="container">
+        <div class="track" style="top: calc(23 * var(--cw))"></div>
+        <div class="track" style="top: calc(43 * var(--cw))"></div>
+        <div class="track" style="top: calc(63 * var(--cw))"></div>
+        <div class="track" style="top: calc(83 * var(--cw))"></div>
+        
+        <a href="https://www.tiktok.com/@tu3.me"><img id="tt" style="top: calc(10 * var(--cw))" src="tt.jpg" /></a>
+        <a href="https://www.youtube.com/@tu3me"><img id="yt" style="top: calc(30 * var(--cw))" src="yt.jpg" /></a>
+        <a href="https://www.instagram.com/tu3.me"><img id="it" style="top: calc(50 * var(--cw))" src="in.jpg" /></a>
+        <a href="https://vkvideo.ru/@tu3me"><img id="vk" style="top: calc(70 * var(--cw))" src="vk.jpg" /></a>
+        <span id="ttCount" style="top: calc(13 * var(--cw))">0</span>
+        <span id="ytCount" style="top: calc(33 * var(--cw))">0</span>
+        <span id="inCount" style="top: calc(53 * var(--cw))">0</span>
+        <span id="vkCount" style="top: calc(73 * var(--cw))">0</span>
     </div>
+
 <script>
-    //document.querySelectorAll('img').forEach(e=>e.style.transition='left 1s')
-    tt.style.transition='left 1s' 
-    yt.style.transition='left 1s' 
-    it.style.transition='left 1s'
-    vk.style.transition='left 1s' 
-    tt.style.animation= 'breathe 1.5s ease-in-out infinite'
-    yt.style.animation= 'breathe 2s ease-in-out infinite'
-    it.style.animation= 'breathe 3s ease-in-out infinite'
-    vk.style.animation= 'breathe 5s ease-in-out infinite'
-    tg.style.animation= 'breathe 1s ease-in-out infinite'
+    // 1. Emulate container queries safely
+    const container = document.querySelector('.container');
+    const updateContainerWidth = () => {
+        // 1 unit = 1% of the container's offsetWidth
+        const cw = container.offsetWidth / 100;
+        container.style.setProperty('--cw', `${cw}px`);
+    };
+    window.addEventListener('resize', updateContainerWidth);
+    updateContainerWidth(); // Run immediately
 
-    setTimeout (e=> {         
-        tt.style.left= 60/1115*1115+10+"cqw"
-        yt.style.left= 60/1115*64+10+"cqw"
-        it.style.left= 60/1115*10+10+"cqw"
-        vk.style.left= 60/1115*1+10+"cqw"
+    // 2. Fetch Elements safely (Global ID variables can be flaky on some older browsers)
+    const tt = document.getElementById('tt');
+    const yt = document.getElementById('yt');
+    const it = document.getElementById('it');
+    const vk = document.getElementById('vk');
+    const tg = document.getElementById('tg');
+    const ttCount = document.getElementById('ttCount');
+    const ytCount = document.getElementById('ytCount');
+    const inCount = document.getElementById('inCount');
+    const vkCount = document.getElementById('vkCount');
 
-        runCounters(0)
-    }, 2000)
+    // 3. Set animations and transitions
+    tt.style.transition = yt.style.transition = it.style.transition = vk.style.transition = 'left 1s';
+    tt.style.animation = 'breathe 1.5s ease-in-out infinite';
+    yt.style.animation = 'breathe 2s ease-in-out infinite';
+    it.style.animation = 'breathe 3s ease-in-out infinite';
+    vk.style.animation = 'breathe 5s ease-in-out infinite';
+    tg.style.animation = 'breathe 1s ease-in-out infinite';
 
-    let runCounters= step=> {
-        if (step > .9) {
-            updateCounters(1)
-            return}
-        step += 0.1
-        console.log(step)
-        updateCounters(step)
-        setTimeout(()=> runCounters(step), 100)
-    }
+    // 4. Animate layout dynamically using the CSS variable
+    setTimeout(() => {         
+        tt.style.left = `calc(${(60 / 1115 * 1115) + 10} * var(--cw))`;
+        yt.style.left = `calc(${(60 / 1115 * 64) + 10} * var(--cw))`;
+        it.style.left = `calc(${(60 / 1115 * 10) + 10} * var(--cw))`;
+        vk.style.left = `calc(${(60 / 1115 * 1) + 10} * var(--cw))`;
 
-    let updateCounters= step=> {
-        ttCount.innerHTML = Math.round(step * 1200)
-        ytCount.innerHTML = Math.round(step * 76)
-        inCount.innerHTML = Math.round(step * 1)
-        vkCount.innerHTML = Math.round(step * 1)
-    }
+        runCounters(0);
+    }, 2000);
+
+    // 5. Run Counters
+    const runCounters = step => {
+        if (step > 0.9) {
+            updateCounters(1);
+            return;
+        }
+        step += 0.1;
+        updateCounters(step);
+        setTimeout(() => runCounters(step), 100);
+    };
+
+    const updateCounters = step => {
+        ttCount.innerHTML = Math.round(step * 1200);
+        ytCount.innerHTML = Math.round(step * 76);
+        inCount.innerHTML = Math.round(step * 1);
+        vkCount.innerHTML = Math.round(step * 1);
+    };
 </script>
 
 </body>
