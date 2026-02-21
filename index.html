@@ -16,17 +16,28 @@
             height:13cqw;
             -transition: all 1s;
             position:absolute;
-            left:10cqw
+            left:10cqw;
         }
         span {
-            font-size: 3em;
+            font-size: 9cqw;
             display:inline-block;
             width: 10cqw;
+            left: 3cqw;
             position:absolute;
         }
         .track {
-            border-top:5px dotted gray; width:100%; height:10cqw; position:absolute; 
+            border-top:5px dotted gray; width:96cqw; height:10cqw; 
+            left:2cqw;
+            position:absolute; 
         }
+        @keyframes breathe {
+      0%, 25%, 50%, 75%, 100% {transform-origin:50% 100%; }
+      0%, 100% {scale:1; transform:skew(0deg, 0deg); }
+      25% {scale:1.01 1.05; transform:skew(2deg, 0deg)}
+      50% {scale:1; transform:skew(0deg, 0deg); rotate:-1deg; }
+      75% {scale:1.01 1.04; transform:skew(-1deg, 0deg) }
+
+}
     </style>
 </head>
 <!-- Google tag (gtag.js) -->
@@ -39,21 +50,23 @@
   gtag('config', 'G-WBDG44VY1B');
 </script>
 <body>
-    <h1 style="text-align: center; font-size: 4em;">tu3.me</h1>
+    <h1 style="text-align: center; font-size: 4em; margin-bottom: 0; padding-left: 10cqw;">tu3.me
+        <a href="https://t.me/tu3me"><img id="tg"    style="position: inherit;height:1em" src="tg.jpg" /></a>
+    </h1>
     <div style="-border:1px solid red; width:99%; max-width:60vh; height:80vh; margin:auto; container-type:size; position:relative; ">
-        <div class="track" style="top:20cqh"></div>
-        <div class="track" style="top:40cqh"></div>
-        <div class="track" style="top:60cqh"></div>
-        <div class="track" style="top:80cqh"></div>
-        <a href="https://www.tiktok.com/@tu3.me"><img id="tt"    style="top:10cqh" src="tt.jpg" /></a>
-        <a href="https://www.youtube.com/@tu3me"><img id="yt"    style="top:30cqh" src="yt.jpg" /></a>
-        <a href="https://www.instagram.com/tu3.me"><img id="it"  style="top:50cqh" src="in.jpg" /></a>
-        <a href="https://vkvideo.ru/@tu3me"><img id="vk"    style="top:70cqh" src="vk.jpg" /></a>
-        <a href="https://t.me/tu3me"><img id="tg"    style="top:90cqh; left:85cqw" src="tg.jpg" /></a>
-        <span id="ttCount" style="top:13cqh">0</span>
-        <span id="ytCount" style="top:33cqh">0</span>
-        <span id="inCount" style="top:53cqh">0</span>
-        <span id="vkCount" style="top:73cqh">0</span>
+        <div class="track" style="top:23cqw"></div>
+        <div class="track" style="top:43cqw"></div>
+        <div class="track" style="top:63cqw"></div>
+        <div class="track" style="top:83cqw"></div>
+        <a href="https://www.tiktok.com/@tu3.me"><img id="tt"    style="top:10cqw" src="tt.jpg" /></a>
+        <a href="https://www.youtube.com/@tu3me"><img id="yt"    style="top:30cqw" src="yt.jpg" /></a>
+        <a href="https://www.instagram.com/tu3.me"><img id="it"  style="top:50cqw" src="in.jpg" /></a>
+        <a href="https://vkvideo.ru/@tu3me"><img id="vk"    style="top:70cqw" src="vk.jpg" /></a>
+        <!--  <a href="https://t.me/tu3me"><img id="tg"    style="top:90cqw; left:85cqw" src="tg.jpg" /></a> -->
+        <span id="ttCount" style="top:13cqw">0</span>
+        <span id="ytCount" style="top:33cqw">0</span>
+        <span id="inCount" style="top:53cqw">0</span>
+        <span id="vkCount" style="top:73cqw">0</span>
     </div>
 <script>
     //document.querySelectorAll('img').forEach(e=>e.style.transition='left 1s')
@@ -61,12 +74,17 @@
     yt.style.transition='left 1s' 
     it.style.transition='left 1s'
     vk.style.transition='left 1s' 
+    tt.style.animation= 'breathe 1.5s ease-in-out infinite'
+    yt.style.animation= 'breathe 2s ease-in-out infinite'
+    it.style.animation= 'breathe 3s ease-in-out infinite'
+    vk.style.animation= 'breathe 5s ease-in-out infinite'
+    tg.style.animation= 'breathe 1s ease-in-out infinite'
 
     setTimeout (e=> {         
-        tt.style.left=   70/1115*1115+10+"cqw"
-        yt.style.left=   70/1115*64+10+"cqw"
-        it.style.left= 70/1115*10+10+"cqw"
-        vk.style.left=   70/1115*1+10+"cqw"
+        tt.style.left= 60/1115*1115+10+"cqw"
+        yt.style.left= 60/1115*64+10+"cqw"
+        it.style.left= 60/1115*10+10+"cqw"
+        vk.style.left= 60/1115*1+10+"cqw"
 
         runCounters(0)
     }, 2000)
@@ -82,8 +100,8 @@
     }
 
     let updateCounters= step=> {
-        ttCount.innerHTML = Math.round(step * 1198)
-        ytCount.innerHTML = Math.round(step * 75)
+        ttCount.innerHTML = Math.round(step * 1200)
+        ytCount.innerHTML = Math.round(step * 76)
         inCount.innerHTML = Math.round(step * 1)
         vkCount.innerHTML = Math.round(step * 1)
     }
