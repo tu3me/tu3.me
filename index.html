@@ -128,7 +128,7 @@
     // 4. Animate layout dynamically using the CSS variable
     setTimeout(() => {         
         tt.style.left = `calc(${(60 / 1334 * 1334) + 10} * var(--cw))`;
-        yt.style.left = `calc(${(60 / 1334 * 760) + 10} * var(--cw))`;
+        yt.style.left = `calc(${(60 / 1334 * 812) + 10} * var(--cw))`;
         it.style.left = `calc(${(60 / 1115 * 10) + 10} * var(--cw))`;
         vk.style.left = `calc(${(60 / 1334 * 1) + 10} * var(--cw))`;
 
@@ -147,8 +147,8 @@
     };
 
     const updateCounters = step => {
-        ttCount.innerHTML = Math.round(step * 1334);
-        ytCount.innerHTML = Math.round(step * 760);
+        ttCount.innerHTML = Math.round(step * 1331);
+        ytCount.innerHTML = Math.round(step * 812);
         inCount.innerHTML = Math.round(step * 4);
         vkCount.innerHTML = Math.round(step * 3);
     };
