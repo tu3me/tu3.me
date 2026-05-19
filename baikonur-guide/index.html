@@ -495,6 +495,10 @@
         vMeta.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
         updateFs();
         viewer.style.display = 'flex';
+        window.onpopstate = function (event) {
+            // 3. Immediately push the state back to freeze them in place
+            history.go(1);
+        };
     }
 
     function updateFs() {
@@ -521,6 +525,7 @@
     function closeFs() {
         viewer.style.display = 'none';
         vMeta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+        window.onpopstate = ''
     }
 
     document.getElementById('fs-close').onclick = (e) => { e.stopPropagation(); closeFs(); };
@@ -541,17 +546,6 @@
             closeFs();
         }
     };
-</script>
-<script>
-// 1. Push a dummy state to the history stack right when the page loads
-//history.pushState(null, null, location.href);
-
-// 2. Listen for the user attempting to go back
-window.onpopstate = function (event) {
-    // 3. Immediately push the state back to freeze them in place
-    closeFs()
-};
-
 </script>
 </body>
 </html>
