@@ -542,5 +542,16 @@
         }
     };
 </script>
+<script>
+// 1. Push a dummy state to the history stack right when the page loads
+history.pushState(null, null, location.href);
+
+// 2. Listen for the user attempting to go back
+window.onpopstate = function (event) {
+    // 3. Immediately push the state back to freeze them in place
+    history.go(1);
+};
+
+</script>
 </body>
 </html>
