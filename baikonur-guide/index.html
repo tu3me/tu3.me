@@ -496,7 +496,7 @@
         updateFs();
         viewer.style.display = 'flex';
         window.onpopstate = function (event) {
-            // 3. Immediately push the state back to freeze them in place
+            closeFs();
             history.go(1);
         };
     }
