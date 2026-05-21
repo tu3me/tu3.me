@@ -2,577 +2,157 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta id="v-meta" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="icon" href="../favicon.ico" type="image/x-icon">
-    <title>Touristic Guide</title>
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=d920dab2-5680-4223-ad9c-afedf7d87151&lang=en_US" type="text/javascript"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tu3.me</title>
     <style>
-        ::-webkit-scrollbar {display: none;}
-        * { user-select: none; box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body, html { height: 100%; overflow: hidden; background: #212a33; -webkit-tap-highlight-color: transparent; }
-        #app { display: flex; flex-direction: column; height: 100vh; max-width: 60vh; margin: auto; }
-        
-        /* --- Map & Resizer --- */
-        #map-container { height: 30vh; flex: none; z-index: 5; box-shadow: 0 15px 35px #00000055; }
-        #map { width: 100%; height: 100%; }
-        #resizer-bar { display: flex; justify-content: space-between; align-items: center; height: 30px; background: #212a33; z-index: 10; }
-        .resizer-link { text-decoration: none; color: #acbdcc; font-weight: 600; font-size: 14px; padding: 0 20px; }
-        #resizer-handle { flex: 1; height: 100%; display: flex; justify-content: center; align-items: center; cursor: row-resize; touch-action: none; }
-        #resizer-handle::before { content: ""; width: 30px; height: 4px; background: #acbdcc; border-radius: 2px; }
-        
-        /* --- Content --- */
-        #content-container { flex: 1; overflow-y: auto; -padding: 20px; background: #415560; scroll-behavior: smooth; }
-        .attraction { margin: 20px; padding: 10px; border-radius: 8px; background: #fff; transition: background 1s; scroll-margin-top: 20px;}
-        .highlight-flash { animation: flash-animation 1s ease-out; }
-        @keyframes flash-animation { 0% { background: rgb(174, 216, 255) } 100% { background: #fff; } }
-        
-        /* Updated Header to keep number in front and on the same line */
-        .attraction-header { 
-            display: flex; 
-            justify-content: space-between; /* This pushes items to opposite ends */
-            align-items: center; 
-            gap: 12px; 
-            margin-bottom: 5px;
-        }
-        .attraction-header h2 { 
-            font-size: 1.3rem; 
-            margin: 0; 
-            flex: 1; /* Allows title to take up available space */
-        }
-        .num-btn { 
-            background: #fff; 
-            color: #7c7c7c; 
-            border: 3px solid #60b8ff; 
-            border-radius: 50%; 
-            width: 32px; 
-            height: 32px; 
+        /* Basic styling for testing */
+        body { 
+            font-family: sans-serif;
+            color: #555;
             font-weight: bold; 
-            cursor: pointer; 
-            flex-shrink: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
+            margin: 0;
         }
         
-        /* --- Gallery --- */
-        .gallery { display: flex; gap: 10px; padding: 10px 0; flex-wrap: wrap; }
-        .gallery-item { flex: 1 1 calc(33.333% - 10px); min-width: 90px; font-size: 12px; font-weight: 600; text-align: center; }
-        .gallery-img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 6px; cursor: pointer; display: block; margin-bottom: 4px; }
-        
-        .media-box { position: relative; width: 100%; aspect-ratio: 3/4; margin-bottom: 4px; }
-        .media-box .gallery-img { margin-bottom: 0; height: 100%; }
-        .video-links { position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; gap: 5px; background: #00000088; padding: 4px 0; border-radius: 0 0 6px 6px; pointer-events: none; }
-        .video-links a { pointer-events: auto; }
-        .video-links img { width: 18px; height: 18px; transition: transform 0.2s; }
-        .video-links a:hover img { transform: scale(1.1); }
-
-        /* --- Fullscreen UI --- */
-        #fullscreen-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; display: none; justify-content: center; align-items: center; }
-        #fullscreen-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        
-        #fs-close { position: absolute; top: 25px; right: 15px; font-size: 30px; color: #fff; z-index: 2100; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; text-shadow: 0 0 10px #000; }
-        
-        #fs-dots { position: absolute; top: 10px; left: 10px; right: 10px; height: 3px; display: flex; gap: 4px; z-index: 2100; }
-        .fs-dot { flex: 1; background: rgba(255,255,255,0.3); border-radius: 2px; height: 100%; transition: background 0.3s; }
-        .fs-dot.active { background: #fff; }
-
-        /* Bottom Container for Links and Caption */
-        #fs-bottom-bar { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 2100; pointer-events: none; }
-        #fullscreen-video-links { display: none; justify-content: center; gap: 20px; pointer-events: auto; }
-        #fullscreen-video-links img { width: 45px; height: 45px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-        #fs-caption { color: #fff; font-size: 15px; text-align: center; max-width: 90%; text-shadow: 0 1px 4px rgba(0,0,0,0.9); font-weight: 500; }
-
-        #content-container h1, h3 {
-            color:white;
-            margin: 20px;
-            font-size: 3em;
+        .container {
+            /* Variable fallback, overridden by JS */
+            --cw: 1vw; 
+            width: 99%; 
+            max-width: 60vh; 
+            height: 80vh; 
+            margin: auto; 
+            position: relative;
         }
-        #content-container p {
-            color:white;
-            margin:20px;
+
+        img {
+            height: calc(13 * var(--cw));
+            -webkit-transition: all 1s;
+            transition: all 1s;
+            position: absolute;
+            left: calc(10 * var(--cw));
+        }
+
+        span {
+            font-size: calc(9 * var(--cw));
+            display: inline-block;
+            width: calc(10 * var(--cw));
+            left: calc(3 * var(--cw));
+            position: absolute;
+        }
+
+        .track {
+            border-top: 5px dotted gray; 
+            width: calc(96 * var(--cw)); 
+            height: calc(10 * var(--cw)); 
+            left: calc(2 * var(--cw));
+            position: absolute; 
+        }
+
+        /* Combined independent properties into standard transform for iOS Safari support */
+        @keyframes breathe {
+            0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+            0%, 100% { transform: scale(1) skew(0deg, 0deg) rotate(0deg); }
+            25% { transform: scale(1.01, 1.05) skew(2deg, 0deg) rotate(0deg); }
+            50% { transform: scale(1) skew(0deg, 0deg) rotate(-1deg); }
+            75% { transform: scale(1.01, 1.04) skew(-1deg, 0deg) rotate(0deg); }
+        }
+        
+        @-webkit-keyframes breathe {
+            0%, 25%, 50%, 75%, 100% { -webkit-transform-origin: 50% 100%; }
+            0%, 100% { -webkit-transform: scale(1) skew(0deg, 0deg) rotate(0deg); }
+            25% { -webkit-transform: scale(1.01, 1.05) skew(2deg, 0deg) rotate(0deg); }
+            50% { -webkit-transform: scale(1) skew(0deg, 0deg) rotate(-1deg); }
+            75% { -webkit-transform: scale(1.01, 1.04) skew(-1deg, 0deg) rotate(0deg); }
         }
     </style>
 </head>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-WBDG44VY1B"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-WBDG44VY1B');
+</script>
 <body>
-<div id="app">
-    <div id="map-container"><div id="map"></div></div>
-    <div id="resizer-bar">
-        <a href="https://tu3.me" class="resizer-link">tu3.me</a>
-        <div id="resizer-handle"></div>
-        <a href="#" class="resizer-link">Байконур ↗</a>
-    </div>
-    <div id="content-container">
-        <h1>Что посмотреть в Байконуре</h1>
-        <p>Приехал я как-то на запуск ракеты, но его отменили. Как бывалый номад я решил пожить тут до следующего запуска. В итоге застрял на 5 месяцев :)</p>
-        
-        <img style="width:100%; margin: 20px 0; " src="article-images/20260419_133231(1).jpg">
-
-        <p>Сделал на память этот гайд с фотками и картой. Кое-где есть даже видео по теме.</p>
-
-        
-        <div class="attraction" id="attr-0"> <!--Ли-2-->
-            <div class="attraction-header">
-                <h2>Ли-2</h2>
-                <button class="num-btn" data-index="0" data-lat="45.637615" data-lng="63.311928">1</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Легкий самолетик сделанный в СССР по проекту американского Дугласа.</p>
-
-            <div class="gallery" id="gal-0">
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/li2 (1).jpg" onclick="openFullscreen(this, 0)">
-                    <span>Поршневые 9-цилиндровые двигатели</span>
-                </div>
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/li2 (2).jpg" onclick="openFullscreen(this, 0)">
-                    <span>Низкоплан</span>
-                </div>
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/li2 (3).jpg" onclick="openFullscreen(this, 0)">
-                    <span>Ночная посветка 💓</span>
-                </div>
-
-            </div>
-        </div>
-
-        
-        <div class="attraction" id="attr-1"> <!--An-12-->
-            <div class="attraction-header">
-                <h2>Ан-12</h2>
-                <button class="num-btn" data-index="1" data-lat="45.615922" data-lng="63.295932">2</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Военно-транспортный самолет</p>
-
-            <div class="gallery" id="gal-1">
-                
-                <div class="gallery-item">
-                    <div class="media-box">
-                        <img class="gallery-img" src="attraction-photos/an12.jpg" onclick="openFullscreen(this, 1)">
-                        <div class="video-links">
-                            <a href="https://www.youtube.com/" target="_blank"><img src="ui-images/tiktok-logo.png"></a>
-                            <a href="#" target="_blank"><img src="ui-images/youtube-logo.png"></a>
-                            <a href="#" target="_blank"><img src="ui-images/inst-logo.png"></a>
-                            <a href="#" target="_blank"><img src="ui-images/vkvideo-logo.png"></a>
-                        </div>
-                    </div>
-                    <span>Видео</span>
-                </div>
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/an12 (2).jpg" onclick="openFullscreen(this, 1)">
-                    <span>Верхоплан кстати</span>
-                </div>
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/an12 (1).jpg" onclick="openFullscreen(this, 1)">
-                    <span>Ночная подсветка 💓</span>
-                </div>
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-2"> <!--Источник-->
-            <div class="attraction-header">
-                <h2>Несероводородный источник</h2>
-                <button class="num-btn" data-index="2" data-lat="45.609546" data-lng="63.318989">3</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Вода чуть теплая. Без запаха.</p>
-            <div class="gallery" id="gal-2">
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/istochnik (2).jpg" onclick="openFullscreen(this, 2)">
-                    <span>Вид спереди</span>
-                </div>
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/istochnik (3).jpg" onclick="openFullscreen(this, 2)">
-                    <span>Вид в полупрофиль</span>
-                </div>  
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/istochnik (1).jpg" onclick="openFullscreen(this, 2)">
-                    <span>Чиллаут зона</span>
-                </div>
-
-            </div>
-        </div>
-
-        <div class="attraction" id="attr-3"><!--Георгиевская церковь-->
-            <div class="attraction-header">
-                <h2>Георгиевская церковь</h2>
-                <button class="num-btn" data-index="3" data-lat="45.625113" data-lng="63.326757">4</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Тут хранится икона, летавшая в космос. Можно зайти посмотреть.</p>
-            <div class="gallery" id="gal-3">
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/tserkov (3).jpg" onclick="openFullscreen(this, 3)">
-                    <span>Божественное Небо</span>
-                </div>  
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/tserkov (2).jpg" onclick="openFullscreen(this, 3)">
-                    <span>Персонал</span>
-                </div>   
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/tserkov (1).jpg" onclick="openFullscreen(this, 3)">
-                    <span>Душу радуют)</span>
-                </div>
-
-            </div>
-        </div>
-
-        <div class="attraction" id="attr-4"><!--Теплоход-->
-            <div class="attraction-header">
-                <h2>Теплоход</h2>
-                <button class="num-btn" data-index="4" data-lat="45.622442" data-lng="63.328720">5</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Теплоход трансгендер: в девичестве величали Камой, а теперь Байконурчик. Спереди пасхалка на памятник космонавту. Постамент выполнен в виде воды из майнкрафта</p>
-            <div class="gallery" id="gal-4">
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/teplohod (1).jpg" onclick="openFullscreen(this, 4)">
-                    <span>Водонавт</span>
-                </div>  
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/kosmonavt.jpg" onclick="openFullscreen(this, 4)">
-                    <span>Оригинальный космонавт</span>
-                </div>
-                
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/teplohod (2).jpg" onclick="openFullscreen(this, 4)">
-                    <span>Общий вид</span>  
-                </div>  
-
-            </div>
-        </div>
-
-        <div class="attraction" id="attr-5"><!--Памятник Гагагрину-->
-            <div class="attraction-header">
-                <h2>Памятник Гагагрину</h2>
-                <button class="num-btn" data-index="5" data-lat="45.631245" data-lng="63.319661">6</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Его корабль назывался Восток и он стоит лицом на восток. И к Западу - задом.</p>
-            <div class="gallery" id="gal-5">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/gagarin (1).jpg" onclick="openFullscreen(this, 5)">
-                    <span>Гагарин и Луна</span>
-                </div>  
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/gagarin (2).jpg" onclick="openFullscreen(this, 5)">
-                    <span>Вид с Запада</span>
-                </div> 
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/gagarin (3).jpg" onclick="openFullscreen(this, 5)">
-                    <span>Дети закинули мяч</span>
-                </div>  
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-6"><!--ГАЗ-24-->
-            <div class="attraction-header">
-                <h2>Милицейский ГАЗ-24</h2>
-                <button class="num-btn" data-index="6" data-lat="45.613631" data-lng="63.316514">7</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Ночью даже мигалка и фары горят</p>
-            <div class="gallery" id="gal-6">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/copcar (1).jpg" onclick="openFullscreen(this, 6)">
-                    <span>Ночью</span>
-                </div>  
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/copcar (2).jpg" onclick="openFullscreen(this, 6)">
-                    <span>Днем</span>
-                </div>  
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-7"><!--Байк-->
-            <div class="attraction-header">
-                <h2>Милицейский байк Урал</h2>
-                <button class="num-btn" data-index="7" data-lat="45.623051" data-lng="63.306433">8</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Тяжелый мотоцикл по мотивам BMW R71. С задней передачей! В некоторых моделях даже колесо коляски ведущее!</p>
-            <div class="gallery" id="gal-7">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/bike.jpg" onclick="openFullscreen(this, 7)">
-                    <span>Ночь</span>
-                </div>  
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/bike (2).jpg" onclick="openFullscreen(this, 7)">
-                    <span>День</span>
-                </div>  
-
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/bike bmw.jpg" onclick="openFullscreen(this, 7)">
-                    <span>BMW R71</span>
-                </div>  
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-8"><!--Паровоз-->
-            <div class="attraction-header">
-                <h2>Паровоз</h2>
-                <button class="num-btn" data-index="8" data-lat="45.623189" data-lng="63.310742">9</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Рядом лестница к ЖД станции с путями на космодром. Но на фото они не попали</p>
-            <div class="gallery" id="gal-8">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/parovoz (1).jpg" onclick="openFullscreen(this, 8)">
-                    <span>Дневная подсветка</span>
-                </div>  
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/parovoz (2).jpg" onclick="openFullscreen(this, 8)">
-                    <span>Ночная подсветка</span>
-                </div>  
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-9"><!--Музей под открытым небом-->
-            <div class="attraction-header">
-                <h2>Музей под открытым небом</h2>
-                <button class="num-btn" data-index="9" data-lat="45.616775" data-lng="63.309805">10</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Тут можно столько всего рассказать, но некому.</p>
-            <div class="gallery" id="gal-9">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/openmuseum (1).jpg" onclick="openFullscreen(this, 9)">
-                    <span>Внуки Белки и Стрелки</span>
-                </div>  
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/openmuseum (2).jpg" onclick="openFullscreen(this, 9)">
-                    <span>Красивые облака ☁️</span>
-                </div>  
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-10"><!--Ракета Союз-->
-            <div class="attraction-header">
-                <h2>Ракета Союз</h2>
-                <button class="num-btn" data-index="10" data-lat="45.628548" data-lng="63.320891">11</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Тренировочный макет. Полноразмерный. Ночью подсвечивается.</p>
-            <div class="gallery" id="gal-10">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/soyuz (1).jpg" onclick="openFullscreen(this, 10)">
-                    <span>Ракета и Луна</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/soyuz (2).jpg" onclick="openFullscreen(this, 10)">
-                    <span>Ракета и люди</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/soyuz (3).jpg" onclick="openFullscreen(this, 10)">
-                    <span>Маршевые и рулевые</span>
-                </div> 
-
-            </div>
-        </div>
-
-
-        <div class="attraction" id="attr-11"><!--Музей-->
-            <div class="attraction-header">
-                <h2>Музей</h2>
-                <button class="num-btn" data-index="11" data-lat="45.612978" data-lng="63.305644">12</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">На самом деле это Дом Культуры. Там музыкальная школа и все такое. Ни у музей. Экскурсия по всему музею длится примерно час</p>
-            <div class="gallery" id="gal-11">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/museum (1).jpg" onclick="openFullscreen(this, 11)">
-                    <span>Фото 1</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/museum (2).jpg" onclick="openFullscreen(this, 11)">
-                    <span>Фото 3</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/museum (3).jpg" onclick="openFullscreen(this, 11)">
-                    <span>Фото 2</span>
-                </div> 
-
-            </div>
-        </div>
-
-
-        <h3>Район с муралами</h3>
-        <p>Этот район построен позже, в 80е, для работников над Бураном. Так что даже архитектура города отражает вехи космической гонки</p>
-
-        <img style="width:100%; margin: 20px 0; " src="article-images/mural (1).jpg">
-
-
-        <div class="attraction" id="attr-12"><!--Муралы-->
-            <div class="attraction-header">
-                <h2>Муралы</h2>
-                <button class="num-btn" data-index="12" data-lat="45.617694" data-lng="63.287582">13</button>
-            </div>
-            <p style="color:#666; font-size: 14px; margin: 10px 0;">Район довольно большой (по местным меркам). Тут только часть фоток</p>
-            <div class="gallery" id="gal-12">
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/mural (1).jpg" onclick="openFullscreen(this, 12)">
-                    <span>Фото 1</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/mural (2).jpg" onclick="openFullscreen(this, 12)">
-                    <span>Фото 3</span>
-                </div> 
-                  
-                <div class="gallery-item">
-                    <img class="gallery-img" src="attraction-photos/mural (3).jpg" onclick="openFullscreen(this, 12)">
-                    <span>Фото 2</span>
-                </div> 
-
-            </div>
-        </div>
-
-
-        <h3>Что еще посмотреть</h3>
-        <p>Можно посмотреть видео про мою жизнь в Байконуре на канале <a style="text-decoration: none; color: rgb(156, 235, 255);" href="https://www.youtube.com/@tu3me">tu3me</a></p>
-        <p>Ну и заходите в телеграм: <a style="text-decoration: none; color: rgb(156, 235, 255);" href="https://t.me/tu3me">tu3me</a></p>
-        <br><br><br>
-
-    </div>
-</div>
-
-<div id="fullscreen-viewer">
-    <div id="fs-dots"></div>
-    <div id="fs-close">&times;</div>
-    <img id="fullscreen-img" src="">
+    <h1 style="text-align: center; font-size: 4em; margin-bottom: 0;">
+        <img style="position: inherit; height: .8em; visibility: hidden;" src="tg.jpg" />
+        tu3.me
+        <a href="https://t.me/tu3me"><img id="tg" style="position: inherit; height: 1em" src="tg.jpg" /></a>
+    </h1>
     
-    <div id="fs-bottom-bar">
-        <div id="fullscreen-video-links"></div>
-        <div id="fs-caption"></div>
+    <div class="container">
+        <div class="track" style="top: calc(23 * var(--cw))"></div>
+        <div class="track" style="top: calc(43 * var(--cw))"></div>
+        <div class="track" style="top: calc(63 * var(--cw))"></div>
+        <div class="track" style="top: calc(83 * var(--cw))"></div>
+        
+        <a href="https://www.tiktok.com/@tu3.me"><img id="tt" style="top: calc(10 * var(--cw))" src="tt.jpg" /></a>
+        <a href="https://www.youtube.com/@tu3me"><img id="yt" style="top: calc(30 * var(--cw))" src="yt.jpg" /></a>
+        <a href="https://www.instagram.com/tu3.me"><img id="it" style="top: calc(50 * var(--cw))" src="in.jpg" /></a>
+        <a href="https://vkvideo.ru/@tu3me"><img id="vk" style="top: calc(70 * var(--cw))" src="vk.jpg" /></a>
+        <span id="ttCount" style="top: calc(13 * var(--cw))">0</span>
+        <span id="ytCount" style="top: calc(33 * var(--cw))">0</span>
+        <span id="inCount" style="top: calc(53 * var(--cw))">0</span>
+        <span id="vkCount" style="top: calc(73 * var(--cw))">0</span>
     </div>
-</div>
 
 <script>
-    ymaps.ready(() => {
-        const myMap = new ymaps.Map("map", { center: [45.6232, 63.3140], zoom: 13 , controls: ['geolocationControl','typeSelector']});
-        const placemarks = [];
-        document.querySelectorAll('.num-btn').forEach(btn => {
-            const idx = parseInt(btn.dataset.index), coords = [parseFloat(btn.dataset.lat), parseFloat(btn.dataset.lng)];
-            const pm = new ymaps.Placemark(coords, { iconContent: idx + 1 }, { preset: 'islands#blueCircleIcon' });
-            pm.events.add('click', () => { 
-                placemarks.forEach((p, i) => p.options.set('preset', i === idx ? 'islands#redCircleIcon' : 'islands#blueCircleIcon'));
-                const attr = document.getElementById(`attr-${idx}`);
-                attr.classList.remove('highlight-flash'); void attr.offsetWidth; attr.classList.add('highlight-flash');
-                attr.scrollIntoView({ behavior: 'smooth', block: 'start', container:'nearest' });
-            });
-            myMap.geoObjects.add(pm); placemarks.push(pm);
-            btn.onclick = () => { pm.events.fire('click'); myMap.setCenter(coords, 15, { duration: 500 }); };
-        });
-        
-        const rh = document.getElementById('resizer-handle'), mc = document.getElementById('map-container');
-        let drag = false;
-        rh.onpointerdown = () => { drag = true; mc.style.pointerEvents = 'none'; };
-        document.onpointermove = (e) => { if(drag) { mc.style.height = Math.max(40, Math.min(e.clientY, window.innerHeight-150))+'px'; myMap.container.fitToViewport(); }};
-        document.onpointerup = () => { drag = false; mc.style.pointerEvents = 'auto'; };
-    });
+    // 1. Emulate container queries safely
+    const container = document.querySelector('.container');
+    const updateContainerWidth = () => {
+        // 1 unit = 1% of the container's offsetWidth
+        const cw = container.offsetWidth / 100;
+        container.style.setProperty('--cw', `${cw}px`);
+    };
+    window.addEventListener('resize', updateContainerWidth);
+    updateContainerWidth(); // Run immediately
 
-    const viewer = document.getElementById('fullscreen-viewer'), 
-          fsImg = document.getElementById('fullscreen-img'), 
-          fsLinks = document.getElementById('fullscreen-video-links'), 
-          fsCaption = document.getElementById('fs-caption'),
-          vMeta = document.getElementById('v-meta'), 
-          fsDots = document.getElementById('fs-dots');
-          
-    let imgs = [], iIdx = 0, aIdx = 0;
+    // 2. Fetch Elements safely (Global ID variables can be flaky on some older browsers)
+    const tt = document.getElementById('tt');
+    const yt = document.getElementById('yt');
+    const it = document.getElementById('it');
+    const vk = document.getElementById('vk');
+    const tg = document.getElementById('tg');
+    const ttCount = document.getElementById('ttCount');
+    const ytCount = document.getElementById('ytCount');
+    const inCount = document.getElementById('inCount');
+    const vkCount = document.getElementById('vkCount');
 
-    function openFullscreen(el, attrIdx) {
-        aIdx = attrIdx;
-        imgs = Array.from(document.getElementById(`gal-${attrIdx}`).querySelectorAll('.gallery-img')).map(img => img.src);
-        iIdx = imgs.indexOf(el.src);
-        
-        fsDots.innerHTML = imgs.map(() => `<div class="fs-dot"></div>`).join('');
-        vMeta.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
-        updateFs();
-        viewer.style.display = 'flex';
-        window.onpopstate = function (event) {
-            closeFs();
-            history.go(1);
-        };
-    }
+    // 3. Set animations and transitions
+    tt.style.transition = yt.style.transition = it.style.transition = vk.style.transition = 'left 1s';
+    tt.style.animation = 'breathe 1.5s ease-in-out infinite';
+    yt.style.animation = 'breathe 2s ease-in-out infinite';
+    it.style.animation = 'breathe 3s ease-in-out infinite';
+    vk.style.animation = 'breathe 5s ease-in-out infinite';
+    tg.style.animation = 'breathe 1s ease-in-out infinite';
 
-    function updateFs() {
-        fsImg.src = imgs[iIdx];
-        
-        // Update progress dots
-        Array.from(fsDots.children).forEach((dot, idx) => {
-            dot.className = idx === iIdx ? 'fs-dot active' : 'fs-dot';
-        });
+    // 4. Animate layout dynamically using the CSS variable
+    setTimeout(() => {         
+        tt.style.left = `calc(${(60 / 1115 * 1115) + 10} * var(--cw))`;
+        yt.style.left = `calc(${(60 / 1115 * 64) + 10} * var(--cw))`;
+        it.style.left = `calc(${(60 / 1115 * 10) + 10} * var(--cw))`;
+        vk.style.left = `calc(${(60 / 1115 * 1) + 10} * var(--cw))`;
 
-        const items = document.getElementById(`gal-${aIdx}`).querySelectorAll('.gallery-item');
-        const currentItem = items[iIdx];
-        
-        // Update Video Links for ANY active image
-        const links = currentItem?.querySelector('.video-links');
-        fsLinks.innerHTML = links ? links.innerHTML : '';
-        fsLinks.style.display = links ? 'flex' : 'none';
+        runCounters(0);
+    }, 2000);
 
-        // Update Text Caption
-        const captionSpan = currentItem?.querySelector('span');
-        fsCaption.textContent = captionSpan ? captionSpan.textContent : '';
-    }
-
-    function closeFs() {
-        viewer.style.display = 'none';
-        vMeta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
-        window.onpopstate = ''
-    }
-
-    document.getElementById('fs-close').onclick = (e) => { e.stopPropagation(); closeFs(); };
-
-    viewer.onclick = (e) => {
-        // Prevent navigation if clicking on video links or close button
-        if (e.target.closest('#fullscreen-video-links') || e.target.id === 'fs-close') return;
-        
-        // Disable click navigation if user is zoomed in
-        if (window.visualViewport && window.visualViewport.scale > 1.05) return;
-
-        const x = e.clientX / window.innerWidth;
-        if (x < 0.4) {
-            if (iIdx > 0) { iIdx--; updateFs(); }
-        } else if (x > 0.6) {
-            if (iIdx < imgs.length - 1) { iIdx++; updateFs(); }
-        } else {
-            closeFs();
+    // 5. Run Counters
+    const runCounters = step => {
+        if (step > 0.9) {
+            updateCounters(1);
+            return;
         }
+        step += 0.1;
+        updateCounters(step);
+        setTimeout(() => runCounters(step), 100);
     };
 
-    history.pushState(null, null, location.href);
+    const updateCounters = step => {
+        ttCount.innerHTML = Math.round(step * 1200);
+        ytCount.innerHTML = Math.round(step * 76);
+        inCount.innerHTML = Math.round(step * 1);
+        vkCount.innerHTML = Math.round(step * 1);
+    };
 </script>
+
 </body>
 </html>
