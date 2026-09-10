@@ -1,0 +1,53 @@
+/*
+ * The page chrome, shared by the catalog and by every game page.
+ * Kept in CSS rather than set from script so the ground is painted before the
+ * first frame: the popup reboots on every navigation, and a white flash on the
+ * way into a game would be visible each time.
+ */
+
+html,
+body {
+    overscroll-behavior: none;
+}
+
+body {
+    /* A plain absolute width, and deliberately nothing viewport-derived — no vw,
+       no width media query. In a popup the viewport is derived from the content,
+       so any such rule closes a feedback loop: Chrome lays out at a provisional
+       width, the rule shrinks the body to match, that becomes the measured width,
+       and the popup settles at its minimum (or shudders between sizes) instead of
+       at 410px.
+       A phone narrower than this is handled by the viewport meta tag in each page
+       — the browser scales the fixed 410px layout down to fit, which costs nothing
+       here because the design is a fixed-width popup to begin with. */
+    width: 410px;
+    margin: 0 auto;
+
+    user-select: none;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16.8px;
+    transition: background-color 0.2s, color 0.2s;
+
+    /* Overridden by theme.apply() as soon as the stored setting is read. Until
+       then the system preference is a much better guess than white. */
+    background-color: #e8e1ff;
+    color: #0f172a;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #0f172a;
+        color: #f8fafc;
+    }
+}
+
+.app-main-content {
+    padding: 12px;
+}
+
+/* A placeholder cannot be styled from a style attribute, so this one rule lives
+   here. Mid grey on purpose: readable on the white input of the light theme and
+   on the near black one of the dark theme alike. */
+.set-edit-textarea::placeholder {
+    color: #94a3b8;
+}
