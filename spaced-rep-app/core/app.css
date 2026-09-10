@@ -31,11 +31,15 @@
  * (nothing stamped) leaves only the system preference to go on.
  */
 :root {
-    /* Named rather than written inline, because the ground colour is needed in
+    /* Dark is what the app starts in, so it is the base here too: the very first
+       frame has to be right, and the stylesheet is the only thing that paints
+       before prepaint.js has read anything at all.
+
+       Named rather than written inline, because the ground colour is needed in
        one more place than the page itself: theme.apply() reads it back to set the
        theme-color meta tag, which is what tints the phone's status bar. */
-    --ground: #e8e1ff;
-    --ink: #0f172a;
+    --ground: #0f172a;
+    --ink: #f8fafc;
 
     background-color: var(--ground);
     color: var(--ink);
@@ -48,16 +52,11 @@
     transition: background-color 0.2s, color 0.2s;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --ground: #0f172a;
-        --ink: #f8fafc;
-    }
-}
-
-:root[data-theme="dark"] {
-    --ground: #0f172a;
-    --ink: #f8fafc;
+/* The system preference deliberately plays no part: everyone starts dark, and
+   light is only ever an explicit choice the player made. */
+:root[data-theme="light"] {
+    --ground: #e8e1ff;
+    --ink: #0f172a;
 }
 
 /*

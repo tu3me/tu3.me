@@ -60,7 +60,9 @@ async function bootGame(id, module) {
     await storage.init();
 
     const settings = await storage.get('settings');
-    const isDark = !!(settings && settings.isDark);
+    // Dark unless the player has chosen otherwise; there is no first-run prompt
+    // and no system sniffing, so an absent setting simply means the default.
+    const isDark = settings ? !!settings.isDark : true;
 
     await store.load();
 

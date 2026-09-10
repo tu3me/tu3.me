@@ -17,8 +17,11 @@
         // A mirror of settings.isDark in IndexedDB, which stays the source of
         // truth. If the two ever disagree, theme.apply() corrects this one at
         // boot and the page repaints once — cheaper than never being right.
+        // Absent means dark: that is what a first run gets, for everyone and
+        // regardless of the system preference. Stamped either way, so the
+        // stylesheet, the tag below and theme.apply() all agree from frame one.
         const dark = localStorage.getItem('dark');
-        if (dark !== null) root.dataset.theme = dark === '1' ? 'dark' : 'light';
+        root.dataset.theme = dark === '0' ? 'light' : 'dark';
 
         // The phone's status bar takes its colour from this tag, so it has to be
         // right in the first frame like everything else here — otherwise the bar
@@ -29,13 +32,9 @@
         // this point. theme.apply() overwrites the tag from --ground once it has,
         // so a mismatch here would correct itself within a frame; keep them in
         // step anyway.
-        // Absent means light, because that is what the app settles on: with no
-        // stored setting theme.apply() is called with false. Following the system
-        // preference here instead would tint the bar dark on a dark phone and
-        // then correct it a frame later — the flicker this file exists to avoid.
         const meta = document.createElement('meta');
         meta.name = 'theme-color';
-        meta.content = dark === '1' ? '#0f172a' : '#e8e1ff';
+        meta.content = dark === '0' ? '#e8e1ff' : '#0f172a';
         document.head.appendChild(meta);
 
         // Popup only: on the web the window height is given from outside and
