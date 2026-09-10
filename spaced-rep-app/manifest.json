@@ -2,7 +2,7 @@
   "name": "Spaced Repetition",
   "short_name": "SpacedRep",
   "description": "Spaced repetition for vocabulary: cards, quiz and snake.",
-  "start_url": "index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

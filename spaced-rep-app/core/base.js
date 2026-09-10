@@ -21,6 +21,14 @@ function nav() {
     // the rest — so a bare relative path resolves identically from all of them.
     // Only the scripts live in folders, and nothing navigates to a script.
 
+    // The files are always .html. What differs is what the server will accept:
+    // GitHub Pages resolves /cards to cards.html and / to index.html, while the
+    // extension serves by exact path and does neither. So the web gets the tidy
+    // address and the extension keeps the suffix — nobody sees a URL there anyway.
+    const inExtension = location.protocol === 'chrome-extension:';
+    const PAGE_EXT = inExtension ? '.html' : '';
+    const HOME = inExtension ? 'index.html' : './';
+
     // In the extension the popup always reopens at action.default_popup, so the
     // entry point is moved along with the player. Scoped to the browser session
     // on purpose — after a restart the catalog is the right place to land, and
@@ -34,7 +42,7 @@ function nav() {
     nav.home = async () => {
         nav.setEntryPoint('index.html');
         await store.save();
-        location.href = 'index.html';
+        location.href = HOME;
     };
 
     // Only the identifier travels in the URL. The words themselves are read back
@@ -43,14 +51,14 @@ function nav() {
     nav.game = async (game, setId, allowEarly) => {
         await store.save();
         const early = allowEarly ? '&early=1' : '';
-        location.href = `${game.page}?set=${encodeURIComponent(setId)}${early}`;
+        location.href = `${game.page}${PAGE_EXT}?set=${encodeURIComponent(setId)}${early}`;
     };
 
     // Picking an unfinished session back up, as opposed to starting a fresh one
     // on the same set. Only this way in does the game restore its saved state.
     nav.resume = async (game, setId) => {
         await store.save();
-        location.href = `${game.page}?set=${encodeURIComponent(setId)}&resume=1`;
+        location.href = `${game.page}${PAGE_EXT}?set=${encodeURIComponent(setId)}&resume=1`;
     };
 }
 nav();
