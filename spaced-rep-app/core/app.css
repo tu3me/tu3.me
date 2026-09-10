@@ -7,8 +7,19 @@
  * async read shows up as a flicker each time.
  */
 
-html,
-body {
+/*
+ * Pull-to-refresh: off inside a game, left alone in the catalog.
+ *
+ * The gesture gets in the way while playing — snake is driven by dragging across
+ * the screen, cards are swiped — and reloading mid-session loses the round. The
+ * catalog is an ordinary scrolling list, where the gesture is what a phone user
+ * expects, so there is no reason to take it away there.
+ *
+ * The class sits in the markup of the game pages rather than being added by a
+ * script: the rule has to hold from the first frame, before anything runs.
+ */
+:root.game-page,
+:root.game-page body {
     overscroll-behavior: none;
 }
 
