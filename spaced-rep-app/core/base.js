@@ -21,13 +21,22 @@ function nav() {
     // the rest — so a bare relative path resolves identically from all of them.
     // Only the scripts live in folders, and nothing navigates to a script.
 
-    // The files are always .html. What differs is what the server will accept:
-    // GitHub Pages resolves /cards to cards.html and / to index.html, while the
-    // extension serves by exact path and does neither. So the web gets the tidy
-    // address and the extension keeps the suffix — nobody sees a URL there anyway.
-    const inExtension = location.protocol === 'chrome-extension:';
-    const PAGE_EXT = inExtension ? '.html' : '';
-    const HOME = inExtension ? 'index.html' : './';
+    // The files are always .html. What differs is whether something on the other
+    // end will fill the name in: GitHub Pages resolves /cards to cards.html and /
+    // to index.html, so the site gets the tidy address.
+    //
+    // Everywhere else the full name is required, and that is two cases, not one.
+    // The extension serves by exact path. And file:// has no server at all — the
+    // folder opened by double-clicking index.html, which is a property worth
+    // keeping: it is half the reason this project uses plain scripts instead of
+    // modules. Asking "is this the web" rather than "is this the extension" keeps
+    // both of them working.
+    //
+    // Note that a static server which does not resolve extensionless paths would
+    // break this — hence devserver.py rather than python -m http.server.
+    const onWeb = location.protocol === 'http:' || location.protocol === 'https:';
+    const PAGE_EXT = onWeb ? '' : '.html';
+    const HOME = onWeb ? './' : 'index.html';
 
     // In the extension the popup always reopens at action.default_popup, so the
     // entry point is moved along with the player. Scoped to the browser session
