@@ -35,9 +35,10 @@
        frame has to be right, and the stylesheet is the only thing that paints
        before prepaint.js has read anything at all.
 
-       Named rather than written inline, because the ground colour is needed in
-       one more place than the page itself: theme.apply() reads it back to set the
-       theme-color meta tag, which is what tints the phone's status bar. */
+       Named rather than written inline so light and dark differ by two values in
+       one place instead of by a rule each. (The status bar is deliberately not
+       one of the things that follows this — see the theme-color tag in the
+       pages: it stays dark in both themes.) */
     --ground: #0f172a;
     --ink: #f8fafc;
 

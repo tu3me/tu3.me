@@ -4,6 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=410">
+    <!-- Always dark, in both themes. The bar is painted from one source and its
+         icon colour is chosen from another, so a value that changed with the theme
+         left an installed PWA with dark icons on a dark bar — invisible. -->
+    <meta name="theme-color" content="#0f172a">
     <title>Snake — Spaced Repetition</title>
     <!-- Runs before <body> is parsed: paints the ground and reserves the popup
          height, so neither is decided after an async read. Not deferred. -->
