@@ -17,10 +17,9 @@ function $(...parent_html) {
  * destroys the document together with any transaction still in flight.
  */
 function nav() {
-    // Where the app is rooted, derived from this file's own URL instead of being
-    // written down: game pages sit a level deeper and cannot use a literal path.
-    // document.currentScript is still this script while this call runs.
-    const ROOT = new URL('../', document.currentScript.src).href;
+    // Every page of the app sits at the root — index.html next to cards.html and
+    // the rest — so a bare relative path resolves identically from all of them.
+    // Only the scripts live in folders, and nothing navigates to a script.
 
     // In the extension the popup always reopens at action.default_popup, so the
     // entry point is moved along with the player. Scoped to the browser session
@@ -35,7 +34,7 @@ function nav() {
     nav.home = async () => {
         nav.setEntryPoint('index.html');
         await store.save();
-        location.href = ROOT + 'index.html';
+        location.href = 'index.html';
     };
 
     // Only the identifier travels in the URL. The words themselves are read back
@@ -44,14 +43,14 @@ function nav() {
     nav.game = async (game, setId, allowEarly) => {
         await store.save();
         const early = allowEarly ? '&early=1' : '';
-        location.href = `${ROOT}${game.page}?set=${encodeURIComponent(setId)}${early}`;
+        location.href = `${game.page}?set=${encodeURIComponent(setId)}${early}`;
     };
 
     // Picking an unfinished session back up, as opposed to starting a fresh one
     // on the same set. Only this way in does the game restore its saved state.
     nav.resume = async (game, setId) => {
         await store.save();
-        location.href = `${ROOT}${game.page}?set=${encodeURIComponent(setId)}&resume=1`;
+        location.href = `${game.page}?set=${encodeURIComponent(setId)}&resume=1`;
     };
 }
 nav();
@@ -65,12 +64,18 @@ function theme() {
 
     theme.isDark = () => isDark;
 
-    // The stylesheet already painted a ground from prefers-color-scheme before
-    // any script ran; this overrides it with the player's own choice.
+    // The attribute is what the stylesheet keys off. The localStorage copy exists
+    // only so prepaint.js can read it synchronously on the next page — IndexedDB
+    // remains the source of truth, and refreshing the mirror here is what keeps a
+    // stale cache from surviving more than one frame.
     theme.apply = (value) => {
         isDark = !!value;
-        document.body.style.backgroundColor = isDark ? '#0f172a' : '#e8e1ff';
-        document.body.style.color = isDark ? '#f8fafc' : '#0f172a';
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+
+        try {
+            const mirror = isDark ? '1' : '0';
+            if (localStorage.getItem('dark') !== mirror) localStorage.setItem('dark', mirror);
+        } catch (e) { }
     };
 
     theme.set = (value) => {
@@ -79,3 +84,42 @@ function theme() {
     };
 }
 theme();
+
+/**
+ * Keeps the extension popup from collapsing on every navigation.
+ *
+ * The popup takes its height from the document, and the document is built by
+ * script after two async reads. prepaint.js reserves the height the popup had a
+ * moment ago; this releases the reservation once the content is really laid out,
+ * and remembers whatever height the popup settles at for next time.
+ */
+function popupHeight() {
+    const inPopup = location.protocol === 'chrome-extension:';
+    let timer = null;
+
+    // innerHeight, not scrollHeight: it is the popup's actual height, already
+    // capped by Chrome at 600. Storing the content height instead would reserve
+    // a tall catalog's 900px on a short game page and leave dead space below it.
+    function remember() {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            try { localStorage.setItem('popup-height', window.innerHeight); } catch (e) { }
+        }, 200);
+    }
+
+    // Two frames: the first lets the just-appended content into the layout, the
+    // second measures a settled page rather than one mid-reflow.
+    popupHeight.release = () => {
+        if (!inPopup) return;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            document.documentElement.style.setProperty('--boot-height', '0px');
+            remember();
+        }));
+    };
+
+    // In the popup a window resize *is* Chrome resizing the popup, so this
+    // measures exactly the thing being stored — including the changes that happen
+    // mid-session, such as a quiz question with more options than the last.
+    if (inPopup) window.addEventListener('resize', remember);
+}
+popupHeight();

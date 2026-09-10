@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=410">
     <title>Spaced Repetition</title>
+    <!-- Runs before <body> is parsed: paints the ground and reserves the popup
+         height, so neither is decided after an async read. Not deferred. -->
+    <script src="core/prepaint.js"></script>
     <link rel="stylesheet" href="core/app.css">
 </head>
 

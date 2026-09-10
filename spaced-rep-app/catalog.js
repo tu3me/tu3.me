@@ -449,6 +449,7 @@ async function bootCatalog() {
     theme.apply(isDark);
     catalog.setTheme(isDark);
     catalog.render();
+    popupHeight.release();
 }
 
 bootCatalog();

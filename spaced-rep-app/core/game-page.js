@@ -102,4 +102,5 @@ async function bootGame(id, module) {
     nav.setEntryPoint(location.pathname.replace(/^\//, ''));
 
     module.render();
+    popupHeight.release();
 }
