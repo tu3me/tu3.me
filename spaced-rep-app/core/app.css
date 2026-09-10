@@ -31,8 +31,14 @@
  * (nothing stamped) leaves only the system preference to go on.
  */
 :root {
-    background-color: #e8e1ff;
-    color: #0f172a;
+    /* Named rather than written inline, because the ground colour is needed in
+       one more place than the page itself: theme.apply() reads it back to set the
+       theme-color meta tag, which is what tints the phone's status bar. */
+    --ground: #e8e1ff;
+    --ink: #0f172a;
+
+    background-color: var(--ground);
+    color: var(--ink);
 
     /* Reserved popup height, set by prepaint.js from the height the popup had
        last time and released once the real content is laid out. Zero everywhere
@@ -44,14 +50,14 @@
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-        background-color: #0f172a;
-        color: #f8fafc;
+        --ground: #0f172a;
+        --ink: #f8fafc;
     }
 }
 
 :root[data-theme="dark"] {
-    background-color: #0f172a;
-    color: #f8fafc;
+    --ground: #0f172a;
+    --ink: #f8fafc;
 }
 
 /*

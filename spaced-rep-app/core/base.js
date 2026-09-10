@@ -78,7 +78,20 @@ function theme() {
     // stale cache from surviving more than one frame.
     theme.apply = (value) => {
         isDark = !!value;
-        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+
+        const root = document.documentElement;
+        root.dataset.theme = isDark ? 'dark' : 'light';
+
+        // What tints the status bar of an installed PWA. Read back from --ground
+        // rather than written out again, so the colour has one home: the
+        // stylesheet. (Reading background-color instead would not do — the root's
+        // background is propagated to the canvas, and the computed value reported
+        // for the element itself does not follow the theme.)
+        const bar = document.querySelector('meta[name="theme-color"]');
+        if (bar) {
+            const ground = getComputedStyle(root).getPropertyValue('--ground').trim();
+            if (ground) bar.content = ground;
+        }
 
         try {
             const mirror = isDark ? '1' : '0';

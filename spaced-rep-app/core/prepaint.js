@@ -20,6 +20,24 @@
         const dark = localStorage.getItem('dark');
         if (dark !== null) root.dataset.theme = dark === '1' ? 'dark' : 'light';
 
+        // The phone's status bar takes its colour from this tag, so it has to be
+        // right in the first frame like everything else here — otherwise the bar
+        // flashes the wrong colour on every navigation.
+        //
+        // These two values are the only copy of the ground colours outside
+        // app.css, and they exist because the stylesheet has not loaded yet at
+        // this point. theme.apply() overwrites the tag from --ground once it has,
+        // so a mismatch here would correct itself within a frame; keep them in
+        // step anyway.
+        // Absent means light, because that is what the app settles on: with no
+        // stored setting theme.apply() is called with false. Following the system
+        // preference here instead would tint the bar dark on a dark phone and
+        // then correct it a frame later — the flicker this file exists to avoid.
+        const meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        meta.content = dark === '1' ? '#0f172a' : '#e8e1ff';
+        document.head.appendChild(meta);
+
         // Popup only: on the web the window height is given from outside and
         // there is nothing to reserve.
         //
