@@ -137,7 +137,13 @@ function catalog(container) {
         const sets = store.sets();
 
         const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 class="dict-title" style="margin: 0; font-size: 18px; color: ${palette.heading}; font-weight: 700;">Word Sets (${sets.length})</h3>
+            <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 9px; color: ${palette.heading};">
+                <img class="dict-logo" src="icons/icon-128.png" width="32" height="32" alt="" style="display: block; flex-shrink: 0;">
+                <span class="dict-wordmark" style="display: block; line-height: 1.06;">
+                    <span class="dict-wordmark-top" style="display: block; font-size: 18px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
+                    <span class="dict-wordmark-bottom" style="display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.075em;">REPETITION APP</span>
+                </span>
+            </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
                 <button class="theme-toggle-btn" style="padding: 6px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; font-size: 15.6px; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
                 <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: background 0.2s;">+ New Set</button>
