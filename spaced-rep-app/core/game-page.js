@@ -85,9 +85,9 @@ async function bootGame(id, module) {
     // which says so outright, and a bare URL with no instructions at all. The
     // second is how the popup comes back after being closed — its entry point is
     // just the page path, with no query to carry the set.
-    const resume = params.get('resume') === '1' || !params.has('set');
+    const isResume = params.get('resume') === '1' || !params.has('set');
 
-    if (resume && saved) module.setState(saved);
+    if (isResume && saved) module.setState(saved);
     else module.start(setId, allowEarly, saved);
 
     // Written straight away, before the player has done anything. Until they act
@@ -96,6 +96,19 @@ async function bootGame(id, module) {
     // session over every set. Saved before render() because an empty pool ends
     // the session from inside render, and that must stay ended.
     await page.save();
+
+    // From here on the address itself says a session is running. Every way back
+    // into this history entry — Forward, a reload, a restore the bfcache declined
+    // to serve — then continues it instead of starting over, which is what the
+    // player means by returning to a game they were in the middle of.
+    //
+    // Only this entry is rewritten. The catalog always navigates to a fresh URL
+    // without resume, so starting a new session over the same set still does.
+    if (!isResume) {
+        const here = new URL(location.href);
+        here.searchParams.set('resume', '1');
+        history.replaceState(null, '', here);
+    }
 
     // While the popup lives, reopening the icon comes back here. Reset by
     // nav.home(), so "back" is never a trap.

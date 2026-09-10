@@ -427,6 +427,16 @@ function catalog(container) {
     }
 }
 
+// Everything the catalog shows comes from storage, and all of it can have moved
+// on while a game was in front: progress, timers, and whether a session is still
+// unfinished. Kept separate from boot so it can be run again without setting the
+// modules up a second time.
+async function refreshCatalog() {
+    await store.load();
+    catalog.setSession(await storage.get('active_session'));
+    catalog.render();
+}
+
 async function bootCatalog() {
     spacedRepetitions();
     storage();
@@ -437,19 +447,30 @@ async function bootCatalog() {
     const settings = await storage.get('settings');
     const isDark = !!(settings && settings.isDark);
 
-    await store.load();
-
     const container = $(`<div class="app-main-content"></div>`);
     catalog(container);
-    catalog.setSession(await storage.get('active_session'));
 
     // The player is here, so this is where the popup should reopen.
     nav.setEntryPoint('index.html');
 
     theme.apply(isDark);
     catalog.setTheme(isDark);
-    catalog.render();
+
+    await refreshCatalog();
     popupHeight.release();
 }
+
+// The browser's own Back button can restore this page from the bfcache: the
+// document comes back alive exactly as it was left, so nothing above re-runs.
+// Without this the catalog would still be showing the state it had before the
+// game started — the old progress, and a "Continue" banner for a session that
+// may well have finished.
+//
+// Only the catalog needs it. A game page rewrites its own address to carry
+// resume=1 as soon as its session exists, so every way back into that entry
+// continues the session whether the bfcache served it or not.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) refreshCatalog();
+});
 
 bootCatalog();
