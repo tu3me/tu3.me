@@ -141,7 +141,7 @@ function catalog(container) {
                 <img class="dict-logo" src="icons/icon-128.png" width="32" height="32" alt="" style="display: block; flex-shrink: 0;">
                 <span class="dict-wordmark" style="display: block; line-height: 1.06;">
                     <span class="dict-wordmark-top" style="display: block; font-size: 18px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
-                    <span class="dict-wordmark-bottom" style="display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.075em;">REPETITION APP</span>
+                    <span class="dict-wordmark-bottom" style="display: block; font-size: 14.5px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
