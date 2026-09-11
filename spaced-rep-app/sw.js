@@ -9,7 +9,7 @@
  * Nothing is refetched until the name changes, which is exactly what makes the
  * app instant offline — and exactly what serves stale code if you forget.
  */
-const CACHE = 'spaced-repetition-app-7de093ed';
+const CACHE = 'spaced-repetition-app-dfa93f07';
 
 // Every file the app needs to start with no network. A new game means one more
 // pair of lines here, alongside its line in registry.js.
