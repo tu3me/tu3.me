@@ -114,7 +114,7 @@ function catalog(container) {
 
         // Optional timer badge in bottom-right corner
         const timerHtml = timer
-            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: #2563eb; color: #ffffff; font-size: 10.8px; font-weight: 800; line-height: 1; padding: 1.5px 4.5px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
+            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: ${palette.barFill}; color: ${palette.accentText}; font-size: 10.8px; font-weight: 800; line-height: 1; padding: 1.5px 4.5px; border-radius: 9px; box-shadow: 0 2px 4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
             : '';
 
         const bubbleHtml = `
@@ -145,8 +145,8 @@ function catalog(container) {
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
-                <button class="theme-toggle-btn" style="padding: 6px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; font-size: 15.6px; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: background 0.2s;">+ New Set</button>
+                <button class="theme-toggle-btn" style="padding: 6px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 9px; cursor: pointer; font-size: 15.6px; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
+                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 12px; background: ${palette.barFill}; color: ${palette.accentText}; border: none; border-radius: 9px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: background 0.2s;">+ New Set</button>
             </div>
         </div>`);
 
@@ -173,7 +173,7 @@ function catalog(container) {
         const resumable = session ? GAMES.find(g => g.id === session.game) : null;
         if (resumable) {
             const label = `${resumable.icon} ${resumable.title}`;
-            const banner = $(container, `<div class="continue-banner" style="background: #1e293b99; color: white; padding: 10px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15.6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            const banner = $(container, `<div class="continue-banner" style="background: ${palette.softBg}; color: ${palette.title}; padding: 10px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15.6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <span class="continue-banner-text">Continue: ${label}</span>
                 <span class="continue-banner-arrow">▶</span>
             </div>`);
@@ -190,7 +190,7 @@ function catalog(container) {
     }
 
     function renderSetCard(parent, set, index) {
-        const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px ${palette.cardShadow};"></div>`);
+        const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 14px; padding: 15px;"></div>`);
 
         if (editing.has(set.id)) {
             let textLines = [set.title];
@@ -202,14 +202,14 @@ function catalog(container) {
                 <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <span class="set-edit-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading};">Edit Set</span>
                     <div class="set-edit-actions" style="display: flex; gap: 6px;">
-                        <button class="set-save-btn" style="padding: 4px 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
-                        <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
+                        <button class="set-save-btn" style="padding: 4px 10px; background: ${palette.barFill}; color: ${palette.accentText}; border: none; border-radius: 9px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
+                        <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 9px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
                     </div>
                 </div>
                 <label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
                     First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 9px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
             </div>`);
 
             const textarea = editForm.querySelector('.set-edit-textarea');
@@ -283,10 +283,10 @@ function catalog(container) {
                 <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <h4 class="set-title" style="margin: 0; line-height:1; font-size: 18px; color: ${palette.title}; font-weight: 700;">${set.title}</h4>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 8px;">
-                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 9px; cursor: pointer; transition: all 0.2s;">
                             <svg class="set-edit-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
-                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 9px; cursor: pointer; transition: all 0.2s;">
                             <svg class="set-flip-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 4 4 4-4 4M20 8H4M8 20l-4-4 4-4M4 16h16"></path></svg>
                         </button>
                     </div>
@@ -300,7 +300,7 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; gap: 8px; height:50px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 3px;">${g.icon} ${g.title}</button>`).join('')}
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: white; border: none; border-radius: 9px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 3px;">${g.icon} ${g.title}</button>`).join('')}
                 </div>
             `);
 
@@ -362,26 +362,28 @@ function catalog(container) {
     catalog.render = render;
 
     catalog.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         palette = {
-            heading: isDark ? '#f8fafc' : '#1e293b',
-            title: isDark ? '#f8fafc' : '#0f172a',
+            heading: t.ink,
+            title: t.ink,
             themeIcon: isDark ? '☀️' : '🌙',
-            softBg: isDark ? '#334155' : '#f1f5f9',
-            softColor: isDark ? '#cbd5e1' : '#475569',
-            softBorder: isDark ? '#475569' : '#cbd5e1',
-            cardBg: isDark ? '#1e293b' : '#ffffff',
-            cardBorder: isDark ? '#334155' : '#e2e8f0',
-            cardShadow: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)',
-            hint: isDark ? '#94a3b8' : '#64748b',
-            inputBg: isDark ? '#0f172a' : '#ffffff',
-            inputText: isDark ? '#f8fafc' : '#0f172a',
-            barBg: isDark ? '#334155' : '#e2e8f0',
-            barFill: isDark ? '#3b82f6' : '#2563eb',
-            barText: isDark ? '#f8fafc' : '#64748b',
-            dialogBg: isDark ? '#1e293b' : '#ffffff',
-            dialogText: isDark ? '#f8fafc' : '#0f172a',
-            dialogBorder: isDark ? '#334155' : '#e2e8f0',
-            dialogBody: isDark ? '#cbd5e1' : '#475569'
+            softBg: t.soft,
+            softColor: t.muted,
+            softBorder: t.border,
+            cardBg: t.surface,
+            cardBorder: t.border,
+            hint: t.muted,
+            inputBg: isDark ? t.ground : t.soft,
+            inputText: t.ink,
+            barBg: t.soft,
+            barFill: t.accent,
+            barText: t.muted,
+            accentText: t.onAccent,
+            dialogBg: t.surface,
+            dialogText: t.ink,
+            dialogBorder: t.border,
+            dialogBody: t.muted
         };
     };
 
@@ -413,12 +415,12 @@ function catalog(container) {
     // Modal shown when every word of the selection is still waiting for its timer
     function confirmEarly(onPlayAnyway) {
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;">
-            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 12px; padding: 16px; max-width: 320px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.25);">
+            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 16px; padding: 18px; max-width: 320px; width: 100%;">
                 <div class="early-dialog-title" style="font-size: 16.8px; font-weight: 700; margin-bottom: 6px;">⏳ Nothing to repeat yet</div>
                 <div class="early-dialog-text" style="font-size: 15px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 14px;">All words in this selection are still waiting for their timers. An early repetition will not raise the progress, but a mistake will still set the word back.</div>
                 <div class="early-dialog-actions" style="display: flex; gap: 8px;">
-                    <button class="early-dialog-cancel" style="flex: 1; padding: 9px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;">Cancel</button>
-                    <button class="early-dialog-play" style="flex: 1; padding: 9px; background: #2563eb; color: #ffffff; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;">Play anyway</button>
+                    <button class="early-dialog-cancel" style="flex: 1; padding: 9px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer;">Cancel</button>
+                    <button class="early-dialog-play" style="flex: 1; padding: 9px; background: ${palette.barFill}; color: ${palette.accentText}; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer;">Play anyway</button>
                 </div>
             </div>
         </div>`);

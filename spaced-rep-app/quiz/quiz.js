@@ -61,8 +61,8 @@ function quiz(container) {
         const dotsHtml = () => pool.map((_, idx) => {
             const res = state.sessionResults[idx];
             let bg = palette.dotIdle;
-            if (res === 'correct') bg = '#22c55e';
-            if (res === 'wrong') bg = '#ef4444';
+            if (res === 'correct') bg = palette.okText;
+            if (res === 'wrong') bg = palette.errText;
 
             const isCurrent = idx === state.currentIndex;
             const ringStyle = isCurrent ? `outline: 2px solid ${palette.ring}; outline-offset: 1px; transform: scale(1.15);` : '';
@@ -89,7 +89,7 @@ function quiz(container) {
             page.home();
         });
 
-        $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 16px; box-sizing: border-box;">
+        $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 16px; text-align: center; margin-bottom: 16px; box-sizing: border-box;">
             <div class="quiz-question-word" style="font-size: 26.4px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${currentItem.word.original}</div>
         </div>`);
 
@@ -146,7 +146,7 @@ function quiz(container) {
         }
 
         selectedOptions.forEach((opt, optIndex) => {
-            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px; background: ${palette.optionBg}; border: 1px solid ${palette.optionBorder}; border-radius: 8px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px; background: ${palette.optionBg}; border: 1px solid ${palette.optionBorder}; border-radius: 11px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center;">
                 <span class="quiz-option-label">${opt}</span>
                 <span class="quiz-option-icon status-icon" style="font-size: 16.8px;"></span>
             </button>`);
@@ -233,22 +233,23 @@ function quiz(container) {
     quiz.render = render;
 
     quiz.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         palette = {
-            dotIdle: isDark ? '#475569' : '#cbd5e1',
-            ring: isDark ? '#60a5fa' : '#2563eb',
-            backBtn: isDark ? '#cbd5e1' : '#334155',
-            questionBg: isDark ? 'linear-gradient(135deg, #1e293b, #0f172a)' : 'linear-gradient(135deg, #ffffff, #f8fafc)',
-            questionBorder: isDark ? '#334155' : '#cbd5e1',
-            questionText: isDark ? '#f8fafc' : '#0f172a',
-            optionBg: isDark ? '#1e293b' : '#ffffff',
-            optionBorder: isDark ? '#334155' : '#cbd5e1',
-            optionText: isDark ? '#f8fafc' : '#1e293b',
-            okBg: isDark ? '#14532d' : '#dcfce7',
-            okBorder: isDark ? '#166534' : '#86efac',
-            okText: isDark ? '#4ade80' : '#16a34a',
-            errBg: isDark ? '#451a1a' : '#fee2e2',
-            errBorder: isDark ? '#7f1d1d' : '#fca5a5',
-            errText: isDark ? '#fca5a5' : '#dc2626'
+            dotIdle: t.border,
+            ring: t.accent,
+            backBtn: t.muted,
+
+            questionBg: t.surface,
+            questionBorder: t.border,
+            questionText: t.ink,
+
+            optionBg: t.surface,
+            optionBorder: t.border,
+            optionText: t.ink,
+
+            okBg: t.okSoft, okBorder: t.okBorder, okText: t.ok,
+            errBg: t.errSoft, errBorder: t.errBorder, errText: t.err
         };
     };
 

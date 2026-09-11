@@ -112,7 +112,7 @@ function snake(container) {
         // panels are 3-column grids filling the whole width — this is thumb territory on
         // a phone, so the cell places the button and `place` only says which cell.
         function padBtn(id, glyph, place) {
-            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 56px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 10px; font-weight: 700; font-size: 24px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
+            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 56px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 24px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
         }
 
         // Both panels share it: three equal columns, full width
@@ -258,7 +258,7 @@ function snake(container) {
             }
 
             // Stick mode. The knob ignores pointer events itself — they all belong to the frame.
-            const stick = $(wrapper, `<div class="snake-stick" style="position: relative; width: 120px; height: 120px; margin: 10px 0; background: ${palette.dpadBg}; border: 2px solid ${palette.dpadBorder}; border-radius: 10px; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer;">
+            const stick = $(wrapper, `<div class="snake-stick" style="position: relative; width: 120px; height: 120px; margin: 10px 0; background: ${palette.dpadBg}; border: 2px solid ${palette.dpadBorder}; border-radius: 12px; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer;">
                 <div class="snake-stick-knob" style="position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin-left: -30px; margin-top: -30px; background: ${palette.stickKnob}; border-radius: 6px; pointer-events: none; transition: transform 0.08s ease-out;"></div>
             </div>`);
 
@@ -292,7 +292,7 @@ function snake(container) {
             header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
             header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
 
-            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 10px; padding: 8px 14px; text-align: center; margin-bottom: 10px; height: 104px; min-height: 104px; max-height: 104px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden;">
+            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 12px; padding: 8px 14px; text-align: center; margin-bottom: 10px; height: 104px; min-height: 104px; max-height: 104px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden;">
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 19.2px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 42px; overflow: hidden;">${opts.translation}</div>
             </div>`);
 
@@ -300,7 +300,7 @@ function snake(container) {
 
             gatheredBar.addEventListener('click', () => cb.onRevealHint());
 
-            canvas = $(host, `<canvas class="snake-canvas" id="snake-canvas" width="${document.body.clientWidth}" height="${document.body.clientWidth}" style="background: ${palette.canvasBg}; border: 1px solid ${palette.canvasBorder}; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.canvasShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;"></canvas>`);
+            canvas = $(host, `<canvas class="snake-canvas" id="snake-canvas" width="${document.body.clientWidth}" height="${document.body.clientWidth}" style="background: ${palette.canvasBg}; border: 1px solid ${palette.canvasBorder}; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.canvasShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;"></canvas>`);
 
             ctx = canvas.getContext('2d');
             cellSize = document.body.clientWidth / GRID_COUNT;
@@ -1349,26 +1349,28 @@ function snake(container) {
     snake.render = render;
 
     snake.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         view.setTheme({
-            backBtn: isDark ? '#cbd5e1' : '#334155',
-            dotIdle: isDark ? '#475569' : '#cbd5e1',
-            ring: isDark ? '#60a5fa' : '#2563eb',
-            hintBg: isDark ? '#1e293b' : '#f1f5f9',
-            hintBorder: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
-            hintText: isDark ? '#38bdf8' : '#0284c7',
-            canvasBg: isDark ? '#0f172a' : '#ffffff',
-            canvasBorder: isDark ? '#334155' : '#cbd5e1',
-            canvasShadow: isDark ? '0.3' : '0.08',
-            dpadBg: isDark ? '#334155' : '#e2e8f0',
-            dpadBorder: isDark ? '#475569' : '#cbd5e1',
-            dpadColor: isDark ? '#f8fafc' : '#334155',
-            stickKnob: isDark ? 'rgba(96, 165, 250, 0.4)' : 'rgba(37, 99, 235, 0.35)',
-            letterPending: isDark ? '#64748b' : '#94a3b8',
-            letterCollected: isDark ? '#f8fafc' : '#0f172a',
-            letterHinted: isDark ? '#94a3b8' : '#334155',
-            grid: isDark ? '#1e293b' : '#f1f5f9',
-            boardLetter: isDark ? '#fbbf24' : '#d97706',
-            head: isDark ? '#fbbf24' : '#f59e0b',
+            backBtn: t.muted,
+            dotIdle: t.border,
+            ring: t.accent,
+            hintBg: t.soft,
+            hintBorder: '1px solid ' + t.border,
+            hintText: t.accent,
+            canvasBg: isDark ? t.ground : t.surface,
+            canvasBorder: t.border,
+            canvasShadow: '0',
+            dpadBg: t.soft,
+            dpadBorder: t.border,
+            dpadColor: t.ink,
+            stickKnob: isDark ? 'rgba(63, 125, 242, 0.45)' : 'rgba(42, 102, 232, 0.32)',
+            letterPending: t.muted,
+            letterCollected: t.ink,
+            letterHinted: t.muted,
+            grid: t.soft,
+            boardLetter: t.warm,
+            head: t.warm,
             bodyHueStart: isDark ? 180 : 210,
             bodyHueEnd: isDark ? 280 : 300,
             bodySatChar: isDark ? 85 : 90,

@@ -7,7 +7,7 @@
  * suffix is not written here: nav adds it where it is required.
  */
 const GAMES = [
-    { id: 'cards', title: 'Cards', icon: '🎴', color: '#2563eb', page: 'cards' },
-    { id: 'quiz', title: 'Quiz', icon: '🧩', color: '#0284c7', page: 'quiz' },
-    { id: 'snake', title: 'Snake', icon: '🐍', color: '#059669', page: 'snake' }
+    { id: 'cards', title: 'Cards', icon: '🎴', color: '#3f7df2', page: 'cards' },
+    { id: 'quiz', title: 'Quiz', icon: '🧩', color: '#e2622e', page: 'quiz' },
+    { id: 'snake', title: 'Snake', icon: '🐍', color: '#10a97b', page: 'snake' }
 ];
