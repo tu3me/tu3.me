@@ -80,30 +80,166 @@ function catalog(container) {
     const MOON = chromeIcon(`
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
 
-    // Stands in for a game's own icon while the game is shut. Not alongside it:
-    // a third shape in a button this narrow crowds the label, and the label
-    // already says which game this is.
-    const LOCK = chromeIcon(`
-        <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
-        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />`);
+    const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
 
     /*
-     * Which games a set has opened.
+     * The ways a word list gets here, each folded away under the box it ends in.
      *
-     * They arrive one at a time as the set matures — see unlockAtStage in
-     * registry.js — and the gate is the set's weakest word, not its average: a
-     * single untouched word holds quiz back, which is the point. Learn the set,
-     * not the easy half of it.
+     * Written out because the box on its own answers the wrong question: it says
+     * what the text has to look like, not where a hundred words are supposed to
+     * come from. Typing them one at a time is the answer nobody wants, and all
+     * three of these end in a paste.
      *
-     * Derived on every render and never stored. The rule is a function of the
-     * repetitions, and anything a rule can be derived from is a thing it can
-     * drift from once it is written down separately.
+     * A step is a line of text, a line that leads somewhere, a line that carries
+     * an icon, or a line with a prompt worth pasting into an AI tool. The prompt is written out rather than described because the shape of
+     * the answer is the whole point: one "word -- translation" per line is
+     * exactly what the box above parses, so a good answer needs no editing.
+     *
+     * Data rather than three blocks of markup: they are the same shape, and a
+     * fourth route should cost one entry.
      */
-    function lowestStage(words) {
-        if (!words || words.length === 0) return 0;
-        return words.reduce(
-            (low, w) => Math.min(low, spacedRepetitions.getWordProgress(w).stage || 0),
-            Infinity);
+    const ROUTES = [
+        {
+            question: 'How to export from Google Translate?',
+            steps: [
+                {
+                    text: 'Go to your saved translations',
+                    linkText: 'saved translations',
+                    link: 'https://translate.google.com/saved'
+                },
+                { text: 'Press Export', icon: 'sheet' },
+                'Copy the words from the table and paste them in the box above'
+            ]
+        },
+        {
+            question: 'How to add words from a paper book or notebook?',
+            steps: [
+                'Photograph the list of words and give the photo to any AI tool',
+                {
+                    text: 'Ask it to extract the words with their translations',
+                    prompt: 'Extract every word from this photo and translate it into [your language]. '
+                        + 'Return one pair per line as "word -- translation", with no numbering and nothing else.'
+                },
+                'Copy the result and paste it in the box above'
+            ]
+        },
+        {
+            question: 'How to make a set from a web page or a YouTube video?',
+            steps: [
+                'Give the link to any AI tool',
+                {
+                    text: 'Ask it to extract the words with their translations',
+                    prompt: 'Extract the useful words from this page or video and translate them into [your language]. '
+                        + 'Return one pair per line as "word -- translation", with no numbering and nothing else.'
+                },
+                'Copy the result and paste it in the box above'
+            ]
+        }
+    ];
+
+    /*
+     * One folding section: a header that toggles, and a body that is there or
+     * not. Open is written into the markup rather than set afterwards, so the
+     * section is drawn in the state it belongs in and nothing flickers shut.
+     *
+     * A real button, not a div with a click handler: it is reachable by keyboard
+     * and says what it is out loud, both for free.
+     */
+    function foldingSection(label, bodyHtml, open) {
+        return `<div class="set-fold">
+            <button class="set-fold-toggle" aria-expanded="${open}" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 14.4px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
+                <span class="set-fold-chevron" style="display: block; flex: none; color: ${palette.softColor}; transform: rotate(${open ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
+                <span class="set-fold-label" style="flex: 1;">${label}</span>
+            </button>
+            <div class="set-fold-body" style="padding-bottom: 10px;"${open ? '' : ' hidden'}>${bodyHtml}</div>
+        </div>`;
+    }
+
+    /*
+     * The spreadsheet the Export button on the Translate page is marked with.
+     * Drawn rather than fetched: it is the only image this screen would need,
+     * and the app has no picture files to begin with.
+     *
+     * The tile takes the step's own colour, and the grid is cut out of it in the
+     * card's colour rather than painted white — on the dark theme white lines
+     * would glare, and a hole reads as a hole in both.
+     */
+    function sheetIcon() {
+        return `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="display: inline-block; vertical-align: -4px; margin-left: 5px;">
+            <rect x="2.5" y="2.5" width="19" height="19" rx="4.6" fill="currentColor" />
+            <g stroke="${palette.cardBg}" stroke-width="3">
+                <path d="M10.3 5.6v12.8" />
+                <path d="M5.6 9.9h12.8" />
+            </g>
+        </svg>`;
+    }
+
+    /*
+     * What goes inside a step: its line, with a link in it if it leads somewhere,
+     * and the prompt box if it carries one.
+     *
+     * linkText names the words that carry the link — the ones that name the
+     * destination, so the underline marks where it goes instead of dragging
+     * along the verb and the pronoun in front of it. Without it the whole line
+     * becomes the link.
+     *
+     * The link keeps the text's own colour and takes an underline instead. The
+     * palette has no colour to spare for it — coral is the Save button and mint
+     * is progress, and mint on the light theme's white card is 2.1:1 besides.
+     * An underline says "link" everywhere and costs no contrast.
+     */
+    function stepBody(step) {
+        if (typeof step === 'string') return step;
+
+        let line = step.text;
+
+        if (step.link) {
+            const label = step.linkText || step.text;
+            const anchor = `<a class="set-step-link" href="${step.link}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">${label}</a>`;
+            line = step.linkText ? line.replace(label, anchor) : anchor;
+        }
+
+        if (step.icon === 'sheet') line += sheetIcon();
+
+        return step.prompt ? line + promptBox(step.prompt) : line;
+    }
+
+    /*
+     * A prompt and the button that lifts it.
+     *
+     * The button is worth more than it looks: the prompt is three lines long and
+     * has to arrive in another app intact, and retyping it on a phone is exactly
+     * the work this screen exists to avoid.
+     *
+     * The line above the box is left out of it on purpose: the box is what the
+     * button lifts, and a caption inside it would ride along into the paste.
+     */
+    function promptBox(text) {
+        return `<div class="set-prompt-lead" style="margin-top: 4px;">Here is your prompt</div>
+        <div class="set-prompt" style="margin: 5px 0 7px; background: ${palette.inputBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px;">
+            <div class="set-prompt-text" style="font-size: 12.6px; font-weight: 500; line-height: 1.45; color: ${palette.inputText};">${text}</div>
+            <button class="set-prompt-copy" style="display: block; margin: 7px 0 0 auto; padding: 3px 10px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 12.6px; font-weight: 600; cursor: pointer;">Copy</button>
+        </div>`;
+    }
+
+    /*
+     * The box's own section: the same line of type as a route's header, with
+     * nothing to press.
+     *
+     * It does not fold because there is nothing to reveal — it is where the
+     * caret already is, and the form would be empty without it. A chevron on it
+     * would offer a fold that the section has no business performing.
+     *
+     * The label sits flush with the form's own left edge — the set name above it
+     * and the format hint below it start there too. It heads the box rather than
+     * joining the folding routes, so it lines up with what it heads rather than
+     * with the column their chevrons push them into.
+     */
+    function staticSection(label, bodyHtml) {
+        return `<div class="set-fold">
+            <div class="set-fold-label" style="padding: 9px 0; color: ${palette.title}; font-size: 14.4px; font-weight: 600; line-height: 1.35;">${label}</div>
+            <div class="set-fold-body" style="padding-bottom: 10px;">${bodyHtml}</div>
+        </div>`;
     }
 
     // Compact timer text for bubble badges (e.g. "5m", "2h", "3d")
@@ -202,6 +338,21 @@ function catalog(container) {
 
         const sets = store.sets();
 
+        // Whether a new set is being written. Needed before the header, because
+        // the New Set button reads it twice: for its own look, and to know that a
+        // press means close rather than open.
+        //
+        // createdEmpty rather than editing: it holds exactly the sets the New Set
+        // button made, and empties again on save or cancel. Editing an existing
+        // set opens the same form further down the list, and has nothing to do
+        // with this button.
+        const addingSet = createdEmpty.size > 0;
+
+        // Open, the button takes the form's own surface. The form is what the
+        // press produced, and one surface across both is what says the button is
+        // holding that form open rather than offering to open another.
+        const addBg = addingSet ? palette.cardBg : 'transparent';
+
         const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 9px; color: ${palette.heading};">
                 ${logoSvg(palette.logo, LOGO_SIZE)}
@@ -212,7 +363,7 @@ function catalog(container) {
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
                 <button class="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
+                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
             </div>
         </div>`);
 
@@ -222,7 +373,16 @@ function catalog(container) {
             render();
         });
 
+        // A toggle, not a repeat action: pressed again, the button takes the form
+        // back down. Left as a plain action it would mint another empty set on
+        // every press, and the catalog would stack blank forms nobody asked for.
         header.querySelector('#add-set-btn').addEventListener('click', () => {
+            if (addingSet) {
+                discardNewSets();
+                render();
+                return;
+            }
+
             const id = Date.now().toString();
             store.addSet({
                 id: id,
@@ -236,14 +396,10 @@ function catalog(container) {
             render();
         });
 
-        // Hidden while a new set is being written. The form opens focused, with
-        // the caret waiting in the textarea, and a banner sitting above it is
-        // both a distraction and a click away from throwing the typing away.
-        //
-        // createdEmpty rather than editing: it holds exactly the sets the New Set
-        // button made, and empties again on save or cancel.
-        const addingSet = createdEmpty.size > 0;
-
+        // The banner is hidden while a new set is being written. The form opens
+        // focused, with the caret waiting in the textarea, and a banner sitting
+        // above it is both a distraction and a click away from throwing the
+        // typing away.
         const resumable = (session && !addingSet) ? GAMES.find(g => g.id === session.game) : null;
         if (resumable) {
             const label = `${resumable.icon(20)} ${resumable.title}`;
@@ -263,6 +419,23 @@ function catalog(container) {
         });
     }
 
+    // Takes down whatever the New Set button opened. The set behind the form
+    // exists only because the form needed something to edit, so closing without
+    // saving leaves nothing worth keeping.
+    //
+    // By id rather than by position: removeAt works on the index in the list,
+    // and reading that index back at the moment of removal is what keeps this
+    // right regardless of where the set sits.
+    function discardNewSets() {
+        createdEmpty.forEach(id => {
+            const index = store.sets().findIndex(s => s.id === id);
+            if (index !== -1) store.removeAt(index);
+            editing.delete(id);
+        });
+        createdEmpty.clear();
+        store.save();
+    }
+
     function renderSetCard(parent, set, index, intro) {
         const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
 
@@ -272,19 +445,82 @@ function catalog(container) {
                 textLines.push(`${w.original} -- ${w.translation}`);
             });
 
-            const editForm = $(card, `<div class="set-edit-form">
+            const box = `<label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
+                    First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
+                </label>
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>`;
+
+            // A set being written from scratch gets the box as the first section,
+            // always open — it is the one thing always needed, and the caret
+            // lands in it. The three routes fold away underneath, where they are
+            // read once and then ignored by anyone who already has a list.
+            //
+            // Editing an existing set shows none of it: the words are already
+            // here, and the only reason the form is open is to change them.
+            const guided = createdEmpty.has(set.id);
+
+            const steps = r => `<ol class="set-fold-steps" style="margin: 0; padding-left: 42px; font-size: 13.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};">`
+                + r.steps.map(s => `<li style="margin-bottom: 3px;">${stepBody(s)}</li>`).join('')
+                + `</ol>`;
+
+            const formBody = guided
+                ? staticSection('Paste words here', box)
+                    + ROUTES.map(r => foldingSection(r.question, steps(r), false)).join('')
+                : box;
+
+            // The page turns selection off everywhere — it is a popup full of
+            // things to tap, and a dragged finger selecting a label is noise.
+            // This form is the exception: the prompts are here to be carried out
+            // to another app, and the hint explains a format worth copying.
+            const editForm = $(card, `<div class="set-edit-form" style="user-select: text; -webkit-user-select: text;">
                 <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="set-edit-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading};">Edit Set</span>
+                    <span class="set-edit-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading};">${guided ? 'New Set' : 'Edit Set'}</span>
                     <div class="set-edit-actions" style="display: flex; gap: 6px;">
                         <button class="set-save-btn" style="padding: 4px 10px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
                         <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
                     </div>
                 </div>
-                <label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
-                    First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
-                </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                ${formBody}
             </div>`);
+
+            // Each header opens its own section and closes nothing else: the
+            // routes are alternatives, not steps, and comparing two of them
+            // should not mean opening one twice.
+            editForm.querySelectorAll('.set-fold-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const body = toggle.nextElementSibling;
+                    const opening = body.hidden;
+                    body.hidden = !opening;
+                    toggle.setAttribute('aria-expanded', opening);
+                    toggle.querySelector('.set-fold-chevron').style.transform = `rotate(${opening ? 90 : 0}deg)`;
+                });
+            });
+
+            editForm.querySelectorAll('.set-prompt-copy').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const field = btn.closest('.set-prompt').querySelector('.set-prompt-text');
+                    let copied = true;
+
+                    try {
+                        await navigator.clipboard.writeText(field.textContent.trim());
+                    } catch (e) {
+                        // Refused — file:// has no clipboard permission, and nor
+                        // does a page the tap did not reach as a real gesture.
+                        // The text is selectable now, so select it and say what
+                        // is left to do rather than claiming a copy that did not
+                        // happen.
+                        copied = false;
+                        const range = document.createRange();
+                        range.selectNodeContents(field);
+                        const selection = window.getSelection();
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+
+                    btn.textContent = copied ? 'Copied' : 'Press Ctrl+C';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+                });
+            });
 
             const textarea = editForm.querySelector('.set-edit-textarea');
 
@@ -346,7 +582,6 @@ function catalog(container) {
         } else {
             const totalWords = set.words.length;
             const progress = spacedRepetitions.calculateSetProgress(set.words);
-            const lowest = lowestStage(set.words);
 
             // Where the bar animates from: the progress this set had when the
             // running session started, kept in active_session rather than on the set.
@@ -383,23 +618,7 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; gap: 8px; height:50px; margin-top: 18px;">
-                    ${GAMES.map(g => {
-                        const locked = lowest < (g.unlockAtStage || 0);
-                        const hint = locked
-                            ? ` title="Opens once every word is past stage ${g.unlockAtStage - 1}"`
-                            : '';
-
-                        // A shut game is the outline of the open one: same colour,
-                        // same border width, nothing poured in, and the label and
-                        // lock in that colour too. The border is on both states so
-                        // the button keeps its size when a game opens and the row
-                        // does not jump.
-                        const skin = locked
-                            ? `background: transparent; color: ${g.color}; cursor: default;`
-                            : `background: ${g.color}; color: #ffffff; cursor: pointer;`;
-
-                        return `<button class="set-play-btn${locked ? ' set-play-btn--locked' : ''}" data-game="${g.id}"${locked ? ' disabled' : ''}${hint} style="flex: 1; padding: 7px 4px; ${skin} border: 1.5px solid ${g.color}; border-radius: 12px; font-weight: 700; font-size: 15px; transition: background 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${locked ? LOCK : g.icon(18)} ${g.title}</button>`;
-                    }).join('')}
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${g.icon(18)} ${g.title}</button>`).join('')}
                 </div>
             `);
 
@@ -505,9 +724,7 @@ function catalog(container) {
     // the algorithm, not of any game, so the catalog answers it itself — and asking
     // here means Cancel costs nothing, since no page has been loaded yet.
     function launch(game, setId) {
-        const words = store.wordsOf(setId).map(item => item.word);
-        if (words.length === 0) return;
-        if (lowestStage(words) < (game.unlockAtStage || 0)) return;
+        if (store.wordsOf(setId).length === 0) return;
 
         if (store.duePool(setId, false).length === 0) {
             confirmEarly(() => beginSession(game, setId, true));

@@ -53,12 +53,22 @@ function tokens() {
     };
 
     const LIGHT = {
-        ground: '#f5ebdc',       // warm paper, same as the second sandbox
+        // A soft grey-green: the mint's hue, but at a fifth of its saturation,
+        // so it reads as a neutral with a cast rather than as a pale mint. The
+        // saturated version was tried and thrown out — at 56% it turns clinical,
+        // and the page should be the quietest thing on screen.
+        //
+        // soft and border keep their old distances from the ground; muted is set
+        // by contrast instead, because it is the one that carries text. It sits
+        // on the white card and on the ground both, and at 6.06 and 4.59 it now
+        // clears 4.5 on each — which the warm muted it replaces never did on the
+        // ground (4.08).
+        ground: '#d5e3df',
         surface: '#ffffff',
-        soft: '#f8eade',
-        border: '#ecd9c6',
+        soft: '#d9e5e2',
+        border: '#c3d6d0',
         ink: '#153040',
-        muted: '#7d7062',
+        muted: '#516761',
 
         accent: '#ef6f5a',
         onAccent: '#ffffff',
@@ -116,7 +126,7 @@ function tokens() {
      */
     const STAGES = [
         { fill: '#e3e5e8', ink: '#4a4f55', sub: '#6d737a' },   // 0  stone — a seed, nothing yet
-        { fill: '#ebe0c0', ink: '#605024', sub: '#857447' },   // 1  pale yellow
+        { fill: '#fbedc3', ink: '#605024', sub: '#857447' },   // 1  pale yellow
         { fill: '#ebe9bc', ink: '#605e24', sub: '#858347' },   // 2  yellow
         { fill: '#dfebb9', ink: '#526024', sub: '#768547' },   // 3  gold
         { fill: '#d0ecb8', ink: '#406024', sub: '#648547' },   // 4  chartreuse

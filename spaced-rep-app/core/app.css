@@ -56,7 +56,7 @@
 /* The system preference deliberately plays no part: everyone starts dark, and
    light is only ever an explicit choice the player made. */
 :root[data-theme="light"] {
-    --ground: #f5ebdc;
+    --ground: #d5e3df;
     --ink: #153040;
 }
 
