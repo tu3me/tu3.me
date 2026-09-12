@@ -62,11 +62,11 @@ function cards(container) {
         const dotsHtml = () => pool.map((_, idx) => {
             const res = state.sessionResults[idx];
             let bg = palette.dotIdle;
-            if (res === 'correct') bg = '#22c55e';
-            if (res === 'wrong') bg = '#ef4444';
+            if (res === 'correct') bg = palette.okText;
+            if (res === 'wrong') bg = palette.errText;
 
             const isCurrent = idx === state.currentIndex;
-            const ringStyle = isCurrent ? `outline: 2px solid ${palette.ring}; outline-offset: 1px; transform: scale(1.15);` : '';
+            const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
             return `<div class="cards-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
@@ -93,11 +93,11 @@ function cards(container) {
         const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 170px; cursor: pointer; margin-bottom: 16px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
-                <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); padding: 16px; box-sizing: border-box;">
+                <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${currentItem.word.original}</div>
                 </div>
 
-                <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); padding: 16px; box-sizing: border-box;">
+                <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation || '—'}</div>
                 </div>
 
@@ -146,8 +146,8 @@ function cards(container) {
 
             if (!state.hasBeenFlipped) {
                 const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 8px;">
-                    <button class="cards-btn-dont-know" id="btn-dont-know" style="flex: 1; padding: 10px; background: ${palette.noBg}; color: ${palette.noText}; border: 1px solid ${palette.noBorder}; border-radius: 8px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">← ✕ Don't remember</button>
-                    <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 10px; background: ${palette.yesBg}; color: ${palette.yesText}; border: 1px solid ${palette.yesBorder}; border-radius: 8px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
+                    <button class="cards-btn-dont-know" id="btn-dont-know" style="flex: 1; padding: 11px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">← ✕ Don't remember</button>
+                    <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 11px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
                 </div>`);
 
                 actionButtons.querySelector('#btn-dont-know').addEventListener('click', () => {
@@ -164,7 +164,7 @@ function cards(container) {
                 });
             } else {
                 const singleBtn = $(actionsContainer, `<div class="cards-btn-remember-wrapper">
-                    <button class="cards-btn-remember" id="btn-remember" style="width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <button class="cards-btn-remember" id="btn-remember" style="width: 100%; padding: 10px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         Got it →
                     </button>
                 </div>`);
@@ -202,22 +202,42 @@ function cards(container) {
     cards.render = render;
 
     cards.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         palette = {
-            dotIdle: isDark ? '#475569' : '#cbd5e1',
-            ring: isDark ? '#60a5fa' : '#2563eb',
-            backBtn: isDark ? '#cbd5e1' : '#334155',
-            frontBg: isDark ? 'linear-gradient(135deg, #1e293b, #0f172a)' : 'linear-gradient(135deg, #ffffff, #f8fafc)',
-            frontBorder: isDark ? '#334155' : '#cbd5e1',
-            frontText: isDark ? '#f8fafc' : '#0f172a',
-            backBg: isDark ? 'linear-gradient(135deg, #1e3a8a, #0f172a)' : 'linear-gradient(135deg, #eff6ff, #dbeafe)',
-            backBorder: isDark ? '#2563eb' : '#93c5fd',
-            backText: isDark ? '#93c5fd' : '#1e3a8a',
-            noBg: isDark ? '#451a1a' : '#fee2e2',
-            noText: isDark ? '#fca5a5' : '#dc2626',
-            noBorder: isDark ? '#7f1d1d' : '#fca5a5',
-            yesBg: isDark ? '#14532d' : '#dcfce7',
-            yesText: isDark ? '#86efac' : '#16a34a',
-            yesBorder: isDark ? '#166534' : '#86efac'
+            dotIdle: t.border,
+            ring: t.accent,
+            // Marks where you are right now — the dot you are on, and in quiz
+            // the option under the keyboard cursor. Its own token rather than
+            // the accent, because `ring` also paints the buttons, and "you are
+            // here" should not shout in the same colour as "press this".
+            cursor: t.progress,
+            backBtn: t.muted,
+
+            frontBg: t.surface,
+            frontBorder: t.border,
+            frontText: t.ink,
+            backBg: t.soft,
+            backBorder: t.progress,
+
+            // Ink, not mint. The mint is a mid-light colour built to sit on the
+            // dark ground; as text on the light theme's cream face it falls to
+            // 1.8:1. It still marks this face — as the border around it, where
+            // being mid-light costs nothing.
+            backText: t.ink,
+
+            onRing: t.onAccent,
+
+            // Filled in the two colours, no border, white label.
+            noBg: t.err, noText: '#ffffff',
+            yesBg: t.ok, yesText: '#ffffff',
+
+            // The dots keep the colours. They used to read the button labels,
+            // which is how they went to ink along with them — a dot is a filled
+            // shape with nothing written on it, so mid-light costs it nothing,
+            // and it has no other way to say how the word went.
+            okText: t.ok,
+            errText: t.err
         };
     };
 

@@ -35,6 +35,13 @@ function quiz(container) {
     }
 
 
+    // Shown on the option the cursor is on: the key you press to send it.
+    // Drawn on the same 24-unit grid and 2-unit stroke as every other icon here.
+    const SUBMIT_ARROW = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true" style="display: block;">
+        <path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
+
     function render() {
         container.innerHTML = '';
 
@@ -61,11 +68,11 @@ function quiz(container) {
         const dotsHtml = () => pool.map((_, idx) => {
             const res = state.sessionResults[idx];
             let bg = palette.dotIdle;
-            if (res === 'correct') bg = '#22c55e';
-            if (res === 'wrong') bg = '#ef4444';
+            if (res === 'correct') bg = palette.okText;
+            if (res === 'wrong') bg = palette.errText;
 
             const isCurrent = idx === state.currentIndex;
-            const ringStyle = isCurrent ? `outline: 2px solid ${palette.ring}; outline-offset: 1px; transform: scale(1.15);` : '';
+            const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
             return `<div class="quiz-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
@@ -89,7 +96,7 @@ function quiz(container) {
             page.home();
         });
 
-        $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 16px; box-sizing: border-box;">
+        $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box;">
             <div class="quiz-question-word" style="font-size: 26.4px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${currentItem.word.original}</div>
         </div>`);
 
@@ -122,15 +129,25 @@ function quiz(container) {
         let isAnswered = false;
         let wasWrong = false;
 
-        // The keyboard cursor is drawn as an outline, so it never collides with the
-        // background and border an answered option is painted with
+        // The keyboard cursor is an outline drawn outside the border, so it never
+        // covers the border itself, plus an arrow in the option's right gutter
+        // saying which key sends it. Both are dropped the moment an answer is
+        // given: from then on the fill carries the result, and a cursor sitting
+        // on top of it only makes that harder to read.
+        function showCursor(button, on) {
+            button.style.outline = on ? `2px solid ${palette.cursor}` : 'none';
+            button.style.outlineOffset = '2px';
+            const arrow = button.querySelector('.quiz-option-arrow');
+            if (arrow) arrow.style.display = on ? 'block' : 'none';
+        }
+
         function highlight(index) {
             if (optionButtons.length === 0) return;
+
+            // The cursor keeps moving after an answer — a wrong pick moves it onto
+            // the right one so Enter still advances — it just stops being drawn.
             selectedIndex = (index + optionButtons.length) % optionButtons.length;
-            optionButtons.forEach((b, i) => {
-                b.style.outline = i === selectedIndex ? `2px solid ${palette.ring}` : 'none';
-                b.style.outlineOffset = '2px';
-            });
+            optionButtons.forEach((b, i) => showCursor(b, !isAnswered && i === selectedIndex));
         }
 
         // Moves to the next word, or ends the session on the last one
@@ -146,9 +163,12 @@ function quiz(container) {
         }
 
         selectedOptions.forEach((opt, optIndex) => {
-            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px; background: ${palette.optionBg}; border: 1px solid ${palette.optionBorder}; border-radius: 8px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 14px 16px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 14px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center;">
                 <span class="quiz-option-label">${opt}</span>
-                <span class="quiz-option-icon status-icon" style="font-size: 16.8px;"></span>
+                <span class="quiz-option-right" style="display: flex; align-items: center; flex: none;">
+                    <span class="quiz-option-icon status-icon" style="font-size: 16.8px;"></span>
+                    <span class="quiz-option-arrow" style="display: none; color: ${palette.cursor};">${SUBMIT_ARROW}</span>
+                </span>
             </button>`);
 
             optionButtons.push(optBtn);
@@ -163,11 +183,12 @@ function quiz(container) {
 
                 if (!isAnswered) {
                     isAnswered = true;
+                    optionButtons.forEach(b => showCursor(b, false));
 
                     if (isCorrect) {
-                        optBtn.style.background = palette.okBg;
-                        optBtn.style.borderColor = palette.okBorder;
-                        optBtn.style.color = palette.okText;
+                        optBtn.style.background = palette.okFill;
+                        optBtn.style.borderColor = palette.okFill;
+                        optBtn.style.color = palette.onResult;
                         optBtn.querySelector('.status-icon').textContent = '✓';
 
                         store.recordRepetition(currentItem, 1, 'quiz');
@@ -191,14 +212,14 @@ function quiz(container) {
                         allBtns.forEach(b => {
                             const text = b.querySelector('.quiz-option-label').textContent;
                             if (text === correctTranslation) {
-                                b.style.background = palette.okBg;
-                                b.style.borderColor = palette.okBorder;
-                                b.style.color = palette.okText;
+                                b.style.background = palette.okFill;
+                                b.style.borderColor = palette.okFill;
+                                b.style.color = palette.onResult;
                                 b.querySelector('.status-icon').textContent = '✓';
                             } else if (b === optBtn) {
-                                b.style.background = palette.errBg;
-                                b.style.borderColor = palette.errBorder;
-                                b.style.color = palette.errText;
+                                b.style.background = palette.errFill;
+                                b.style.borderColor = palette.errFill;
+                                b.style.color = palette.onResult;
                                 b.querySelector('.status-icon').textContent = '✕';
                                 b.dataset.disabled = 'true';
                             } else {
@@ -233,22 +254,42 @@ function quiz(container) {
     quiz.render = render;
 
     quiz.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         palette = {
-            dotIdle: isDark ? '#475569' : '#cbd5e1',
-            ring: isDark ? '#60a5fa' : '#2563eb',
-            backBtn: isDark ? '#cbd5e1' : '#334155',
-            questionBg: isDark ? 'linear-gradient(135deg, #1e293b, #0f172a)' : 'linear-gradient(135deg, #ffffff, #f8fafc)',
-            questionBorder: isDark ? '#334155' : '#cbd5e1',
-            questionText: isDark ? '#f8fafc' : '#0f172a',
-            optionBg: isDark ? '#1e293b' : '#ffffff',
-            optionBorder: isDark ? '#334155' : '#cbd5e1',
-            optionText: isDark ? '#f8fafc' : '#1e293b',
-            okBg: isDark ? '#14532d' : '#dcfce7',
-            okBorder: isDark ? '#166534' : '#86efac',
-            okText: isDark ? '#4ade80' : '#16a34a',
-            errBg: isDark ? '#451a1a' : '#fee2e2',
-            errBorder: isDark ? '#7f1d1d' : '#fca5a5',
-            errText: isDark ? '#fca5a5' : '#dc2626'
+            dotIdle: t.border,
+            // Marks where you are right now — the dot you are on, and in quiz
+            // the option under the keyboard cursor. Its own token rather than
+            // the accent, because `ring` also paints the buttons, and "you are
+            // here" should not shout in the same colour as "press this".
+            cursor: t.progress,
+            backBtn: t.muted,
+
+            // Flat panels, no gradients: the question and the answers already
+            // differ by shape and position, which is enough.
+            questionBg: t.surface,
+            questionBorder: t.border,
+            questionText: t.ink,
+
+            optionBg: t.surface,
+            optionBorder: t.border,
+            optionText: t.ink,
+
+            // An answered option keeps its surface and states itself through the
+            // border, the way the reference does.
+            // An answered option is filled solid rather than tinted: the result
+            // is the loudest thing on the screen for the moment it is shown.
+            //
+            // The ink is dark, not white. White on the dark theme's mint is
+            // 2.1:1 — unreadable — where this ink is 6.9:1, and it clears 3.6:1
+            // or better on all four fills, which white manages on exactly one.
+            okFill: t.ok,
+            errFill: t.err,
+            onResult: '#0f2b3c',
+
+            // Still read by the dots along the top, which are too small to fill.
+            okText: t.ok,
+            errText: t.err
         };
     };
 

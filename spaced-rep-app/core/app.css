@@ -39,8 +39,8 @@
        one place instead of by a rule each. (The status bar is deliberately not
        one of the things that follows this — see the theme-color tag in the
        pages: it stays dark in both themes.) */
-    --ground: #0f172a;
-    --ink: #f8fafc;
+    --ground: #0f2b3c;
+    --ink: #eef6f7;
 
     background-color: var(--ground);
     color: var(--ink);
@@ -56,8 +56,8 @@
 /* The system preference deliberately plays no part: everyone starts dark, and
    light is only ever an explicit choice the player made. */
 :root[data-theme="light"] {
-    --ground: #e8e1ff;
-    --ink: #0f172a;
+    --ground: #f5ebdc;
+    --ink: #153040;
 }
 
 /*

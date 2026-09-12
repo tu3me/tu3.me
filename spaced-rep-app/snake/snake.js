@@ -112,7 +112,7 @@ function snake(container) {
         // panels are 3-column grids filling the whole width — this is thumb territory on
         // a phone, so the cell places the button and `place` only says which cell.
         function padBtn(id, glyph, place) {
-            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 56px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 10px; font-weight: 700; font-size: 24px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
+            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 56px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 14px; font-weight: 700; font-size: 24px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
         }
 
         // Both panels share it: three equal columns, full width
@@ -258,7 +258,7 @@ function snake(container) {
             }
 
             // Stick mode. The knob ignores pointer events itself — they all belong to the frame.
-            const stick = $(wrapper, `<div class="snake-stick" style="position: relative; width: 120px; height: 120px; margin: 10px 0; background: ${palette.dpadBg}; border: 2px solid ${palette.dpadBorder}; border-radius: 10px; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer;">
+            const stick = $(wrapper, `<div class="snake-stick" style="position: relative; width: 120px; height: 120px; margin: 10px 0; background: ${palette.dpadBg}; border: 2px solid ${palette.dpadBorder}; border-radius: 14px; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer;">
                 <div class="snake-stick-knob" style="position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin-left: -30px; margin-top: -30px; background: ${palette.stickKnob}; border-radius: 6px; pointer-events: none; transition: transform 0.08s ease-out;"></div>
             </div>`);
 
@@ -292,7 +292,7 @@ function snake(container) {
             header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
             header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
 
-            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 10px; padding: 8px 14px; text-align: center; margin-bottom: 10px; height: 104px; min-height: 104px; max-height: 104px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden;">
+            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 14px; padding: 8px 14px; text-align: center; margin-bottom: 10px; height: 104px; min-height: 104px; max-height: 104px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden;">
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 19.2px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 42px; overflow: hidden;">${opts.translation}</div>
             </div>`);
 
@@ -300,7 +300,7 @@ function snake(container) {
 
             gatheredBar.addEventListener('click', () => cb.onRevealHint());
 
-            canvas = $(host, `<canvas class="snake-canvas" id="snake-canvas" width="${document.body.clientWidth}" height="${document.body.clientWidth}" style="background: ${palette.canvasBg}; border: 1px solid ${palette.canvasBorder}; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.canvasShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;"></canvas>`);
+            canvas = $(host, `<canvas class="snake-canvas" id="snake-canvas" width="${document.body.clientWidth}" height="${document.body.clientWidth}" style="background: ${palette.canvasBg}; border: 1px solid ${palette.canvasBorder}; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.canvasShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;"></canvas>`);
 
             ctx = canvas.getContext('2d');
             cellSize = document.body.clientWidth / GRID_COUNT;
@@ -320,11 +320,11 @@ function snake(container) {
             dotsEl.innerHTML = pool.map((_, idx) => {
                 const res = results[idx];
                 let bg = palette.dotIdle;
-                if (res === 'correct') bg = '#22c55e';
-                if (res === 'wrong') bg = '#ef4444';
+                if (res === 'correct') bg = palette.ok;
+                if (res === 'wrong') bg = palette.err;
 
                 const isCurrent = idx === currentIndex;
-                const ringStyle = isCurrent ? `outline: 2px solid ${palette.ring}; outline-offset: 1px; transform: scale(1.15);` : '';
+                const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
                 return `<div class="snake-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
             }).join('');
@@ -400,7 +400,7 @@ function snake(container) {
 
             gatheredBar.innerHTML = `
                 <div class="snake-win-actions" style="display: flex; gap: 8px; width: 100%;">
-                    <button class="snake-go-dict-btn" id="snake-go-dict" style="flex: 1; padding: 9px 10px; background: #059669; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 14.4px; cursor: pointer; transition: background 0.2s;">📚 Dictionary</button>
+                    <button class="snake-go-dict-btn" id="snake-go-dict" style="flex: 1; padding: 9px 10px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 14px; font-weight: 700; font-size: 14.4px; cursor: pointer; transition: background 0.2s;">📚 Dictionary</button>
                 </div>
             `;
 
@@ -1110,6 +1110,18 @@ function snake(container) {
                     state.showHint = true;
                     state.hadErrorThisRound = true;
                     refreshGathered();
+
+                    // The round is lost the moment the answer is shown, so the dot
+                    // says so now rather than when the word is finally spelled out.
+                    // wordDone writes the same 'wrong' again from hadErrorThisRound;
+                    // this only moves the telling earlier, not the verdict.
+                    //
+                    // Saved straight away because the verdict now exists: without
+                    // this, closing the popup between the reveal and the end of the
+                    // round would lose it and the word would come back marked clean.
+                    state.sessionResults[state.currentIndex] = 'wrong';
+                    refreshDots();
+                    page.save();
                 }
             },
 
@@ -1349,26 +1361,44 @@ function snake(container) {
     snake.render = render;
 
     snake.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         view.setTheme({
-            backBtn: isDark ? '#cbd5e1' : '#334155',
-            dotIdle: isDark ? '#475569' : '#cbd5e1',
-            ring: isDark ? '#60a5fa' : '#2563eb',
-            hintBg: isDark ? '#1e293b' : '#f1f5f9',
-            hintBorder: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
-            hintText: isDark ? '#38bdf8' : '#0284c7',
-            canvasBg: isDark ? '#0f172a' : '#ffffff',
-            canvasBorder: isDark ? '#334155' : '#cbd5e1',
-            canvasShadow: isDark ? '0.3' : '0.08',
-            dpadBg: isDark ? '#334155' : '#e2e8f0',
-            dpadBorder: isDark ? '#475569' : '#cbd5e1',
-            dpadColor: isDark ? '#f8fafc' : '#334155',
-            stickKnob: isDark ? 'rgba(96, 165, 250, 0.4)' : 'rgba(37, 99, 235, 0.35)',
-            letterPending: isDark ? '#64748b' : '#94a3b8',
-            letterCollected: isDark ? '#f8fafc' : '#0f172a',
-            letterHinted: isDark ? '#94a3b8' : '#334155',
-            grid: isDark ? '#1e293b' : '#f1f5f9',
-            boardLetter: isDark ? '#fbbf24' : '#d97706',
-            head: isDark ? '#fbbf24' : '#f59e0b',
+            backBtn: t.muted,
+            dotIdle: t.border,
+            ring: t.accent,
+            // Marks where you are right now — the dot you are on, and in quiz
+            // the option under the keyboard cursor. Its own token rather than
+            // the accent, because `ring` also paints the buttons, and "you are
+            // here" should not shout in the same colour as "press this".
+            cursor: t.progress,
+            onRing: t.onAccent,
+            ok: t.ok,
+            err: t.err,
+            // Darker than `soft` in the light theme, where soft is a hair off the
+            // page ground and the banner all but vanishes into it. The dark
+            // theme keeps soft, which already stands clear of its ground.
+            hintBg: isDark ? t.soft : t.border,
+            hintBorder: '1px solid ' + t.border,
+            // Ink rather than mint: this is the word to read, and mint on the
+            // light theme's white panel is 2.1:1.
+            hintText: t.ink,
+            canvasBg: isDark ? t.ground : t.surface,
+            canvasBorder: t.border,
+            canvasShadow: '0',
+            dpadBg: t.soft,
+            dpadBorder: t.border,
+            dpadColor: t.ink,
+            stickKnob: isDark ? 'rgba(86, 196, 166, 0.45)' : 'rgba(70, 183, 149, 0.32)',
+            letterPending: t.muted,
+            letterCollected: t.ink,
+            letterHinted: t.muted,
+            grid: t.soft,
+            // Mint, the same one progress and a right answer are painted in.
+            // The head and the letters it is going for share it, so the thing
+            // you steer and the thing you steer at read as one pair.
+            boardLetter: t.progress,
+            head: t.progress,
             bodyHueStart: isDark ? 180 : 210,
             bodyHueEnd: isDark ? 280 : 300,
             bodySatChar: isDark ? 85 : 90,

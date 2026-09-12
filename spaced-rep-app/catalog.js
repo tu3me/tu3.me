@@ -17,33 +17,60 @@ function catalog(container) {
     const editing = new Set();
     const createdEmpty = new Set();
 
-    // Stage-based bubble palette (stages 0-8 mapped to increasing progress colors).
-    // Independent of the light/dark theme: the bubble always carries its own colors.
-    const STAGE_COLORS = [
-        // Stage 0 — new/unplayed (neutral gray-slate)
-        { bgColor: "#F8FAFC", borderColor: "#cbd5e1", textColor: "#334155", transColor: "#64748b" },
-        // Stage 1 — just started (warm yellow)
-        { bgColor: "#FEFCE8", borderColor: "#fde047", textColor: "#713f12", transColor: "#854d0e" },
-        // Stage 2 — early progress (amber)
-        { bgColor: "#FEF3C7", borderColor: "#fcd34d", textColor: "#78350f", transColor: "#92400e" },
-        // Stage 3 — gaining momentum (lime-green)
-        { bgColor: "#ECFCCB", borderColor: "#a3e635", textColor: "#365314", transColor: "#4d7c0f" },
-        // Stage 4 — solid progress (emerald)
-        { bgColor: "#A7F3D0", borderColor: "#34d399", textColor: "#064e3b", transColor: "#047857" },
-        // Stage 5 — strong (teal)
-        { bgColor: "#99F6E4", borderColor: "#2dd4bf", textColor: "#134e4a", transColor: "#0f766e" },
-        // Stage 6 — very strong (cyan-sky)
-        { bgColor: "#BAE6FD", borderColor: "#38bdf8", textColor: "#0c4a6e", transColor: "#0369a1" },
-        // Stage 7 — near mastery (indigo)
-        { bgColor: "#C7D2FE", borderColor: "#818cf8", textColor: "#312e81", transColor: "#3730a3" },
-        // Stage 8 — mastered (purple-pink)
-        { bgColor: "#FBCFE8", borderColor: "#f472b6", textColor: "#831843", transColor: "#9d174d" }
-    ];
+    // The ramp lives in tokens.js. Captured once and never rebound: it is the
+    // same in both themes, because a stage means the same thing in both.
+    const stageRamp = tokens.stages();
 
     function getStageColors(stage) {
-        const idx = Math.min(Math.max(stage || 0, 0), STAGE_COLORS.length - 1);
-        return STAGE_COLORS[idx];
+        const idx = Math.min(Math.max(stage || 0, 0), stageRamp.length - 1);
+        return stageRamp[idx];
     }
+
+    /*
+     * The logo, drawn rather than loaded.
+     *
+     * It used to be icons/icon-128.png, and a PNG cannot be recoloured — the
+     * blue is baked into the pixels. Redrawn here it takes a fill like anything
+     * else, and it stays sharp at any size instead of being a 128px bitmap
+     * squeezed into 32.
+     *
+     * The geometry is make-icons.py's, resolved to a 32-unit grid: a landscape
+     * card tilted seven degrees with two rings on it, the left one larger, which
+     * is what gives the face its puzzled look. The tilt scaling that script
+     * applies so the turned card still fits its canvas is baked into the numbers
+     * below.
+     *
+     * Drawn at LOGO_SIZE, which is a few pixels taller than the two-line
+     * wordmark beside it. Matching that height exactly makes the mark look like
+     * a third line of the text rather than the thing the text is next to.
+     */
+    const LOGO_SIZE = 40;
+
+    function logoSvg(fill, size) {
+        return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
+            aria-hidden="true" style="display: block; flex-shrink: 0;">
+            <g transform="rotate(-7 16 16)">
+                <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
+                <circle cx="11.37" cy="16" r="4.86" fill="none" stroke="#ffffff" stroke-width="2.83" />
+                <circle cx="23.02" cy="16" r="3.01" fill="none" stroke="#ffffff" stroke-width="1.75" />
+            </g>
+        </svg>`;
+    }
+
+    // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
+    // so the header does not look like it was drawn by someone else.
+    function chromeIcon(body) {
+        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
+    }
+
+    const SUN = chromeIcon(`
+        <circle cx="12" cy="12" r="4.2" />
+        <path d="M12 2.4v2.3M12 19.3v2.3M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.4 12h2.3M19.3 12h2.3M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />`);
+
+    const MOON = chromeIcon(`
+        <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
 
     // Compact timer text for bubble badges (e.g. "5m", "2h", "3d")
     function getCompactTimerText(nextReview) {
@@ -73,10 +100,9 @@ function catalog(container) {
         return {
             word: word.original,
             translation: word.translation,
-            bgColor: colors.bgColor,
-            borderColor: colors.borderColor,
-            textColor: colors.textColor,
-            transColor: colors.transColor,
+            bgColor: colors.fill,
+            textColor: colors.ink,
+            transColor: colors.sub,
             marks: progress.marks,
             stage: progress.stage, // TEMP (debug): stage number shown in the bubble
             timer
@@ -99,7 +125,7 @@ function catalog(container) {
      * Creates a bubble HTML element and appends it to parent
      */
     function createBubble(bubbleData, parent) {
-        const { word, translation, bgColor, borderColor, textColor, transColor, marks, stage, timer } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, timer } = bubbleData;
 
         // Build the repetition timeline: one sprite icon per repetition or elapsed interval
         let dotsHtml = '';
@@ -110,20 +136,20 @@ function catalog(container) {
         }
 
         // TEMP (debug): current stage number at the end of the timeline
-        //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor || '#0f172a'};">${stage}</span>`;
+        //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
 
         // Optional timer badge in bottom-right corner
         const timerHtml = timer
-            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: #2563eb; color: #ffffff; font-size: 10.8px; font-weight: 800; line-height: 1; padding: 1.5px 4.5px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
+            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 10.8px; font-weight: 800; line-height: 1; padding: 1.5px 4.5px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
             : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="background-color: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 12px; padding: 4px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
-                <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor || '#0f172a'}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
+            <div class="word-bubble-card" style="background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
+                <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
                 <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1;">
                     ${dotsHtml}
                 </div>
-                <span class="bubble-trans-text" style="font-size: 15.6px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor || '#64748b'}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
+                <span class="bubble-trans-text" style="font-size: 15.6px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
                 ${timerHtml}
             </div>
         `;
@@ -138,15 +164,15 @@ function catalog(container) {
 
         const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 9px; color: ${palette.heading};">
-                <img class="dict-logo" src="icons/icon-128.png" width="32" height="32" alt="" style="display: block; flex-shrink: 0;">
+                ${logoSvg(palette.logo, LOGO_SIZE)}
                 <span class="dict-wordmark" style="display: block; line-height: 1.06;">
                     <span class="dict-wordmark-top" style="display: block; font-size: 18px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
                     <span class="dict-wordmark-bottom" style="display: block; font-size: 14.5px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
-                <button class="theme-toggle-btn" style="padding: 6px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; font-size: 15.6px; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: background 0.2s;">+ New Set</button>
+                <button class="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
+                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
             </div>
         </div>`);
 
@@ -170,10 +196,18 @@ function catalog(container) {
             render();
         });
 
-        const resumable = session ? GAMES.find(g => g.id === session.game) : null;
+        // Hidden while a new set is being written. The form opens focused, with
+        // the caret waiting in the textarea, and a banner sitting above it is
+        // both a distraction and a click away from throwing the typing away.
+        //
+        // createdEmpty rather than editing: it holds exactly the sets the New Set
+        // button made, and empties again on save or cancel.
+        const addingSet = createdEmpty.size > 0;
+
+        const resumable = (session && !addingSet) ? GAMES.find(g => g.id === session.game) : null;
         if (resumable) {
-            const label = `${resumable.icon} ${resumable.title}`;
-            const banner = $(container, `<div class="continue-banner" style="background: #1e293b99; color: white; padding: 10px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15.6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            const label = `${resumable.icon(20)} ${resumable.title}`;
+            const banner = $(container, `<div class="continue-banner" style="background: ${palette.cardBg}; color: ${palette.title}; padding: 16px; border-radius: 18px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15.6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <span class="continue-banner-text">Continue: ${label}</span>
                 <span class="continue-banner-arrow">▶</span>
             </div>`);
@@ -190,7 +224,7 @@ function catalog(container) {
     }
 
     function renderSetCard(parent, set, index) {
-        const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px ${palette.cardShadow};"></div>`);
+        const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
 
         if (editing.has(set.id)) {
             let textLines = [set.title];
@@ -202,14 +236,14 @@ function catalog(container) {
                 <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <span class="set-edit-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading};">Edit Set</span>
                     <div class="set-edit-actions" style="display: flex; gap: 6px;">
-                        <button class="set-save-btn" style="padding: 4px 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
-                        <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
+                        <button class="set-save-btn" style="padding: 4px 10px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
+                        <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
                     </div>
                 </div>
                 <label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
                     First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
             </div>`);
 
             const textarea = editForm.querySelector('.set-edit-textarea');
@@ -281,26 +315,28 @@ function catalog(container) {
 
             $(card, `
                 <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 class="set-title" style="margin: 0; line-height:1; font-size: 18px; color: ${palette.title}; font-weight: 700;">${set.title}</h4>
+                    <div class="set-title-group" style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                        <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 18px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.barBg}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${(hasProgressed ? startProgress : progress) === 0 ? 'none' : 'inline-block'};">${hasProgressed ? startProgress : progress}%</span>
+                    </div>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 8px;">
-                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-edit-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
-                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-flip-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 4 4 4-4 4M20 8H4M8 20l-4-4 4-4M4 16h16"></path></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="set-progress-bar-bg" style="position: relative; background: ${palette.barBg}; border-radius: 4px; height: 16px; width: 100%; overflow: hidden; margin-bottom: 12px;">
-                    <div class="set-progress-bar-fill" style="background: ${palette.barFill}; height: 100%; border-radius: 4px; width: ${hasProgressed ? startProgress : progress}%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
-                    <span class="set-progress-text" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 14.4px; color: ${palette.barText}; font-weight: 800; white-space: nowrap; padding: 0px 5px; border-radius: 3px; line-height: 14.4px; display: ${(hasProgressed ? startProgress : progress) === 0 ? 'none' : 'inline'};">${hasProgressed ? startProgress : progress}%</span>
+                <div class="set-progress-bar-bg" style="background: ${palette.barBg}; border-radius: 999px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 14px;">
+                    <div class="set-progress-bar-fill" style="background: ${palette.barFill}; height: 100%; border-radius: 999px; width: ${hasProgressed ? startProgress : progress}%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
                 </div>
 
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; gap: 8px; height:50px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 3px;">${g.icon} ${g.title}</button>`).join('')}
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${g.icon(18)} ${g.title}</button>`).join('')}
                 </div>
             `);
 
@@ -323,7 +359,7 @@ function catalog(container) {
                     if (bar) bar.style.width = `${progress}%`;
                     if (text) {
                         text.textContent = `${progress}%`;
-                        text.style.display = progress === 0 ? 'none' : 'inline';
+                        text.style.display = progress === 0 ? 'none' : 'inline-block';
                     }
                     // Animated once; the next render should not replay it
                     if (session && session.startProgress) {
@@ -362,26 +398,48 @@ function catalog(container) {
     catalog.render = render;
 
     catalog.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
         palette = {
-            heading: isDark ? '#f8fafc' : '#1e293b',
-            title: isDark ? '#f8fafc' : '#0f172a',
-            themeIcon: isDark ? '☀️' : '🌙',
-            softBg: isDark ? '#334155' : '#f1f5f9',
-            softColor: isDark ? '#cbd5e1' : '#475569',
-            softBorder: isDark ? '#475569' : '#cbd5e1',
-            cardBg: isDark ? '#1e293b' : '#ffffff',
-            cardBorder: isDark ? '#334155' : '#e2e8f0',
-            cardShadow: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)',
-            hint: isDark ? '#94a3b8' : '#64748b',
-            inputBg: isDark ? '#0f172a' : '#ffffff',
-            inputText: isDark ? '#f8fafc' : '#0f172a',
-            barBg: isDark ? '#334155' : '#e2e8f0',
-            barFill: isDark ? '#3b82f6' : '#2563eb',
-            barText: isDark ? '#f8fafc' : '#64748b',
-            dialogBg: isDark ? '#1e293b' : '#ffffff',
-            dialogText: isDark ? '#f8fafc' : '#0f172a',
-            dialogBorder: isDark ? '#334155' : '#e2e8f0',
-            dialogBody: isDark ? '#cbd5e1' : '#475569'
+            heading: t.ink,
+            title: t.ink,
+            // Sun while the dark theme is on, because the icon says where the
+            // button goes, not where you are.
+            themeIcon: isDark ? SUN : MOON,
+
+            // The logo takes the Cards button's own colour rather than the accent.
+            // The game colours do not follow the theme, the accent does, so in
+            // the light theme the two would sit side by side as a pair of
+            // near-identical corals — which reads as a mistake rather than as a
+            // pair. It is the one warm thing in the header now that the New Set
+            // button has given the colour up.
+            logo: (GAMES.find(g => g.id === 'cards') || {}).color || t.accent,
+            softBg: t.soft,
+            softColor: t.muted,
+            softBorder: t.border,
+            cardBg: t.surface,
+            cardBorder: t.border,
+            hint: t.muted,
+            inputBg: t.soft,
+            inputText: t.ink,
+            barBg: t.soft,
+            barFill: t.progress,
+
+            // The timer badge is the same colour family as the bar, taken deep
+            // enough to carry white text: the bar has nothing written on it and
+            // can stay light, a 10px badge cannot.
+            timerFill: t.progressFill,
+            onTimer: '#ffffff',
+            // The percent beside the title is a quiet readout, and mint text on
+            // the light theme's white card is 2.1:1. The bar under it is the
+            // thing that is meant to be mint.
+            barText: t.muted,
+            accent: t.accent,
+            onAccent: t.onAccent,
+            dialogBg: t.surface,
+            dialogText: t.ink,
+            dialogBorder: t.border,
+            dialogBody: t.muted
         };
     };
 
@@ -413,12 +471,12 @@ function catalog(container) {
     // Modal shown when every word of the selection is still waiting for its timer
     function confirmEarly(onPlayAnyway) {
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;">
-            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 12px; padding: 16px; max-width: 320px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.25);">
+            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 20px; padding: 20px; max-width: 320px; width: 100%;">
                 <div class="early-dialog-title" style="font-size: 16.8px; font-weight: 700; margin-bottom: 6px;">⏳ Nothing to repeat yet</div>
                 <div class="early-dialog-text" style="font-size: 15px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 14px;">All words in this selection are still waiting for their timers. An early repetition will not raise the progress, but a mistake will still set the word back.</div>
                 <div class="early-dialog-actions" style="display: flex; gap: 8px;">
-                    <button class="early-dialog-cancel" style="flex: 1; padding: 9px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;">Cancel</button>
-                    <button class="early-dialog-play" style="flex: 1; padding: 9px; background: #2563eb; color: #ffffff; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;">Play anyway</button>
+                    <button class="early-dialog-cancel" style="flex: 1; padding: 9px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer;">Cancel</button>
+                    <button class="early-dialog-play" style="flex: 1; padding: 9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer;">Play anyway</button>
                 </div>
             </div>
         </div>`);

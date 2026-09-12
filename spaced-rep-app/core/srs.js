@@ -3,16 +3,29 @@
  * repetitions and derives everything else. Owns no DOM and no storage.
  */
 function spacedRepetitions() {
+    const MINUTE = 60 * 1000;
+    const HOUR = 60 * MINUTE;
+    const DAY = 24 * HOUR;
+
+    // Thirteen rungs, so a word has thirteen states to be in and the bubble ramp
+    // has thirteen colours to say which. Roughly a doubling each time: the first
+    // hour is where a new word is won or lost, so the early rungs are minutes
+    // apart, and past a day the gaps stretch to weeks because a word that
+    // survived a day is not at risk of being forgotten by tomorrow.
     const INTERVALS = [
         0,                      // stage 0 — starting state, word is available right away
-        3 * 60 * 1000,
-        5 * 60 * 1000,
-        10 * 60 * 1000,
-        30 * 60 * 1000,
-        60 * 60 * 1000,
-        4 * 60 * 60 * 1000,
-        12 * 60 * 60 * 1000,
-        24 * 60 * 60 * 1000
+        3 * MINUTE,
+        5 * MINUTE,
+        10 * MINUTE,
+        30 * MINUTE,
+        1 * HOUR,
+        4 * HOUR,
+        12 * HOUR,
+        1 * DAY,
+        2 * DAY,
+        4 * DAY,
+        7 * DAY,
+        14 * DAY
     ];
 
     // Stage s waits INTERVALS[s]; the last interval is the maximum stage
