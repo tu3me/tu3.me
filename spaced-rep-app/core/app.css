@@ -61,6 +61,28 @@
 }
 
 /*
+ * The window's scrollbar gets its width reserved instead of being left to come
+ * and go.
+ *
+ * The layout is a fixed 410px column held in the middle by auto margins, so the
+ * width a scrollbar takes is width the centring divides in two: the moment a
+ * page grows past the fold the whole app slides sideways by half a scrollbar,
+ * and back again when it shrinks. Opening the new-set form does exactly that.
+ *
+ * Reserved rather than hidden. In a window this is the only scrollbar there is —
+ * it says how far down the page goes, and dragging it is how some people scroll.
+ * The popup below is the opposite case and hides its own: there the app is the
+ * whole window and has no width to give up.
+ *
+ * Nothing is reserved where scrollbars are overlaid on the content and take no
+ * width to begin with — every phone, and macOS unless it is set otherwise — so
+ * this costs those nothing.
+ */
+:root:not(.in-popup) {
+    scrollbar-gutter: stable;
+}
+
+/*
  * Popup only, switched on by prepaint.js.
  *
  * Chrome caps the popup at 600px and, past that, scrolls the popup itself. Its
@@ -119,6 +141,65 @@ body {
 
 .app-main-content {
     padding: 12px;
+}
+
+/*
+ * What a word bubble does while it waits its turn.
+ *
+ * A word whose time has come hops. It says the same thing the missing timer
+ * badge says, but from across the screen and without being read — which set has
+ * something to do in it is the one question the catalog is opened to answer.
+ *
+ * A word still ripening hops too, but barely: fifteen times slower and smaller
+ * again. Same shape of movement, so the two read as one family — one word
+ * asking to be answered, the other only breathing while it waits.
+ *
+ * Each size needs its own keyframes rather than a scale laid on top: the hop
+ * skews and rotates as well as stretches, and every one of those has to come
+ * down together or the movement stops being the same movement.
+ *
+ * Which of the two a bubble takes is decided in catalog.js, where the stage and
+ * the timer are known.
+ *
+ * Every value here is a third of what it started as. At full size the hop was a
+ * jump; the point is to catch the eye at the edge of it, not to hold the eye in
+ * the middle of it.
+ *
+ * Keyframes cannot be written in a style attribute, so they live here with the
+ * placeholder rule below. Which bubble hops is decided in catalog.js, where the
+ * stage and the timer are known.
+ */
+@keyframes bounce {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.0022 1.0333; transform: skew(1.111deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.222deg; }
+    75% { scale: 1.0022 1.0556; transform: skew(-0.222deg, 0deg); }
+}
+
+/*
+ * The waiting hop. Its own numbers rather than a fraction of the one above:
+ * the two have been brought down separately and by different amounts, and
+ * writing one as a share of the other only invites a comment that lies about
+ * what the file says.
+ */
+@keyframes bounce-slow {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.0017 1.025; transform: skew(0.833deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.167deg; }
+    75% { scale: 1.0017 1.0417; transform: skew(-0.167deg, 0deg); }
+}
+
+/*
+ * Motion that never stops is exactly what this setting is set for, and a screen
+ * of bubbles all moving at once is the worst of it. The colours and the badge
+ * carry the same information standing still.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .word-bubble-card {
+        animation: none !important;
+    }
 }
 
 /* A placeholder cannot be styled from a style attribute, so this one rule lives

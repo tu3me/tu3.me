@@ -25,6 +25,35 @@ function catalog(container) {
     // fidgety rather than lively.
     let introduce = false;
 
+    // Armed by the New Set button just before the redraw it causes, and spent by
+    // that redraw. The catalog rebuilds itself wholesale, so the form arrives as
+    // a brand new element with no past to animate out of: the only way to move
+    // it is to hand it a starting state and let it off a frame later.
+    let unfolding = false;
+
+    /*
+     * The room the Continue banner was taking when the form was opened, measured
+     * before the redraw that hides it.
+     *
+     * The banner goes the moment the form arrives, so a fold that started at
+     * nothing would drop the whole column by the banner's height and lift it
+     * back at the end. Starting and finishing at exactly that height makes both
+     * ends of the fold a swap of one block for another of the same size, and
+     * nothing below moves.
+     *
+     * Its margin counts as much as its height: it is the space the banner was
+     * occupying that has to be filled, not the box alone.
+     *
+     * Zero when there was no banner — nothing unfinished to continue — and then
+     * the form folds down to nothing as before.
+     */
+    let bannerSpace = 0;
+
+    // Set while the form is folding shut. The fold has to finish before the set
+    // behind it is dropped, and until then the button still works — a second
+    // press would start a second fold on a card that is already half gone.
+    let closing = false;
+
     // The ramp lives in tokens.js. Captured once and never rebound: it is the
     // same in both themes, because a stage means the same thing in both.
     const stageRamp = tokens.stages();
@@ -91,9 +120,11 @@ function catalog(container) {
      * three of these end in a paste.
      *
      * A step is a line of text, a line that leads somewhere, a line that carries
-     * an icon, or a line with a prompt worth pasting into an AI tool. The prompt is written out rather than described because the shape of
-     * the answer is the whole point: one "word -- translation" per line is
-     * exactly what the box above parses, so a good answer needs no editing.
+     * an icon, or a line with a prompt worth pasting into an AI tool.
+     *
+     * The prompt is written out rather than described because the shape of the
+     * answer is the whole point: one "word -- translation" per line is exactly
+     * what the box above parses, so a good answer needs no editing.
      *
      * Data rather than three blocks of markup: they are the same shape, and a
      * fourth route should cost one entry.
@@ -108,7 +139,7 @@ function catalog(container) {
                     link: 'https://translate.google.com/saved'
                 },
                 { text: 'Press Export', icon: 'sheet' },
-                'Copy the words from the table and paste them in the box above'
+                'Select only words and translations in the table, copy and paste them in the box above'
             ]
         },
         {
@@ -226,8 +257,8 @@ function catalog(container) {
      * The box's own section: the same line of type as a route's header, with
      * nothing to press.
      *
-     * It does not fold because there is nothing to reveal — it is where the
-     * caret already is, and the form would be empty without it. A chevron on it
+     * It does not fold because there is nothing to reveal: it is the box the
+     * whole form exists for, and without it the form is empty. A chevron on it
      * would offer a fold that the section has no business performing.
      *
      * The label sits flush with the form's own left edge — the set name above it
@@ -294,7 +325,33 @@ function catalog(container) {
     /**
      * Creates a bubble HTML element and appends it to parent
      */
-    function createBubble(bubbleData, parent) {
+    /*
+     * How long a bubble takes to hop once.
+     *
+     * It runs forever, so `order` shifts each bubble into the cycle by a
+     * different amount — a negative delay starts it mid-flight — because a row
+     * of them moving in lockstep reads as one object jerking rather than as a
+     * handful of words.
+     */
+    const BOUNCE_MS = 650;
+
+    // A word still counting down barely moves: fifteen times slower, and through
+    // its own keyframes, which are the same hop at half the size. It is a word
+    // breathing in its sleep rather than one asking to be answered.
+    const SLOW_BOUNCE_MS = BOUNCE_MS * 15;
+
+    function bubbleMotion(stage, timer, order) {
+        // Stage 0 is the pile nothing has happened to yet. It has no wait to sit
+        // out and nothing to be ready for, so it does not move at all — and it
+        // would otherwise hop from the very first draw.
+        if (stage === 0) return '';
+
+        return timer
+            ? `animation: bounce-slow ${SLOW_BOUNCE_MS}ms ease-in-out ${-order * 1300}ms infinite;`
+            : `animation: bounce ${BOUNCE_MS}ms ease-in-out ${-order * 170}ms infinite;`;
+    }
+
+    function createBubble(bubbleData, parent, order) {
         const { word, translation, bgColor, textColor, transColor, marks, stage, timer } = bubbleData;
 
         // Build the repetition timeline: one sprite icon per repetition or elapsed interval
@@ -314,7 +371,7 @@ function catalog(container) {
             : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
+            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
                 <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1;">
                     ${dotsHtml}
@@ -333,6 +390,9 @@ function catalog(container) {
         // animation armed for whatever redraws next.
         const intro = introduce;
         introduce = false;
+
+        const unfold = unfolding;
+        unfolding = false;
 
         container.innerHTML = '';
 
@@ -377,11 +437,17 @@ function catalog(container) {
         // back down. Left as a plain action it would mint another empty set on
         // every press, and the catalog would stack blank forms nobody asked for.
         header.querySelector('#add-set-btn').addEventListener('click', () => {
+            if (closing) return;
+
             if (addingSet) {
-                discardNewSets();
-                render();
+                closeNewSet();
                 return;
             }
+
+            const banner = container.querySelector('.continue-banner');
+            bannerSpace = banner
+                ? banner.offsetHeight + (parseFloat(getComputedStyle(banner).marginBottom) || 0)
+                : 0;
 
             const id = Date.now().toString();
             store.addSet({
@@ -393,13 +459,13 @@ function catalog(container) {
             });
             editing.add(id);
             createdEmpty.add(id);
+            unfolding = true;
             render();
         });
 
-        // The banner is hidden while a new set is being written. The form opens
-        // focused, with the caret waiting in the textarea, and a banner sitting
-        // above it is both a distraction and a click away from throwing the
-        // typing away.
+        // The banner is hidden while a new set is being written: it would sit
+        // between the form and the list it belongs to, and it is one click away
+        // from leaving for a game and throwing the typing away.
         const resumable = (session && !addingSet) ? GAMES.find(g => g.id === session.game) : null;
         if (resumable) {
             const label = `${resumable.icon(20)} ${resumable.title}`;
@@ -416,6 +482,168 @@ function catalog(container) {
 
         sets.forEach((set, index) => {
             renderSetCard(setsList, set, index, intro);
+        });
+
+        if (unfold) {
+            const card = newSetCard();
+            if (card) unfoldInto(card);
+        }
+    }
+
+    /*
+     * The form growing out of nothing, and folding back into it.
+     *
+     * Height is animated through max-height because the form has no height to
+     * animate to: it is whatever the box, the routes and the header add up to,
+     * and that is known only once the thing is in the page. The cap is measured
+     * there and dropped as soon as the run ends — left on, it would clip the
+     * form the moment a route was opened inside it.
+     *
+     * The cap has to be dropped after the run and not before, which is what
+     * pin() below is for.
+     *
+     * Padding goes along with it when the card folds to nothing: max-height caps
+     * the content box, so padding alone would hold the card 32px tall with
+     * nothing in it.
+     *
+     * Nothing fades. The card is the banner's own colour, and with the fold
+     * starting at the banner's height the two read as one block changing shape —
+     * a fade would blank that block for a moment instead.
+     *
+     * The list spaces its cards with a flex gap, which no card can animate. A
+     * negative margin of the same size cancels it, so the cards below slide
+     * instead of jumping the moment this one appears or leaves. Only when there
+     * is another card to be spaced from: alone, that margin would just crop the
+     * list.
+     */
+    const FOLD_OPEN = 260;
+    const FOLD_SHUT = 240;
+
+    function listGap(card) {
+        const list = card.parentElement;
+        if (!list || list.children.length < 2) return 0;
+        return parseFloat(getComputedStyle(list).rowGap) || 0;
+    }
+
+    /*
+     * Puts the starting state into the layout so there is something to move
+     * from. Both styles applied in one go would be collapsed into a single
+     * pass and the element would simply appear in its end state.
+     *
+     * A forced reflow rather than requestAnimationFrame. A tab that is not
+     * painting throttles rAF to whenever it next paints but leaves setTimeout
+     * alone, so the release timer below would fire first — and the callback,
+     * arriving afterwards, would put the cap back on and leave it there.
+     */
+    function pin(card) {
+        void card.offsetHeight;
+    }
+
+    /*
+     * The collapsed end of the fold, and what the card has to do to reach it.
+     *
+     * The negative margin cancels the list's gap, so at that end the card takes
+     * exactly its own height out of the column and nothing more — which is what
+     * lets that height be compared with the banner's directly.
+     *
+     * Padding is flattened only when the card folds all the way down: 32px of it
+     * cannot fit inside a card of no height. Against the banner's height it fits
+     * easily, and flattening it there would shove the form's own heading about
+     * for no reason.
+     */
+    function collapsed(card, gap) {
+        const cs = getComputedStyle(card);
+        const frame = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+        const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+
+        // max-height caps the content box, and the card's padding and border sit
+        // outside it. Asking for the banner's height directly would leave a card
+        // that tall plus 34px of frame — which is exactly the jump this is meant
+        // to remove.
+        const inner = bannerSpace - frame - pads;
+
+        if (inner >= 0) {
+            card.style.maxHeight = `${inner}px`;
+        } else {
+            // Nothing to fit the padding into: flatten it and give the content
+            // whatever the frame leaves. This is also the no-banner case, where
+            // the card folds all the way down to its own two border lines.
+            card.style.paddingTop = '0px';
+            card.style.paddingBottom = '0px';
+            card.style.maxHeight = `${Math.max(bannerSpace - frame, 0)}px`;
+        }
+
+        if (gap) card.style.marginBottom = `-${gap}px`;
+    }
+
+    function unfoldInto(card) {
+        const opened = card.scrollHeight;
+        const gap = listGap(card);
+
+        // Taken before they are overridden, and put back by value at the end.
+        // The card's padding is written in its own style attribute, so clearing
+        // the override does not uncover it — it uncovers nothing, and the card
+        // would keep the flattened padding it was animated through.
+        const padTop = getComputedStyle(card).paddingTop;
+        const padBottom = getComputedStyle(card).paddingBottom;
+
+        card.style.overflow = 'hidden';
+        collapsed(card, gap);
+
+        pin(card);
+
+        card.style.transition = `max-height ${FOLD_OPEN}ms ease-out,`
+            + ` padding ${FOLD_OPEN}ms ease-out, margin-bottom ${FOLD_OPEN}ms ease-out`;
+        card.style.maxHeight = `${opened}px`;
+        card.style.paddingTop = padTop;
+        card.style.paddingBottom = padBottom;
+        card.style.marginBottom = '';
+
+        setTimeout(() => {
+            card.style.maxHeight = '';
+            card.style.overflow = '';
+            card.style.transition = '';
+        }, FOLD_OPEN + 40);
+    }
+
+    function foldAway(card, done) {
+        const gap = listGap(card);
+
+        card.style.overflow = 'hidden';
+        card.style.maxHeight = `${card.scrollHeight}px`;
+
+        pin(card);
+
+        card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
+            + ` padding ${FOLD_SHUT}ms ease-in, margin-bottom ${FOLD_SHUT}ms ease-in`;
+        collapsed(card, gap);
+
+        setTimeout(done, FOLD_SHUT);
+    }
+
+    // The card the New Set button opened, or null once it is gone.
+    function newSetCard() {
+        const id = createdEmpty.values().next().value;
+        return id ? container.querySelector(`.set-card[data-set-id="${id}"]`) : null;
+    }
+
+    // Folds the form shut and then drops what was behind it. Without a card to
+    // fold — nothing open, or the screen redrawn under us — it just does the
+    // dropping, so the caller never has to know which case it is in.
+    function closeNewSet() {
+        const card = newSetCard();
+
+        if (!card) {
+            discardNewSets();
+            render();
+            return;
+        }
+
+        closing = true;
+        foldAway(card, () => {
+            closing = false;
+            discardNewSets();
+            render();
         });
     }
 
@@ -437,7 +665,7 @@ function catalog(container) {
     }
 
     function renderSetCard(parent, set, index, intro) {
-        const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
+        const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
 
         if (editing.has(set.id)) {
             let textLines = [set.title];
@@ -448,12 +676,12 @@ function catalog(container) {
             const box = `<label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
                     First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 230px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>`;
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>`;
 
             // A set being written from scratch gets the box as the first section,
-            // always open — it is the one thing always needed, and the caret
-            // lands in it. The three routes fold away underneath, where they are
-            // read once and then ignored by anyone who already has a list.
+            // always open — it is the one thing always needed. The three routes
+            // fold away underneath, where they are read once and then ignored by
+            // anyone who already has a list.
             //
             // Editing an existing set shows none of it: the words are already
             // here, and the only reason the form is open is to change them.
@@ -524,9 +752,17 @@ function catalog(container) {
 
             const textarea = editForm.querySelector('.set-edit-textarea');
 
-            // Ready to type straight away, caret after whatever is already there
-            textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            // Only an existing set opens ready to type, caret after whatever is
+            // already there: its words are in the box, and changing them is the
+            // one reason that form is open.
+            //
+            // A new set is not given the caret. The routes above the box are
+            // there to be read first, and taking focus scrolls them off on a
+            // short screen and raises the keyboard over what is left.
+            if (!guided) {
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }
 
             editForm.querySelector('.set-save-btn').addEventListener('click', () => {
                 const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -570,11 +806,16 @@ function catalog(container) {
             });
 
             editForm.querySelector('.set-cancel-btn').addEventListener('click', () => {
+                // Cancel on a new set is the same closing as the button's, and
+                // folds the same way. Cancel on an existing set only puts the
+                // form away: the card stays where it is, so there is nothing to
+                // fold.
                 if (createdEmpty.has(set.id)) {
-                    store.removeAt(index);
+                    closeNewSet();
+                    return;
                 }
+
                 editing.delete(set.id);
-                createdEmpty.delete(set.id);
                 store.save();
                 render();
             });
@@ -627,9 +868,9 @@ function catalog(container) {
             if (totalWords === 0) {
                 $(bubblesContainer, `<p class="set-empty-msg" style="margin: 4px 0; color: #94a3b8; font-size: 15.6px; font-style: italic;">Set is empty</p>`);
             } else {
-                set.words.forEach(w => {
+                set.words.forEach((w, order) => {
                     const bubbleData = buildBubbleData(w);
-                    createBubble(bubbleData, bubblesContainer);
+                    createBubble(bubbleData, bubblesContainer, order);
                 });
             }
 
