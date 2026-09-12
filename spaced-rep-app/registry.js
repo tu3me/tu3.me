@@ -6,6 +6,12 @@
  * Paths are relative to the app root, so they work from any page. The .html
  * suffix is not written here: nav adds it where it is required.
  *
+ * `unlockAtStage` is the lowest stage every word in a set must have reached
+ * before the game opens on it: cards from the start, quiz once nothing is left
+ * on stage 0, snake once nothing is left on stage 1. It lives here because it
+ * describes the game, and because adding a game should mean adding one entry,
+ * not editing the catalog as well.
+ *
  * Icons are drawn rather than borrowed from the emoji table. An emoji is
  * rendered by the platform, so the same button is a different picture on
  * Windows, Android and iOS, and it arrives with colours of its own that ignore
@@ -28,6 +34,7 @@ function gameIcon(size, body) {
 const GAMES = [
     {
         id: 'cards',
+        unlockAtStage: 0,      // open from the start
         title: 'Cards',
         // One card in front, a second showing behind it — its top-left corner
         // sticking out, leaning the opposite way from the front card.
@@ -50,6 +57,7 @@ const GAMES = [
     },
     {
         id: 'quiz',
+        unlockAtStage: 1,      // once no word is left on stage 0
         title: 'Quiz',
         // Three options with the middle one chosen. A question mark in a circle
         // is the universal help button and was read as one; this says what the
@@ -66,6 +74,7 @@ const GAMES = [
     },
     {
         id: 'snake',
+        unlockAtStage: 2,      // once no word is left on stage 1
         title: 'Snake',
         // The 8-bit snake: square segments on a grid with a pixel of food ahead
         // of the head. It climbs — three along the bottom, up the middle, then

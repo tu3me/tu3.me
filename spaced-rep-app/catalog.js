@@ -17,6 +17,14 @@ function catalog(container) {
     const editing = new Set();
     const createdEmpty = new Set();
 
+    // Whether the next draw should grow the bars out of nothing. Armed by
+    // catalog.render(), which is the entry the page itself calls — opening the
+    // catalog, or coming back to it from a game. The redraws the screen does to
+    // itself, toggling the theme or opening an edit form, call render() straight
+    // and leave it alone: replaying the animation every time a set is saved is
+    // fidgety rather than lively.
+    let introduce = false;
+
     // The ramp lives in tokens.js. Captured once and never rebound: it is the
     // same in both themes, because a stage means the same thing in both.
     const stageRamp = tokens.stages();
@@ -71,6 +79,32 @@ function catalog(container) {
 
     const MOON = chromeIcon(`
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
+
+    // Stands in for a game's own icon while the game is shut. Not alongside it:
+    // a third shape in a button this narrow crowds the label, and the label
+    // already says which game this is.
+    const LOCK = chromeIcon(`
+        <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />`);
+
+    /*
+     * Which games a set has opened.
+     *
+     * They arrive one at a time as the set matures — see unlockAtStage in
+     * registry.js — and the gate is the set's weakest word, not its average: a
+     * single untouched word holds quiz back, which is the point. Learn the set,
+     * not the easy half of it.
+     *
+     * Derived on every render and never stored. The rule is a function of the
+     * repetitions, and anything a rule can be derived from is a thing it can
+     * drift from once it is written down separately.
+     */
+    function lowestStage(words) {
+        if (!words || words.length === 0) return 0;
+        return words.reduce(
+            (low, w) => Math.min(low, spacedRepetitions.getWordProgress(w).stage || 0),
+            Infinity);
+    }
 
     // Compact timer text for bubble badges (e.g. "5m", "2h", "3d")
     function getCompactTimerText(nextReview) {
@@ -158,6 +192,12 @@ function catalog(container) {
     }
 
     function render() {
+        // Read once per draw, so every card in the pass agrees, and cleared here
+        // rather than at the end: an exception further down should not leave the
+        // animation armed for whatever redraws next.
+        const intro = introduce;
+        introduce = false;
+
         container.innerHTML = '';
 
         const sets = store.sets();
@@ -219,11 +259,11 @@ function catalog(container) {
         const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 14px;"></div>`);
 
         sets.forEach((set, index) => {
-            renderSetCard(setsList, set, index);
+            renderSetCard(setsList, set, index, intro);
         });
     }
 
-    function renderSetCard(parent, set, index) {
+    function renderSetCard(parent, set, index, intro) {
         const card = $(parent, `<div class="set-card" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
 
         if (editing.has(set.id)) {
@@ -306,18 +346,25 @@ function catalog(container) {
         } else {
             const totalWords = set.words.length;
             const progress = spacedRepetitions.calculateSetProgress(set.words);
+            const lowest = lowestStage(set.words);
 
             // Where the bar animates from: the progress this set had when the
             // running session started, kept in active_session rather than on the set.
-            const baseline = session && session.startProgress ? session.startProgress[set.id] : undefined;
-            const startProgress = baseline !== undefined ? baseline : progress;
-            const hasProgressed = startProgress !== progress;
+            // Where the bar starts before it runs to `progress`: at nothing when
+            // the catalog is opened, so the bars fill, and at the real value on
+            // the redraws the screen does to itself.
+            //
+            // The number beside it is not animated. A bar sweeping to its length
+            // reads as one motion; a digit counting up beside it reads as a
+            // second, slower one, and the eye ends up watching the wrong one.
+            const from = intro ? 0 : progress;
+            const grows = from !== progress;
 
             $(card, `
                 <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                         <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 18px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
-                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.barBg}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${(hasProgressed ? startProgress : progress) === 0 ? 'none' : 'inline-block'};">${hasProgressed ? startProgress : progress}%</span>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.barBg}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
                     </div>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 8px;">
                         <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
@@ -330,13 +377,29 @@ function catalog(container) {
                 </div>
 
                 <div class="set-progress-bar-bg" style="background: ${palette.barBg}; border-radius: 999px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 14px;">
-                    <div class="set-progress-bar-fill" style="background: ${palette.barFill}; height: 100%; border-radius: 999px; width: ${hasProgressed ? startProgress : progress}%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
+                    <div class="set-progress-bar-fill" style="background: ${palette.barFill}; height: 100%; border-radius: 999px; width: ${from}%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
                 </div>
 
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; gap: 8px; height:50px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${g.icon(18)} ${g.title}</button>`).join('')}
+                    ${GAMES.map(g => {
+                        const locked = lowest < (g.unlockAtStage || 0);
+                        const hint = locked
+                            ? ` title="Opens once every word is past stage ${g.unlockAtStage - 1}"`
+                            : '';
+
+                        // A shut game is the outline of the open one: same colour,
+                        // same border width, nothing poured in, and the label and
+                        // lock in that colour too. The border is on both states so
+                        // the button keeps its size when a game opens and the row
+                        // does not jump.
+                        const skin = locked
+                            ? `background: transparent; color: ${g.color}; cursor: default;`
+                            : `background: ${g.color}; color: #ffffff; cursor: pointer;`;
+
+                        return `<button class="set-play-btn${locked ? ' set-play-btn--locked' : ''}" data-game="${g.id}"${locked ? ' disabled' : ''}${hint} style="flex: 1; padding: 7px 4px; ${skin} border: 1.5px solid ${g.color}; border-radius: 12px; font-weight: 700; font-size: 15px; transition: background 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${locked ? LOCK : g.icon(18)} ${g.title}</button>`;
+                    }).join('')}
                 </div>
             `);
 
@@ -351,21 +414,11 @@ function catalog(container) {
                 });
             }
 
-            // Animate the bar from the progress the set had when the session started
-            if (hasProgressed) {
+            // Let the first frame land at zero, then run to the real value.
+            if (grows) {
                 setTimeout(() => {
                     const bar = card.querySelector('.set-progress-bar-fill');
-                    const text = card.querySelector('.set-progress-text');
                     if (bar) bar.style.width = `${progress}%`;
-                    if (text) {
-                        text.textContent = `${progress}%`;
-                        text.style.display = progress === 0 ? 'none' : 'inline-block';
-                    }
-                    // Animated once; the next render should not replay it
-                    if (session && session.startProgress) {
-                        session.startProgress[set.id] = progress;
-                        storage.set('active_session', session);
-                    }
                 }, 150);
             }
 
@@ -395,7 +448,10 @@ function catalog(container) {
         }
     }
 
-    catalog.render = render;
+    catalog.render = () => {
+        introduce = true;
+        render();
+    };
 
     catalog.setTheme = (isDark) => {
         const t = tokens.of(isDark);
@@ -449,7 +505,9 @@ function catalog(container) {
     // the algorithm, not of any game, so the catalog answers it itself — and asking
     // here means Cancel costs nothing, since no page has been loaded yet.
     function launch(game, setId) {
-        if (store.wordsOf(setId).length === 0) return;
+        const words = store.wordsOf(setId).map(item => item.word);
+        if (words.length === 0) return;
+        if (lowestStage(words) < (game.unlockAtStage || 0)) return;
 
         if (store.duePool(setId, false).length === 0) {
             confirmEarly(() => beginSession(game, setId, true));
@@ -462,8 +520,7 @@ function catalog(container) {
         await storage.set('active_session', {
             game: game.id,
             setId: setId,
-            startedAt: Date.now(),
-            startProgress: store.progressSnapshot()
+            startedAt: Date.now()
         });
         await nav.game(game, setId, allowEarly);
     }

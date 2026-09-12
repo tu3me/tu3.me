@@ -21,8 +21,9 @@ function store() {
     }
 
     // word_sets carries domain data only. Screen state that used to ride along on
-    // the set objects lives in active_session (the progress baseline) or in a local
-    // variable of the catalog (the edit mode).
+    // the set objects lives in a local variable of the catalog now. The fields
+    // below are dropped on load because sets saved by the old monolith still
+    // carry them.
     function stripUiFields(set) {
         delete set.startProgress;
         delete set.isEditing;
@@ -86,15 +87,6 @@ function store() {
         }
     }
 
-    // Progress of every set right now, keyed by set id. Taken when a session
-    // starts and kept in active_session, so the catalog can animate the bar
-    // from where the player left off to where they got to.
-    function progressSnapshot() {
-        const snapshot = {};
-        sets.forEach(s => snapshot[s.id] = spacedRepetitions.calculateSetProgress(s.words));
-        return snapshot;
-    }
-
     store.load = load;
     store.save = save;
     store.sets = () => sets;
@@ -103,6 +95,5 @@ function store() {
     store.addSet = (set) => sets.unshift(set);
     store.removeAt = (index) => sets.splice(index, 1);
     store.recordRepetition = recordRepetition;
-    store.progressSnapshot = progressSnapshot;
     store.migrateWord = migrateWord;
 }
