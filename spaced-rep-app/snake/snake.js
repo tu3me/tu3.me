@@ -194,23 +194,37 @@ function snake(container) {
         const BOX_LINE = 1.6;
         const BAR_MAX = 56;
 
+        /*
+         * The size the letters start at, before anything is measured.
+         *
+         * Big enough that a short word fills the banner instead of sitting in
+         * the middle of it as small type. Nothing is risked by asking for too
+         * much: fitGathered only ever comes down from here, so a long word ends
+         * up exactly where it would have anyway, and a short one keeps the size
+         * it was given.
+         */
+        const BOX_SIZE = 31.2;
+
+        // The gap belongs to the size, not to the starting state: computed by
+        // the same rule here as inside the loop, so the first measurement is of
+        // the spacing the letters will actually have.
+        const gapFor = (size) => Math.max(1, Math.round(size * 0.25));
+
         function fitGathered() {
             const boxes = gatheredBar.querySelectorAll('.snake-gathered-box');
             if (boxes.length === 0) return;
 
-            let size = 15.6;
-            let gap = 5;
+            let size = BOX_SIZE;
             const maxH = BAR_MAX;
 
-            gatheredBar.style.gap = gap + 'px';
+            gatheredBar.style.gap = gapFor(size) + 'px';
             boxes.forEach(b => {
                 b.style.fontSize = size + 'px';
             });
 
             while ((gatheredBar.scrollHeight > maxH || gatheredBar.offsetHeight > maxH) && size > 8 && gatheredBar.offsetHeight > 0) {
                 size -= 0.5;
-                gap = Math.max(1, Math.round(size * 0.25));
-                gatheredBar.style.gap = gap + 'px';
+                gatheredBar.style.gap = gapFor(size) + 'px';
                 boxes.forEach(b => {
                     b.style.fontSize = size + 'px';
                 });
@@ -510,7 +524,7 @@ function snake(container) {
 
                 const box = document.createElement('div');
                 box.className = 'snake-gathered-box';
-                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15.6px; line-height: ${BOX_LINE}; color: ${color}; transition: color 0.2s;`;
+                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${BOX_SIZE}px; line-height: ${BOX_LINE}; color: ${color}; transition: color 0.2s;`;
 
                 // A revealed blank is the block the board draws, in the colour
                 // this letter would have been written in. Sized in em so it
