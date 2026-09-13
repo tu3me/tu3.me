@@ -173,13 +173,34 @@ function snake(container) {
             }
         }
 
+        /*
+         * How tall a letter's line is, and how much room the bar has for lines
+         * of it.
+         *
+         * 1.2 was enough while the letters were Latin, and cut everything else:
+         * a line box that tall leaves 2.9px under the baseline at this size,
+         * and a Hebrew final kaf or a sheva needs 4. Measured across the whole
+         * of WRITING SYSTEMS, the deepest letter (हूँ) reaches 5px below the
+         * baseline and the tallest (कै) 18px above it — past the font's own
+         * ascent of 17 — so the ink wants 23px where the line gave 18.7. The
+         * bar clips what does not fit, which is what made the tops and tails
+         * disappear.
+         *
+         * 1.6 leaves about a pixel of air at each end. The cap grows with it,
+         * so a word that takes two lines still does so at full size rather than
+         * shrinking to fit a box built for shorter letters; the banner has the
+         * room, and what is over three lines shrinks as it always did.
+         */
+        const BOX_LINE = 1.6;
+        const BAR_MAX = 56;
+
         function fitGathered() {
             const boxes = gatheredBar.querySelectorAll('.snake-gathered-box');
             if (boxes.length === 0) return;
 
             let size = 15.6;
             let gap = 5;
-            const maxH = 42;
+            const maxH = BAR_MAX;
 
             gatheredBar.style.gap = gap + 'px';
             boxes.forEach(b => {
@@ -408,7 +429,7 @@ function snake(container) {
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 19.2px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 42px; overflow: hidden;">${opts.translation}</div>
             </div>`);
 
-            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; max-height: 42px; overflow: hidden; cursor: pointer; width: 100%;" title="Click to reveal answer (counts as mistake)"></div>`);
+            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; cursor: pointer; width: 100%;" title="Click to reveal answer (counts as mistake)"></div>`);
 
             gatheredBar.addEventListener('click', () => cb.onRevealHint());
 
@@ -489,7 +510,7 @@ function snake(container) {
 
                 const box = document.createElement('div');
                 box.className = 'snake-gathered-box';
-                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15.6px; line-height: 1.2; color: ${color}; transition: color 0.2s;`;
+                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15.6px; line-height: ${BOX_LINE}; color: ${color}; transition: color 0.2s;`;
 
                 // A revealed blank is the block the board draws, in the colour
                 // this letter would have been written in. Sized in em so it
