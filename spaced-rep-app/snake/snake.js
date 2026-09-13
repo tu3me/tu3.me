@@ -21,6 +21,118 @@ function snake(container) {
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
 
+    /*
+     * A word's letters, as the person reading it would count them.
+     *
+     * Not word.split(''), which counts UTF-16 code units and is wrong in every
+     * script but the simplest: it cuts an emoji in half into two cells that are
+     * each nothing, it strips the vowel signs off a Devanagari or Thai syllable
+     * and scatters them as separate letters, and an é typed as e + combining
+     * acute becomes two cells, the second of which is an invisible mark the
+     * player cannot see, steer into, or tell from the next one.
+     *
+     * Intl.Segmenter is the one thing that knows where the breaks fall in all
+     * of them at once, which is what makes the game work the same in Japanese,
+     * Hindi or Arabic as in English.
+     *
+     * Where it is missing, code points are the next best guess: right for CJK
+     * and for emoji that are a single code point, still wrong for combining
+     * marks. Better than halving a surrogate pair, which is what the old split
+     * did everywhere.
+     */
+    const SEGMENTER = typeof Intl !== 'undefined' && Intl.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : null;
+
+    function lettersOf(word) {
+        if (!word) return [];
+
+        return SEGMENTER
+            ? Array.from(SEGMENTER.segment(word), part => part.segment)
+            : Array.from(word);
+    }
+
+    /*
+     * How a letter is shown — on the board, in the bar, and in the comparison
+     * that decides whether the player ate the right one, which is why it is
+     * applied once and stored rather than at each of those.
+     *
+     * Upper case, but only where that leaves one letter: 'ß' upper-cases to
+     * 'SS' and a cell holds a single glyph. Scripts with no case of their own
+     * pass through untouched.
+     */
+    /*
+     * A letter that is blank, drawn so the player can see it is there.
+     *
+     * Any blank, not the space bar alone: French writes a narrow no-break space
+     * before its question mark, Japanese has an ideographic one, and a cell with
+     * an invisible letter in it is a cell nobody can tell from empty board — and
+     * the one the word is stuck on.
+     */
+    const BLANK = /^\s+$/;
+
+    /*
+     * A blank is painted rather than written: a filled block in the letters'
+     * own colour, half transparent so it reads as a letter's worth of nothing
+     * rather than as a letter.
+     *
+     * It used to borrow the ␣ glyph, which at this size is a short horizontal
+     * bar — indistinguishable from a dash, and a dash is a letter a word can
+     * actually contain.
+     *
+     * How much of the cell it takes: the same inset the snake's own segments
+     * use, so a blank sits on the board like the things already on it.
+     */
+    const BLANK_ALPHA = 0.5;
+    const BLANK_INSET = 3;
+    const BLANK_RADIUS = 4;
+
+    /*
+     * Whether a word is written right to left.
+     *
+     * Judged by script, because the word is the only evidence there is: nothing
+     * tells this game what language it was handed, and a set may hold several.
+     *
+     * The letters are collected in the order they are written either way — the
+     * first letter of the word is the first one to go for, in Hebrew as in
+     * English. What this decides is only which end of the bar that first letter
+     * sits at, and for a right-to-left word, laying it out leftwards shows the
+     * word backwards to the one person who can read it.
+     */
+    const RTL_SCRIPT = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}\p{Script=Adlam}]/u;
+
+    function isRtl(text) {
+        return RTL_SCRIPT.test(text);
+    }
+
+    /*
+     * The typeface the letters are drawn in, taken from the page rather than
+     * written out again.
+     *
+     * The board draws on a canvas and the bar is ordinary markup, so the two
+     * name their font separately — and the canvas used to name only system-ui,
+     * with none of the fallbacks the page lists after it. Wherever system-ui
+     * fails to resolve, a canvas falls back to its default, which is a serif:
+     * the same word would then be serif on the board and sans in the bar under
+     * it. Measured, not guessed — an unresolvable family on canvas renders
+     * pixel for pixel as `serif`.
+     *
+     * Read from the body, so the two cannot drift apart even if the stylesheet
+     * changes its mind.
+     */
+    const LETTER_FONT = getComputedStyle(document.body).fontFamily
+        || 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+    function fontOf(px, weight) {
+        return `${weight ? weight + ' ' : ''}${px}px ${LETTER_FONT}`;
+    }
+
+    function shownAs(letter) {
+        const upper = letter.toUpperCase();
+
+        return lettersOf(upper).length === 1 ? upper : letter;
+    }
+
     // The two header toggles: the label is what the button shows, the index is what is persisted
     const CONTROL_MODES = ['Off', 'D-pad', 'Stick'];
     const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
@@ -347,27 +459,47 @@ function snake(container) {
             }
         };
 
-        view.gathered = (targetWord, collected, showHint) => {
+        // Takes the letters already segmented and cased, not the word: the bar
+        // and the board have to agree on what counts as one letter, and the one
+        // way to be sure of that is to be given the same list.
+        view.gathered = (targetLetters, collected, showHint) => {
             gatheredBar.innerHTML = '';
-            for (let i = 0; i < targetWord.length; i++) {
-                const char = targetWord[i].toUpperCase();
+
+            // The bar runs the way the word does, so the letter to go for next
+            // is where its reader expects the next letter to be.
+            gatheredBar.style.direction = isRtl(targetLetters.join('')) ? 'rtl' : 'ltr';
+
+            for (let i = 0; i < targetLetters.length; i++) {
+                const char = targetLetters[i];
                 const isCollected = i < collected;
 
                 let color = palette.letterPending;
                 let displayText = '?';
+                let shown = false;
 
                 if (isCollected) {
                     color = palette.letterCollected;
-                    displayText = char === ' ' ? '␣' : char;
+                    displayText = char;
+                    shown = true;
                 } else if (showHint) {
                     color = palette.letterHinted;
-                    displayText = char === ' ' ? '␣' : char;
+                    displayText = char;
+                    shown = true;
                 }
 
                 const box = document.createElement('div');
                 box.className = 'snake-gathered-box';
                 box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15.6px; line-height: 1.2; color: ${color}; transition: color 0.2s;`;
-                box.textContent = displayText;
+
+                // A revealed blank is the block the board draws, in the colour
+                // this letter would have been written in. Sized in em so it
+                // follows the bar when it shrinks itself to fit.
+                if (shown && BLANK.test(char)) {
+                    box.style.cssText += ` width: 0.62em; height: 0.86em; border-radius: 2px; background: ${color}; opacity: ${BLANK_ALPHA};`;
+                } else {
+                    box.textContent = displayText;
+                }
+
                 gatheredBar.appendChild(box);
             }
             fitGathered();
@@ -423,6 +555,33 @@ function snake(container) {
             ctx.fillText(char, cx, cy + (ink || 0));
         }
 
+        /*
+         * Brings a letter down to the size its cell can hold.
+         *
+         * A Latin letter never needs this, which is why the board could ignore it
+         * until now. A Devanagari cluster and an Arabic letter in its initial
+         * form both draw wider than a cell at the nominal size, and a letter
+         * spilling into the cells beside it is a letter the player cannot tell
+         * apart from its neighbours — the one thing this board is for.
+         *
+         * Measured by ink rather than by advance. The advance is where the next
+         * letter would start; a Devanagari vowel sign hangs to the left of it
+         * and a matra past its right, so the advance calls a cluster a fit while
+         * what is actually drawn is already in the cell next door.
+         *
+         * Shrinking rather than clipping: a Thai syllable with its tone mark cut
+         * off is a different syllable.
+         */
+        function fitToCell(glyph, nominal) {
+            const room = cellSize - 2;
+            const m = ctx.measureText(glyph);
+            const ink = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+
+            if (!ink || ink <= room) return;
+
+            ctx.font = fontOf(Math.max(10, Math.floor(nominal * room / ink)), 'bold');
+        }
+
         view.draw = (s) => {
             ctx.fillStyle = palette.canvasBg;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -443,19 +602,38 @@ function snake(container) {
 
             if (s.phase === 'HEART' && s.heartPos) {
                 ctx.fillStyle = '#ef4444';
-                ctx.font = '19.2px system-ui';
+                ctx.font = fontOf(19.2);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('❤️', (s.heartPos.x + 0.5) * cellSize, (s.heartPos.y + 0.5) * cellSize);
             }
 
-            // A space is a letter like any other here: same colour, its own glyph, one size down
+            // A blank is a letter like any other here: same colour, and a block
+            // of its own where a glyph would go
             s.lettersOnBoard.forEach(l => {
                 if (l.isEaten) return;
 
                 ctx.fillStyle = palette.boardLetter;
-                ctx.font = `bold ${l.char === ' ' ? 21.6 : 30}px system-ui`;
-                drawGlyph(l.char === ' ' ? '␣' : l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize);
+
+                if (BLANK.test(l.char)) {
+                    ctx.save();
+                    ctx.globalAlpha = BLANK_ALPHA;
+                    ctx.beginPath();
+                    ctx.roundRect(
+                        l.x * cellSize + BLANK_INSET,
+                        l.y * cellSize + BLANK_INSET,
+                        cellSize - BLANK_INSET * 2,
+                        cellSize - BLANK_INSET * 2,
+                        BLANK_RADIUS
+                    );
+                    ctx.fill();
+                    ctx.restore();
+                    return;
+                }
+
+                ctx.font = fontOf(30, 'bold');
+                fitToCell(l.char, 30);
+                drawGlyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize);
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -524,7 +702,7 @@ function snake(container) {
                     ctx.fill();
 
                     const heartChar = s.blinkVisible ? '❤️' : '🖤';
-                    ctx.font = 'bold 15.6px system-ui';
+                    ctx.font = fontOf(15.6, 'bold');
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(heartChar, 0, 0);
@@ -542,11 +720,29 @@ function snake(container) {
 
                     if (part.char) {
                         ctx.fillStyle = '#ffffff';
-                        ctx.font = 'bold 14.4px system-ui';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        const displayChar = part.char === ' ' ? '␣' : part.char;
-                        ctx.fillText(displayChar, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize);
+
+                        // A carried blank is the same block, on the segment
+                        // carrying it and in the colour its letters are written
+                        // in there.
+                        if (BLANK.test(part.char)) {
+                            ctx.save();
+                            ctx.globalAlpha = BLANK_ALPHA;
+                            ctx.beginPath();
+                            ctx.roundRect(
+                                part.x * cellSize + cellSize * 0.3,
+                                part.y * cellSize + cellSize * 0.3,
+                                cellSize * 0.4,
+                                cellSize * 0.4,
+                                2
+                            );
+                            ctx.fill();
+                            ctx.restore();
+                        } else {
+                            ctx.font = fontOf(14.4, 'bold');
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize);
+                        }
                     }
                 }
                 ctx.restore();
@@ -715,7 +911,11 @@ function snake(container) {
         let inputCooldown = false;
         let crashPhase = 0;
         let newTail = null;
-        let targetWord = '';
+
+        // The word as a list of letters, segmented and cased once. Every rule
+        // that counts letters counts these; the word itself the board has no
+        // further use for.
+        let targetLetters = [];
 
         const clone = (v) => JSON.parse(JSON.stringify(v));
         const randomCell = () => ({
@@ -731,9 +931,8 @@ function snake(container) {
 
         function spawnLetters() {
             lettersOnBoard = [];
-            const lettersNeeded = targetWord.split('');
 
-            lettersNeeded.forEach((char, idx) => {
+            targetLetters.forEach((char, idx) => {
                 let pos;
                 let attempts = 0;
                 while (attempts < 500) {
@@ -744,7 +943,7 @@ function snake(container) {
                     if (!onSnake && !onOtherLetter) break;
                 }
                 lettersOnBoard.push({
-                    char: char.toUpperCase(),
+                    char: char,
                     index: idx,
                     x: pos.x,
                     y: pos.y,
@@ -806,7 +1005,7 @@ function snake(container) {
         }
 
         board.load = (saved, word) => {
-            targetWord = word;
+            targetLetters = lettersOf(word).map(shownAs);
 
             if (saved.savedSnake && saved.savedSnake.length > 0) {
                 snakeBody = clone(saved.savedSnake);
@@ -878,8 +1077,10 @@ function snake(container) {
             if (isFrozen) blinkVisible = !blinkVisible;
         };
 
+        board.letters = () => targetLetters;
+
         board.setWord = (word) => {
-            targetWord = word;
+            targetLetters = lettersOf(word).map(shownAs);
             nextLetterIndex = 0;
             phase = 'WORD';
             heartPos = null;
@@ -994,13 +1195,13 @@ function snake(container) {
             const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
 
             if (touched) {
-                if (touched.char !== targetWord[nextLetterIndex].toUpperCase()) return crash(prev);
+                if (touched.char !== targetLetters[nextLetterIndex]) return crash(prev);
 
                 touched.isEaten = true;
                 nextLetterIndex++;
                 grow(headX, headY, touched.char);
 
-                return nextLetterIndex === targetWord.length ? 'wordDone' : 'letter';
+                return nextLetterIndex === targetLetters.length ? 'wordDone' : 'letter';
             }
 
             advance(headX, headY);
@@ -1162,7 +1363,7 @@ function snake(container) {
         }
 
         function refreshGathered() {
-            view.gathered(targetWord, board.progress(), state.showHint);
+            view.gathered(board.letters(), board.progress(), state.showHint);
         }
 
         function paint() {
@@ -1391,14 +1592,19 @@ function snake(container) {
             dpadColor: t.ink,
             stickKnob: isDark ? 'rgba(86, 196, 166, 0.45)' : 'rgba(70, 183, 149, 0.32)',
             letterPending: t.muted,
-            letterCollected: t.ink,
+            // A collected letter turns mint — the colour progress and a right
+            // answer are painted in everywhere else in the app, and collecting
+            // a letter is exactly that.
+            letterCollected: t.progress,
             letterHinted: t.muted,
             grid: t.soft,
-            // Mint, the same one progress and a right answer are painted in.
-            // The head and the letters it is going for share it, so the thing
-            // you steer and the thing you steer at read as one pair.
+            // The letters keep the mint that progress and a right answer are
+            // painted in. The head takes the coral of the button you press —
+            // the thing you steer told apart from the thing you steer at, and
+            // far enough from the body's blues and violets to stay legible
+            // against every segment behind it.
             boardLetter: t.progress,
-            head: t.progress,
+            head: t.accent,
             bodyHueStart: isDark ? 180 : 210,
             bodyHueEnd: isDark ? 280 : 300,
             bodySatChar: isDark ? 85 : 90,

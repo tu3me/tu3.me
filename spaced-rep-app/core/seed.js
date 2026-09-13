@@ -52,6 +52,58 @@ function seed() {
                     { original: 'customs', translation: 'таможня', repetitions: [] },
                     { original: 'flight', translation: 'рейс', repetitions: [] }
                 ]
+            },
+            {
+                /*
+                 * Not a lesson — a test bench for snake, which lays a word out
+                 * one letter per cell and so has to agree with the reader on
+                 * what a letter is.
+                 *
+                 * One question asked in ten languages, so the Russian side names
+                 * the language the other side is written in and nothing has to
+                 * be guessed from a script you may not read.
+                 *
+                 * Between them they cover what breaks a naive split by UTF-16
+                 * code units, and each line says which case it carries. They are
+                 * deliberately mixed into one set: a bench that can be played
+                 * through in a minute is worth more than ten nobody opens.
+                 */
+                id: '3',
+                title: 'WRITING SYSTEMS',
+                words: [
+                    // Han, and a full-width question mark that takes a cell of
+                    // its own like any other letter
+                    { original: '怎么学中文？', translation: 'Как выучить китайский?', repetitions: [] },
+                    // Kana and kanji mixed
+                    { original: '日本語はどう勉強しますか？', translation: 'Как выучить японский?', repetitions: [] },
+                    // Hangul: precomposed syllables, one code point per block
+                    { original: '한국어를 어떻게 배우나요?', translation: 'Как выучить корейский?', repetitions: [] },
+                    // Devanagari: conjuncts and vowel signs belong to the
+                    // consonant they hang off
+                    { original: 'हिंदी कैसे सीखें?', translation: 'Как выучить хинди?', repetitions: [] },
+                    // Danda ends a statement in Hindi where a full stop would
+                    // end an English one — the only line here that is not a
+                    // question, and the only place that mark appears
+                    { original: 'मैं हिंदी सीखता हूँ।', translation: 'Я учу хинди.', repetitions: [] },
+                    // Thai: vowels and tone marks sit above and below their
+                    // consonant, and the language writes no question mark — the
+                    // spaces do the work
+                    { original: 'เรียนภาษาไทยอย่างไร', translation: 'Как выучить тайский?', repetitions: [] },
+                    // Arabic, right to left, with its own mirrored question mark
+                    { original: 'كيف أتعلم العربية؟', translation: 'Как выучить арабский?', repetitions: [] },
+                    // Hebrew, right to left; the niqqud are separate code points
+                    // that belong to the letter before them
+                    { original: 'איך לומדים עִבְרִית?', translation: 'Как выучить иврит?', repetitions: [] },
+                    // Greek asks with a semicolon
+                    { original: 'Πώς να μάθω ελληνικά;', translation: 'Как выучить греческий?', repetitions: [] },
+                    // Spanish opens the question as well as closing it
+                    { original: '¿Cómo aprender español?', translation: 'Как выучить испанский?', repetitions: [] },
+                    // French puts a narrow no-break space before its question
+                    // mark — a letter that is blank but is not the space bar —
+                    // and this ç is written decomposed, c followed by a
+                    // combining cedilla, which the old split tore in two
+                    { original: 'Comment apprendre le franc\u0327ais\u202f?', translation: 'Как выучить французский?', repetitions: [] }
+                ]
             }
         ];
     };

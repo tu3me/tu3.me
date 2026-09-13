@@ -29,7 +29,11 @@ function catalog(container) {
     // that redraw. The catalog rebuilds itself wholesale, so the form arrives as
     // a brand new element with no past to animate out of: the only way to move
     // it is to hand it a starting state and let it off a frame later.
-    let unfolding = false;
+    let unfolding = null;
+
+    // Whether the settings panel is open. Screen state like the edit form: it
+    // has no business surviving a reload.
+    let settingsOpen = false;
 
     /*
      * The room the Continue banner was taking when the form was opened, measured
@@ -105,6 +109,12 @@ function catalog(container) {
     const SUN = chromeIcon(`
         <circle cx="12" cy="12" r="4.2" />
         <path d="M12 2.4v2.3M12 19.3v2.3M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.4 12h2.3M19.3 12h2.3M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />`);
+
+    // Sliders rather than a cog: the cog that suits this line weight is a ring
+    // with spokes, and that is the sun sitting next to it.
+    const SLIDERS = chromeIcon(`
+        <path d="M5 20.5v-6M5 9.5v-6M12 20.5v-9M12 6.5v-3M19 20.5v-4M19 11.5v-8" />
+        <path d="M2.5 14.5h5M9.5 8.5h5M16.5 15.5h5" />`);
 
     const MOON = chromeIcon(`
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
@@ -392,7 +402,7 @@ function catalog(container) {
         introduce = false;
 
         const unfold = unfolding;
-        unfolding = false;
+        unfolding = null;
 
         container.innerHTML = '';
 
@@ -424,12 +434,29 @@ function catalog(container) {
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
                 <button class="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
                 <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
+                <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${SLIDERS}</button>
             </div>
         </div>`);
 
         header.querySelector('.theme-toggle-btn').addEventListener('click', () => {
             theme.set(!theme.isDark());
             catalog.setTheme(theme.isDark());
+            render();
+        });
+
+        // Opens its panel and closes it again, the same way the New Set button
+        // works on its form — and folding shut the same way, so the two read as
+        // one kind of thing rather than two.
+        header.querySelector('#settings-btn').addEventListener('click', () => {
+            if (closing) return;
+
+            if (settingsOpen) {
+                closeSettings();
+                return;
+            }
+
+            settingsOpen = true;
+            unfolding = 'settings';
             render();
         });
 
@@ -459,7 +486,7 @@ function catalog(container) {
             });
             editing.add(id);
             createdEmpty.add(id);
-            unfolding = true;
+            unfolding = 'set';
             render();
         });
 
@@ -480,13 +507,20 @@ function catalog(container) {
 
         const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 14px;"></div>`);
 
+        if (settingsOpen) renderSettings(setsList);
+
         sets.forEach((set, index) => {
             renderSetCard(setsList, set, index, intro);
         });
 
-        if (unfold) {
+        if (unfold === 'set') {
             const card = newSetCard();
-            if (card) unfoldInto(card);
+            if (card) unfoldInto(card, bannerSpace);
+        }
+
+        if (unfold === 'settings') {
+            const panel = container.querySelector('.dict-settings-panel');
+            if (panel) unfoldInto(panel, 0);
         }
     }
 
@@ -551,7 +585,7 @@ function catalog(container) {
      * easily, and flattening it there would shove the form's own heading about
      * for no reason.
      */
-    function collapsed(card, gap) {
+    function collapsed(card, gap, floor) {
         const cs = getComputedStyle(card);
         const frame = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
         const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
@@ -560,7 +594,7 @@ function catalog(container) {
         // outside it. Asking for the banner's height directly would leave a card
         // that tall plus 34px of frame — which is exactly the jump this is meant
         // to remove.
-        const inner = bannerSpace - frame - pads;
+        const inner = floor - frame - pads;
 
         if (inner >= 0) {
             card.style.maxHeight = `${inner}px`;
@@ -570,13 +604,13 @@ function catalog(container) {
             // the card folds all the way down to its own two border lines.
             card.style.paddingTop = '0px';
             card.style.paddingBottom = '0px';
-            card.style.maxHeight = `${Math.max(bannerSpace - frame, 0)}px`;
+            card.style.maxHeight = `${Math.max(floor - frame, 0)}px`;
         }
 
         if (gap) card.style.marginBottom = `-${gap}px`;
     }
 
-    function unfoldInto(card) {
+    function unfoldInto(card, floor) {
         const opened = card.scrollHeight;
         const gap = listGap(card);
 
@@ -588,7 +622,7 @@ function catalog(container) {
         const padBottom = getComputedStyle(card).paddingBottom;
 
         card.style.overflow = 'hidden';
-        collapsed(card, gap);
+        collapsed(card, gap, floor);
 
         pin(card);
 
@@ -606,7 +640,7 @@ function catalog(container) {
         }, FOLD_OPEN + 40);
     }
 
-    function foldAway(card, done) {
+    function foldAway(card, done, floor) {
         const gap = listGap(card);
 
         card.style.overflow = 'hidden';
@@ -616,7 +650,7 @@ function catalog(container) {
 
         card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
             + ` padding ${FOLD_SHUT}ms ease-in, margin-bottom ${FOLD_SHUT}ms ease-in`;
-        collapsed(card, gap);
+        collapsed(card, gap, floor);
 
         setTimeout(done, FOLD_SHUT);
     }
@@ -644,7 +678,92 @@ function catalog(container) {
             closing = false;
             discardNewSets();
             render();
-        });
+        }, bannerSpace);
+    }
+
+    // Folds the settings panel shut and then takes it out of the page. The
+    // panel is not a card and has nothing behind it to discard — the fold is the
+    // whole of the closing.
+    function closeSettings() {
+        const panel = container.querySelector('.dict-settings-panel');
+
+        if (!panel) {
+            settingsOpen = false;
+            render();
+            return;
+        }
+
+        closing = true;
+        foldAway(panel, () => {
+            closing = false;
+            settingsOpen = false;
+            render();
+        }, 0);
+    }
+
+    /*
+     * The settings panel. One thing in it so far, and that one thing is the
+     * destructive one, which is why it asks first.
+     *
+     * The question replaces the button rather than opening a dialog over it:
+     * the panel is already a place the player deliberately went, and a second
+     * layer on top of it to say one sentence is more ceremony than the moment
+     * deserves.
+     *
+     * Coral marks the button by its border and not by its label. Coral text on
+     * this card is 3.7:1 in the dark theme and 3.0:1 in the light one — under
+     * what a 15px label needs — while the border carries the same warning at a
+     * size where that contrast is enough.
+     */
+    function renderSettings(parent) {
+        const panel = $(parent, `<div class="dict-settings-panel" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;">
+            <div class="dict-settings-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading}; margin-bottom: 10px;">Settings</div>
+            <div class="dict-settings-body"></div>
+        </div>`);
+
+        const body = panel.querySelector('.dict-settings-body');
+
+        function offer() {
+            body.innerHTML = `
+                <button class="dict-wipe-btn" style="padding: 7px 12px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Clear data</button>
+                <p class="dict-wipe-note" style="margin: 8px 0 0; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device.</p>`;
+
+            body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
+        }
+
+        function confirm() {
+            body.innerHTML = `
+                <p class="dict-wipe-note" style="margin: 0 0 10px; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone, and there is no undo. The starting sets come back.</p>
+                <div class="dict-wipe-actions" style="display: flex; gap: 8px;">
+                    <button class="dict-wipe-confirm" style="padding: 7px 12px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Erase</button>
+                    <button class="dict-wipe-cancel" style="padding: 7px 12px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-weight: 600; font-size: 15px; cursor: pointer;">Cancel</button>
+                </div>`;
+
+            body.querySelector('.dict-wipe-cancel').addEventListener('click', offer);
+            body.querySelector('.dict-wipe-confirm').addEventListener('click', wipeEverything);
+        }
+
+        offer();
+    }
+
+    /*
+     * Empties both stores and starts the app over.
+     *
+     * Reloading rather than redrawing: half this app's state lives in variables
+     * that were read at boot, and a redraw over a database that no longer exists
+     * would show a catalog built from memories of it. A reload comes back to an
+     * empty store, which is what seeds the starting sets again.
+     */
+    async function wipeEverything() {
+        try {
+            localStorage.clear();
+        } catch (e) {
+            // Private mode, or storage switched off — there was nothing to clear
+        }
+
+        await storage.wipe();
+
+        location.reload();
     }
 
     // Takes down whatever the New Set button opened. The set behind the form

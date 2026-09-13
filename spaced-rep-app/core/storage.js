@@ -138,9 +138,37 @@ function storage() {
         });
     }
 
+    /*
+     * Deletes the database outright — everything this app has ever saved.
+     *
+     * The open connection is closed first. A delete request made while one is
+     * still attached does not fail: it waits, and goes on waiting until every
+     * connection is gone, which from the outside is indistinguishable from
+     * nothing happening at all.
+     *
+     * Resolves on blocked as well as on success, so a second tab holding the
+     * database open cannot leave the caller waiting forever with a dialog on
+     * screen. The page reloads either way, and what could not be deleted here
+     * is deleted on the next attempt.
+     */
+    function wipe() {
+        return new Promise((resolve) => {
+            if (db) {
+                db.close();
+                db = null;
+            }
+
+            const request = indexedDB.deleteDatabase(DB_NAME);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => resolve(false);
+            request.onblocked = () => resolve(false);
+        });
+    }
+
     storage.init = init;
     storage.get = get;
     storage.set = set;
+    storage.wipe = wipe;
     // Hook for telling the player their progress is not being saved
     storage.isAvailable = () => db !== null;
 }
