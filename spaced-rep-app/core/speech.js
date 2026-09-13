@@ -11,8 +11,9 @@
  * a normal start and a normal end, having said nothing. Measured: on a Windows
  * machine with English and Russian voices installed, "hello" took 2479ms and
  * "привет" 1974ms, while Japanese, Hindi and Arabic each "finished" in about
- * 300ms in silence. So the caller has to ask whether a word can be said before
- * offering to say it; `speech.canSay` is that question.
+ * 300ms in silence. `speech.say` reports it honestly — false when the device
+ * had no voice for the script — but nothing can be done about it here beyond
+ * telling the truth.
  *
  * Nothing here knows what language a word is in — the app never asks the player
  * and the data does not carry it. The script is the only evidence, and it is
@@ -43,21 +44,36 @@ function speech() {
 
     const FALLBACK = 'en-US';
 
-    // The voice list arrives asynchronously and is empty on the first call in
-    // most browsers. Nothing is cached here beyond that first wait: voices come
-    // and go as the system installs them, and the list is cheap to read.
-    let ready = false;
+    /*
+     * The voice list arrives asynchronously, and on a page that has just loaded
+     * it is empty for the first moments. A word asked for inside that window
+     * used to be dropped without a sound — measured: on a machine with English
+     * voices installed, a word asked for right after load found none.
+     *
+     * So a word asked for too early is held, and said when the list lands. One
+     * word, not a queue: if two arrive before the voices do, the second is what
+     * the player last asked for.
+     *
+     * Nothing else is cached. Voices come and go as the system installs them,
+     * and reading the list is cheap.
+     */
+    let held = null;
+    let waiting = false;
 
     function voices() {
-        if (typeof speechSynthesis === 'undefined') return [];
+        return typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices();
+    }
 
-        const list = speechSynthesis.getVoices();
+    function whenVoicesArrive() {
+        if (waiting) return;
+        waiting = true;
 
-        if (!ready && list.length === 0) {
-            speechSynthesis.addEventListener('voiceschanged', () => { ready = true; }, { once: true });
-        }
-
-        return list;
+        speechSynthesis.addEventListener('voiceschanged', () => {
+            waiting = false;
+            const word = held;
+            held = null;
+            if (word) speak(word);
+        }, { once: true });
     }
 
     function tagFor(text) {
@@ -80,9 +96,21 @@ function speech() {
             || null;
     }
 
-    speech.available = () => typeof speechSynthesis !== 'undefined';
+    function speak(text) {
+        const voice = voiceFor(tagFor(text));
+        if (!voice) return false;
 
-    speech.canSay = (text) => !!(text && speech.available() && voiceFor(tagFor(text)));
+        const line = new SpeechSynthesisUtterance(text);
+        line.voice = voice;
+        line.lang = voice.lang;
+
+        speechSynthesis.cancel();
+        speechSynthesis.speak(line);
+
+        return true;
+    }
+
+    speech.available = () => typeof speechSynthesis !== 'undefined';
 
     /*
      * Says it, dropping whatever was being said.
@@ -96,20 +124,17 @@ function speech() {
     speech.say = (text) => {
         if (!text || !speech.available()) return false;
 
-        const voice = voiceFor(tagFor(text));
-        if (!voice) return false;
+        if (voices().length === 0) {
+            held = text;
+            whenVoicesArrive();
+            return true;
+        }
 
-        const line = new SpeechSynthesisUtterance(text);
-        line.voice = voice;
-        line.lang = voice.lang;
-
-        speechSynthesis.cancel();
-        speechSynthesis.speak(line);
-
-        return true;
+        return speak(text);
     };
 
     speech.hush = () => {
+        held = null;
         if (speech.available()) speechSynthesis.cancel();
     };
 }

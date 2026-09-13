@@ -381,7 +381,7 @@ function catalog(container) {
             : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
+            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
                 <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1;">
                     ${dotsHtml}
@@ -391,7 +391,20 @@ function catalog(container) {
             </div>
         `;
 
-        return $(parent, bubbleHtml);
+        const bubble = $(parent, bubbleHtml);
+
+        // Tapping a word says it. The original rather than the translation, for
+        // the same reason the cards do it that way: the translation is in a
+        // language the player already has.
+        //
+        // Silent where the device has no voice for the script — speech.say says
+        // so by returning false, and there is nothing useful to do about it
+        // here. The pointer is offered anyway: whether a voice exists is not
+        // known at draw time, because the voice list arrives asynchronously and
+        // is usually still empty on the first render.
+        bubble.addEventListener('click', () => speech.say(word));
+
+        return bubble;
     }
 
     function render() {
