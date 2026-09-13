@@ -177,6 +177,13 @@ function cards(container) {
         }
 
         cardWrapper.addEventListener('click', () => {
+            // The word, not whichever side is showing: the translation is in a
+            // language the player already has, and hearing it said is worth
+            // nothing. Silent where the device has no voice for the script —
+            // see speech.js, where asking for one it lacks says nothing at all
+            // and reports success.
+            speech.say(currentItem.word.original);
+
             if (!state.isFlipped) markRevealed();
             state.isFlipped = !state.isFlipped;
             const inner = cardWrapper.querySelector('#card-inner');

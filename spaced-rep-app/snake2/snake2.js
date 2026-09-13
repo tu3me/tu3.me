@@ -1304,7 +1304,59 @@ function snake2(container) {
 
     function cleanup() {
         clock.stop();
+
+        // Anything mid-sentence goes with the screen it belonged to.
+        speech.hush();
         input.detach();
+    }
+
+    /*
+     * Reads the board out loud as it is collected: every letter as it is eaten,
+     * the word it finishes when a space or the end arrives, and the whole line
+     * once the last letter is in.
+     *
+     * Three levels because the target can be three things. A single word is
+     * said once, at the end — the word boundary and the end of the line are the
+     * same moment, and saying it twice would be a stutter. A phrase says each
+     * word as it lands and then the whole of it, which is the only way to hear
+     * what the parts add up to.
+     *
+     * Blanks are not announced. A space has no sound and "space" is not what a
+     * reader hears when they read across one.
+     *
+     * The waits go through clock.after, which the clock clears when the screen
+     * is left. A bare setTimeout would keep its word and say it into whatever
+     * page the player opened next.
+     */
+    function sayProgress() {
+        const letters = board.letters();
+        const done = board.progress();
+        const index = done - 1;
+
+        if (index < 0 || index >= letters.length) return;
+
+        const isBlank = /^\s+$/.test(letters[index]);
+        const atEnd = done === letters.length;
+        const phrase = letters.join('');
+        const isPhrase = letters.some(l => /^\s+$/.test(l));
+
+        // A letter is said as the board shows it — upper case is how a letter is
+        // named. A word is said in the case it was written in: a run of capitals
+        // is read out letter by letter by some engines, which is the right sound
+        // for one letter and the wrong one for seven.
+        if (!isBlank) speech.say(letters[index]);
+
+        // The word just closed: everything back to the blank before it
+        if (isBlank || atEnd) {
+            let from = index - (isBlank ? 1 : 0);
+            while (from >= 0 && !/^\s+$/.test(letters[from])) from--;
+
+            const word = letters.slice(from + 1, isBlank ? index : done).join('').toLowerCase();
+
+            if (word && isPhrase) clock.after(420, () => speech.say(word));
+        }
+
+        if (atEnd) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase()));
     }
 
     function render() {
@@ -1553,6 +1605,7 @@ function snake2(container) {
             }
 
             if (event === 'letter') {
+                sayProgress();
                 refreshGathered();
                 board.persistTo(state);
                 paint();
@@ -1561,6 +1614,7 @@ function snake2(container) {
             }
 
             if (event === 'wordDone') {
+                sayProgress();
                 refreshGathered();
                 board.persistTo(state);
 
