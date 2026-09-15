@@ -182,7 +182,7 @@ function cards(container) {
             // nothing. Silent where the device has no voice for the script —
             // see speech.js, where asking for one it lacks says nothing at all
             // and reports success.
-            speech.say(currentItem.word.original);
+            speech.say(currentItem.word.original, currentItem.word.originalLang);
 
             if (!state.isFlipped) markRevealed();
             state.isFlipped = !state.isFlipped;

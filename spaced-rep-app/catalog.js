@@ -276,6 +276,166 @@ function catalog(container) {
      * joining the folding routes, so it lines up with what it heads rather than
      * with the column their chevrons push them into.
      */
+    /*
+     * The words of the box, as they would be saved.
+     *
+     * Pulled out of the save handler because the plates under the box need the
+     * same answer while the text is still being typed. One reader, so the thing
+     * shown and the thing saved cannot disagree.
+     *
+     * Returns null when the box is empty — that is the request to delete the set,
+     * and it is the caller's business what to do about it.
+     */
+    function readWords(text, set) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) return null;
+
+        // A first line that already carries a separator is a word, not a title:
+        // the name was simply left out. An existing set keeps the name it had.
+        const titled = !/\t|--/.test(lines[0]);
+
+        // Existing words keep what is already known about them
+        const existingMap = new Map(set.words.map(w => [w.original.toLowerCase(), w]));
+        const words = [];
+
+        for (let i = titled ? 1 : 0; i < lines.length; i++) {
+            // "--" or a tab, whichever comes first: the tab is what a paste from a
+            // spreadsheet brings. Everything past that first separator is the
+            // translation, so it may contain either character itself.
+            const cut = lines[i].search(/\t|--/);
+            const original = (cut === -1 ? lines[i] : lines[i].slice(0, cut)).trim();
+            const translation = cut === -1 ? '' : lines[i].slice(cut).replace(/^(\t|--)/, '').trim();
+
+            if (!original) continue;
+
+            // Rebuilt rather than edited, so everything already known about a
+            // word has to be carried across by hand: its history, and the two
+            // languages. A word that kept its spelling keeps both; one nobody
+            // has seen before arrives bare and store.label names it.
+            const old = existingMap.get(original.toLowerCase());
+            const word = {
+                original: original,
+                translation: translation,
+                repetitions: old ? old.repetitions : []
+            };
+
+            if (old && old.originalLang) word.originalLang = old.originalLang;
+            if (old && old.translationLang) word.translationLang = old.translationLang;
+
+            words.push(word);
+        }
+
+        return { title: titled ? lines[0] : (set.title || 'NEW SET NAME'), words };
+    }
+
+    /*
+     * Language tags turned into something a person reads: "Ukrainian", not
+     * "uk-UA". The region is dropped on purpose — en-US and en-GB are one
+     * answer to the question the plate asks.
+     *
+     * Intl.DisplayNames is in every browser this runs in; where it is not, the
+     * tag itself is still an answer, just a worse one.
+     */
+    const LANGUAGE_NAMES = (() => {
+        try {
+            return new Intl.DisplayNames(['en'], { type: 'language' });
+        } catch (e) {
+            return null;
+        }
+    })();
+
+    // Intl hands the code back for a language it cannot name, and a list with
+    // "ba" in it among sixty names is a list with a hole in it.
+    const NAMED_BY_HAND = { ba: 'Bashkir', bo: 'Tibetan' };
+
+    function languageName(tag) {
+        const base = String(tag || '').split('-')[0];
+        if (!base) return null;
+
+        let named = null;
+        try {
+            named = LANGUAGE_NAMES && LANGUAGE_NAMES.of(base);
+        } catch (e) {
+            named = null;
+        }
+
+        if (named && named !== base) return named;
+        return NAMED_BY_HAND[base] || base;
+    }
+
+    // Every language on one side of the set, in the order the words are
+    // written, each named once.
+    function languagesOf(words, field) {
+        const names = [];
+        words.forEach(w => {
+            const name = languageName(w[field]);
+            if (name && !names.includes(name)) names.push(name);
+        });
+        return names;
+    }
+
+    /*
+     * What the dropdowns offer: every language there is a code for, not the
+     * sixty the detector can recognise. Recognising and choosing are different
+     * questions — a set in Italian is still in Italian, and its words carry no
+     * letter that could ever prove it.
+     *
+     * Sorted by name, because that is the order a person looks through a list
+     * in. Anything the browser cannot name is dropped: a bare "za" among two
+     * hundred names is a hole, not an option.
+     */
+    const LANGUAGE_CHOICES = (() => {
+        const taken = new Set();
+
+        return speech.allLanguages()
+            .map(tag => ({ tag, name: languageName(tag) }))
+            .filter(c => {
+                // Anything the browser cannot name is dropped: a bare "za" among
+                // two hundred names is a hole, not an option. So is a second
+                // entry with a name already in the list — the browser calls both
+                // ak and tw "Akan", and a list cannot ask you to choose between
+                // two identical lines.
+                if (!c.name || c.name === c.tag || taken.has(c.name)) return false;
+                taken.add(c.name);
+                return true;
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+    })();
+
+    /*
+     * The options every dropdown on the form is filled with, built as text and
+     * handed out as many times as asked — there is a pair of them per word.
+     *
+     * Two speakers and nothing are the three answers speech.readableBy gives:
+     * the language has a voice of its own here, it will be read by the voice
+     * that owns its writing system — Italian by an English one, Ukrainian by a
+     * Russian one — or there is nothing on this device that can say it.
+     *
+     * The list is the same everywhere and the marks are not: they come from the
+     * voices the browser happens to have, which differ between Chrome and Edge
+     * on one machine and between a laptop and a phone. Nothing about the marks
+     * is stored — choosing a language this device cannot say is allowed, and on
+     * the next device it may be the only one it can.
+     */
+    const OWN_VOICE = '🔊';
+    const BORROWED_VOICE = '🔈';
+
+    function languageOptions() {
+        return '<option value="auto">Auto</option>'
+            + LANGUAGE_CHOICES.map(c => {
+                const by = speech.readableBy(c.tag);
+                const mark = by === c.tag ? OWN_VOICE + ' ' : (by ? BORROWED_VOICE + ' ' : '');
+                return `<option value="${c.tag}">${mark}${c.name}</option>`;
+            }).join('');
+    }
+
+    // The words come from a textarea, so they are whatever was typed
+    function escapeText(text) {
+        return String(text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function staticSection(label, bodyHtml) {
         return `<div class="set-fold">
             <div class="set-fold-label" style="padding: 9px 0; color: ${palette.title}; font-size: 14.4px; font-weight: 600; line-height: 1.35;">${label}</div>
@@ -316,7 +476,8 @@ function catalog(container) {
             transColor: colors.sub,
             marks: progress.marks,
             stage: progress.stage, // TEMP (debug): stage number shown in the bubble
-            timer
+            timer,
+            lang: word.originalLang
         };
     }
 
@@ -361,7 +522,7 @@ function catalog(container) {
     }
 
     function createBubble(bubbleData, parent, order) {
-        const { word, translation, bgColor, textColor, transColor, marks, stage, timer } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, timer, lang } = bubbleData;
 
         // Build the repetition timeline: one sprite icon per repetition or elapsed interval
         let dotsHtml = '';
@@ -401,7 +562,7 @@ function catalog(container) {
         // here. The pointer is offered anyway: whether a voice exists is not
         // known at draw time, because the voice list arrives asynchronously and
         // is usually still empty on the first render.
-        bubble.addEventListener('click', () => speech.say(word));
+        bubble.addEventListener('click', () => speech.say(word, lang));
 
         return bubble;
     }
@@ -738,7 +899,7 @@ function catalog(container) {
         function offer() {
             body.innerHTML = `
                 <button class="dict-wipe-btn" style="padding: 7px 12px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Clear data</button>
-                <p class="dict-wipe-note" style="margin: 8px 0 0; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device.</p>`;
+                <p class="dict-wipe-note" style="margin: 8px 0 0; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set, all progress and the offline copy of the app kept on this device.</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
         }
@@ -758,8 +919,14 @@ function catalog(container) {
         offer();
     }
 
+    // The name every cache of this app starts with, kept in step with web/sw.js
+    // by hand: the worker is a separate script that this file cannot import, and
+    // in the extension it is not shipped at all. The rest of the name is the
+    // build hash that build.sh stamps in.
+    const CACHE_PREFIX = 'spaced-repetition-app-';
+
     /*
-     * Empties both stores and starts the app over.
+     * Empties every store and starts the app over.
      *
      * Reloading rather than redrawing: half this app's state lives in variables
      * that were read at boot, and a redraw over a database that no longer exists
@@ -774,8 +941,51 @@ function catalog(container) {
         }
 
         await storage.wipe();
+        await dropOfflineCopy();
 
         location.reload();
+    }
+
+    /*
+     * The offline copy: the service worker and the caches it filled.
+     *
+     * Without this the button clears the data and leaves the code. The worker is
+     * cache-first, so a page that has one keeps being served the shell that
+     * worker installed — a reload right after wiping would come back on the old
+     * build, and "start over" would mean starting over on whatever version
+     * happened to be cached. Dropping both makes the reload below come from the
+     * network, and the next worker installs its shell from scratch.
+     *
+     * Only ours are touched. Both of these namespaces belong to the whole
+     * origin, and the site this is published under has other pages on it: the
+     * caches are matched by the prefix sw.js gives them, the workers by whether
+     * their scope is inside this app. The extension has neither and falls
+     * through both blocks without doing anything.
+     */
+    async function dropOfflineCopy() {
+        const root = new URL('./', location.href).href;
+
+        try {
+            if (globalThis.navigator && navigator.serviceWorker) {
+                const workers = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(workers
+                    .filter(worker => worker.scope.startsWith(root))
+                    .map(worker => worker.unregister()));
+            }
+        } catch (e) {
+            // No worker to remove, or no API to remove it with
+        }
+
+        try {
+            if (globalThis.caches) {
+                const names = await caches.keys();
+                await Promise.all(names
+                    .filter(name => name.startsWith(CACHE_PREFIX))
+                    .map(name => caches.delete(name)));
+            }
+        } catch (e) {
+            // Cache Storage is not reachable outside a secure origin
+        }
     }
 
     // Takes down whatever the New Set button opened. The set behind the form
@@ -799,6 +1009,35 @@ function catalog(container) {
         const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
 
         if (editing.has(set.id)) {
+            /*
+             * Under the box, what the text in it is written in: the words on the
+             * left, their translations on the right.
+             *
+             * A real <select> rather than a plate with a menu built under it.
+             * Clicking it is what opens a dropdown on every platform, the
+             * keyboard works, and on a phone it is the system's own picker —
+             * none of which is worth rewriting to own the arrow.
+             *
+             * What the closed plate shows is the state, not a label: one
+             * language when every word is in it, "Auto" and the whole list when
+             * they are not. refreshPlates keeps both in step with the box.
+             */
+            const SELECT_STYLE = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 7px 10px; font-family: inherit; font-size: 13.8px; font-weight: 600; cursor: pointer; outline: none;`;
+
+            // A caption over a dropdown, cut to the width it has. Both of them
+            // are one line high whatever they hold, so the two columns stay
+            // level and the dropdowns under them line up across every row.
+            //
+            // The indent is the dropdown's own: its border plus its padding, so
+            // the word starts exactly above the language it names rather than a
+            // few pixels to the left of it.
+            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+
+            const langPlate = (side) => `<div style="flex: 1 1 0; min-width: 0;">
+                    ${caption('All', true, 11)}
+                    <select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>
+                </div>`;
+
             let textLines = [set.title];
             set.words.forEach(w => {
                 textLines.push(`${w.original} -- ${w.translation}`);
@@ -807,7 +1046,14 @@ function catalog(container) {
             const box = `<label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
                     First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>`;
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <div class="set-lang-fold">${foldingSection('Define languages', `<div class="set-lang-plates" style="display: flex; gap: 8px;">
+                        ${langPlate('originalLang')}
+                        ${langPlate('translationLang')}
+                    </div>
+                    <div style="font-size: 11.4px; font-weight: 600; line-height: 1.4; color: ${palette.hint}; margin-top: 8px;">${OWN_VOICE} own voice here &nbsp;·&nbsp; ${BORROWED_VOICE} read by a related voice &nbsp;·&nbsp; unmarked — silent on this device</div>
+                    <div style="height: 1px; background: ${palette.softBorder}; margin-top: 20px;"></div>
+                    <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 6px; margin-top: 20px;"></div>`, false)}</div>`;
 
             // A set being written from scratch gets the box as the first section,
             // always open — it is the one thing always needed. The three routes
@@ -883,6 +1129,207 @@ function catalog(container) {
 
             const textarea = editForm.querySelector('.set-edit-textarea');
 
+            /*
+             * What the person chose on each plate, until the form is closed:
+             *
+             *     null   nothing chosen — a word that has a language keeps it,
+             *            a word that has none is named by the detector;
+             *     'auto' chosen by hand — every word on that side is named again
+             *            from scratch, whatever it carried before;
+             *     a tag  every word on that side is in that language.
+             *
+             * Null and 'auto' differ, and the difference matters: opening the
+             * form must not quietly re-guess what was already known, while
+             * asking for Auto is exactly the request to re-guess it.
+             */
+            const choice = { originalLang: null, translationLang: null };
+
+            /*
+             * The same three states, one word at a time, kept by the word's own
+             * text: the list below is rebuilt from the box on every keystroke,
+             * and the text is the only thing a word keeps across that. Rename a
+             * word and its pick is gone with the name — the same deal its
+             * history and its languages get in readWords.
+             */
+            const wordChoice = new Map();
+            const keyOf = (word) => word.original.toLowerCase();
+
+            function nameWords(words) {
+                ['originalLang', 'translationLang'].forEach(field => {
+                    if (choice[field] === 'auto') words.forEach(w => { delete w[field]; });
+                    else if (choice[field]) words.forEach(w => { w[field] = choice[field]; });
+                });
+
+                // A word's own pick beats the side's: choosing for one word would
+                // be pointless if the plate above could overrule it.
+                words.forEach(w => {
+                    const own = wordChoice.get(keyOf(w));
+                    if (!own) return;
+
+                    ['originalLang', 'translationLang'].forEach(field => {
+                        if (own[field] === 'auto') delete w[field];
+                        else if (own[field]) w[field] = own[field];
+                    });
+                });
+
+                if (words.length) store.label({ words });
+            }
+
+            /*
+             * The plates follow the box. The words are read exactly as saving
+             * would read them and named exactly as saving would name them — on
+             * the fresh objects readWords just built, never on the ones the app
+             * is holding — so what the plate shows is what Save will write.
+             */
+            const plates = editForm.querySelectorAll('.set-lang-select');
+            const wordList = editForm.querySelector('.set-word-langs');
+
+            /*
+             * One row per word: what it says, and the two languages it is in.
+             *
+             * The rows are rebuilt only when the words themselves change, not on
+             * every keystroke. Each row carries a pair of sixty-option lists, so
+             * a set of any size would otherwise rebuild a few thousand nodes
+             * between one letter and the next.
+             */
+            let drawnKeys = null;
+
+            function drawWordRows(words) {
+                // Nothing is built while the section is shut: a set of any size
+                // carries two sixty-option lists per word, and typing into the
+                // box would otherwise fill a hidden div with them on every
+                // change. Reopening draws whatever the words are by then.
+                if (wordList.closest('.set-fold-body').hidden) {
+                    drawnKeys = null;
+                    return false;
+                }
+
+                const keys = words.map(w => w.original + String.fromCharCode(31) + w.translation).join(String.fromCharCode(30));
+                if (keys === drawnKeys) return false;
+                drawnKeys = keys;
+
+                // Each side over its own dropdown rather than both over the
+                // pair: with one line for the two of them there was nothing to
+                // say which dropdown answered for which half of it.
+                const options = languageOptions();
+                const rowSelect = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10px; padding: 4px 8px; font-family: inherit; font-size: 12.6px; font-weight: 600; cursor: pointer; outline: none;`;
+
+                wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: flex; gap: 6px;">
+                        <div style="flex: 1 1 0; min-width: 0;">
+                            ${caption(escapeText(w.original), false, 9)}
+                            <select class="set-word-lang-select" data-field="originalLang" style="${rowSelect}">${options}</select>
+                        </div>
+                        <div style="flex: 1 1 0; min-width: 0;">
+                            ${caption(w.translation ? escapeText(w.translation) : '—', false, 9)}
+                            <select class="set-word-lang-select" data-field="translationLang" style="${rowSelect}">${options}</select>
+                        </div>
+                    </div>`).join('');
+
+                wordList.querySelectorAll('.set-word-lang-select').forEach(select => {
+                    select.addEventListener('change', () => {
+                        const key = select.closest('.set-word-lang').dataset.key;
+                        const own = wordChoice.get(key) || {};
+                        own[select.dataset.field] = select.value;
+                        wordChoice.set(key, own);
+                        refreshPlates();
+                    });
+                });
+
+                return true;
+            }
+
+            function refreshPlates() {
+                const parsed = readWords(textarea.value, set);
+                const words = parsed ? parsed.words : [];
+                nameWords(words);
+
+                drawWordRows(words);
+
+                words.forEach((w, i) => {
+                    const row = wordList.children[i];
+                    if (!row) return;
+
+                    const own = wordChoice.get(keyOf(w)) || {};
+                    row.querySelectorAll('.set-word-lang-select').forEach(select => {
+                        const field = select.dataset.field;
+
+                        // The same rule the plates follow: the row shows the
+                        // language the word is in, and Auto is a thing you ask
+                        // for rather than a state to be in. Asked for, it says
+                        // what the detector made of the word — a row reading
+                        // "Auto" and nothing else would leave that unanswered.
+                        const asked = own[field] === 'auto';
+                        const name = languageName(w[field]);
+                        select.querySelector('option[value="auto"]').textContent =
+                            asked && name ? 'Auto — ' + name : 'Auto';
+
+                        // A value the list does not offer would leave the select
+                        // blank, which reads as broken rather than as unknown.
+                        const offered = !asked && w[field] && select.querySelector(`option[value="${w[field]}"]`);
+                        select.value = offered ? w[field] : 'auto';
+                    });
+                });
+
+                plates.forEach(plate => {
+                    const field = plate.dataset.side;
+                    const names = languagesOf(words, field);
+
+                    // The Auto line carries the answer when there is more than
+                    // one: the plate is closed most of the time, and "Auto" on
+                    // its own would say nothing about what is in the box.
+                    const auto = names.length ? 'Auto — ' + names.join(', ') : 'Auto';
+                    plate.querySelector('option[value="auto"]').textContent = auto;
+
+                    // A closed select cuts its text off at the width it has, and
+                    // half the point of the plate is the list. The full answer
+                    // goes on the title, where a long one can still be read.
+                    plate.title = auto;
+
+                    // One language everywhere is shown as that language, even
+                    // when nobody picked it: it is what the set is in.
+                    const tags = [...new Set(words.map(w => w[field]).filter(Boolean))];
+                    const agreed = tags.length === 1 && words.every(w => w[field])
+                        && plate.querySelector(`option[value="${tags[0]}"]`);
+                    plate.value = (agreed && choice[field] !== 'auto') ? tags[0] : 'auto';
+                });
+            }
+
+            if (plates.length) {
+                refreshPlates();
+                textarea.addEventListener('input', refreshPlates);
+
+                // The generic fold handler above has already flipped the body by
+                // the time this runs, so opening the section is what draws it.
+                editForm.querySelector('.set-lang-fold .set-fold-toggle')
+                    .addEventListener('click', refreshPlates);
+
+                /*
+                 * The voice list lands after the page does — getVoices() is
+                 * empty for the first moments — so a form opened right away
+                 * would mark nothing. One redraw when it arrives puts the
+                 * speakers in: the rows are rebuilt from scratch, and the two
+                 * plates keep what they were showing while their options are
+                 * replaced under them.
+                 */
+                if (speech.available()) {
+                    speechSynthesis.addEventListener('voiceschanged', () => {
+                        plates.forEach(plate => {
+                            const kept = plate.value;
+                            plate.innerHTML = languageOptions();
+                            plate.value = kept;
+                        });
+
+                        drawnKeys = null;
+                        refreshPlates();
+                    }, { once: true });
+                }
+
+                plates.forEach(plate => plate.addEventListener('change', () => {
+                    choice[plate.dataset.side] = plate.value;
+                    refreshPlates();
+                }));
+            }
+
             // Only an existing set opens ready to type, caret after whatever is
             // already there: its words are in the box, and changing them is the
             // one reason that form is open.
@@ -896,38 +1343,16 @@ function catalog(container) {
             }
 
             editForm.querySelector('.set-save-btn').addEventListener('click', () => {
-                const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                const parsed = readWords(textarea.value, set);
 
-                if (lines.length === 0) {
+                if (!parsed) {
                     store.removeAt(index);
                 } else {
-                    // A first line that already carries a separator is a word, not a title:
-                    // the name was simply left out. An existing set keeps the name it had.
-                    const titled = !/\t|--/.test(lines[0]);
-                    set.title = titled ? lines[0] : (set.title || 'NEW SET NAME');
+                    set.title = parsed.title;
+                    set.words = parsed.words;
 
-                    // Existing words keep their history when the text is re-parsed
-                    const existingMap = new Map(set.words.map(w => [w.original.toLowerCase(), w]));
-                    const parsedWords = [];
-
-                    for (let i = titled ? 1 : 0; i < lines.length; i++) {
-                        // "--" or a tab, whichever comes first: the tab is what a paste from a
-                        // spreadsheet brings. Everything past that first separator is the
-                        // translation, so it may contain either character itself.
-                        const cut = lines[i].search(/\t|--/);
-                        const original = (cut === -1 ? lines[i] : lines[i].slice(0, cut)).trim();
-                        const translation = cut === -1 ? '' : lines[i].slice(cut).replace(/^(\t|--)/, '').trim();
-
-                        if (original) {
-                            const old = existingMap.get(original.toLowerCase());
-                            parsedWords.push({
-                                original: original,
-                                translation: translation,
-                                repetitions: old ? old.repetitions : []
-                            });
-                        }
-                    }
-                    set.words = parsedWords;
+                    // The same naming the plates have been showing all along
+                    nameWords(set.words);
                 }
 
                 editing.delete(set.id);

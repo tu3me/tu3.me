@@ -1302,6 +1302,11 @@ function snake(container) {
      * is left. A bare setTimeout would keep its word and say it into whatever
      * page the player opened next.
      */
+    // The language the board is being read in. Kept here because sayProgress
+    // works off the board alone: the board knows its letters, not whose word
+    // they spell. Set wherever the target word is.
+    let sayLang = null;
+
     function sayProgress() {
         const letters = board.letters();
         const done = board.progress();
@@ -1318,7 +1323,7 @@ function snake(container) {
         // named. A word is said in the case it was written in: a run of capitals
         // is read out letter by letter by some engines, which is the right sound
         // for one letter and the wrong one for seven.
-        if (!isBlank) speech.say(letters[index]);
+        if (!isBlank) speech.say(letters[index], sayLang);
 
         // The word just closed: everything back to the blank before it
         if (isBlank || atEnd) {
@@ -1327,10 +1332,10 @@ function snake(container) {
 
             const word = letters.slice(from + 1, isBlank ? index : done).join('').toLowerCase();
 
-            if (word && isPhrase) clock.after(420, () => speech.say(word));
+            if (word && isPhrase) clock.after(420, () => speech.say(word, sayLang));
         }
 
-        if (atEnd) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase()));
+        if (atEnd) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase(), sayLang));
     }
 
     function render() {
@@ -1359,6 +1364,7 @@ function snake(container) {
 
         let currentItem = pool[state.currentIndex];
         let targetWord = currentItem.word.original.toLowerCase();
+        sayLang = currentItem.word.originalLang;
 
         view.mount({
             translation: currentItem.word.translation,
@@ -1521,6 +1527,7 @@ function snake(container) {
         function moveToNextWord() {
             currentItem = pool[state.currentIndex];
             targetWord = currentItem.word.original.toLowerCase();
+            sayLang = currentItem.word.originalLang;
             state.hadErrorThisRound = false;
             state.showHint = false;
             board.setWord(targetWord);

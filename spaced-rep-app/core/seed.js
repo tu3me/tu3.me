@@ -4,6 +4,12 @@
  *
  * Timestamps are relative to load time, which is why this is a function and
  * not a constant: the sample progress has to look alive whenever it is built.
+ *
+ * Both languages are written on every word rather than worked out by
+ * speech.languageOfAll: what is in these sets is known, and a starting set has
+ * no business depending on a detector being right about it. store.label only
+ * fills in words that name no language, so what is written here is what stays —
+ * including the eleven different ones on the bench set's originals.
  */
 function seed() {
     const MIN = 60 * 1000;
@@ -28,13 +34,13 @@ function seed() {
                 id: '1',
                 title: '7 words',
                 words: [
-                    { original: 'go away', translation: 'уходи', repetitions: [] },
-                    { original: 'know', translation: 'знать', repetitions: [] },
-                    { original: 'think', translation: 'думать', repetitions: [] },
-                    { original: 'take', translation: 'брать', repetitions: [] },
-                    { original: 'see', translation: 'видеть', repetitions: [] },
-                    { original: 'come', translation: 'приходить', repetitions: [] },
-                    { original: 'want', translation: 'хотеть', repetitions: [] }
+                    { original: 'go away', originalLang: 'en', translation: 'уходи', translationLang: 'ru', repetitions: [] },
+                    { original: 'know', originalLang: 'en', translation: 'знать', translationLang: 'ru', repetitions: [] },
+                    { original: 'think', originalLang: 'en', translation: 'думать', translationLang: 'ru', repetitions: [] },
+                    { original: 'take', originalLang: 'en', translation: 'брать', translationLang: 'ru', repetitions: [] },
+                    { original: 'see', originalLang: 'en', translation: 'видеть', translationLang: 'ru', repetitions: [] },
+                    { original: 'come', originalLang: 'en', translation: 'приходить', translationLang: 'ru', repetitions: [] },
+                    { original: 'want', originalLang: 'en', translation: 'хотеть', translationLang: 'ru', repetitions: [] }
                 ]
             },
             {
@@ -42,15 +48,15 @@ function seed() {
                 title: 'TRAVEL ESSENTIALS',
                 words: [
                     // FAIL OK OK MISSED MISSED LATE_OK EARLY_OK — stage 6
-                    { original: 'airport', translation: 'аэропорт', repetitions: reps(160, [[0, 0], [4, 1], [6, 1], [110, 1], [30, 1]]) },
+                    { original: 'airport', originalLang: 'en', translation: 'аэропорт', translationLang: 'ru', repetitions: reps(160, [[0, 0], [4, 1], [6, 1], [110, 1], [30, 1]]) },
                     // OK OK OK EARLY_FAIL OK — stage 2
-                    { original: 'ticket', translation: 'билет', repetitions: reps(31, [[0, 1], [6, 1], [12, 1], [5, 0], [5, 1]], 'quiz') },
+                    { original: 'ticket', originalLang: 'en', translation: 'билет', translationLang: 'ru', repetitions: reps(31, [[0, 1], [6, 1], [12, 1], [5, 0], [5, 1]], 'quiz') },
                     // FAIL MISSED LATE_FAIL OK — stage 2
-                    { original: 'hotel', translation: 'отель', repetitions: reps(16, [[0, 0], [10, 0], [4, 1]], 'snake') },
-                    { original: 'luggage', translation: 'багаж', repetitions: [] },
-                    { original: 'passport', translation: 'паспорт', repetitions: reps(1, [[0, 1]]) },
-                    { original: 'customs', translation: 'таможня', repetitions: [] },
-                    { original: 'flight', translation: 'рейс', repetitions: [] }
+                    { original: 'hotel', originalLang: 'en', translation: 'отель', translationLang: 'ru', repetitions: reps(16, [[0, 0], [10, 0], [4, 1]], 'snake') },
+                    { original: 'luggage', originalLang: 'en', translation: 'багаж', translationLang: 'ru', repetitions: [] },
+                    { original: 'passport', originalLang: 'en', translation: 'паспорт', translationLang: 'ru', repetitions: reps(1, [[0, 1]]) },
+                    { original: 'customs', originalLang: 'en', translation: 'таможня', translationLang: 'ru', repetitions: [] },
+                    { original: 'flight', originalLang: 'en', translation: 'рейс', translationLang: 'ru', repetitions: [] }
                 ]
             },
             {
@@ -73,36 +79,36 @@ function seed() {
                 words: [
                     // Han, and a full-width question mark that takes a cell of
                     // its own like any other letter
-                    { original: '怎么学中文？', translation: 'Как выучить китайский?', repetitions: [] },
+                    { original: '怎么学中文？', originalLang: 'zh', translation: 'Как выучить китайский?', translationLang: 'ru', repetitions: [] },
                     // Kana and kanji mixed
-                    { original: '日本語はどう勉強しますか？', translation: 'Как выучить японский?', repetitions: [] },
+                    { original: '日本語はどう勉強しますか？', originalLang: 'ja', translation: 'Как выучить японский?', translationLang: 'ru', repetitions: [] },
                     // Hangul: precomposed syllables, one code point per block
-                    { original: '한국어를 어떻게 배우나요?', translation: 'Как выучить корейский?', repetitions: [] },
+                    { original: '한국어를 어떻게 배우나요?', originalLang: 'ko', translation: 'Как выучить корейский?', translationLang: 'ru', repetitions: [] },
                     // Devanagari: conjuncts and vowel signs belong to the
                     // consonant they hang off
-                    { original: 'हिंदी कैसे सीखें?', translation: 'Как выучить хинди?', repetitions: [] },
+                    { original: 'हिंदी कैसे सीखें?', originalLang: 'hi', translation: 'Как выучить хинди?', translationLang: 'ru', repetitions: [] },
                     // Danda ends a statement in Hindi where a full stop would
                     // end an English one — the only line here that is not a
                     // question, and the only place that mark appears
-                    { original: 'मैं हिंदी सीखता हूँ।', translation: 'Я учу хинди.', repetitions: [] },
+                    { original: 'मैं हिंदी सीखता हूँ।', originalLang: 'hi', translation: 'Я учу хинди.', translationLang: 'ru', repetitions: [] },
                     // Thai: vowels and tone marks sit above and below their
                     // consonant, and the language writes no question mark — the
                     // spaces do the work
-                    { original: 'เรียนภาษาไทยอย่างไร', translation: 'Как выучить тайский?', repetitions: [] },
+                    { original: 'เรียนภาษาไทยอย่างไร', originalLang: 'th', translation: 'Как выучить тайский?', translationLang: 'ru', repetitions: [] },
                     // Arabic, right to left, with its own mirrored question mark
-                    { original: 'كيف أتعلم العربية؟', translation: 'Как выучить арабский?', repetitions: [] },
+                    { original: 'كيف أتعلم العربية؟', originalLang: 'ar', translation: 'Как выучить арабский?', translationLang: 'ru', repetitions: [] },
                     // Hebrew, right to left; the niqqud are separate code points
                     // that belong to the letter before them
-                    { original: 'איך לומדים עִבְרִית?', translation: 'Как выучить иврит?', repetitions: [] },
+                    { original: 'איך לומדים עִבְרִית?', originalLang: 'he', translation: 'Как выучить иврит?', translationLang: 'ru', repetitions: [] },
                     // Greek asks with a semicolon
-                    { original: 'Πώς να μάθω ελληνικά;', translation: 'Как выучить греческий?', repetitions: [] },
+                    { original: 'Πώς να μάθω ελληνικά;', originalLang: 'el', translation: 'Как выучить греческий?', translationLang: 'ru', repetitions: [] },
                     // Spanish opens the question as well as closing it
-                    { original: '¿Cómo aprender español?', translation: 'Как выучить испанский?', repetitions: [] },
+                    { original: '¿Cómo aprender español?', originalLang: 'es', translation: 'Как выучить испанский?', translationLang: 'ru', repetitions: [] },
                     // French puts a narrow no-break space before its question
                     // mark — a letter that is blank but is not the space bar —
                     // and this ç is written decomposed, c followed by a
                     // combining cedilla, which the old split tore in two
-                    { original: 'Comment apprendre le franc\u0327ais\u202f?', translation: 'Как выучить французский?', repetitions: [] }
+                    { original: 'Comment apprendre le franc\u0327ais\u202f?', originalLang: 'fr', translation: 'Как выучить французский?', translationLang: 'ru', repetitions: [] }
                 ]
             }
         ];
