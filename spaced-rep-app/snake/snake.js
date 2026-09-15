@@ -3,10 +3,17 @@
  * letter or a self-collision costs a heart. The round state is persisted on
  * every step, so closing the popup mid-game loses at most the last move.
  *
+ * The board is an SVG, rebuilt from scratch on every frame. It was a canvas
+ * first, and for a while both renderers were kept side by side to be measured
+ * against each other: canvas carries a complex scene more cheaply, but it pays
+ * for resolution and SVG does not — and resolution is the thing a phone screen
+ * has a great deal of. The canvas twin has been removed; what it measured is
+ * in docs/FINDINGS.md.
+ *
  * Four sub-modules are private to this game and follow the same init-once
  * shape as the top-level ones:
  *
- *     view    everything that draws — DOM, canvas, d-pad. Decides nothing.
+ *     view    everything that draws — DOM, SVG, d-pad. Decides nothing.
  *     clock   pacing: the tick, acceleration, and every timer the game owns.
  *     board   the rules and the field. Touches no DOM and no storage.
  *     input   keyboard and d-pad presses turned into direction intents.
@@ -20,23 +27,6 @@ function snake(container) {
 
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
-
-    /*
-     * How many pixels the canvas keeps for each pixel the drawing is written in.
-     *
-     * The drawing is written in CSS pixels — the numbers below are cell sizes,
-     * font sizes and insets in the units the page uses — and the canvas is then
-     * scaled to match whatever it is asked to hold. One means one, the cheapest
-     * to paint and the softest on a phone, where a CSS pixel is two or three
-     * real ones.
-     *
-     * Raising it changes nothing about the picture, only how finely it is
-     * rasterised: the transform below does the scaling, so no size written
-     * anywhere else has to know about it. That is what makes it comparable —
-     * scaling the coordinates instead would shrink the type against the cells
-     * and draw a different scene.
-     */
-    const BOARD_SUPERSAMPLE = 1;
 
     /*
      * A word's letters, as the person reading it would count them.
@@ -126,13 +116,13 @@ function snake(container) {
      * The typeface the letters are drawn in, taken from the page rather than
      * written out again.
      *
-     * The board draws on a canvas and the bar is ordinary markup, so the two
-     * name their font separately — and the canvas used to name only system-ui,
-     * with none of the fallbacks the page lists after it. Wherever system-ui
-     * fails to resolve, a canvas falls back to its default, which is a serif:
-     * the same word would then be serif on the board and sans in the bar under
-     * it. Measured, not guessed — an unresolvable family on canvas renders
-     * pixel for pixel as `serif`.
+     * The letters on the board, the letters in the bar and the canvas that
+     * measures them all have to name the same typeface, and each of the three
+     * names it separately. The measuring canvas is the one that punishes a
+     * short list: wherever system-ui fails to resolve, a canvas falls back to
+     * its default, which is a serif — and then every letter is placed by the
+     * metrics of a typeface it is not drawn in. Measured, not guessed: an
+     * unresolvable family on canvas renders pixel for pixel as `serif`.
      *
      * Read from the body, so the two cannot drift apart even if the stylesheet
      * changes its mind.
@@ -168,7 +158,7 @@ function snake(container) {
 
         let palette = {};
         let cb = {};
-        let header, hintBanner, gatheredBar, canvas, ctx, controlsArea;
+        let header, hintBanner, gatheredBar, svg, scene, measure, controlsArea;
         let cellSize = 0;
         let controlMode = 0;
         let difficulty = 1;
@@ -466,16 +456,35 @@ function snake(container) {
 
             const side = document.body.clientWidth;
 
-            canvas = $(host, `<canvas class="snake-canvas" id="snake-canvas" width="${side * BOARD_SUPERSAMPLE}" height="${side * BOARD_SUPERSAMPLE}" style="background: ${palette.canvasBg}; border: 1px solid ${palette.canvasBorder}; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.canvasShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;"></canvas>`);
+            // The grid is the same 26 lines on every frame, so it is drawn once
+            // into its own group and left alone. Everything that moves lives in
+            // the group after it, which is the only thing a frame touches.
+            let grid = '';
+            for (let i = 0; i <= GRID_COUNT; i++) {
+                const at = i * (side / GRID_COUNT);
+                grid += `M${at} 0V${side}M0 ${at}H${side}`;
+            }
 
-            ctx = canvas.getContext('2d');
+            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;">
+                <path d="${grid}" stroke="${palette.grid}" stroke-width="1" fill="none" />
+                <g class="snake-svg-scene"></g>
+            </svg>`);
+
+            scene = svg.querySelector('.snake-svg-scene');
+
+            // SVG can measure text only once it is in the document and laid
+            // out, which is the thing this renderer is trying not to do twice
+            // per glyph. A canvas measures without drawing, so one is kept here
+            // for that alone — it paints nothing.
+            measure = document.createElement('canvas').getContext('2d');
+
             cellSize = side / GRID_COUNT;
 
             controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px;">
                 <div class="snake-controls-wrapper" id="controls-wrapper" style="display: none; justify-content: center; width: 100%; min-height: 80px; align-items: center;"></div>
             </div>`);
 
-            canvas.addEventListener('click', () => cb.onCanvasClick());
+            svg.addEventListener('click', () => cb.onBoardClick());
 
             renderControls();
         };
@@ -598,15 +607,29 @@ function snake(container) {
             }
         };
 
-        // Centres a glyph by its ink rather than by its baseline. A fixed baseline centres
-        // the em box, and the ink of a comma or a period sits at the very bottom of that box,
-        // which is what dropped them onto the edge of their cell.
-        function drawGlyph(char, cx, cy) {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'alphabetic';
-            const m = ctx.measureText(char);
-            const ink = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-            ctx.fillText(char, cx, cy + (ink || 0));
+        // Markup is being assembled as text, so anything coming from a word has
+        // to be neutered first. A word is whatever the player typed.
+        function esc(text) {
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Where a glyph's baseline goes so that its ink is centred on the cell
+        // rather than its em box: the ink of a comma sits at the bottom of the
+        // box, so a glyph centred by its box is not centred by eye.
+        function inkOffset(char, font) {
+            measure.font = font;
+            const m = measure.measureText(char);
+            return (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 || 0;
+        }
+
+        function glyph(char, cx, cy, px, fill, weight) {
+            const font = fontOf(px, weight);
+            const size = fitSize(char, px, font);
+            const shown = size === px ? font : fontOf(size, weight);
+
+            return `<text x="${cx}" y="${cy + inkOffset(char, shown)}" fill="${fill}"
+                font-family="${LETTER_FONT}" font-size="${size}" font-weight="${weight || 'normal'}"
+                text-anchor="middle">${esc(char)}</text>`;
         }
 
         /*
@@ -626,48 +649,24 @@ function snake(container) {
          * Shrinking rather than clipping: a Thai syllable with its tone mark cut
          * off is a different syllable.
          */
-        function fitToCell(glyph, nominal) {
+        function fitSize(char, nominal, font) {
             const room = cellSize - 2;
-            const m = ctx.measureText(glyph);
+            measure.font = font;
+            const m = measure.measureText(char);
             const ink = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
 
-            if (!ink || ink <= room) return;
+            if (!ink || ink <= room) return nominal;
 
-            ctx.font = fontOf(Math.max(10, Math.floor(nominal * room / ink)), 'bold');
+            return Math.max(10, Math.floor(nominal * room / ink));
         }
 
         view.draw = (s) => {
-            // Everything below is written in CSS pixels; this is the only place
-            // that knows the canvas may hold more than one pixel each. Set per
-            // frame rather than once, because the state saved and restored
-            // around the segments carries the transform with it.
-            ctx.setTransform(BOARD_SUPERSAMPLE, 0, 0, BOARD_SUPERSAMPLE, 0, 0);
-
-            const boardSide = cellSize * GRID_COUNT;
-
-            ctx.fillStyle = palette.canvasBg;
-            ctx.fillRect(0, 0, boardSide, boardSide);
-
-            ctx.strokeStyle = palette.grid;
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= GRID_COUNT; i++) {
-                ctx.beginPath();
-                ctx.moveTo(i * cellSize, 0);
-                ctx.lineTo(i * cellSize, boardSide);
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.moveTo(0, i * cellSize);
-                ctx.lineTo(boardSide, i * cellSize);
-                ctx.stroke();
-            }
+            let out = '';
 
             if (s.phase === 'HEART' && s.heartPos) {
-                ctx.fillStyle = '#ef4444';
-                ctx.font = fontOf(19.2);
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('❤️', (s.heartPos.x + 0.5) * cellSize, (s.heartPos.y + 0.5) * cellSize);
+                out += `<text x="${(s.heartPos.x + 0.5) * cellSize}" y="${(s.heartPos.y + 0.5) * cellSize}"
+                    font-family="${LETTER_FONT}" font-size="19.2" text-anchor="middle"
+                    dominant-baseline="central">\u2764\ufe0f</text>`;
             }
 
             // A blank is a letter like any other here: same colour, and a block
@@ -675,27 +674,14 @@ function snake(container) {
             s.lettersOnBoard.forEach(l => {
                 if (l.isEaten) return;
 
-                ctx.fillStyle = palette.boardLetter;
-
                 if (BLANK.test(l.char)) {
-                    ctx.save();
-                    ctx.globalAlpha = BLANK_ALPHA;
-                    ctx.beginPath();
-                    ctx.roundRect(
-                        l.x * cellSize + BLANK_INSET,
-                        l.y * cellSize + BLANK_INSET,
-                        cellSize - BLANK_INSET * 2,
-                        cellSize - BLANK_INSET * 2,
-                        BLANK_RADIUS
-                    );
-                    ctx.fill();
-                    ctx.restore();
+                    out += `<rect x="${l.x * cellSize + BLANK_INSET}" y="${l.y * cellSize + BLANK_INSET}"
+                        width="${cellSize - BLANK_INSET * 2}" height="${cellSize - BLANK_INSET * 2}"
+                        rx="${BLANK_RADIUS}" fill="${palette.boardLetter}" fill-opacity="${BLANK_ALPHA}" />`;
                     return;
                 }
 
-                ctx.font = fontOf(30, 'bold');
-                fitToCell(l.char, 30);
-                drawGlyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize);
+                out += glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, 30, palette.boardLetter, 'bold');
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -729,112 +715,77 @@ function snake(container) {
                 const b = s.snakeBody[i + 1];
                 if (Math.abs(b.x - a.x) + Math.abs(b.y - a.y) !== 1) continue;
 
-                ctx.fillStyle = segmentColor(i + 1);
+                const fill = segmentColor(i + 1);
 
                 if (a.y === b.y) {
                     const edge = Math.max(a.x, b.x) * cellSize;
-                    ctx.fillRect(edge - jointReach, (a.y + 0.5) * cellSize - jointWidth / 2, jointReach * 2, jointWidth);
+                    out += `<rect x="${edge - jointReach}" y="${(a.y + 0.5) * cellSize - jointWidth / 2}"
+                        width="${jointReach * 2}" height="${jointWidth}" fill="${fill}" />`;
                 } else {
                     const edge = Math.max(a.y, b.y) * cellSize;
-                    ctx.fillRect((a.x + 0.5) * cellSize - jointWidth / 2, edge - jointReach, jointWidth, jointReach * 2);
+                    out += `<rect x="${(a.x + 0.5) * cellSize - jointWidth / 2}" y="${edge - jointReach}"
+                        width="${jointWidth}" height="${jointReach * 2}" fill="${fill}" />`;
                 }
             }
 
             s.snakeBody.forEach((part, idx) => {
-                ctx.save();
-
                 const partColor = segmentColor(idx);
+                const radius = idx === 0 ? 6 : 4;
 
                 if (s.isFrozen && idx === s.losingHeartIdx) {
                     const centerX = (part.x + 0.5) * cellSize;
                     const centerY = (part.y + 0.5) * cellSize;
+                    const heartChar = s.blinkVisible ? '\u2764\ufe0f' : '\ud83d\udda4';
 
-                    ctx.translate(centerX, centerY);
-                    ctx.scale(1.5, 1.5);
-
-                    ctx.fillStyle = partColor;
-                    ctx.beginPath();
-                    ctx.roundRect(
-                        -cellSize / 2 + 1,
-                        -cellSize / 2 + 1,
-                        cellSize - 2,
-                        cellSize - 2,
-                        idx === 0 ? 6 : 4
-                    );
-                    ctx.fill();
-
-                    const heartChar = s.blinkVisible ? '❤️' : '🖤';
-                    ctx.font = fontOf(15.6, 'bold');
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(heartChar, 0, 0);
-                } else {
-                    ctx.fillStyle = partColor;
-                    ctx.beginPath();
-                    ctx.roundRect(
-                        part.x * cellSize + SEG_INSET,
-                        part.y * cellSize + SEG_INSET,
-                        cellSize - SEG_INSET * 2,
-                        cellSize - SEG_INSET * 2,
-                        idx === 0 ? 6 : 4
-                    );
-                    ctx.fill();
-
-                    if (part.char) {
-                        ctx.fillStyle = '#ffffff';
-
-                        // A carried blank is the same block, on the segment
-                        // carrying it and in the colour its letters are written
-                        // in there.
-                        if (BLANK.test(part.char)) {
-                            ctx.save();
-                            ctx.globalAlpha = BLANK_ALPHA;
-                            ctx.beginPath();
-                            ctx.roundRect(
-                                part.x * cellSize + cellSize * 0.3,
-                                part.y * cellSize + cellSize * 0.3,
-                                cellSize * 0.4,
-                                cellSize * 0.4,
-                                2
-                            );
-                            ctx.fill();
-                            ctx.restore();
-                        } else {
-                            ctx.font = fontOf(14.4, 'bold');
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize);
-                        }
-                    }
+                    out += `<g transform="translate(${centerX} ${centerY}) scale(1.5)">
+                        <rect x="${-cellSize / 2 + 1}" y="${-cellSize / 2 + 1}"
+                            width="${cellSize - 2}" height="${cellSize - 2}" rx="${radius}" fill="${partColor}" />
+                        <text x="0" y="0" font-family="${LETTER_FONT}" font-size="15.6" font-weight="bold"
+                            text-anchor="middle" dominant-baseline="central">${heartChar}</text>
+                    </g>`;
+                    return;
                 }
-                ctx.restore();
+
+                out += `<rect x="${part.x * cellSize + SEG_INSET}" y="${part.y * cellSize + SEG_INSET}"
+                    width="${cellSize - SEG_INSET * 2}" height="${cellSize - SEG_INSET * 2}"
+                    rx="${radius}" fill="${partColor}" />`;
+
+                if (!part.char) return;
+
+                // A carried blank is the same block, on the segment carrying it
+                // and in the colour its letters are written in there.
+                if (BLANK.test(part.char)) {
+                    out += `<rect x="${part.x * cellSize + cellSize * 0.3}" y="${part.y * cellSize + cellSize * 0.3}"
+                        width="${cellSize * 0.4}" height="${cellSize * 0.4}" rx="2"
+                        fill="#ffffff" fill-opacity="${BLANK_ALPHA}" />`;
+                } else {
+                    out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 14.4, '#ffffff', 'bold');
+                }
             });
 
             // The spark sits on the edge the head ran into: half a cell along the heading,
             // which is exactly the border between the head and whatever it hit. Drawn with
-            // strokes rather than a glyph — an emoji star ignores fillStyle and cannot be red.
+            // strokes rather than a glyph — an emoji star arrives in its own colours and
+            // cannot be made red.
             if (s.crashPhase === 1) {
                 const head = s.snakeBody[0];
                 const cx = (head.x + 0.5 + s.dir.x * 0.5) * cellSize;
                 const cy = (head.y + 0.5 + s.dir.y * 0.5) * cellSize;
                 const reach = cellSize * 0.3;
 
-                ctx.save();
-                ctx.strokeStyle = '#ff1744';
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
+                let spark = '';
                 for (let i = 0; i < 4; i++) {
                     const angle = (Math.PI / 4) * i;
                     const len = i % 2 === 0 ? reach : reach * 0.55; // long cross, short diagonals
                     const dx = Math.cos(angle) * len;
                     const dy = Math.sin(angle) * len;
-                    ctx.moveTo(cx - dx, cy - dy);
-                    ctx.lineTo(cx + dx, cy + dy);
+                    spark += `M${cx - dx} ${cy - dy}L${cx + dx} ${cy + dy}`;
                 }
-                ctx.stroke();
-                ctx.restore();
+
+                out += `<path d="${spark}" stroke="#ff1744" stroke-width="3" stroke-linecap="round" fill="none" />`;
             }
+
+            scene.innerHTML = out;
         };
     }
 
@@ -1440,7 +1391,7 @@ function snake(container) {
                 }
             },
 
-            onCanvasClick: () => {
+            onBoardClick: () => {
                 clock.pause();
                 board.persistTo(state);
             },
@@ -1700,9 +1651,9 @@ function snake(container) {
             // Ink rather than mint: this is the word to read, and mint on the
             // light theme's white panel is 2.1:1.
             hintText: t.ink,
-            canvasBg: isDark ? t.ground : t.surface,
-            canvasBorder: t.border,
-            canvasShadow: '0',
+            boardBg: isDark ? t.ground : t.surface,
+            boardBorder: t.border,
+            boardShadow: '0',
             dpadBg: t.soft,
             dpadBorder: t.border,
             dpadColor: t.ink,
@@ -1770,9 +1721,6 @@ function snake(container) {
     snake.setState = (snap) => {
         if (!snap) return;
         state = { ...getEmptyState(), ...snap };
-        if (Array.isArray(state.sessionPool)) {
-            state.sessionPool.forEach(item => store.migrateWord(item && item.word));
-        }
     };
 
     // Sub-modules are initialized once, like the top-level ones

@@ -150,24 +150,18 @@ body {
  * badge says, but from across the screen and without being read — which set has
  * something to do in it is the one question the catalog is opened to answer.
  *
- * A word still ripening hops too, but barely: fifteen times slower and smaller
- * again. Same shape of movement, so the two read as one family — one word
- * asking to be answered, the other only breathing while it waits.
- *
- * Each size needs its own keyframes rather than a scale laid on top: the hop
- * skews and rotates as well as stretches, and every one of those has to come
- * down together or the movement stops being the same movement.
- *
- * Which of the two a bubble takes is decided in catalog.js, where the stage and
- * the timer are known.
+ * A word still ripening hops the same hop, fifteen times slower. One set of
+ * keyframes for both, and only the duration between them: at that speed the
+ * movement stops being a hop and becomes breathing, which is the difference
+ * worth showing — one word asking to be answered, the other waiting its turn.
  *
  * Every value here is a third of what it started as. At full size the hop was a
  * jump; the point is to catch the eye at the edge of it, not to hold the eye in
  * the middle of it.
  *
  * Keyframes cannot be written in a style attribute, so they live here with the
- * placeholder rule below. Which bubble hops is decided in catalog.js, where the
- * stage and the timer are known.
+ * placeholder rule below. How fast a bubble takes them is decided in
+ * catalog.js, where the stage and the timer are known.
  */
 @keyframes bounce {
     0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
@@ -175,20 +169,6 @@ body {
     25% { scale: 1.0022 1.0333; transform: skew(1.111deg, 0deg); }
     50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.222deg; }
     75% { scale: 1.0022 1.0556; transform: skew(-0.222deg, 0deg); }
-}
-
-/*
- * The waiting hop. Its own numbers rather than a fraction of the one above:
- * the two have been brought down separately and by different amounts, and
- * writing one as a share of the other only invites a comment that lies about
- * what the file says.
- */
-@keyframes bounce-slow {
-    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
-    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
-    25% { scale: 1.0017 1.025; transform: skew(0.833deg, 0deg); }
-    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.167deg; }
-    75% { scale: 1.0017 1.0417; transform: skew(-0.167deg, 0deg); }
 }
 
 /*

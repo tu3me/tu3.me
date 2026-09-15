@@ -88,25 +88,5 @@ const GAMES = [
             </g>`),
         color: '#56c4a6',
         page: 'snake'
-    },
-    {
-        id: 'snake2',
-        title: 'Snake 2',
-        // The same snake as above, outlined instead of filled — the one drawn
-        // in SVG, and the outline is what says so at a glance. Temporary: it is
-        // here to be measured against the canvas one, not to be a fourth thing
-        // to learn with.
-        icon: (size) => gameIcon(size, `
-            <g fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="1.9" y="18.8" width="4.1" height="4.1" rx="1" />
-                <rect x="7.6" y="18.8" width="4.1" height="4.1" rx="1" />
-                <rect x="13.3" y="18.8" width="4.1" height="4.1" rx="1" />
-                <rect x="13.3" y="13.1" width="4.1" height="4.1" rx="1" />
-                <rect x="13.3" y="7.4" width="4.1" height="4.1" rx="1" />
-                <rect x="19" y="7.4" width="4.1" height="4.1" rx="1" />
-                <rect x="19.7" y="2.1" width="2.3" height="2.3" rx="0.7" />
-            </g>`),
-        color: '#6aa8f0',
-        page: 'snake2'
     }
 ];

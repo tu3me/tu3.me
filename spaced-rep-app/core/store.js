@@ -11,35 +11,9 @@
 function store() {
     let sets = seed.sets();
 
-    // Legacy data used a "trainings" field with the same element shape
-    function migrateWord(word) {
-        if (!word) return word;
-        if (word.trainings && !word.repetitions) word.repetitions = word.trainings;
-        delete word.trainings;
-        if (!Array.isArray(word.repetitions)) word.repetitions = [];
-        return word;
-    }
-
-    // word_sets carries domain data only. Screen state that used to ride along on
-    // the set objects lives in a local variable of the catalog now. The fields
-    // below are dropped on load because sets saved by the old monolith still
-    // carry them.
-    function stripUiFields(set) {
-        delete set.startProgress;
-        delete set.isEditing;
-        delete set.isNew;
-        return set;
-    }
-
     async function load() {
         const savedSets = await storage.get('word_sets');
-        if (savedSets && Array.isArray(savedSets) && savedSets.length > 0) {
-            savedSets.forEach(s => {
-                stripUiFields(s);
-                (s.words || []).forEach(migrateWord);
-            });
-            sets = savedSets;
-        }
+        if (savedSets && savedSets.length > 0) sets = savedSets;
     }
 
     function save() {
@@ -95,5 +69,4 @@ function store() {
     store.addSet = (set) => sets.unshift(set);
     store.removeAt = (index) => sets.splice(index, 1);
     store.recordRepetition = recordRepetition;
-    store.migrateWord = migrateWord;
 }

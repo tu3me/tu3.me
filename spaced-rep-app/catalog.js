@@ -345,9 +345,8 @@ function catalog(container) {
      */
     const BOUNCE_MS = 650;
 
-    // A word still counting down barely moves: fifteen times slower, and through
-    // its own keyframes, which are the same hop at half the size. It is a word
-    // breathing in its sleep rather than one asking to be answered.
+    // A word still counting down takes the same hop fifteen times slower, which
+    // at that speed reads as breathing rather than as asking to be answered.
     const SLOW_BOUNCE_MS = BOUNCE_MS * 15;
 
     function bubbleMotion(stage, timer, order) {
@@ -356,9 +355,9 @@ function catalog(container) {
         // would otherwise hop from the very first draw.
         if (stage === 0) return '';
 
-        return timer
-            ? `animation: bounce-slow ${SLOW_BOUNCE_MS}ms ease-in-out ${-order * 1300}ms infinite;`
-            : `animation: bounce ${BOUNCE_MS}ms ease-in-out ${-order * 170}ms infinite;`;
+        const period = timer ? SLOW_BOUNCE_MS : BOUNCE_MS;
+        const stagger = timer ? 1300 : 170;
+        return `animation: bounce ${period}ms ease-in-out ${-order * stagger}ms infinite;`;
     }
 
     function createBubble(bubbleData, parent, order) {
@@ -924,7 +923,7 @@ function catalog(container) {
                             parsedWords.push({
                                 original: original,
                                 translation: translation,
-                                repetitions: old ? (old.repetitions || []) : []
+                                repetitions: old ? old.repetitions : []
                             });
                         }
                     }

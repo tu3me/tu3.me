@@ -311,9 +311,6 @@ function quiz(container) {
     quiz.setState = (snap) => {
         if (!snap) return;
         state = { ...getEmptyState(), ...snap };
-        if (Array.isArray(state.sessionPool)) {
-            state.sessionPool.forEach(item => store.migrateWord(item && item.word));
-        }
     };
 }
 
