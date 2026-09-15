@@ -1032,22 +1032,18 @@ function catalog(container) {
             // the word starts exactly above the language it names rather than a
             // few pixels to the left of it.
             //
-            // The height is fixed rather than left to the text: a line of Arabic
-            // or Devanagari is taller than a line of Latin at the same size, and
-            // one such word in the left column pushed its dropdown below the one
-            // on the right. A caption is one line whatever it is written in, so
-            // it is given the height of one line.
+            // The line height is set rather than inherited, so a caption in Arabic
+            // or Devanagari — both taller than Latin at the same size — takes the
+            // same band as the word next to it in the ordinary case.
             //
-            // 20 rather than the 16 Latin would need: the box clips what does not
-            // fit, and Devanagari vowel signs sit high above the letters they
-            // belong to. Measured on the bench set, which is there for exactly
-            // this kind of question.
-            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; line-height: 20px; height: 20px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+            // Keeping the two dropdowns level is not left to that, though. The
+            // row is a grid and the captions share one of its rows: whichever of
+            // them turns out taller, both dropdowns begin where that row ends.
+            // Matching two boxes by eye is what was tried first, and a phone
+            // found a script where the numbers did not agree.
+            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; line-height: 20px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
-            const langPlate = (side) => `<div style="flex: 1 1 0; min-width: 0;">
-                    ${caption('All', true, 11)}
-                    <select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>
-                </div>`;
+            const langPlate = (side) => `<select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>`;
 
             let textLines = [set.title];
             set.words.forEach(w => {
@@ -1058,7 +1054,9 @@ function catalog(container) {
                     First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
                 <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
-                <div class="set-lang-fold">${foldingSection('Define languages', `<div class="set-lang-plates" style="display: flex; gap: 8px;">
+                <div class="set-lang-fold">${foldingSection('Define languages', `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; align-items: start;">
+                        ${caption('All', true, 11)}
+                        ${caption('All', true, 11)}
                         ${langPlate('originalLang')}
                         ${langPlate('translationLang')}
                     </div>
@@ -1225,15 +1223,14 @@ function catalog(container) {
                 const options = languageOptions();
                 const rowSelect = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10px; padding: 4px 8px; font-family: inherit; font-size: 12.6px; font-weight: 600; cursor: pointer; outline: none;`;
 
-                wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: flex; gap: 6px;">
-                        <div style="flex: 1 1 0; min-width: 0;">
-                            ${caption(escapeText(w.original), false, 9)}
-                            <select class="set-word-lang-select" data-field="originalLang" style="${rowSelect}">${options}</select>
-                        </div>
-                        <div style="flex: 1 1 0; min-width: 0;">
-                            ${caption(w.translation ? escapeText(w.translation) : '—', false, 9)}
-                            <select class="set-word-lang-select" data-field="translationLang" style="${rowSelect}">${options}</select>
-                        </div>
+                // Four cells in two columns: the two captions share the first grid
+                // row, the two dropdowns the second. Whatever either caption is
+                // written in, the dropdowns under them start together.
+                wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; align-items: start;">
+                        ${caption(escapeText(w.original), false, 9)}
+                        ${caption(w.translation ? escapeText(w.translation) : '—', false, 9)}
+                        <select class="set-word-lang-select" data-field="originalLang" style="${rowSelect}">${options}</select>
+                        <select class="set-word-lang-select" data-field="translationLang" style="${rowSelect}">${options}</select>
                     </div>`).join('');
 
                 wordList.querySelectorAll('.set-word-lang-select').forEach(select => {
@@ -1341,17 +1338,12 @@ function catalog(container) {
                 }));
             }
 
-            // Only an existing set opens ready to type, caret after whatever is
-            // already there: its words are in the box, and changing them is the
-            // one reason that form is open.
-            //
-            // A new set is not given the caret. The routes above the box are
-            // there to be read first, and taking focus scrolls them off on a
-            // short screen and raises the keyboard over what is left.
-            if (!guided) {
-                textarea.focus();
-                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-            }
+            // Neither form takes the caret. On a phone focus raises the keyboard
+            // over the half of the form that was just opened, and what is worth
+            // reading first — the words already in the box, the routes above it,
+            // the languages below — is exactly what the keyboard covers. Tapping
+            // the box is one tap, and it is the tap of someone who has decided
+            // to type.
 
             editForm.querySelector('.set-save-btn').addEventListener('click', () => {
                 const parsed = readWords(textarea.value, set);
