@@ -1031,7 +1031,18 @@ function catalog(container) {
             // The indent is the dropdown's own: its border plus its padding, so
             // the word starts exactly above the language it names rather than a
             // few pixels to the left of it.
-            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+            //
+            // The height is fixed rather than left to the text: a line of Arabic
+            // or Devanagari is taller than a line of Latin at the same size, and
+            // one such word in the left column pushed its dropdown below the one
+            // on the right. A caption is one line whatever it is written in, so
+            // it is given the height of one line.
+            //
+            // 20 rather than the 16 Latin would need: the box clips what does not
+            // fit, and Devanagari vowel signs sit high above the letters they
+            // belong to. Measured on the bench set, which is there for exactly
+            // this kind of question.
+            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; line-height: 20px; height: 20px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
             const langPlate = (side) => `<div style="flex: 1 1 0; min-width: 0;">
                     ${caption('All', true, 11)}
