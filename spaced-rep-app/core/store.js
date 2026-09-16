@@ -30,7 +30,7 @@ function store() {
      *
      * A word that already names its language is left alone. The detector is a
      * guess and the field may hold something better than a guess — what seed.js
-     * wrote down, or what a person will one day set by hand — and a guess has no
+     * wrote down, or what a person chose in the form — and a guess has no
      * business overwriting it on every edit. Only the words that have no answer
      * get one, and the column they are read against is the whole column, the
      * already-named words included: they are the evidence.

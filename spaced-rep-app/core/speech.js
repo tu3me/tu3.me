@@ -15,13 +15,14 @@
  * had no voice for the script — but nothing can be done about it here beyond
  * telling the truth.
  *
- * The language is guessed from the writing itself, and a set carries the guess
- * once it has been made: speech.languageOfAll reads a whole column of words at
- * once — every original, or every translation — which is the only way a set of
- * ordinary-looking words gets its language from the one word in it that happens
- * to carry a local letter. catalog.js stores the answer on the set, and say()
- * takes it as its second argument. Without one it falls back to guessing from
- * the text in hand, which is all a single word can offer.
+ * The language is written on the word: `originalLang` and `translationLang`,
+ * put there by seed.js, by the person editing the set, or by store.label, which
+ * asks speech.languageOfAll. The column is read whole — every original, or every
+ * translation — because that is the only way a set of ordinary-looking words
+ * gets its language from the one word in it that happens to carry a letter of
+ * its own. say() takes the word's answer as its second argument; without one it
+ * falls back to guessing from the text in hand, which is all a single word can
+ * offer.
  */
 function speech() {
     /*
@@ -52,15 +53,26 @@ function speech() {
      * in that language rather than the next, so the first of them is the answer
      * when nothing else separates them.
      *
+     * Own letters can end level too — one language's letter and another's in the
+     * same word — and that is not a reason to give up on either: between them
+     * they have ruled out the rest of the script, the default included. The
+     * likeliest of the ones still standing answers, as a guess rather than as a
+     * name.
+     *
      * Kana before Han: Japanese uses both, and a sentence with kana in it is
      * Japanese, while one with Han alone is more likely Chinese.
      *
      * What this cannot do, and no amount of letters will fix:
      *
-     *   - Italian, Dutch, Finnish and Albanian have no letter their neighbours
-     *     lack, so they read as English;
-     *   - Norwegian is written with the Danish letters, and Estonian's õ is
-     *     Portuguese's as well;
+     *   - Dutch, Swahili and Indonesian have no letter their neighbours lack
+     *     and none they share either, so they read as English. Italian, Finnish
+     *     and Albanian are only half out: nothing is theirs alone, but à, ä and
+     *     ç are on their shared lists, so a word carrying one is at least
+     *     guessed at;
+     *   - Norwegian is written with the Danish letters, Estonian's õ is
+     *     Portuguese's as well, and Croatian has only letters it shares, so it
+     *     is never named outright — only guessed at, behind Vietnamese and
+     *     Czech;
      *   - Bulgarian has the Russian alphabet minus two letters, and absence is
      *     not something a single word can show;
      *   - Nepali is Hindi's alphabet, traditional Chinese is Chinese.
@@ -127,7 +139,6 @@ function speech() {
                 ['sr', /[ђћџљњ]/giu],
                 ['mk', /[ѓќѕ]/giu],
                 ['kk', /[ұқғһ]/giu],
-                ['ky', /[ң]/giu],
                 ['tg', /[ӣӯҷҳ]/giu],
                 ['tt', /[җ]/giu],
                 ['ba', /[ҙҫҡ]/giu]
@@ -151,7 +162,14 @@ function speech() {
                 [/[ö]/giu, ['de', 'sv', 'tr', 'fi', 'hu', 'et']],
                 [/[ä]/giu, ['de', 'sv', 'fi', 'et', 'sk']],
                 [/[šž]/giu, ['cs', 'hr', 'sk', 'sl', 'lt', 'lv', 'et']],
-                [/[ň]/giu, ['cs', 'sk']]
+                [/[ň]/giu, ['cs', 'sk']],
+
+                // Croatian's one letter, and Vietnamese writes it in half its
+                // words. It named Croatian outright until "đường" came back
+                // English: đ scored for Croatian, ư for Vietnamese, and the tie
+                // threw the word back to the script's default. Neither language
+                // is the default, and only one of them is likely.
+                [/[đ]/giu, ['vi', 'hr']]
             ], locals: [
                 ['de', /[ß]/gu],
                 ['pl', /[łąężź]/giu],
@@ -160,7 +178,10 @@ function speech() {
                 ['hu', /[őű]/giu],
                 ['ro', /[șț]/giu],
                 ['tr', /[ğıİ]/gu],
-                ['vi', /[ơư]/giu],
+                // The tone marks as well: Latin Extended Additional is written
+                // by Vietnamese and by nothing else here, and ơ and ư alone left
+                // "tiếng Việt" with no evidence at all.
+                ['vi', /[ơưẠ-ỹ]/giu],
                 ['pt', /[ã]/giu],
                 ['es', /[ñ¿¡]/giu],
                 ['fr', /[œêëâîôÿ]/giu],
@@ -170,7 +191,6 @@ function speech() {
                 ['et', /[õ]/giu],
                 ['da', /[æø]/giu],
                 ['sv', /[å]/giu],
-                ['hr', /[đ]/giu],
                 ['az', /[ə]/giu]
             ]
         }
@@ -179,14 +199,25 @@ function speech() {
     const FALLBACK = 'en';
 
     /*
-     * The language of one string: its script, and inside the script whichever
-     * language put the most of its own letters into it.
+     * Which of several languages to believe when the evidence cannot choose
+     * between them.
      *
-     * Counting rather than first-match, because the marks overlap: Vietnamese
-     * writes đ and so does Croatian, but a Vietnamese word almost always brings
-     * ơ or ư along with it, and two marks beat one. A tie says the letters do
-     * not know, and the script's own language answers instead.
+     * Ordered by how likely a piece of writing is to be in that language rather
+     * than in the next — speakers and how much of the world's text is in it —
+     * which is the same measure each shared list is ordered by, written out once
+     * here for the ties, where there is no list to read it off.
+     *
+     * Only languages the table can reach are in here. Anything else ranks last,
+     * which is the right answer for a language the letters never pointed at.
      */
+    const LIKELY = new Map(('en zh es hi ar pt ru ja de fr ko it tr vi fa pl uk th ro el cs hu sv he '
+        + 'da fi sk hr sr sl lt lv et ca sq az kk ky be mk tg tt ba mn ur ps bn mr ta te kn ml gu pa '
+        + 'or as si my km lo ka hy am bo is').split(' ').map((tag, place) => [tag, place]));
+
+    const rankOf = (tag) => (LIKELY.has(tag) ? LIKELY.get(tag) : LIKELY.size);
+
+    const likeliest = (tags) => tags.reduce((a, b) => (rankOf(b) < rankOf(a) ? b : a));
+
     /*
      * The languages a shared letter points at, best first.
      *
@@ -217,6 +248,17 @@ function speech() {
         return best ? best.lang : null;
     }
 
+    /*
+     * The language of one string: its script, and inside the script whichever
+     * language put the most of its own letters into it.
+     *
+     * Counting rather than first-match, because a line can carry letters from
+     * more than one list — ñ and ã in the same breath — and the language that
+     * explains more of them is the better answer. When they explain as much as
+     * each other the letters cannot name one, but they have still ruled out
+     * every language that writes none of them — the script's own language among
+     * them — so the likeliest of the tied ones answers instead of the default.
+     */
     function detect(text) {
         /*
          * Composed first: the same letter can be written as one code point or as
@@ -234,25 +276,27 @@ function speech() {
         for (const script of SCRIPTS) {
             if (!script.test.test(line)) continue;
 
-            let best = null;
             let bestScore = 0;
-            let tied = false;
+            let top = [];
 
             for (const [tag, marks] of script.locals || []) {
                 const found = line.match(marks);
                 if (!found) continue;
                 const score = new Set(found.map(c => c.toLowerCase())).size;
                 if (score > bestScore) {
-                    best = tag;
                     bestScore = score;
-                    tied = false;
+                    top = [tag];
                 } else if (score === bestScore) {
-                    tied = true;
+                    top.push(tag);
                 }
             }
 
-            const named = (best && !tied) ? best : null;
-            const hinted = named ? null : hintFrom(script, line);
+            // One language and nothing against it is a name. Several is a guess
+            // between them, which is what a shared letter gives too — and it
+            // outranks one: these letters belong to their languages, and a word
+            // carrying them has said more than a word merely allowed to.
+            const named = top.length === 1 ? top[0] : null;
+            const hinted = named ? null : (top.length ? likeliest(top) : hintFrom(script, line));
 
             return {
                 lang: named || hinted || script.lang,
@@ -277,8 +321,10 @@ function speech() {
      * The verdict is one language when the words that said anything all said
      * the same thing. Words with no letters of their own say nothing and vote
      * for nobody — they would otherwise drag every set back to the script's
-     * default. When the column really does hold several languages, no one
-     * language can stand for it, and each word is left with its own.
+     * default. A column nobody named outright is answered by its shared letters
+     * instead, on the same terms: one hint and no argument. When the column
+     * really does hold several languages, no one language can stand for it, and
+     * each word is left with its own.
      */
     speech.languageOfAll = (texts) => {
         const lines = (texts || []).map(t => String(t || '')).filter(t => t.trim());
@@ -307,9 +353,14 @@ function speech() {
     };
 
     /*
-     * Every language the detector can arrive at by itself. Sixty-odd, and that
-     * is a fact about the evidence rather than about the world: a language is in
-     * here only if its script or one of its own letters gives it away.
+     * Every language the detector can name outright — sixty-odd, and that is a fact
+     * about the evidence rather than about the world: a language is in here only
+     * if its script or one of its own letters gives it away. The shared letters
+     * can land on a handful more, which are not listed: they are guesses between
+     * candidates rather than languages the letters prove.
+     *
+     * Nothing calls this. It is kept as the honest count of what the table
+     * knows, against the far longer list below.
      */
     speech.languages = () => {
         const tags = [];
@@ -328,7 +379,7 @@ function speech() {
      *
      * A far longer list than the one above, and it has to be: the detector can
      * only name a language whose letters give it away, while a person picking
-     * from a list knows. Italian, Dutch, Swahili and Finnish are not in the
+     * from a list knows. Dutch, Swahili and Indonesian are not in the
      * detector's list and never will be, and none of that is a reason to stop
      * someone saying that is what their words are.
      *
@@ -476,8 +527,8 @@ function speech() {
          * Russian voice and was heard; without this it would go silent.
          */
         // The tag may be a language the table never heard of — the picker offers
-        // every language there is a code for, and the table knows sixty. Then
-        // the script of the text itself answers the same question: Italian
+        // every language there is a code for, and the table knows sixty-odd.
+        // Then the script of the text itself answers the same question: Italian
         // asked for and not installed is read by whatever reads Latin.
         const owner = scriptOwner(tag) || scriptOwner(detect(text).lang);
         const voice = voiceFor(tag) || (owner && owner !== tag ? voiceFor(owner) : null);

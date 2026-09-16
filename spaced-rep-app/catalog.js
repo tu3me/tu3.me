@@ -264,19 +264,6 @@ function catalog(container) {
     }
 
     /*
-     * The box's own section: the same line of type as a route's header, with
-     * nothing to press.
-     *
-     * It does not fold because there is nothing to reveal: it is the box the
-     * whole form exists for, and without it the form is empty. A chevron on it
-     * would offer a fold that the section has no business performing.
-     *
-     * The label sits flush with the form's own left edge — the set name above it
-     * and the format hint below it start there too. It heads the box rather than
-     * joining the folding routes, so it lines up with what it heads rather than
-     * with the column their chevrons push them into.
-     */
-    /*
      * The words of the box, as they would be saved.
      *
      * Pulled out of the save handler because the plates under the box need the
@@ -345,7 +332,7 @@ function catalog(container) {
     })();
 
     // Intl hands the code back for a language it cannot name, and a list with
-    // "ba" in it among sixty names is a list with a hole in it.
+    // "ba" in it among a hundred and thirty names is a list with a hole in it.
     const NAMED_BY_HAND = { ba: 'Bashkir', bo: 'Tibetan' };
 
     function languageName(tag) {
@@ -375,13 +362,12 @@ function catalog(container) {
 
     /*
      * What the dropdowns offer: every language there is a code for, not the
-     * sixty the detector can recognise. Recognising and choosing are different
-     * questions — a set in Italian is still in Italian, and its words carry no
+     * sixty-odd the detector can name. Recognising and choosing are different
+     * questions — a set in Dutch is still in Dutch, and its words carry no
      * letter that could ever prove it.
      *
      * Sorted by name, because that is the order a person looks through a list
-     * in. Anything the browser cannot name is dropped: a bare "za" among two
-     * hundred names is a hole, not an option.
+     * in.
      */
     const LANGUAGE_CHOICES = (() => {
         const taken = new Set();
@@ -472,6 +458,19 @@ function catalog(container) {
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    /*
+     * The box's own section: the same line of type as a route's header, with
+     * nothing to press.
+     *
+     * It does not fold because there is nothing to reveal: it is the box the
+     * whole form exists for, and without it the form is empty. A chevron on it
+     * would offer a fold that the section has no business performing.
+     *
+     * The label sits flush with the form's own left edge — the set name above it
+     * and the format hint below it start there too. It heads the box rather than
+     * joining the folding routes, so it lines up with what it heads rather than
+     * with the column their chevrons push them into.
+     */
     function staticSection(label, bodyHtml) {
         return `<div class="set-fold">
             <div class="set-fold-label" style="padding: 9px 0; color: ${palette.title}; font-size: 14.4px; font-weight: 600; line-height: 1.35;">${label}</div>
@@ -1055,8 +1054,8 @@ function catalog(container) {
              * none of which is worth rewriting to own the arrow.
              *
              * What the closed plate shows is the state, not a label: one
-             * language when every word is in it, "Auto" and the whole list when
-             * they are not. refreshPlates keeps both in step with the box.
+             * language when every word is in it, all of them named in a row when
+             * they differ. refreshPlates keeps both in step with the box.
              */
             const SELECT_STYLE = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 7px 10px; font-family: inherit; font-size: 13.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
@@ -1235,16 +1234,16 @@ function catalog(container) {
             /*
              * One row per word: what it says, and the two languages it is in.
              *
-             * The rows are rebuilt only when the words themselves change, not on
-             * every keystroke. Each row carries a pair of sixty-option lists, so
-             * a set of any size would otherwise rebuild a few thousand nodes
-             * between one letter and the next.
+             * The rows are rebuilt only when the words themselves change, not
+             * on every keystroke. Each row carries a pair of hundred-option
+             * lists, so a set of any size would otherwise rebuild a few thousand
+             * nodes between one letter and the next.
              */
             let drawnKeys = null;
 
             function drawWordRows(words) {
                 // Nothing is built while the section is shut: a set of any size
-                // carries two sixty-option lists per word, and typing into the
+                // carries two hundred-option lists per word, and typing into the
                 // box would otherwise fill a hidden div with them on every
                 // change. Reopening draws whatever the words are by then.
                 if (wordList.closest('.set-fold-body').hidden) {

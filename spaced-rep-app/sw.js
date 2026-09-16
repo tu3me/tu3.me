@@ -5,11 +5,13 @@
  * Cache Storage is an origin-wide namespace, the same as IndexedDB: a bare "v1"
  * would collide with any other app served from this domain.
  *
- * RELEASE STEP: bump the version in CACHE whenever any shell file changes.
- * Nothing is refetched until the name changes, which is exactly what makes the
- * app instant offline — and exactly what serves stale code if you forget.
+ * The "v1" below is only what the file says when read on its own: build.sh
+ * replaces it with a hash of everything in the bundle, so every real change
+ * ships under a new name. Nothing is refetched until the name changes, which is
+ * what makes the app instant offline — and what would serve stale code if the
+ * name were left to a person to remember.
  */
-const CACHE = 'spaced-repetition-app-8f1027ad';
+const CACHE = 'spaced-repetition-app-aef9d916';
 
 // Every file the app needs to start with no network. A new game means one more
 // pair of lines here, alongside its line in registry.js.

@@ -3,7 +3,7 @@
  * worker, the storage-persistence request and the PWA manifest link.
  *
  * In the extension package a zero-byte file sits at this path instead, so none
- * of it exists there — which is also where a analytics tag would go, and the
+ * of it exists there — which is also where an analytics tag would go, and the
  * reason this file is swapped at deploy rather than shipped everywhere.
  */
 

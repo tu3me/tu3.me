@@ -9,7 +9,8 @@
  * speech.languageOfAll: what is in these sets is known, and a starting set has
  * no business depending on a detector being right about it. store.label only
  * fills in words that name no language, so what is written here is what stays —
- * including the eleven different ones on the bench set's originals.
+ * including the ten different ones among the eleven originals of WRITING
+ * SYSTEMS.
  */
 function seed() {
     const MIN = 60 * 1000;
