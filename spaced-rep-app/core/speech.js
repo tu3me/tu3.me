@@ -38,11 +38,19 @@ function speech() {
      * of them names its language; a word carrying none is left with whichever
      * language owns most of that script.
      *
-     * Only letters nobody else writes count. Ukrainian і is also Belarusian and
-     * Kazakh, and while it was in Ukrainian's list a Belarusian word with і in it
-     * scored for both and the tie threw the whole column back to Russian. The
-     * same went for Kazakh ә against Tatar and Bashkir. A letter shared with a
-     * neighbour is evidence for nobody.
+     * Only letters nobody else writes count as naming a language. Ukrainian і is
+     * also Belarusian and Kazakh, and while it was in Ukrainian's list a
+     * Belarusian word with і in it scored for both and the tie threw the whole
+     * column back to Russian. The same went for Kazakh ә against Tatar and
+     * Bashkir.
+     *
+     * A letter a few languages share is not nothing, though: ç is French,
+     * Portuguese or Turkish, and it is certainly not English. Those letters sit
+     * in a second list and only hint — they pick between their own candidates
+     * when no letter has named a language outright, and they never overrule one
+     * that has. Each list is ordered by how likely a piece of writing is to be
+     * in that language rather than the next, so the first of them is the answer
+     * when nothing else separates them.
      *
      * Kana before Han: Japanese uses both, and a sentence with kana in it is
      * Japanese, while one with Han alone is more likely Chinese.
@@ -108,7 +116,12 @@ function speech() {
         },
 
         {
-            test: /\p{Script=Cyrillic}/u, lang: 'ru', locals: [
+            test: /\p{Script=Cyrillic}/u, lang: 'ru', shared: [
+                [/[і]/giu, ['uk', 'be', 'kk']],
+                [/[ә]/giu, ['kk', 'az', 'tt', 'ba']],
+                [/[ң]/giu, ['kk', 'ky', 'tt', 'ba']],
+                [/[өү]/giu, ['kk', 'ky', 'mn', 'tt']]
+            ], locals: [
                 ['uk', /[їєґ]/giu],
                 ['be', /[ў]/giu],
                 ['sr', /[ђћџљњ]/giu],
@@ -123,7 +136,23 @@ function speech() {
 
         // Latin last: a line in any other script may still carry a Latin word
         {
-            test: /\p{Script=Latin}/u, lang: 'en', locals: [
+            /*
+             * Each list is in the order a piece of writing is likely to be in
+             * that language rather than the next one — speakers and how much
+             * text there is of it, which is what makes a guess a good bet. The
+             * first of them is the answer when nothing separates the candidates.
+             */
+            test: /\p{Script=Latin}/u, lang: 'en', shared: [
+                [/[ç]/giu, ['fr', 'pt', 'tr', 'az', 'ca', 'sq']],
+                [/[é]/giu, ['fr', 'es', 'pt', 'it', 'hu', 'ca']],
+                [/[àèù]/giu, ['it', 'fr', 'pt', 'ca']],
+                [/[óíáú]/giu, ['es', 'pt', 'hu', 'is']],
+                [/[ü]/giu, ['de', 'tr', 'hu', 'az', 'et']],
+                [/[ö]/giu, ['de', 'sv', 'tr', 'fi', 'hu', 'et']],
+                [/[ä]/giu, ['de', 'sv', 'fi', 'et', 'sk']],
+                [/[šž]/giu, ['cs', 'hr', 'sk', 'sl', 'lt', 'lv', 'et']],
+                [/[ň]/giu, ['cs', 'sk']]
+            ], locals: [
                 ['de', /[ß]/gu],
                 ['pl', /[łąężź]/giu],
                 ['cs', /[řěů]/giu],
@@ -158,8 +187,49 @@ function speech() {
      * ơ or ư along with it, and two marks beat one. A tie says the letters do
      * not know, and the script's own language answers instead.
      */
+    /*
+     * The languages a shared letter points at, best first.
+     *
+     * A language is counted once per letter it explains, so a word carrying two
+     * of them lands on whichever language accounts for both; the order inside a
+     * list breaks what the counting cannot.
+     */
+    function hintFrom(script, line) {
+        const votes = new Map();
+
+        (script.shared || []).forEach(([marks, langs]) => {
+            if (!line.match(marks)) return;
+            langs.forEach((lang, place) => {
+                const vote = votes.get(lang) || { hits: 0, place: 0 };
+                vote.hits++;
+                vote.place += place;
+                votes.set(lang, vote);
+            });
+        });
+
+        let best = null;
+        votes.forEach((vote, lang) => {
+            if (!best) { best = { lang, ...vote }; return; }
+            if (vote.hits > best.hits) best = { lang, ...vote };
+            else if (vote.hits === best.hits && vote.place < best.place) best = { lang, ...vote };
+        });
+
+        return best ? best.lang : null;
+    }
+
     function detect(text) {
-        const line = String(text || '');
+        /*
+         * Composed first: the same letter can be written as one code point or as
+         * two, and the table below is written in the first form. Measured —
+         * "fenêtre" with a single ê is French, and the same word with e followed
+         * by a combining circumflex was English, because no marker matched two
+         * code points where it was looking for one.
+         *
+         * The text the player typed or pasted is whatever their keyboard,
+         * their phone or the page they copied from produced, and Vietnamese in
+         * particular arrives decomposed often enough to matter.
+         */
+        const line = String(text || '').normalize('NFC');
 
         for (const script of SCRIPTS) {
             if (!script.test.test(line)) continue;
@@ -181,14 +251,18 @@ function speech() {
                 }
             }
 
+            const named = (best && !tied) ? best : null;
+            const hinted = named ? null : hintFrom(script, line);
+
             return {
-                lang: (best && !tied) ? best : script.lang,
-                marked: (best && !tied) ? best : null,
+                lang: named || hinted || script.lang,
+                marked: named,
+                hinted: hinted,
                 script: script.lang
             };
         }
 
-        return { lang: null, marked: null, script: null };
+        return { lang: null, marked: null, hinted: null, script: null };
     }
 
     /*
@@ -214,10 +288,19 @@ function speech() {
 
         const scripts = new Set(seen.map(r => r.script));
         const named = new Set(seen.map(r => r.marked).filter(Boolean));
+        const hinted = new Set(seen.map(r => r.hinted).filter(Boolean));
 
-        // One script and at most one language claiming it: the set has an answer
-        if (scripts.size === 1 && named.size <= 1) {
-            return { lang: named.size ? [...named][0] : seen[0].script, perText: null };
+        if (scripts.size === 1) {
+            // One language named outright answers for the column, whatever the
+            // shared letters elsewhere in it were pointing at.
+            if (named.size === 1) return { lang: [...named][0], perText: null };
+
+            // Nobody named: a hint answers if the column has only one of them —
+            // a column of French words carries no letter French alone writes,
+            // and falling back to English would waste every ç in it.
+            if (named.size === 0 && hinted.size <= 1) {
+                return { lang: hinted.size ? [...hinted][0] : seen[0].script, perText: null };
+            }
         }
 
         return { lang: null, perText: (texts || []).map(t => detect(t).lang) };

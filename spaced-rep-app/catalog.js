@@ -366,12 +366,11 @@ function catalog(container) {
     // Every language on one side of the set, in the order the words are
     // written, each named once.
     function languagesOf(words, field) {
-        const names = [];
+        const tags = [];
         words.forEach(w => {
-            const name = languageName(w[field]);
-            if (name && !names.includes(name)) names.push(name);
+            if (w[field] && !tags.includes(w[field])) tags.push(w[field]);
         });
-        return names;
+        return tags;
     }
 
     /*
@@ -420,13 +419,50 @@ function catalog(container) {
     const OWN_VOICE = '🔊';
     const BORROWED_VOICE = '🔈';
 
+    // A language named the way the dropdowns name it: with what this device
+    // would read it in.
+    function markedName(tag) {
+        const by = speech.readableBy(tag);
+        const mark = by === tag ? OWN_VOICE + ' ' : (by ? BORROWED_VOICE + ' ' : '');
+        return mark + languageName(tag);
+    }
+
+    /*
+     * The first option is hidden and belongs to nobody: it is where a select
+     * puts what it has to say when no single option says it — a set in three
+     * languages, or a word in none.
+     *
+     * Hidden keeps it out of the open list, where it would read as a choice,
+     * and leaves it free to be the selected one, which is all the closed select
+     * ever shows. That is what makes "Auto" a thing you ask for rather than a
+     * thing the form claims to be in: asked for, it is answered by a language,
+     * and the language is what stands there afterwards.
+     */
+    const STATE_VALUE = '__state';
+
     function languageOptions() {
-        return '<option value="auto">Auto</option>'
-            + LANGUAGE_CHOICES.map(c => {
-                const by = speech.readableBy(c.tag);
-                const mark = by === c.tag ? OWN_VOICE + ' ' : (by ? BORROWED_VOICE + ' ' : '');
-                return `<option value="${c.tag}">${mark}${c.name}</option>`;
-            }).join('');
+        return `<option value="${STATE_VALUE}" hidden></option><option value="auto">Auto</option>`
+            + LANGUAGE_CHOICES.map(c => `<option value="${c.tag}">${markedName(c.tag)}</option>`).join('');
+    }
+
+    /*
+     * Shows a select what it is: the language, when one of its options is it,
+     * and the hidden option when none is — several languages at once, or no
+     * language found at all.
+     */
+    function showLanguages(select, tags) {
+        const text = tags.length ? tags.map(markedName).join(', ') : '–';
+        const only = tags.length === 1 && select.querySelector(`option[value="${tags[0]}"]`);
+
+        select.title = text;
+
+        if (only) {
+            select.value = tags[0];
+            return;
+        }
+
+        select.querySelector(`option[value="${STATE_VALUE}"]`).textContent = text;
+        select.value = STATE_VALUE;
     }
 
     // The words come from a textarea, so they are whatever was typed
@@ -1051,18 +1087,21 @@ function catalog(container) {
             });
 
             const box = `<label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
-                    First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
+                    First line - Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
                 <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
-                <div class="set-lang-fold">${foldingSection('Define languages', `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; align-items: start;">
-                        ${caption('All', true, 11)}
-                        ${caption('All', true, 11)}
+                <div class="set-lang-area" style="margin-top: 8px;" hidden>
+                    <div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         ${langPlate('originalLang')}
                         ${langPlate('translationLang')}
                     </div>
-                    <div style="font-size: 11.4px; font-weight: 600; line-height: 1.4; color: ${palette.hint}; margin-top: 8px;">${OWN_VOICE} own voice here &nbsp;·&nbsp; ${BORROWED_VOICE} read by a related voice &nbsp;·&nbsp; unmarked — silent on this device</div>
-                    <div style="height: 1px; background: ${palette.softBorder}; margin-top: 20px;"></div>
-                    <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 6px; margin-top: 20px;"></div>`, false)}</div>`;
+                    <div class="set-lang-fold">${foldingSection('Advanced', `<div style="font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
+                            <div>${OWN_VOICE} voice installed</div>
+                            <div>${BORROWED_VOICE} read by a related voice</div>
+                            <div>unmarked - no voice at all</div>
+                        </div>
+                        <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 6px; margin-top: 14px;"></div>`, false)}</div>
+                </div>`;
 
             // A set being written from scratch gets the box as the first section,
             // always open — it is the one thing always needed. The three routes
@@ -1228,7 +1267,7 @@ function catalog(container) {
                 // written in, the dropdowns under them start together.
                 wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; align-items: start;">
                         ${caption(escapeText(w.original), false, 9)}
-                        ${caption(w.translation ? escapeText(w.translation) : '—', false, 9)}
+                        ${caption(w.translation ? escapeText(w.translation) : '–', false, 9)}
                         <select class="set-word-lang-select" data-field="originalLang" style="${rowSelect}">${options}</select>
                         <select class="set-word-lang-select" data-field="translationLang" style="${rowSelect}">${options}</select>
                     </div>`).join('');
@@ -1246,10 +1285,16 @@ function catalog(container) {
                 return true;
             }
 
+            const langArea = editForm.querySelector('.set-lang-area');
+
             function refreshPlates() {
                 const parsed = readWords(textarea.value, set);
                 const words = parsed ? parsed.words : [];
                 nameWords(words);
+
+                // An empty box has no languages to set. The controls arrive with
+                // the first word and leave with the last one.
+                langArea.hidden = !words.length;
 
                 drawWordRows(words);
 
@@ -1257,49 +1302,14 @@ function catalog(container) {
                     const row = wordList.children[i];
                     if (!row) return;
 
-                    const own = wordChoice.get(keyOf(w)) || {};
                     row.querySelectorAll('.set-word-lang-select').forEach(select => {
-                        const field = select.dataset.field;
-
-                        // The same rule the plates follow: the row shows the
-                        // language the word is in, and Auto is a thing you ask
-                        // for rather than a state to be in. Asked for, it says
-                        // what the detector made of the word — a row reading
-                        // "Auto" and nothing else would leave that unanswered.
-                        const asked = own[field] === 'auto';
-                        const name = languageName(w[field]);
-                        select.querySelector('option[value="auto"]').textContent =
-                            asked && name ? 'Auto — ' + name : 'Auto';
-
-                        // A value the list does not offer would leave the select
-                        // blank, which reads as broken rather than as unknown.
-                        const offered = !asked && w[field] && select.querySelector(`option[value="${w[field]}"]`);
-                        select.value = offered ? w[field] : 'auto';
+                        showLanguages(select, w[select.dataset.field] ? [w[select.dataset.field]] : []);
                     });
                 });
 
-                plates.forEach(plate => {
-                    const field = plate.dataset.side;
-                    const names = languagesOf(words, field);
-
-                    // The Auto line carries the answer when there is more than
-                    // one: the plate is closed most of the time, and "Auto" on
-                    // its own would say nothing about what is in the box.
-                    const auto = names.length ? 'Auto — ' + names.join(', ') : 'Auto';
-                    plate.querySelector('option[value="auto"]').textContent = auto;
-
-                    // A closed select cuts its text off at the width it has, and
-                    // half the point of the plate is the list. The full answer
-                    // goes on the title, where a long one can still be read.
-                    plate.title = auto;
-
-                    // One language everywhere is shown as that language, even
-                    // when nobody picked it: it is what the set is in.
-                    const tags = [...new Set(words.map(w => w[field]).filter(Boolean))];
-                    const agreed = tags.length === 1 && words.every(w => w[field])
-                        && plate.querySelector(`option[value="${tags[0]}"]`);
-                    plate.value = (agreed && choice[field] !== 'auto') ? tags[0] : 'auto';
-                });
+                // Every language its side is in, so a choice made for one word
+                // shows up here as well: this pair answers for the whole set.
+                plates.forEach(plate => showLanguages(plate, languagesOf(words, plate.dataset.side)));
             }
 
             if (plates.length) {
@@ -1333,7 +1343,16 @@ function catalog(container) {
                 }
 
                 plates.forEach(plate => plate.addEventListener('change', () => {
-                    choice[plate.dataset.side] = plate.value;
+                    const side = plate.dataset.side;
+                    choice[side] = plate.value;
+
+                    // This pair answers for the whole set, so it answers for the
+                    // words that were given a language of their own too — one
+                    // language for all of them, or the detector for each. Only
+                    // this side is cleared: naming the words says nothing about
+                    // what their translations are in.
+                    wordChoice.forEach(own => { delete own[side]; });
+
                     refreshPlates();
                 }));
             }
@@ -1348,7 +1367,13 @@ function catalog(container) {
             editForm.querySelector('.set-save-btn').addEventListener('click', () => {
                 const parsed = readWords(textarea.value, set);
 
-                if (!parsed) {
+                /*
+                 * No words, no set. An empty box has always meant delete, and a
+                 * box with nothing but a title means the same: a name with
+                 * nothing under it cannot be played, and the catalog would show
+                 * it only to say that it is empty.
+                 */
+                if (!parsed || !parsed.words.length) {
                     store.removeAt(index);
                 } else {
                     set.title = parsed.title;
