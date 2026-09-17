@@ -608,9 +608,13 @@ function speech() {
      * fifteen seconds and does not always say so, and an `end` that never comes
      * would leave a word marked for the rest of the session, and whatever the
      * caller is doing meanwhile going on just as long.
-     * The wait is set from the length of the text and the speed it is being read
-     * at, generously, because it is a backstop and not a schedule: if it is what
-     * settles the watcher, something has already gone wrong.
+     *
+     * It has to be far too long rather than about right. Set close to what the
+     * text should take, it races the `end` it is standing in for and wins often
+     * enough to matter: measured, a single letter took 1842ms to say on one
+     * machine while the wait allowed 1530, so the mark came off three hundred
+     * milliseconds before the voice stopped, every time. A backstop that fires
+     * during ordinary use is not a backstop, it is a second, worse clock.
      */
     let pending = null;
 
@@ -626,7 +630,7 @@ function speech() {
     }
 
     function guardMs(text, rate) {
-        return Math.min(20000, (1400 + String(text).length * 130) / rate);
+        return Math.min(20000, (3000 + String(text).length * 400) / rate);
     }
 
     function speak(text, lang, whenDone) {

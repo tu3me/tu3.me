@@ -56,14 +56,27 @@ function cards(container) {
      * there would hand back half a letter to say out loud.
      */
     function lineHtml(text) {
+        const tinted = 'border-radius: 4px;';
+
         return speech.words(text).map(part => {
-            if (!part.isWord) return escapeText(part.text);
+            if (part.isWord) {
+                const letters = speech.letters(part.text)
+                    .map(ch => `<span class="say-letter">${escapeText(ch)}</span>`)
+                    .join('');
 
-            const letters = speech.letters(part.text)
-                .map(ch => `<span class="say-letter" style="transition: color 0.2s;">${escapeText(ch)}</span>`)
+                return `<span class="say-word" style="${tinted}">${letters}</span>`;
+            }
+
+            // Between the words: the spaces stay as they were written, and
+            // anything that is not a space gets a span of its own. It cannot be
+            // tapped — a comma has nothing to say — but it is part of the line,
+            // and a line read aloud with its punctuation left uncoloured comes
+            // out striped, with a gap wherever it was written.
+            return part.text.split(/(\s+)/).filter(Boolean)
+                .map(run => (/^\s+$/.test(run)
+                    ? escapeText(run)
+                    : `<span class="say-mark" style="${tinted}">${escapeText(run)}</span>`))
                 .join('');
-
-            return `<span class="say-word" style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${letters}</span>`;
         }).join('');
     }
 
@@ -92,6 +105,20 @@ function cards(container) {
      */
     let marks = 0;
 
+    /*
+     * The colour goes on and comes off in the frame it is asked for, both ways.
+     *
+     * It used to fade in over a fifth of a second, which is measurable and was
+     * measured: the style is written 0.6ms after the tap, but the colour was a
+     * fifth of the way there at 30ms and only arrived at 200. That reads as the
+     * app thinking it over, and a tap wants answering.
+     *
+     * Going was faded too, for a while, on the grounds that a colour vanishing
+     * between two frames pulls the eye. It does, a little — and an animation
+     * whose whole argument is "a little" is an animation to do without. What is
+     * left has no transition in it at all, which is one fewer thing to reason
+     * about the next time these marks are touched.
+     */
     function unlight() {
         lit.forEach(el => {
             el.style.background = '';
@@ -114,10 +141,34 @@ function cards(container) {
         return marks;
     }
 
-    // What to do when this particular mark's voice stops, or turns out never to
-    // have started.
+    /*
+     * What to do when this mark's voice stops, or turns out never to have
+     * started.
+     *
+     * Only if it is still the mark that is up: by the time a voice stops, a
+     * later tap may have put a different one there, and that tap's own voice is
+     * what will clear it.
+     *
+     * And never sooner than a short spell after it went up. There are three
+     * ways to be told the sound is over — it ended, there was no voice for the
+     * language, or the voice list had not arrived yet and the word turned out
+     * unsayable once it did — and the last two answer within a quarter of a
+     * second, which put the colour on the card and took it off again in one
+     * blink. On a card in a language this device cannot say, that was every tap.
+     */
+    const MARK_LEAST = 450;
+
     function until(mark) {
-        return () => { if (mark === marks) unlight(); };
+        const born = Date.now();
+
+        return () => {
+            if (mark !== marks) return;
+
+            const left = MARK_LEAST - (Date.now() - born);
+            if (left <= 0) return unlight();
+
+            setTimeout(() => { if (mark === marks) unlight(); }, left);
+        };
     }
 
     /*
@@ -146,10 +197,31 @@ function cards(container) {
      */
     const TAP_GAP = 500;
 
-    // Different enough to tell apart at a glance, and far enough along the
-    // bubble ramp not to read as a series: the words of a line are not in an
-    // order that means anything, they are simply not each other.
+    /*
+     * A colour for every piece of the line — the words and the punctuation
+     * between them — and the same colour every time that piece is marked.
+     *
+     * Taken from the bubble ramp, four steps far enough apart to be told at a
+     * glance and not close enough to read as a series: the pieces of a line are
+     * not in an order that means anything, they are simply not each other.
+     *
+     * A piece keeps its colour whether it is marked alone or as part of the
+     * line. The word used to be mint when it was said on its own and gold when
+     * the line was said, and that change was the loudest thing on the card at a
+     * moment when nothing had changed but the reason for looking.
+     */
     const WORD_FILLS = [3, 6, 9, 12];
+
+    const PIECES = '.say-word, .say-mark';
+
+    function piecesOf(face) {
+        return Array.from(face.querySelectorAll(PIECES));
+    }
+
+    function tint(el, place) {
+        const stage = tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+        return { el, fill: stage.fill, ink: stage.ink };
+    }
 
     const SAY_DELAY = 250;
 
@@ -198,7 +270,7 @@ function cards(container) {
             // The letter is the one under the finger; the word is the one the
             // gesture is being counted in.
             if (taps === 1) return sayLetter(letter, lang);
-            if (taps === 2) return sayWord(word, lang);
+            if (taps === 2) return sayWord(face, word, lang);
 
             sayLine(face, text, lang);
         });
@@ -240,24 +312,17 @@ function cards(container) {
         sayLater(letter.textContent, lang, light([{ el: letter, ink: palette.sayFill }]));
     }
 
-    function sayWord(word, lang) {
+    function sayWord(face, word, lang) {
         if (!word) return;
 
-        sayLater(word.textContent, lang, light([{ el: word, fill: palette.sayFill, ink: palette.onSaying }]));
+        sayLater(word.textContent, lang, light([tint(word, piecesOf(face).indexOf(word))]));
     }
 
     function sayLine(face, text, lang) {
-        const words = Array.from(face.querySelectorAll('.say-word'));
-
-        // A colour each, so the line reads as the words it is made of rather
-        // than as one long stripe. They repeat past the fourth word, which is
-        // where a card stops being a card and starts being a sentence.
-        const marked = words.map((el, i) => {
-            const stage = tokens.stages()[WORD_FILLS[i % WORD_FILLS.length]];
-            return { el, fill: stage.fill, ink: stage.ink };
-        });
-
-        sayLater(text, lang, light(marked));
+        // A colour each, so the line reads as the pieces it is made of rather
+        // than as one long stripe. They repeat past the fourth, which is where
+        // a card stops being a card and starts being a sentence.
+        sayLater(text, lang, light(piecesOf(face).map(tint)));
     }
 
     function render() {
@@ -473,11 +538,12 @@ function cards(container) {
             // press, so it sits in muted until it answers.
             sayIcon: t.muted,
 
-            // What is being said, on either face: a mint fill and the dark ink
-            // quiz puts on an answered option. Why a word is filled and a single
-            // letter only coloured is written down beside sayLetter.
+            // A letter being said is written in mint rather than filled with
+            // it: one glyph is too small a thing to fill, and mint as ink on a
+            // dark card is the same colour progress is drawn in everywhere
+            // else. Words and punctuation are filled instead, from the bubble
+            // ramp — see WORD_FILLS.
             sayFill: t.progress,
-            onSaying: '#0f2b3c',
 
             frontBg: t.surface,
             frontBorder: t.border,

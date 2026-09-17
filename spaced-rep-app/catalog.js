@@ -35,6 +35,11 @@ function catalog(container) {
     // has no business surviving a reload.
     let settingsOpen = false;
 
+    // Whether the answer to the question mark is folded out. Panel state like
+    // the panel itself, and it outlives a redraw: switching the setting while
+    // reading about it should not put the reading away.
+    let splitHintOpen = false;
+
     /*
      * The room the Continue banner was taking when the form was opened, measured
      * before the redraw that hides it.
@@ -1136,11 +1141,22 @@ function catalog(container) {
                     <span>Theme</span>
                     <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
                 </button>
-                <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 14px;">
-                    <span>Split words</span>
-                    <span class="dict-split-state">${speech.splitsByLanguage() ? 'By language' : 'By spaces'}</span>
-                </button>
-                <div class="dict-settings-body"></div>
+                <div class="dict-split-line" style="display: flex; align-items: center; gap: 8px;">
+                    <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: 1; min-width: 0; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                        <span>Split words</span>
+                        <span class="dict-split-state">${speech.splitsByLanguage() ? 'By language' : 'By spaces'}</span>
+                    </button>
+                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="What this does" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 14.4px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
+                </div>
+                <div class="dict-split-hint" style="overflow: hidden;"${splitHintOpen ? '' : ' hidden'}>
+                    <div style="padding-top: 8px; font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
+                        <div>Where a word ends, when you tap one on a card.</div>
+                        <div style="margin-top: 6px;"><b>By spaces</b> — letters between spaces and punctuation. A line written without spaces, as Japanese and Chinese are, comes out as one word.</div>
+                        <div style="margin-top: 6px;"><b>By language</b> — worth trying for Japanese, Chinese and Thai, which are written in characters with no spaces between the words: the browser's own rules can find where one word ends inside such a line. Not every browser knows how, phones least of all — where that is missing, every character becomes a word of its own.</div>
+                        <div style="margin-top: 8px;"><b>If this browser cannot</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
+                    </div>
+                </div>
+                <div class="dict-settings-body" style="margin-top: 14px;"></div>
             </div>
         </div>`);
 
@@ -1179,6 +1195,65 @@ function catalog(container) {
          * dictionary for writing without spaces, and quietly wrong where it does
          * not — speech.js says why that cannot be asked about in advance.
          */
+        /*
+         * The question mark unrolls its answer and rolls it back, and nothing
+         * else on the panel moves: the hint is drawn where it belongs and only
+         * hidden, so this is a fold rather than a redraw.
+         *
+         * Height through max-height, because the hint has no height to animate
+         * to — it is however many lines the text wraps into at whatever width
+         * the panel ends up, and that is known only once it is in the page. The
+         * cap is measured there and dropped as soon as the run ends: left on, it
+         * would clip the text the moment anything reflowed it.
+         *
+         * Opacity alongside it, because a line of text sliding out from under a
+         * cap reads as text being cut off; fading as it comes reads as text
+         * arriving.
+         *
+         * The panel is already as tall as the screen allows and scrolls inside
+         * itself, so an answer longer than the room left over can still be read.
+         */
+        const HINT_OPEN = 190;
+        const HINT_SHUT = 150;
+
+        const help = overlay.querySelector('.dict-split-help');
+        const hint = overlay.querySelector('.dict-split-hint');
+
+        let hintTimer = null;
+
+        function foldHint(open) {
+            splitHintOpen = open;
+            help.setAttribute('aria-expanded', open);
+
+            // A press during the run leaves the last one's clean-up in the air,
+            // and it would arrive to tidy away a fold going the other way.
+            clearTimeout(hintTimer);
+
+            if (open) hint.hidden = false;
+
+            hint.style.opacity = open ? '0' : '1';
+            hint.style.maxHeight = open ? '0px' : `${hint.scrollHeight}px`;
+
+            pin(hint);
+
+            hint.style.transition = open
+                ? `max-height ${HINT_OPEN}ms ease-out, opacity ${HINT_OPEN}ms ease-out`
+                : `max-height ${HINT_SHUT}ms ease-in, opacity ${HINT_SHUT}ms ease-in`;
+
+            hint.style.opacity = open ? '1' : '0';
+            hint.style.maxHeight = open ? `${hint.scrollHeight}px` : '0px';
+
+            hintTimer = setTimeout(() => {
+                if (!open) hint.hidden = true;
+
+                hint.style.maxHeight = '';
+                hint.style.opacity = '';
+                hint.style.transition = '';
+            }, (open ? HINT_OPEN : HINT_SHUT) + 40);
+        }
+
+        help.addEventListener('click', () => foldHint(!splitHintOpen));
+
         overlay.querySelector('.dict-split-row').addEventListener('click', () => {
             speech.splitByLanguage(!speech.splitsByLanguage());
             saveSetting('splitByLanguage', speech.splitsByLanguage());
