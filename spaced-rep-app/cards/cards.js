@@ -81,6 +81,17 @@ function cards(container) {
      */
     let lit = [];
 
+    /*
+     * Which mark is up, counted rather than named.
+     *
+     * The voice that finishes has to take its own mark down and nobody else's.
+     * By the time it stops, a later tap may have put up a different one — that
+     * tap's own voice is what will clear it — so what stops speaking checks the
+     * number it was given against the number that is up now, and keeps quiet if
+     * they differ.
+     */
+    let marks = 0;
+
     function unlight() {
         lit.forEach(el => {
             el.style.background = '';
@@ -98,6 +109,15 @@ function cards(container) {
             if (fill) el.style.background = fill;
             if (ink) el.style.color = ink;
         });
+
+        marks += 1;
+        return marks;
+    }
+
+    // What to do when this particular mark's voice stops, or turns out never to
+    // have started.
+    function until(mark) {
+        return () => { if (mark === marks) unlight(); };
     }
 
     /*
@@ -106,8 +126,16 @@ function cards(container) {
      *
      * Counted here rather than read off the event's own click count, which
      * phones do not agree about — a second tap is a zoom gesture to some of
-     * them, and the count never arrives. Taps on the same letter inside the gap
-     * below are one gesture; anything else starts again at the letter.
+     * them, and the count never arrives.
+     *
+     * One gesture is taps inside the same word, not taps on the same letter. A
+     * finger lands where it lands: a glyph is a couple of dozen pixels wide and
+     * a fingertip is wider, so the second tap of a double tap often comes down
+     * on the letter next door — and in Japanese, where 日本語 is one word of
+     * three glyphs, that is most of the time. Asking for the same letter twice
+     * made the second tap a fresh first one, which is exactly the word never
+     * being reached. The word is the thing being pointed at, so the word is what
+     * holds the count; a tap in a different word starts again at its letter.
      *
      * Each tap acts at once instead of waiting to see whether another is
      * coming. Waiting would put a quarter of a second between every single tap
@@ -123,12 +151,21 @@ function cards(container) {
     // order that means anything, they are simply not each other.
     const WORD_FILLS = [3, 6, 9, 12];
 
+    const SAY_DELAY = 250;
+
     let taps = 0;
     let tapped = null;
     let tapTimer = null;
+    let sayTimer = null;
 
     function forgetTaps() {
         clearTimeout(tapTimer);
+
+        // A word still waiting its quarter second belongs to the card that was
+        // tapped. Press "Know" fast enough and it would be said over the next
+        // one, which is a different word entirely.
+        clearTimeout(sayTimer);
+
         taps = 0;
         tapped = null;
     }
@@ -146,9 +183,11 @@ function cards(container) {
                 return sayLine(face, text, lang);
             }
 
-            if (letter !== tapped) {
+            const word = letter.closest('.say-word');
+
+            if (word !== tapped) {
                 taps = 0;
-                tapped = letter;
+                tapped = word;
             }
 
             taps = Math.min(3, taps + 1);
@@ -156,21 +195,31 @@ function cards(container) {
             clearTimeout(tapTimer);
             tapTimer = setTimeout(forgetTaps, TAP_GAP);
 
+            // The letter is the one under the finger; the word is the one the
+            // gesture is being counted in.
             if (taps === 1) return sayLetter(letter, lang);
-            if (taps === 2) return sayWord(letter.closest('.say-word'), lang);
+            if (taps === 2) return sayWord(word, lang);
 
             sayLine(face, text, lang);
         });
     }
 
     /*
-     * Each of the three, and each of them lit only if it was heard: say()
-     * returns false where the device has no voice for the script, and a mark
-     * flashing in silence would be claiming it spoke.
+     * The colour lands with the finger; the voice waits to see what the finger
+     * meant.
      *
-     * Lit after the asking, never before. Asking settles whatever was in the
-     * air, and settling takes the last mark back off — a mark put up first
-     * would be wiped by the asking that follows it.
+     * A quarter of a second, which is the gap between the two taps of a double
+     * tap. Without it a letter starts being said the instant it is touched and
+     * is cut off by its word a moment later, and every double tap comes out as
+     * a stutter. With it the second tap arrives before the first has made a
+     * sound, and what is heard is the one thing that was asked for.
+     *
+     * Only the voice waits. A tap that is answered by nothing for a quarter of a
+     * second is a tap that missed, as far as the person doing the tapping can
+     * tell, so the mark goes up at once — before it is known whether the device
+     * even has a voice for this. If the asking comes back silent, the mark goes
+     * off again: better a colour that appears and leaves than a screen that sits
+     * still under a finger.
      *
      * A letter is coloured rather than filled: it is one glyph wide, and a fill
      * that size reads as a typo rather than as a mark. A word is filled, because
@@ -178,18 +227,23 @@ function cards(container) {
      * moment it is being read out — while as a fill it is one value in both
      * themes with 6.9:1 ink on it.
      */
+    function sayLater(text, lang, mark) {
+        clearTimeout(sayTimer);
+
+        sayTimer = setTimeout(() => {
+            const done = until(mark);
+            if (!speech.say(text, lang, done)) done();
+        }, SAY_DELAY);
+    }
+
     function sayLetter(letter, lang) {
-        if (speech.say(letter.textContent, lang, unlight)) {
-            light([{ el: letter, ink: palette.sayFill }]);
-        }
+        sayLater(letter.textContent, lang, light([{ el: letter, ink: palette.sayFill }]));
     }
 
     function sayWord(word, lang) {
         if (!word) return;
 
-        if (speech.say(word.textContent, lang, unlight)) {
-            light([{ el: word, fill: palette.sayFill, ink: palette.onSaying }]);
-        }
+        sayLater(word.textContent, lang, light([{ el: word, fill: palette.sayFill, ink: palette.onSaying }]));
     }
 
     function sayLine(face, text, lang) {
@@ -203,7 +257,7 @@ function cards(container) {
             return { el, fill: stage.fill, ink: stage.ink };
         });
 
-        if (speech.say(text, lang, unlight)) light(marked);
+        sayLater(text, lang, light(marked));
     }
 
     function render() {

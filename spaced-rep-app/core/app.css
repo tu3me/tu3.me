@@ -24,6 +24,29 @@
 }
 
 /*
+ * Double tap: a gesture this app has its own use for.
+ *
+ * A phone reads two quick taps as "zoom in", and to be able to it holds the
+ * second one back to see whether a third is coming — so a screen that means
+ * something by a double tap either gets it late or does not get it at all. A
+ * card in cards says the letter, then the word, then the line as the taps
+ * repeat, and every one of those has to arrive.
+ *
+ * `manipulation` gives up double-tap zoom and nothing else: scrolling with a
+ * finger and pinching to zoom both carry on. The zoom that is given up was not
+ * worth much here to begin with — the layout is a fixed 410px designed to be
+ * read at arm's length.
+ *
+ * On the root, where it covers the whole page: touch-action is not inherited,
+ * but what a touch is allowed to do is decided by every element from the target
+ * up, so a root that has given up double-tap zoom has given it up for all of
+ * them.
+ */
+:root {
+    touch-action: manipulation;
+}
+
+/*
  * The grey box a phone paints over whatever was tapped.
  *
  * It is the platform saying "I saw that" — drawn before the page can answer, in
