@@ -496,7 +496,12 @@ function speech() {
             // word, or done whatever it does, on the strength of a word that
             // had not been said yet, and dropping it here would leave that
             // standing.
-            if (word) speak(word.text, word.lang, word.done);
+            //
+            // Including when the word turns out to be unsayable. say() answered
+            // "yes" while the voice list was still empty, and the list that
+            // finally arrived may have nothing for this language — the caller
+            // was told it would be said, so it has to be told that it was not.
+            if (word && !speak(word.text, word.lang, word.done) && word.done) word.done();
         }, { once: true });
     }
 
@@ -535,10 +540,21 @@ function speech() {
      * rather than as a second go at it — a voice that shifts is a voice saying
      * it again.
      *
-     * Every further press takes another step down to a floor. Past the floor the
-     * engines stop slowing the word and start dragging it into something that is
-     * not the word any more; where exactly that is depends on the voice, so the
-     * floor is set where the worst of them is still intelligible.
+     * No ladder: the first repeat goes straight to the slowest speech there is.
+     * Somebody asking twice is not asking for slightly slower, they are asking
+     * for as slow as it goes, and steps on the way there spend the presses that
+     * matter on speeds barely different from the one that already failed.
+     *
+     * The floor is 0.6 because past it the engines stop slowing the word and
+     * start dragging it into something that is not the word any more. Where
+     * exactly that happens depends on the voice, so it is set where the worst of
+     * them is still intelligible.
+     *
+     * From the third time on the speed moves about inside the slow band instead
+     * of landing on the same number again. There is nothing below the floor to
+     * offer, and a word repeated at an identical speed is heard as the same
+     * recording playing over — the same reason the pitch wanders. Varying it
+     * keeps each go sounding like another attempt at saying the thing.
      *
      * Anything else said in between clears the count: what is remembered is the
      * last thing said, not a history of what has been said.
@@ -552,8 +568,8 @@ function speech() {
      * reload starts again at full speed, which is where someone who has just
      * arrived should be started.
      */
-    const REPEAT_STEP = 0.12;
-    const SLOWEST = 0.62;
+    const SLOWEST = 0.6;
+    const SLOW_TOP = 0.8;
     const PITCH_SPREAD = 0.3;
 
     let lastSaid = null;
@@ -570,7 +586,7 @@ function speech() {
         if (!repeats) return { rate: 1, pitch: 1 };
 
         return {
-            rate: Math.max(SLOWEST, 1 - REPEAT_STEP * repeats),
+            rate: repeats === 1 ? SLOWEST : SLOWEST + Math.random() * (SLOW_TOP - SLOWEST),
             pitch: 1 - PITCH_SPREAD / 2 + Math.random() * PITCH_SPREAD
         };
     }
@@ -740,6 +756,41 @@ function speech() {
 
     const hasWords = (text) => partsOf(text).some(part => part.isWordLike);
 
+    /*
+     * The line broken into words, in the order it was written: what is a word
+     * and what is the space or the comma between two of them.
+     *
+     * Handed over rather than drawn, because what a screen does with a word is
+     * the screen's business — one wraps each in a span to be tapped, another
+     * only needs to know how many there are.
+     */
+    speech.words = (text) => partsOf(text)
+        .map(part => ({ text: part.segment, isWord: !!part.isWordLike }));
+
+    /*
+     * The letters of a word, as a reader counts them.
+     *
+     * Not code units: й can be written as two of them and न्न as three, and
+     * splitting there would hand back half a letter. Segmenter's graphemes are
+     * the same thing snake.js lays out one per cell, for the same reason —
+     * whatever a person would point at and call one letter.
+     *
+     * Where Segmenter is missing, code points: still whole for most of the
+     * world, and wrong only where the combining marks are.
+     */
+    const GRAPHEMES = typeof Intl !== 'undefined' && Intl.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+        : null;
+
+    speech.letters = (text) => {
+        const line = String(text || '');
+        if (!line) return [];
+
+        return GRAPHEMES
+            ? Array.from(GRAPHEMES.segment(line)).map(part => part.segment)
+            : Array.from(line);
+    };
+
     // Every word its own target; everything between them left as it was written
     speech.lineHtml = (text) => partsOf(text)
         .map(part => (part.isWordLike
@@ -774,93 +825,5 @@ function speech() {
         return `<span class="say-all" title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
     };
 
-    /*
-     * What is lit right now — one line's worth for the whole page, because
-     * saying a word drops whatever was being said before it. Two marks at once
-     * would be claiming both are being spoken, and only the second one is.
-     */
-    let lit = [];
-
-    function unlight() {
-        lit.forEach(el => {
-            el.style.background = '';
-            el.style.color = '';
-        });
-        lit = [];
-    }
-
-    // For a screen about to be rebuilt: the marked nodes are being thrown away,
-    // so there is nothing to put back and nothing left to wait for.
-    speech.forget = () => {
-        lit = [];
-    };
-
-    /*
-     * Marks what is being said, for exactly as long as it is being said.
-     *
-     * It used to be half a second flat, because the utterance's `end` fired the
-     * same way on a device that had said nothing: a word asked for in a language
-     * with no voice “finished” in about 300ms of silence, and a mark timed by
-     * that would have been claiming speech that never happened. It cannot happen
-     * now — say() finds a voice that exists or refuses to speak at all — so the
-     * end of the utterance is the end of the sound, and the mark can simply
-     * follow it.
-     *
-     * A fill with dark ink on it rather than coloured letters. The app's two
-     * colours are mid-light, which is what makes them good fills and bad text:
-     * the mint written as text is 5.1:1 on the dark card but 2.1:1 on the light
-     * one, so recolouring the word would make it harder to read at the very
-     * moment it is being read out. As a fill it is one value in both themes and
-     * the ink on it is 6.9:1 either way. The caller passes the pair — quiz fills
-     * an answered option the same way, for the same reason.
-     *
-     * No padding on the fill: a word that grew by a few pixels would push the
-     * rest of the line sideways, and the line is the thing being pointed at.
-     */
-    function light(els, marks) {
-        unlight();
-
-        lit = els.slice();
-        lit.forEach(el => {
-            el.style.background = marks.fill;
-            el.style.color = marks.ink;
-        });
-
-        sayTimer = setTimeout(unlight, 500);
-    }
-
-    /*
-     * Wires up a line that has been drawn: a tap inside `root` says whatever it
-     * landed on — one word, or the whole line when it lands beside the words or
-     * on the speaker below them.
-     *
-     * Marked only when there was something to hear: say() returns false where
-     * the device has no voice for the script, and a word flashing in silence
-     * would be claiming it spoke.
-     */
-    speech.listen = (root, text, lang, marks) => {
-        if (!root || !hasWords(text)) return;
-
-        // Put up after say() rather than before it: starting a word settles
-        // whatever was in the air, and settling takes the previous mark back
-        // off. Tapping the same word twice would otherwise undo itself.
-        //
-        // The mark and nothing else. A card is the size of the thing it is
-        // showing and the word inside it is what answered the tap — growing the
-        // whole card would move the line being pointed at, and point at it with
-        // the one part of the screen that was already impossible to miss.
-        const mark = (said, els) => { if (said) light(els, marks); };
-
-        const done = () => unlight();
-
-        root.addEventListener('click', (e) => {
-            const word = e.target.closest('.say-word');
-            if (word) return mark(speech.say(word.textContent, lang, done), [word]);
-
-            // The whole line lights word by word rather than as one block, so
-            // that saying all of it looks like saying each of them.
-            mark(speech.say(text, lang, done), Array.from(root.querySelectorAll('.say-word')));
-        });
-    };
 }
 speech();

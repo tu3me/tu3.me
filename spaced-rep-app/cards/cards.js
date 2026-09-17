@@ -35,14 +35,185 @@ function cards(container) {
         keyHandler = null;
     }
 
-    // What a said word is marked with here — the pair speech.listen paints
-    const marks = () => ({ fill: palette.sayFill, ink: palette.onSaying });
+    // A word off a card goes straight into markup, and a word is whatever
+    // somebody typed into the box.
+    function escapeText(text) {
+        return String(text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /*
+     * The line as a row of letters inside a row of words.
+     *
+     * Every letter is its own target because a tap has to be able to land on
+     * one. What lies between the words — spaces, commas, the question mark —
+     * stays as plain text: the only thing that can be tapped is a thing that
+     * can be said.
+     *
+     * Letters come from speech.letters, which counts them the way a reader
+     * does: й is written as two code units and न्न as three, and splitting
+     * there would hand back half a letter to say out loud.
+     */
+    function lineHtml(text) {
+        return speech.words(text).map(part => {
+            if (!part.isWord) return escapeText(part.text);
+
+            const letters = speech.letters(part.text)
+                .map(ch => `<span class="say-letter" style="transition: color 0.2s;">${escapeText(ch)}</span>`)
+                .join('');
+
+            return `<span class="say-word" style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${letters}</span>`;
+        }).join('');
+    }
+
+    /*
+     * What the last tap lit, so it can be put out when the voice stops.
+     *
+     * One mark at a time for the whole screen, because one thing at a time is
+     * being said: two marks up at once would be claiming both are, and only the
+     * later one is.
+     *
+     * Cards paints its own, rather than sharing with the quiz. The two started
+     * with the same behaviour and the quiz still has it; this screen went on to
+     * three depths of tap, and a shared version would have had to keep doing
+     * what the quiz needs while doing this as well.
+     */
+    let lit = [];
+
+    function unlight() {
+        lit.forEach(el => {
+            el.style.background = '';
+            el.style.color = '';
+        });
+        lit = [];
+    }
+
+    function light(marked) {
+        unlight();
+
+        lit = marked.map(m => m.el);
+
+        marked.forEach(({ el, fill, ink }) => {
+            if (fill) el.style.background = fill;
+            if (ink) el.style.color = ink;
+        });
+    }
+
+    /*
+     * A tap goes deeper the more it is repeated: the letter under the finger,
+     * then the word it belongs to, then the whole line.
+     *
+     * Counted here rather than read off the event's own click count, which
+     * phones do not agree about — a second tap is a zoom gesture to some of
+     * them, and the count never arrives. Taps on the same letter inside the gap
+     * below are one gesture; anything else starts again at the letter.
+     *
+     * Each tap acts at once instead of waiting to see whether another is
+     * coming. Waiting would put a quarter of a second between every single tap
+     * and its answer, and a tap that answers late reads as a tap that missed.
+     * What it costs is a moment of the letter being said before the word cuts
+     * it off, which is at least the truth about what is happening: each press
+     * asks for more than the last one.
+     */
+    const TAP_GAP = 500;
+
+    // Different enough to tell apart at a glance, and far enough along the
+    // bubble ramp not to read as a series: the words of a line are not in an
+    // order that means anything, they are simply not each other.
+    const WORD_FILLS = [3, 6, 9, 12];
+
+    let taps = 0;
+    let tapped = null;
+    let tapTimer = null;
+
+    function forgetTaps() {
+        clearTimeout(tapTimer);
+        taps = 0;
+        tapped = null;
+    }
+
+    function listen(face, text, lang) {
+        if (!face) return;
+
+        face.addEventListener('click', (e) => {
+            const letter = e.target.closest('.say-letter');
+
+            // Beside the words, or on the speaker under them: the whole line,
+            // which is the third depth reached without the first two.
+            if (!letter) {
+                forgetTaps();
+                return sayLine(face, text, lang);
+            }
+
+            if (letter !== tapped) {
+                taps = 0;
+                tapped = letter;
+            }
+
+            taps = Math.min(3, taps + 1);
+
+            clearTimeout(tapTimer);
+            tapTimer = setTimeout(forgetTaps, TAP_GAP);
+
+            if (taps === 1) return sayLetter(letter, lang);
+            if (taps === 2) return sayWord(letter.closest('.say-word'), lang);
+
+            sayLine(face, text, lang);
+        });
+    }
+
+    /*
+     * Each of the three, and each of them lit only if it was heard: say()
+     * returns false where the device has no voice for the script, and a mark
+     * flashing in silence would be claiming it spoke.
+     *
+     * Lit after the asking, never before. Asking settles whatever was in the
+     * air, and settling takes the last mark back off — a mark put up first
+     * would be wiped by the asking that follows it.
+     *
+     * A letter is coloured rather than filled: it is one glyph wide, and a fill
+     * that size reads as a typo rather than as a mark. A word is filled, because
+     * mid-light mint as text is 2.1:1 on the light card — unreadable at the
+     * moment it is being read out — while as a fill it is one value in both
+     * themes with 6.9:1 ink on it.
+     */
+    function sayLetter(letter, lang) {
+        if (speech.say(letter.textContent, lang, unlight)) {
+            light([{ el: letter, ink: palette.sayFill }]);
+        }
+    }
+
+    function sayWord(word, lang) {
+        if (!word) return;
+
+        if (speech.say(word.textContent, lang, unlight)) {
+            light([{ el: word, fill: palette.sayFill, ink: palette.onSaying }]);
+        }
+    }
+
+    function sayLine(face, text, lang) {
+        const words = Array.from(face.querySelectorAll('.say-word'));
+
+        // A colour each, so the line reads as the words it is made of rather
+        // than as one long stripe. They repeat past the fourth word, which is
+        // where a card stops being a card and starts being a sentence.
+        const marked = words.map((el, i) => {
+            const stage = tokens.stages()[WORD_FILLS[i % WORD_FILLS.length]];
+            return { el, fill: stage.fill, ink: stage.ink };
+        });
+
+        if (speech.say(text, lang, unlight)) light(marked);
+    }
 
     function render() {
         container.innerHTML = '';
 
-        // The nodes that were lit are gone with it, so there is nothing to put back
-        speech.forget();
+        // The nodes that were lit are gone with it, so there is nothing to put
+        // back — and a tap on the card that was here counts towards nothing on
+        // the card that replaces it.
+        lit = [];
+        forgetTaps();
 
         if (!state.sessionPool) {
             const pool = store.duePool(state.selectedSetId, state.allowEarly, POOL_LIMIT);
@@ -99,12 +270,12 @@ function cards(container) {
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
                 <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.lineHtml(currentItem.word.original)}</div>
+                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${lineHtml(currentItem.word.original)}</div>
                     ${speech.speakerHtml(currentItem.word.original, palette.sayIcon)}
                 </div>
 
                 <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? speech.lineHtml(currentItem.word.translation) : '—'}</div>
+                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
                     ${speech.speakerHtml(currentItem.word.translation, palette.sayIcon)}
                 </div>
 
@@ -197,8 +368,8 @@ function cards(container) {
          * the face in front is ever clicked — the other one is turned away, and
          * a backface-hidden element is not painted and so not hit either.
          */
-        speech.listen(cardWrapper.querySelector('.card-face--front'), currentItem.word.original, currentItem.word.originalLang, marks());
-        speech.listen(cardWrapper.querySelector('.card-face--back'), currentItem.word.translation, currentItem.word.translationLang, marks());
+        listen(cardWrapper.querySelector('.card-face--front'), currentItem.word.original, currentItem.word.originalLang);
+        listen(cardWrapper.querySelector('.card-face--back'), currentItem.word.translation, currentItem.word.translationLang);
 
         renderActionButtons();
 
@@ -234,8 +405,8 @@ function cards(container) {
             sayIcon: t.muted,
 
             // What is being said, on either face: a mint fill and the dark ink
-            // quiz puts on an answered option. Why a fill rather than coloured
-            // letters is written down at speech.listen.
+            // quiz puts on an answered option. Why a word is filled and a single
+            // letter only coloured is written down beside sayLetter.
             sayFill: t.progress,
             onSaying: '#0f2b3c',
 

@@ -43,14 +43,78 @@ function quiz(container) {
         stroke-linejoin="round" aria-hidden="true" style="display: block;">
         <path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
 
-    // What a said word is marked with here — the pair speech.listen paints
-    const marks = () => ({ fill: palette.sayFill, ink: palette.onSaying });
+    /*
+     * The mark on the word being said, and the tap that puts it there.
+     *
+     * The quiz's own copy. It was shared with cards until cards needed
+     * something else of it, and two screens holding one behaviour between them
+     * is how one of them ends up unable to change: the shared version has to
+     * keep doing what the other one needs.
+     *
+     * A fill with dark ink on it rather than coloured letters. The app's two
+     * colours are mid-light, which is what makes them good fills and bad text:
+     * the mint written as text is 5.1:1 on the dark card but 2.1:1 on the light
+     * one, so recolouring the word would make it harder to read at the very
+     * moment it is being read out. As a fill it is one value in both themes and
+     * the ink on it is 6.9:1 either way — the same pair an answered option is
+     * filled with, for the same reason.
+     *
+     * No padding on the fill: a word that grew by a few pixels would push the
+     * rest of the line sideways, and the line is the thing being pointed at.
+     */
+    let lit = [];
+
+    function unlight() {
+        lit.forEach(el => {
+            el.style.background = '';
+            el.style.color = '';
+        });
+        lit = [];
+    }
+
+    function light(els) {
+        unlight();
+
+        lit = els.slice();
+        lit.forEach(el => {
+            el.style.background = palette.sayFill;
+            el.style.color = palette.onSaying;
+        });
+    }
+
+    /*
+     * A tap inside the question says what it landed on: one word, or the whole
+     * line when it lands beside the words or on the speaker below them.
+     *
+     * The mark goes up after say() rather than before it: starting a word
+     * settles whatever was in the air, and settling takes the previous mark back
+     * off. Tapping the same word twice would otherwise undo itself.
+     *
+     * Marked only when there was something to hear — say() returns false where
+     * the device has no voice for the script, and a word flashing in silence
+     * would be claiming it spoke. The mark then lasts exactly as long as the
+     * voice does, because say() says when it stopped.
+     */
+    function listen(root, text, lang) {
+        if (!root) return;
+
+        const mark = (said, els) => { if (said) light(els); };
+
+        root.addEventListener('click', (e) => {
+            const word = e.target.closest('.say-word');
+            if (word) return mark(speech.say(word.textContent, lang, unlight), [word]);
+
+            // The whole line lights word by word rather than as one block, so
+            // that saying all of it looks like saying each of them.
+            mark(speech.say(text, lang, unlight), Array.from(root.querySelectorAll('.say-word')));
+        });
+    }
 
     function render() {
         container.innerHTML = '';
 
         // The nodes that were lit are gone with it, so there is nothing to put back
-        speech.forget();
+        lit = [];
 
         if (!state.sessionPool) {
             const pool = store.duePool(state.selectedSetId, state.allowEarly, POOL_LIMIT);
@@ -117,7 +181,7 @@ function quiz(container) {
          * answering would take the round away from the player. They are also the
          * translations, which is the language the player already has.
          */
-        speech.listen(questionCard, currentItem.word.original, currentItem.word.originalLang, marks());
+        listen(questionCard, currentItem.word.original, currentItem.word.originalLang);
 
         // The better the word is known, the more options are offered
         const stats = spacedRepetitions.getWordStats(currentItem.word);
