@@ -1132,9 +1132,13 @@ function catalog(container) {
                     <div class="dict-settings-title" style="font-size: 16.8px; font-weight: 700; color: ${palette.heading};">Settings</div>
                     <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
                 </div>
-                <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; margin-bottom: 14px; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 8px;">
                     <span>Theme</span>
                     <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
+                </button>
+                <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 14px;">
+                    <span>Split words</span>
+                    <span class="dict-split-state">${speech.splitsByLanguage() ? 'By language' : 'By spaces'}</span>
                 </button>
                 <div class="dict-settings-body"></div>
             </div>
@@ -1160,6 +1164,24 @@ function catalog(container) {
         overlay.querySelector('.dict-theme-row').addEventListener('click', () => {
             theme.set(!theme.isDark());
             catalog.setTheme(theme.isDark());
+            render();
+        });
+
+        /*
+         * Where a word ends — a question only the games ask. A tap on a card
+         * says the word it landed on, and what a word is decides what that is.
+         * Nothing on this screen changes shape when it is switched: the row is
+         * redrawn saying the other answer, and the next card drawn anywhere
+         * uses it.
+         *
+         * By spaces unless asked otherwise, because that answer is either right
+         * or plainly wrong. The other is right where the browser carries the
+         * dictionary for writing without spaces, and quietly wrong where it does
+         * not — speech.js says why that cannot be asked about in advance.
+         */
+        overlay.querySelector('.dict-split-row').addEventListener('click', () => {
+            speech.splitByLanguage(!speech.splitsByLanguage());
+            saveSetting('splitByLanguage', speech.splitsByLanguage());
             render();
         });
 
@@ -1870,6 +1892,9 @@ async function bootCatalog() {
     // Dark unless the player has chosen otherwise; there is no first-run prompt
     // and no system sniffing, so an absent setting simply means the default.
     const isDark = settings ? !!settings.isDark : true;
+
+    // Words are split by spaces unless the player asked for the other way.
+    speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
 
     const container = $(`<div class="app-main-content"></div>`);
     catalog(container);

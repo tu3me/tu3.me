@@ -742,16 +742,67 @@ function speech() {
         ? new Intl.Segmenter(undefined, { granularity: 'word' })
         : null;
 
-    // Where Segmenter is missing, spaces are the next best guess — wrong for
-    // exactly the scripts it was brought in for, and right for the rest.
+    /*
+     * Which of the two is asked, and why there are two.
+     *
+     * Spaces and punctuation is the plain answer and the one this starts on. It
+     * is right wherever writing has spaces in it, and where writing has none it
+     * is honestly wrong: a Japanese line comes back as a single word, which is
+     * all a rule about spaces can say about a line without any.
+     *
+     * Intl.Segmenter is the other. Where the browser carries the dictionary for
+     * the scripts that run on — Japanese, Chinese, Thai — it finds the breaks
+     * inside them, which nothing else here can do.
+     *
+     * The dictionary is a few hundred kilobytes and some builds leave it out,
+     * phone browsers especially. The API is there either way and answers either
+     * way: without it the segmenter falls back to rules, and the rules put a
+     * break between every pair of Han characters, so 日本語 comes back as three
+     * words. Nothing in the API says which kind of browser this is. That is why
+     * the dictionary's answer is offered rather than assumed: where it works it
+     * is the best there is, and where it does not it is wrong in a way that
+     * looks like working.
+     */
+    let byLanguage = false;
+
+    speech.splitsByLanguage = () => byLanguage;
+
+    speech.splitByLanguage = (on) => { byLanguage = !!on; };
+
+    /*
+     * A word as a language with spaces writes one: a run of letters, and of
+     * everything a letter is written with.
+     *
+     * What counts as a letter is Unicode's answer rather than a list of our own,
+     * and it has to be — the list would be every alphabet there is. Three sorts
+     * of thing belong inside a word besides the obvious:
+     *
+     *   - the marks that hang off a letter and are not letters themselves: the
+     *     vowel signs of हिंदी, the tone marks of เรียน. Left out of the
+     *     class they read as punctuation, and a Hindi word came apart at every
+     *     vowel in it;
+     *   - the joiners written inside a word that show nothing at all — Persian
+     *     می‌خواهم carries one between its halves;
+     *   - the apostrophe of l'Aplicació and the hyphen of well-known, which are
+     *     punctuation everywhere else and part of the word here.
+     *
+     * Everything else is what sits between words, and stays as it was written: a
+     * space, a comma, and equally the Japanese 。, the Chinese ，, the Hindi ।
+     * and the Greek question mark that is a semicolon. None of those had to be
+     * named either — they are simply not letters.
+     */
+    const SPACED = /[\p{L}\p{M}\p{N}\u200c\u200d]+(?:['\u2019-][\p{L}\p{M}\p{N}\u200c\u200d]+)*|(?:(?!['\u2019-])[^\p{L}\p{M}\p{N}\u200c\u200d])+|['\u2019-]+/gu;
+
+    const LETTER = /[\p{L}\p{M}\p{N}\u200c\u200d]/u;
+
     function partsOf(text) {
         const line = String(text || '');
         if (!line) return [];
 
-        if (WORDS) return Array.from(WORDS.segment(line));
+        if (byLanguage && WORDS) return Array.from(WORDS.segment(line));
 
-        return line.split(/(\s+)/).filter(Boolean)
-            .map(part => ({ segment: part, isWordLike: !/^\s+$/.test(part) }));
+        return (line.match(SPACED) || [])
+            .map(part => ({ segment: part, isWordLike: LETTER.test(part) }));
     }
 
     const hasWords = (text) => partsOf(text).some(part => part.isWordLike);

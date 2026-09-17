@@ -64,6 +64,10 @@ async function bootGame(id, module) {
     // and no system sniffing, so an absent setting simply means the default.
     const isDark = settings ? !!settings.isDark : true;
 
+    // Where a word ends, which is what a tap on a card lands on: spaces, unless
+    // the player asked for the dictionary's answer instead.
+    speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
+
     await store.load();
 
     const container = $(`<div class="app-main-content"></div>`);

@@ -76,6 +76,20 @@ nav();
  * The light/dark flag: one boolean for the whole app plus the ground it paints.
  * The palettes themselves stay inside the catalog and inside each game.
  */
+/*
+ * One record holds every setting, so every write to it starts by reading it.
+ *
+ * Two settings saved independently would each write their own idea of what the
+ * record contains, and the second one to be changed would drop the first. Rare
+ * enough — a person changing a setting — that the extra read costs nothing worth
+ * measuring.
+ */
+async function saveSetting(key, value) {
+    const saved = (await storage.get('settings')) || {};
+    saved[key] = value;
+    return storage.set('settings', saved);
+}
+
 function theme() {
     let isDark = false;
 
@@ -99,7 +113,7 @@ function theme() {
 
     theme.set = (value) => {
         theme.apply(value);
-        return storage.set('settings', { isDark: isDark });
+        return saveSetting('isDark', isDark);
     };
 }
 theme();
