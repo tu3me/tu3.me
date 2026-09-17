@@ -106,20 +106,37 @@ function catalog(container) {
             stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
     }
 
+    // A disc and eight marks around it. The rays are half what they were and the
+    // disc is wider: at 18px eight long spokes crowd the ring until the middle
+    // of the sun is the smallest part of it, which is the one thing a sun is
+    // not. Short marks read as light coming off something.
     const SUN = chromeIcon(`
-        <circle cx="12" cy="12" r="4.2" />
-        <path d="M12 2.4v2.3M12 19.3v2.3M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.4 12h2.3M19.3 12h2.3M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />`);
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 2.6v1.6M12 19.8v1.6M4.2 4.2l1.2 1.2M18.6 18.6l1.2 1.2M2.6 12h1.6M19.8 12h1.6M4.2 19.8l1.2-1.2M18.6 5.4l1.2-1.2" />`);
 
-    // Sliders rather than a cog: the cog that suits this line weight is a ring
-    // with spokes, and that is the sun sitting next to it.
+    /*
+     * Sliders rather than a cog: the cog that suits this line weight is a ring
+     * with spokes, and that is the sun sitting next to it.
+     *
+     * Two tracks, not three, and lying down rather than standing up. Three
+     * upright channels with their handles crossing them came to eleven strokes
+     * inside 18 pixels, and at that size eleven strokes are a texture — a
+     * hatched square you take on trust because it sits where settings usually
+     * sit. Two knobs on two lines have somewhere to be: one pushed left, one
+     * pushed right, which is what a setting looks like.
+     */
     const SLIDERS = chromeIcon(`
-        <path d="M5 20.5v-6M5 9.5v-6M12 20.5v-9M12 6.5v-3M19 20.5v-4M19 11.5v-8" />
-        <path d="M2.5 14.5h5M9.5 8.5h5M16.5 15.5h5" />`);
+        <circle cx="7.5" cy="8" r="3.4" />
+        <path d="M12.4 8h8.6" />
+        <path d="M3 16h8.6" />
+        <circle cx="16.5" cy="16" r="3.4" />`);
 
     const MOON = chromeIcon(`
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
 
     const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
+
+    const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
     /*
      * The ways a word list gets here, each folded away under the box it ends in.
@@ -391,10 +408,14 @@ function catalog(container) {
      * The options every dropdown on the form is filled with, built as text and
      * handed out as many times as asked — there is a pair of them per word.
      *
-     * Two speakers and nothing are the three answers speech.readableBy gives:
-     * the language has a voice of its own here, it will be read by the voice
-     * that owns its writing system — Italian by an English one, Ukrainian by a
-     * Russian one — or there is nothing on this device that can say it.
+     * Three speakers for the three answers speech.readableBy gives: the language
+     * has a voice of its own here, it will be read by the voice that owns its
+     * writing system — Italian by an English one, Ukrainian by a Russian one —
+     * or there is nothing on this device that can say it.
+     *
+     * The last one is marked rather than left bare. A missing mark is read as a
+     * line the app has not got round to, and the crossed-out speaker says what
+     * no mark only implied: this one will be silent here.
      *
      * The list is the same everywhere and the marks are not: they come from the
      * voices the browser happens to have, which differ between Chrome and Edge
@@ -404,13 +425,14 @@ function catalog(container) {
      */
     const OWN_VOICE = '🔊';
     const BORROWED_VOICE = '🔈';
+    const NO_VOICE = '🔇';
 
     // A language named the way the dropdowns name it: with what this device
     // would read it in.
     function markedName(tag) {
         const by = speech.readableBy(tag);
-        const mark = by === tag ? OWN_VOICE + ' ' : (by ? BORROWED_VOICE + ' ' : '');
-        return mark + languageName(tag);
+        const mark = by === tag ? OWN_VOICE : (by ? BORROWED_VOICE : NO_VOICE);
+        return mark + ' ' + languageName(tag);
     }
 
     /*
@@ -640,21 +662,14 @@ function catalog(container) {
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
-                <button class="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Toggle theme">${palette.themeIcon}</button>
                 <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
                 <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${SLIDERS}</button>
             </div>
         </div>`);
 
-        header.querySelector('.theme-toggle-btn').addEventListener('click', () => {
-            theme.set(!theme.isDark());
-            catalog.setTheme(theme.isDark());
-            render();
-        });
-
-        // Opens its panel and closes it again, the same way the New Set button
-        // works on its form — and folding shut the same way, so the two read as
-        // one kind of thing rather than two.
+        // Opens the settings layer and closes it again. A toggle, like the New
+        // Set button next to it: the press that opened something is the press
+        // that takes it away, whatever shape the something has.
         header.querySelector('#settings-btn').addEventListener('click', () => {
             if (closing) return;
 
@@ -715,8 +730,6 @@ function catalog(container) {
 
         const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 14px;"></div>`);
 
-        if (settingsOpen) renderSettings(setsList);
-
         sets.forEach((set, index) => {
             renderSetCard(setsList, set, index, intro);
         });
@@ -726,10 +739,11 @@ function catalog(container) {
             if (card) unfoldInto(card, bannerSpace);
         }
 
-        if (unfold === 'settings') {
-            const panel = container.querySelector('.dict-settings-panel');
-            if (panel) unfoldInto(panel, 0);
-        }
+        // Last, so it is over everything this pass drew. Redrawn with the rest
+        // of the screen — the theme button repaints the catalog under an open
+        // panel — and it only rises into place when this pass is the one that
+        // opened it.
+        if (settingsOpen) renderSettings(container, unfold === 'settings');
     }
 
     /*
@@ -889,33 +903,165 @@ function catalog(container) {
         }, bannerSpace);
     }
 
-    // Folds the settings panel shut and then takes it out of the page. The
-    // panel is not a card and has nothing behind it to discard — the fold is the
-    // whole of the closing.
-    function closeSettings() {
-        const panel = container.querySelector('.dict-settings-panel');
+    /*
+     * How long the panel takes to grow out of the button and to fold back into
+     * it.
+     *
+     * Shorter than the fold above, and out shorter than in: the fold moves a
+     * card the list has to make room for, while this only opens something over
+     * the page. A dismissal that lingers reads as the app thinking about it.
+     */
+    const RISE_IN = 170;
+    const RISE_OUT = 130;
 
-        if (!panel) {
+    // How far the panel is from the button it hangs under, and how close it may
+    // come to the edge of the screen before it stops following.
+    const ANCHOR_GAP = 8;
+    const SCREEN_EDGE = 12;
+
+    /*
+     * Hangs the panel under the button that opened it, right edges together.
+     *
+     * Right rather than left because the button is the last thing in the header:
+     * lined up by its left edge the panel would hang off the screen. Clamped all
+     * the same — the header is laid out by the browser, and a measurement is
+     * worth less than the check that it landed somewhere visible.
+     *
+     * The height it is allowed is whatever is left below it, so a panel that
+     * outgrows the screen scrolls inside itself instead of running off the
+     * bottom. Read off the viewport, which is safe to read and unsafe to decide:
+     * a fixed element takes no part in how wide the popup ends up, so measuring
+     * it here closes no loop — see app.css on why no CSS rule may.
+     *
+     * Returns where the button is, in the panel's own coordinates, for the
+     * transform to grow from.
+     */
+    function hangUnder(panel, anchor) {
+        const a = anchor.getBoundingClientRect();
+        const room = document.documentElement.clientHeight;
+
+        const left = Math.max(SCREEN_EDGE, a.right - panel.offsetWidth);
+        const top = a.bottom + ANCHOR_GAP;
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${top}px`;
+        panel.style.maxHeight = `${Math.max(120, room - top - SCREEN_EDGE)}px`;
+
+        return `${a.left + a.width / 2 - left}px ${a.top + a.height / 2 - top}px`;
+    }
+
+    /*
+     * Escape while the panel is up, and a window that changed size under it.
+     *
+     * Held on the document rather than on the overlay because a div gets no keys
+     * unless it is focused, and focusing the panel would take the caret out of
+     * whatever was being typed behind it.
+     *
+     * In the extension popup neither fires: the window is a fixed size, and
+     * Chrome closes the popup on Escape before the page sees it. On the site and
+     * in the installed app both do — a phone turned on its side moves the button
+     * the panel is hanging from, and a panel left where the button used to be
+     * points at nothing.
+     */
+    let watching = null;
+
+    function watchWhileOpen(panel, anchor) {
+        stopWatching();
+
+        watching = {
+            key: (e) => { if (e.key === 'Escape') closeSettings(); },
+            moved: () => { panel.style.transformOrigin = hangUnder(panel, anchor); }
+        };
+
+        document.addEventListener('keydown', watching.key);
+        window.addEventListener('resize', watching.moved);
+    }
+
+    function stopWatching() {
+        if (!watching) return;
+        document.removeEventListener('keydown', watching.key);
+        window.removeEventListener('resize', watching.moved);
+        watching = null;
+    }
+
+    // Folds the panel back into the button it came out of. It has nothing
+    // behind it to discard — the shrinking is the whole of the closing — and the
+    // redraw afterwards is what puts the button back to unpressed.
+    function closeSettings() {
+        const overlay = container.querySelector('.dict-settings-overlay');
+        stopWatching();
+
+        if (!overlay) {
             settingsOpen = false;
             render();
             return;
         }
 
+        const panel = overlay.querySelector('.dict-settings-panel');
+
         closing = true;
-        foldAway(panel, () => {
+        overlay.style.transition = `opacity ${RISE_OUT}ms ease-in`;
+        overlay.style.opacity = '0';
+        panel.style.transition = `transform ${RISE_OUT}ms ease-in, opacity ${RISE_OUT}ms ease-in`;
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        setTimeout(() => {
             closing = false;
             settingsOpen = false;
             render();
-        }, 0);
+        }, RISE_OUT);
     }
 
     /*
-     * The settings panel. One thing in it so far, and that one thing is the
-     * destructive one, which is why it asks first.
+     * The settings panel: hung under the button that opens it, over the page.
      *
-     * The question replaces the button rather than opening a dialog over it:
-     * the panel is already a place the player deliberately went, and a second
-     * layer on top of it to say one sentence is more ceremony than the moment
+     * It used to open at the top of the list of sets, and that list is the one
+     * place on this screen that belongs to the player — their sets, in their
+     * order — with a panel of the app's own pushing the first of them down the
+     * page. Settings are not a set, and over the page nothing has to move to let
+     * them in.
+     *
+     * Under the button rather than in the middle of the screen. A centred sheet
+     * is the shape of a question that has to be answered before anything else
+     * can happen — which is what the early-play dialog is, and this is not. This
+     * is a drawer belonging to a control: it opens where that control is, it
+     * grows out of it, and it folds back into it.
+     *
+     * The wash underneath both catches the press that means "enough" and darkens
+     * what is behind it. The same wash as the early-play question, to the value:
+     * one screen with two different dimmings would read as two different kinds
+     * of layer, and these are one kind — something over the page, waiting to be
+     * dealt with before the page can be used again.
+     *
+     * It fades with the panel rather than snapping on. Appearing at full
+     * strength under something that is still growing reads as two events, and it
+     * is one.
+     *
+     * Fixed and inset rather than sized in vw — app.css says why no rule here
+     * may be viewport-derived in a popup. inset: 0 is not: it takes whatever the
+     * viewport turns out to be instead of having an opinion about it.
+     *
+     * Two things in it. The light switch came out of the header, where it stood
+     * next to the one button this app is for: a header of three controls where
+     * two are about the app and one is about making sets reads as three equal
+     * offers, and they are not equal. A theme is chosen about as often as
+     * anything else in here — which is to say once — and this is where the
+     * things chosen once now live.
+     *
+     * The switch is a row rather than a bare icon, because in a list a picture
+     * with no name is a guess: pressed, it does something, and what it did is
+     * the only way to find out what it was. The row says which theme is on, and
+     * the icon stays as the picture of that answer.
+     *
+     * It sits outside the body below it, which the erase question rewrites
+     * wholesale — a control that vanished while a different question was being
+     * asked would look like part of the question.
+     *
+     * The second thing is the destructive one, which is why it asks first. The
+     * question replaces the button rather than opening something over the panel:
+     * the player is already inside a layer they chose to open, and stacking a
+     * second one to say a single sentence is more ceremony than the moment
      * deserves.
      *
      * Coral marks the button by its border and not by its label. Coral text on
@@ -923,13 +1069,70 @@ function catalog(container) {
      * what a 15px label needs — while the border carries the same warning at a
      * size where that contrast is enough.
      */
-    function renderSettings(parent) {
-        const panel = $(parent, `<div class="dict-settings-panel" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;">
-            <div class="dict-settings-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading}; margin-bottom: 10px;">Settings</div>
-            <div class="dict-settings-body"></div>
+    function renderSettings(parent, rising) {
+        const anchor = container.querySelector('#settings-btn');
+
+        const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
+            <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 300px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 18px; padding: 16px; overflow-y: auto; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);">
+                <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    <div class="dict-settings-title" style="font-size: 16.8px; font-weight: 700; color: ${palette.heading};">Settings</div>
+                    <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
+                </div>
+                <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; margin-bottom: 14px; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                    <span>Theme</span>
+                    <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
+                </button>
+                <div class="dict-settings-body"></div>
+            </div>
         </div>`);
 
+        const panel = overlay.querySelector('.dict-settings-panel');
         const body = panel.querySelector('.dict-settings-body');
+
+        // Placed before anything is shown, because where it is placed is also
+        // where it grows from: the button's own middle, in the panel's
+        // coordinates — above its top edge, which a transform origin is allowed
+        // to be.
+        const origin = hangUnder(panel, anchor);
+        panel.style.transformOrigin = origin;
+
+        // Three ways out, and the fourth is the button that opened it. A press
+        // on the wash counts only when it lands on the wash itself: the panel
+        // sits inside it, and a click anywhere in the panel would otherwise
+        // bubble up and shut the thing being used.
+        // The panel is redrawn by the same render() the switch asks for, and it
+        // stays open through it: the row comes back saying the other theme, over
+        // a catalog that is already wearing it.
+        overlay.querySelector('.dict-theme-row').addEventListener('click', () => {
+            theme.set(!theme.isDark());
+            catalog.setTheme(theme.isDark());
+            render();
+        });
+
+        overlay.querySelector('.dict-settings-close').addEventListener('click', closeSettings);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeSettings();
+        });
+        watchWhileOpen(panel, anchor);
+
+        if (rising) {
+            overlay.style.opacity = '0';
+            panel.style.transform = 'scale(0.6)';
+            panel.style.opacity = '0';
+
+            pin(panel);
+
+            overlay.style.transition = `opacity ${RISE_IN}ms ease-out`;
+            panel.style.transition = `transform ${RISE_IN}ms ease-out, opacity ${RISE_IN}ms ease-out`;
+            overlay.style.opacity = '';
+            panel.style.transform = '';
+            panel.style.opacity = '';
+
+            setTimeout(() => {
+                overlay.style.transition = '';
+                panel.style.transition = '';
+            }, RISE_IN + 40);
+        }
 
         function offer() {
             body.innerHTML = `
@@ -1097,7 +1300,7 @@ function catalog(container) {
                     <div class="set-lang-fold">${foldingSection('Advanced', `<div style="font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
                             <div>${OWN_VOICE} voice installed</div>
                             <div>${BORROWED_VOICE} read by a related voice</div>
-                            <div>unmarked - no voice at all</div>
+                            <div>${NO_VOICE} no voice at all</div>
                         </div>
                         <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 6px; margin-top: 14px;"></div>`, false)}</div>
                 </div>`;
@@ -1502,9 +1705,12 @@ function catalog(container) {
         palette = {
             heading: t.ink,
             title: t.ink,
-            // Sun while the dark theme is on, because the icon says where the
-            // button goes, not where you are.
-            themeIcon: isDark ? SUN : MOON,
+            // The moon while the dark theme is on: the icon stands next to the
+            // word "Dark" and has to agree with it. As a bare button in the
+            // header it meant the opposite — where the press would take you —
+            // and a picture that has to be pressed to be understood is what the
+            // row replaced.
+            themeIcon: isDark ? MOON : SUN,
 
             // The logo takes the Cards button's own colour rather than the accent.
             // The game colours do not follow the theme, the accent does, so in

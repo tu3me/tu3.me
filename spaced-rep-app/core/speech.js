@@ -23,6 +23,11 @@
  * its own. say() takes the word's answer as its second argument; without one it
  * falls back to guessing from the text in hand, which is all a single word can
  * offer.
+ *
+ * The second half of the file is about showing a word rather than saying one:
+ * a line drawn word by word, so a tap can land on one word of it, and a mark on
+ * whatever is being said at that moment. Cards and quiz both draw lines that
+ * way, which is why it is here and not in either of them.
  */
 function speech() {
     /*
@@ -570,6 +575,159 @@ function speech() {
     speech.hush = () => {
         held = null;
         if (speech.available()) speechSynthesis.cancel();
+    };
+
+    /*
+     * A line of text the player can tap to hear — the whole of it, or one word
+     * of it.
+     *
+     * Here rather than in a game because cards and quiz both show a word and
+     * both let it be tapped, and what they share is not the markup but the
+     * decisions underneath: where a word ends, what is marked while it is being
+     * said, and for how long. Two copies of those would drift, and the copy
+     * that drifted would be the one nobody was looking at.
+     */
+
+    /*
+     * Where one word ends and the next begins.
+     *
+     * Not text.split(' '): a good part of the world writes without spaces —
+     * Japanese, Chinese and Thai run a line together — and there a tap would
+     * have nothing smaller than the whole line to land on. Intl.Segmenter knows
+     * where the breaks fall in all of them at once, which is the same reason
+     * snake.js leans on it for letters.
+     *
+     * isWordLike separates the words from what sits between them: spaces,
+     * commas and question marks stay in the line as plain text, so the only
+     * thing that can be tapped is a thing that can be said.
+     */
+    const WORDS = typeof Intl !== 'undefined' && Intl.Segmenter
+        ? new Intl.Segmenter(undefined, { granularity: 'word' })
+        : null;
+
+    // Where Segmenter is missing, spaces are the next best guess — wrong for
+    // exactly the scripts it was brought in for, and right for the rest.
+    function partsOf(text) {
+        const line = String(text || '');
+        if (!line) return [];
+
+        if (WORDS) return Array.from(WORDS.segment(line));
+
+        return line.split(/(\s+)/).filter(Boolean)
+            .map(part => ({ segment: part, isWordLike: !/^\s+$/.test(part) }));
+    }
+
+    const hasWords = (text) => partsOf(text).some(part => part.isWordLike);
+
+    // Every word its own target; everything between them left as it was written
+    speech.lineHtml = (text) => partsOf(text)
+        .map(part => (part.isWordLike
+            ? `<span class="say-word" style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${part.segment}</span>`
+            : part.segment))
+        .join('');
+
+    /*
+     * The speaker beside the line, and the only visible sign that any of this
+     * can be heard at all: a word that reads aloud when tapped looks exactly
+     * like a word that does nothing, so something has to say so. It reads the
+     * whole line, which is what a tap beside the words does too.
+     *
+     * A span and not a button, though a button is what it behaves like. Quiz
+     * stands one of these inside an option, and an option is a button: the HTML
+     * parser does not nest buttons — a second <button> closes the first one
+     * where it stands — so the markup would come apart rather than render
+     * wrong. One shape for all three places is worth more than the tab stop a
+     * real button would add to a popup driven by arrow keys.
+     *
+     * The colour is the caller's, and so is `css`, appended last so it wins:
+     * every screen has its own palette and its own idea of where this sits —
+     * under a word on a card, beside one in an option. The glyph is 1em, so
+     * font-size is the one thing that resizes it.
+     *
+     * Empty where there is nothing to say — an untranslated word would
+     * otherwise offer a speaker that answers with silence.
+     */
+    speech.speakerHtml = (text, colour, css) => {
+        if (!hasWords(text)) return '';
+
+        return `<span class="say-all" title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
+    };
+
+    /*
+     * What is lit right now — one line's worth for the whole page, because
+     * saying a word drops whatever was being said before it. Two marks at once
+     * would be claiming both are being spoken, and only the second one is.
+     */
+    let sayTimer = null;
+    let lit = [];
+
+    function unlight() {
+        lit.forEach(el => {
+            el.style.background = '';
+            el.style.color = '';
+        });
+        lit = [];
+    }
+
+    // For a screen about to be rebuilt: the marked nodes are being thrown away,
+    // so there is nothing to put back and nothing left to wait for.
+    speech.forget = () => {
+        clearTimeout(sayTimer);
+        lit = [];
+    };
+
+    /*
+     * Marks what is being said — for half a second, not for as long as the
+     * voice takes. The utterance's own `end` arrives just the same when the
+     * device said nothing at all, so it cannot time anything honestly; half a
+     * second is long enough to see which word answered the tap.
+     *
+     * A fill with dark ink on it rather than coloured letters. The app's two
+     * colours are mid-light, which is what makes them good fills and bad text:
+     * the mint written as text is 5.1:1 on the dark card but 2.1:1 on the light
+     * one, so recolouring the word would make it harder to read at the very
+     * moment it is being read out. As a fill it is one value in both themes and
+     * the ink on it is 6.9:1 either way. The caller passes the pair — quiz fills
+     * an answered option the same way, for the same reason.
+     *
+     * No padding on the fill: a word that grew by a few pixels would push the
+     * rest of the line sideways, and the line is the thing being pointed at.
+     */
+    function light(els, marks) {
+        clearTimeout(sayTimer);
+        unlight();
+
+        lit = els.slice();
+        lit.forEach(el => {
+            el.style.background = marks.fill;
+            el.style.color = marks.ink;
+        });
+
+        sayTimer = setTimeout(unlight, 500);
+    }
+
+    /*
+     * Wires up a line that has been drawn: a tap inside `root` says whatever it
+     * landed on — one word, or the whole line when it lands beside the words or
+     * on the speaker below them.
+     *
+     * Marked only when there was something to hear: say() returns false where
+     * the device has no voice for the script, and a word flashing in silence
+     * would be claiming it spoke.
+     */
+    speech.listen = (root, text, lang, marks) => {
+        if (!root || !hasWords(text)) return;
+
+        const mark = (said, els) => { if (said) light(els, marks); };
+
+        root.addEventListener('click', (e) => {
+            const word = e.target.closest('.say-word');
+            if (word) return mark(speech.say(word.textContent, lang), [word]);
+
+            // The whole line lights word by word rather than as one block, so
+            // that saying all of it looks like saying each of them.
+            mark(speech.say(text, lang), Array.from(root.querySelectorAll('.say-word')));
+        });
     };
 }
 speech();

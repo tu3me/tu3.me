@@ -79,6 +79,28 @@ function snake(container) {
     const BLANK = /^\s+$/;
 
     /*
+     * A letter with a sound of its own.
+     *
+     * Anything carrying neither a letter nor a digit has none: a blank, and —
+     * the reason this exists — a punctuation mark. Asked for «?» on its own a
+     * synthesiser does not fall silent, it says "question mark", which is not
+     * something the word contains; «؟», «¿», «।» and «。» go the same way in
+     * whatever language the voice happens to be.
+     *
+     * Only on its own. Inside a word or a phrase the mark stays where it was
+     * written: there it is not read out, it shapes how the rest is said, and
+     * «¿Cómo aprender español?» would be the poorer without it.
+     *
+     * By letters and digits rather than by a list of marks, because the list
+     * would have to be every script's: the danda, the ideographic full stop,
+     * the Greek question mark that is a semicolon, the Armenian ones that look
+     * like nothing else.
+     */
+    const SOUNDED = /[\p{L}\p{N}]/u;
+
+    const worthSaying = (text) => SOUNDED.test(String(text || ''));
+
+    /*
      * A blank is painted rather than written: a filled block in the letters'
      * own colour, half transparent so it reads as a letter's worth of nothing
      * rather than as a letter.
@@ -450,9 +472,17 @@ function snake(container) {
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 19.2px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 42px; overflow: hidden;">${opts.translation}</div>
             </div>`);
 
-            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; cursor: pointer; width: 100%;" title="Click to reveal answer (counts as mistake)"></div>`);
-
-            gatheredBar.addEventListener('click', () => cb.onRevealHint());
+            /*
+             * The bar itself takes no clicks any more — each box takes its own.
+             *
+             * It used to take one anywhere on it and mean "show me the answer",
+             * and it kept meaning that after the word was already spelled out:
+             * a stray click during the heart phase called onRevealHint on a
+             * round that had just been won, and the dot went from right to
+             * wrong. Now only a box that still reads "?" can say that, and once
+             * there are none left there is nothing to hit.
+             */
+            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; width: 100%;"></div>`);
 
             const side = document.body.clientWidth;
 
@@ -557,14 +587,50 @@ function snake(container) {
                 // A revealed blank is the block the board draws, in the colour
                 // this letter would have been written in. Sized in em so it
                 // follows the bar when it shrinks itself to fit.
+                //
                 if (shown && BLANK.test(char)) {
                     box.style.cssText += ` width: 0.62em; height: 0.86em; border-radius: 2px; background: ${color}; opacity: ${BLANK_ALPHA};`;
                 } else {
                     box.textContent = displayText;
+
+                    // An open mark is drawn and left alone — worthSaying says
+                    // why — so it does not offer a pointer it cannot honour.
+                    // Under a "?" it is a box like any other and shows the
+                    // answer like any other: which letter is hiding there is
+                    // exactly what the player does not know yet.
+                    if (!shown || worthSaying(char)) {
+                        box.style.cursor = 'pointer';
+                        box.title = shown ? 'Say it' : 'Click to reveal answer (counts as mistake)';
+
+                        // What the click means depends on how much of the word
+                        // is open, and the board is what knows that — the view
+                        // only says where the click landed.
+                        box.addEventListener('click', () => cb.onLetterClick(i));
+                    }
                 }
 
                 gatheredBar.appendChild(box);
             }
+
+            /*
+             * The speaker appears when the whole line is open — collected or
+             * shown — and reads all of it, the way the one under a card does.
+             * Before that there is nothing whole to read: half a word said out
+             * loud is not the word, and the letters already say themselves as
+             * they are eaten.
+             *
+             * It rides in the bar rather than under it: the banner is a fixed
+             * 104px and a third row would not fit in it.
+             */
+            const whole = showHint || collected >= targetLetters.length;
+            const speakerHtml = whole
+                ? speech.speakerHtml(targetLetters.join(''), palette.sayIcon, 'margin-top: 0; font-size: 22px; flex: none;')
+                : '';
+
+            if (speakerHtml) {
+                $(gatheredBar, speakerHtml).addEventListener('click', () => cb.onSayAll());
+            }
+
             fitGathered();
         };
 
@@ -893,11 +959,18 @@ function snake(container) {
             delayed.push(id);
         };
 
-        clock.stop = () => {
+        clock.stop = (keepDelayed) => {
             // Paused as well, so nothing can schedule the clock back to life afterwards
             paused = true;
             if (tickTimer) clearTimeout(tickTimer);
             if (accelTimer) clearTimeout(accelTimer);
+
+            // The waits are what sayProgress is holding the rest of the word in,
+            // so the end of a session keeps them: the board has stopped, but the
+            // word it just finished has not been said yet. Leaving the screen
+            // drops them as it always did — see cleanup.
+            if (keepDelayed) return;
+
             delayed.forEach(clearTimeout);
             delayed = [];
         };
@@ -1276,10 +1349,12 @@ function snake(container) {
     }
 
 
+    // Leaving the screen: anything mid-sentence goes with the screen it
+    // belonged to, and so do the waits holding the rest of what it was saying.
+    // Winning is not leaving — showVictory stops the same machinery by hand,
+    // without the silence.
     function cleanup() {
         clock.stop();
-
-        // Anything mid-sentence goes with the screen it belonged to.
         speech.hush();
         input.detach();
     }
@@ -1295,8 +1370,10 @@ function snake(container) {
      * word as it lands and then the whole of it, which is the only way to hear
      * what the parts add up to.
      *
-     * Blanks are not announced. A space has no sound and "space" is not what a
-     * reader hears when they read across one.
+     * Blanks and punctuation are not announced: neither has a sound of its own,
+     * and "space" and "question mark" are not what a reader hears when they read
+     * across one. A mark inside the word it was written in is another matter —
+     * see worthSaying.
      *
      * The waits go through clock.after, which the clock clears when the screen
      * is left. A bare setTimeout would keep its word and say it into whatever
@@ -1323,7 +1400,7 @@ function snake(container) {
         // named. A word is said in the case it was written in: a run of capitals
         // is read out letter by letter by some engines, which is the right sound
         // for one letter and the wrong one for seven.
-        if (!isBlank) speech.say(letters[index], sayLang);
+        if (worthSaying(letters[index])) speech.say(letters[index], sayLang);
 
         // The word just closed: everything back to the blank before it
         if (isBlank || atEnd) {
@@ -1332,10 +1409,10 @@ function snake(container) {
 
             const word = letters.slice(from + 1, isBlank ? index : done).join('').toLowerCase();
 
-            if (word && isPhrase) clock.after(420, () => speech.say(word, sayLang));
+            if (isPhrase && worthSaying(word)) clock.after(420, () => speech.say(word, sayLang));
         }
 
-        if (atEnd) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase(), sayLang));
+        if (atEnd && worthSaying(phrase)) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase(), sayLang));
     }
 
     function render() {
@@ -1377,24 +1454,54 @@ function snake(container) {
                 page.home();
             },
 
-            onRevealHint: () => {
-                if (!state.showHint) {
-                    state.showHint = true;
-                    state.hadErrorThisRound = true;
-                    refreshGathered();
+            /*
+             * A click on one box of the bar, and it means three different things
+             * depending on how much of the line is open by then.
+             *
+             * Still hidden — the box reads "?" — and it is the old "show me the
+             * answer", which costs the round. Open but standing in an unfinished
+             * word, and it is that one letter: there is no word yet to say.
+             * Open in a word that is whole, and it is the word — by then the
+             * letter on its own is the less useful of the two, and every letter
+             * of that word answers with the same word, so there is nothing to
+             * aim at.
+             *
+             * Whole is read off the word's last letter rather than checked
+             * across all of them: the letters are collected in order, so the
+             * last one being open is the same statement.
+             */
+            onLetterClick: (index) => {
+                const letters = board.letters();
+                const isShown = (at) => state.showHint || at < board.progress();
 
-                    // The round is lost the moment the answer is shown, so the dot
-                    // says so now rather than when the word is finally spelled out.
-                    // wordDone writes the same 'wrong' again from hadErrorThisRound;
-                    // this only moves the telling earlier, not the verdict.
-                    //
-                    // Saved straight away because the verdict now exists: without
-                    // this, closing the popup between the reveal and the end of the
-                    // round would lose it and the word would come back marked clean.
-                    state.sessionResults[state.currentIndex] = 'wrong';
-                    refreshDots();
-                    page.save();
+                if (!isShown(index)) {
+                    revealHint();
+                    return;
                 }
+
+                // A blank or a mark says nothing on its own — see worthSaying
+                if (!worthSaying(letters[index])) return;
+
+                let from = index;
+                while (from > 0 && !BLANK.test(letters[from - 1])) from--;
+
+                let to = index;
+                while (to < letters.length - 1 && !BLANK.test(letters[to + 1])) to++;
+
+                // A letter is said as the board shows it, upper case, which is
+                // how a letter is named; a word in the case it was written in,
+                // because a run of capitals is read out letter by letter by some
+                // engines. The same two rules sayProgress reads the board by.
+                if (!isShown(to)) {
+                    speech.say(letters[index], sayLang);
+                    return;
+                }
+
+                speech.say(letters.slice(from, to + 1).join('').toLowerCase(), sayLang);
+            },
+
+            onSayAll: () => {
+                speech.say(board.letters().join('').toLowerCase(), sayLang);
             },
 
             onBoardClick: () => {
@@ -1435,6 +1542,28 @@ function snake(container) {
 
         function refreshGathered() {
             view.gathered(board.letters(), board.progress(), state.showHint);
+        }
+
+        // Showing the answer, which is only ever asked for by clicking a letter
+        // that is still hidden
+        function revealHint() {
+            if (state.showHint) return;
+
+            state.showHint = true;
+            state.hadErrorThisRound = true;
+            refreshGathered();
+
+            // The round is lost the moment the answer is shown, so the dot says
+            // so now rather than when the word is finally spelled out. wordDone
+            // writes the same 'wrong' again from hadErrorThisRound; this only
+            // moves the telling earlier, not the verdict.
+            //
+            // Saved straight away because the verdict now exists: without this,
+            // closing the popup between the reveal and the end of the round
+            // would lose it and the word would come back marked clean.
+            state.sessionResults[state.currentIndex] = 'wrong';
+            refreshDots();
+            page.save();
         }
 
         function paint() {
@@ -1537,9 +1666,21 @@ function snake(container) {
             page.save();
         }
 
-        // The whole session is finished: freeze the board and offer the way back
+        /*
+         * The whole session is finished: freeze the board and offer the way back.
+         *
+         * Stopped by hand rather than through cleanup(), which silences the
+         * screen it is leaving. Nothing is being left here — the panel appears
+         * on the same page, and the last word of the session is still being read
+         * out at that moment: sayProgress says the letter as it lands and holds
+         * the word and the line behind a wait. cleanup() cancelled the one and
+         * cleared the other, so the last word of every session was the one word
+         * that went by in silence.
+         */
         function showVictory() {
-            cleanup();
+            clock.stop(true);
+            input.detach();
+
             clock.setAcceleration(false);
             paint();
             page.endSession();
@@ -1665,6 +1806,11 @@ function snake(container) {
             dpadBorder: t.border,
             dpadColor: t.ink,
             stickKnob: isDark ? 'rgba(86, 196, 166, 0.45)' : 'rgba(70, 183, 149, 0.32)',
+            // The speaker at the end of a finished line is an offer rather
+            // than the thing to press, so it sits in muted like the ones in
+            // cards and quiz.
+            sayIcon: t.muted,
+
             letterPending: t.muted,
             // A collected letter turns mint — the colour progress and a right
             // answer are painted in everywhere else in the app, and collecting

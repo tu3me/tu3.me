@@ -42,8 +42,14 @@ function quiz(container) {
         stroke-linejoin="round" aria-hidden="true" style="display: block;">
         <path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
 
+    // What a said word is marked with here — the pair speech.listen paints
+    const marks = () => ({ fill: palette.sayFill, ink: palette.onSaying });
+
     function render() {
         container.innerHTML = '';
+
+        // The nodes that were lit are gone with it, so there is nothing to put back
+        speech.forget();
 
         if (!state.sessionPool) {
             const pool = store.duePool(state.selectedSetId, state.allowEarly, POOL_LIMIT);
@@ -96,9 +102,21 @@ function quiz(container) {
             page.home();
         });
 
-        $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box;">
-            <div class="quiz-question-word" style="font-size: 26.4px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${currentItem.word.original}</div>
+        const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box; cursor: pointer;">
+            <div class="quiz-question-word" style="font-size: 26.4px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${speech.lineHtml(currentItem.word.original)}</div>
+            ${speech.speakerHtml(currentItem.word.original, palette.sayIcon)}
         </div>`);
+
+        /*
+         * The question can be heard, the same way a card can: a click says the
+         * word it landed on, or the whole line when it lands beside the words.
+         *
+         * The question only, never the options. They are answers, and a click on
+         * one is the answer being given — a word in them that spoke instead of
+         * answering would take the round away from the player. They are also the
+         * translations, which is the language the player already has.
+         */
+        speech.listen(questionCard, currentItem.word.original, currentItem.word.originalLang, marks());
 
         // The better the word is known, the more options are offered
         const stats = spacedRepetitions.getWordStats(currentItem.word);
@@ -106,10 +124,19 @@ function quiz(container) {
         const targetOptionsCount = currentStage + 1;
 
         const allTranslations = [];
+
+        // What language each of them is in. The distractors are drawn from every
+        // set there is, and a set is not obliged to be in the same language as
+        // this one — so the option carries its own answer rather than borrowing
+        // this word's. Absent where the set never got one, and then speech.say
+        // guesses from the text, which is all a lone word can offer anyway.
+        const langOf = new Map();
+
         store.sets().forEach(s => {
             s.words.forEach(w => {
                 if (w.translation && !allTranslations.includes(w.translation)) {
                     allTranslations.push(w.translation);
+                    langOf.set(w.translation, w.translationLang);
                 }
             });
         });
@@ -141,6 +168,20 @@ function quiz(container) {
             if (arrow) arrow.style.display = on ? 'block' : 'none';
         }
 
+        /*
+         * The ink an answered option is written in — the speaker along with the
+         * rest of it. It carries a colour of its own, so it would otherwise stay
+         * muted on top of the fill, which is both where it is least readable and
+         * where it is most wanted: after a mistake the right answer is showing,
+         * and that is the one worth hearing.
+         */
+        function inkOnResult(button) {
+            button.style.color = palette.onResult;
+
+            const speaker = button.querySelector('.say-all');
+            if (speaker) speaker.style.color = palette.onResult;
+        }
+
         function highlight(index) {
             if (optionButtons.length === 0) return;
 
@@ -163,8 +204,11 @@ function quiz(container) {
         }
 
         selectedOptions.forEach((opt, optIndex) => {
-            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 14px 16px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 14px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center;">
-                <span class="quiz-option-label">${opt}</span>
+            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 14px 16px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 14px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <span class="quiz-option-left" style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    ${speech.speakerHtml(opt, palette.sayIcon, 'margin-top: 0; font-size: 18px; flex: none;')}
+                    <span class="quiz-option-label">${opt}</span>
+                </span>
                 <span class="quiz-option-right" style="display: flex; align-items: center; flex: none;">
                     <span class="quiz-option-icon status-icon" style="font-size: 16.8px;"></span>
                     <span class="quiz-option-arrow" style="display: none; color: ${palette.cursor};">${SUBMIT_ARROW}</span>
@@ -172,6 +216,25 @@ function quiz(container) {
             </button>`);
 
             optionButtons.push(optBtn);
+
+            /*
+             * The speaker is the one spot on an option that does not answer with
+             * it. The option is a button and all of it answers, so the click has
+             * to stop here — the same click would otherwise say the word and end
+             * the round, which is two things at once.
+             *
+             * The option whole, not word by word: an option is one answer, and
+             * there is nothing inside it to point at. Nothing is marked while it
+             * is said, for the same reason — the mark on a card says which word
+             * of several is speaking, and here there is only the one. The mark
+             * would also be the wrong thing to flash on an answer: it is a mint
+             * fill, and a mint fill on an option is how a right one is shown.
+             */
+            const speaker = optBtn.querySelector('.say-all');
+            if (speaker) speaker.addEventListener('click', (e) => {
+                e.stopPropagation();
+                speech.say(opt, langOf.get(opt));
+            });
 
             optBtn.addEventListener('click', () => {
                 if (optBtn.dataset.disabled === 'true') return;
@@ -188,7 +251,7 @@ function quiz(container) {
                     if (isCorrect) {
                         optBtn.style.background = palette.okFill;
                         optBtn.style.borderColor = palette.okFill;
-                        optBtn.style.color = palette.onResult;
+                        inkOnResult(optBtn);
                         optBtn.querySelector('.status-icon').textContent = '✓';
 
                         store.recordRepetition(currentItem, 1, 'quiz');
@@ -214,12 +277,12 @@ function quiz(container) {
                             if (text === correctTranslation) {
                                 b.style.background = palette.okFill;
                                 b.style.borderColor = palette.okFill;
-                                b.style.color = palette.onResult;
+                                inkOnResult(b);
                                 b.querySelector('.status-icon').textContent = '✓';
                             } else if (b === optBtn) {
                                 b.style.background = palette.errFill;
                                 b.style.borderColor = palette.errFill;
-                                b.style.color = palette.onResult;
+                                inkOnResult(b);
                                 b.querySelector('.status-icon').textContent = '✕';
                                 b.dataset.disabled = 'true';
                             } else {
@@ -286,6 +349,14 @@ function quiz(container) {
             okFill: t.ok,
             errFill: t.err,
             onResult: '#0f2b3c',
+
+            // Said out loud: a mint fill and that same dark ink, for the same
+            // reason — a mid-light colour belongs on a fill rather than in
+            // letters. The speaker beside the question is muted until it
+            // answers: it is an offer, not the thing to press.
+            sayFill: t.progress,
+            onSaying: '#0f2b3c',
+            sayIcon: t.muted,
 
             // Still read by the dots along the top, which are too small to fill.
             okText: t.ok,

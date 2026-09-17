@@ -35,9 +35,14 @@ function cards(container) {
         keyHandler = null;
     }
 
+    // What a said word is marked with here — the pair speech.listen paints
+    const marks = () => ({ fill: palette.sayFill, ink: palette.onSaying });
 
     function render() {
         container.innerHTML = '';
+
+        // The nodes that were lit are gone with it, so there is nothing to put back
+        speech.forget();
 
         if (!state.sessionPool) {
             const pool = store.duePool(state.selectedSetId, state.allowEarly, POOL_LIMIT);
@@ -94,11 +99,13 @@ function cards(container) {
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
                 <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${currentItem.word.original}</div>
+                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.lineHtml(currentItem.word.original)}</div>
+                    ${speech.speakerHtml(currentItem.word.original, palette.sayIcon)}
                 </div>
 
                 <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation || '—'}</div>
+                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? speech.lineHtml(currentItem.word.translation) : '—'}</div>
+                    ${speech.speakerHtml(currentItem.word.translation, palette.sayIcon)}
                 </div>
 
             </div>
@@ -108,7 +115,7 @@ function cards(container) {
 
         // Seeing the translation is the mistake itself, so it is recorded and shown on the
         // dots at that moment — by the time "Got it" is pressed there is nothing left to
-        // score. Guarded, because the card can be revealed by its button or by a click on it.
+        // score. "Don't remember" is the only way to it: a click on the card speaks now.
         function markRevealed() {
             if (state.hasBeenFlipped) return;
             state.hasBeenFlipped = true;
@@ -176,21 +183,22 @@ function cards(container) {
             }
         }
 
-        cardWrapper.addEventListener('click', () => {
-            // The word, not whichever side is showing: the translation is in a
-            // language the player already has, and hearing it said is worth
-            // nothing. Silent where the device has no voice for the script —
-            // see speech.js, where asking for one it lacks says nothing at all
-            // and reports success.
-            speech.say(currentItem.word.original, currentItem.word.originalLang);
-
-            if (!state.isFlipped) markRevealed();
-            state.isFlipped = !state.isFlipped;
-            const inner = cardWrapper.querySelector('#card-inner');
-            if (inner) inner.style.transform = state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
-            renderActionButtons();
-            page.save();
-        });
+        /*
+         * Saying the word is all a click on the card does now.
+         *
+         * It used to turn the card over as well, and to say the original
+         * whichever side was up — the translation being in a language the player
+         * already has. Both are gone. Turning it over is what "Don't remember"
+         * is for, and a click now points at a particular word on a particular
+         * side, so that word is what is said, in that side's own language:
+         * pointing at one word and hearing another would be nonsense.
+         *
+         * Each face is wired on its own because each has its own language. Only
+         * the face in front is ever clicked — the other one is turned away, and
+         * a backface-hidden element is not painted and so not hit either.
+         */
+        speech.listen(cardWrapper.querySelector('.card-face--front'), currentItem.word.original, currentItem.word.originalLang, marks());
+        speech.listen(cardWrapper.querySelector('.card-face--back'), currentItem.word.translation, currentItem.word.translationLang, marks());
 
         renderActionButtons();
 
@@ -220,6 +228,16 @@ function cards(container) {
             // here" should not shout in the same colour as "press this".
             cursor: t.progress,
             backBtn: t.muted,
+
+            // The speaker beside the word is an offer rather than the thing to
+            // press, so it sits in muted until it answers.
+            sayIcon: t.muted,
+
+            // What is being said, on either face: a mint fill and the dark ink
+            // quiz puts on an answered option. Why a fill rather than coloured
+            // letters is written down at speech.listen.
+            sayFill: t.progress,
+            onSaying: '#0f2b3c',
 
             frontBg: t.surface,
             frontBorder: t.border,
