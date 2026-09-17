@@ -491,7 +491,12 @@ function speech() {
             waiting = false;
             const word = held;
             held = null;
-            if (word) speak(word.text, word.lang);
+
+            // The waiter comes along with it: the caller has already lit a
+            // word, or done whatever it does, on the strength of a word that
+            // had not been said yet, and dropping it here would leave that
+            // standing.
+            if (word) speak(word.text, word.lang, word.done);
         }, { once: true });
     }
 
@@ -570,7 +575,45 @@ function speech() {
         };
     }
 
-    function speak(text, lang) {
+    /*
+     * Who is waiting for the sound to stop, and the ways it can stop.
+     *
+     * One waiter, not a queue: saying anything drops whatever was being said,
+     * so there is only ever one utterance in the air and only one thing that
+     * can be waiting on it.
+     *
+     * It is settled from three directions. The utterance's own `end` is the
+     * ordinary one. Being cut off by the next word is the common one, and it is
+     * settled here on the way in rather than left to the event the interruption
+     * fires — that event belongs to the old utterance and arrives whenever the
+     * engine gets round to it, which is after the new mark is already up.
+     *
+     * The third is a timer nobody wants to use. Chrome stops reading past about
+     * fifteen seconds and does not always say so, and an `end` that never comes
+     * would leave a word marked for the rest of the session, and whatever the
+     * caller is doing meanwhile going on just as long.
+     * The wait is set from the length of the text and the speed it is being read
+     * at, generously, because it is a backstop and not a schedule: if it is what
+     * settles the watcher, something has already gone wrong.
+     */
+    let pending = null;
+
+    function settle() {
+        if (!pending) return;
+
+        clearTimeout(pending.guard);
+
+        const done = pending.done;
+        pending = null;
+
+        if (done) done();
+    }
+
+    function guardMs(text, rate) {
+        return Math.min(20000, (1400 + String(text).length * 130) / rate);
+    }
+
+    function speak(text, lang, whenDone) {
         const tag = lang || detect(text).lang || FALLBACK;
 
         /*
@@ -601,6 +644,25 @@ function speech() {
         line.rate = again.rate;
         line.pitch = again.pitch;
 
+        // Whatever was being said is over as of this line, whoever was waiting
+        // on it included.
+        settle();
+
+        const watcher = { done: whenDone || null, guard: 0 };
+
+        // Both, because a voice can fail as well as finish, and either way the
+        // sound has stopped. Each checks that it is still the one in the air:
+        // the utterance this one replaces fires the same events a moment later,
+        // and they are about a word nobody is listening to any more.
+        line.onend = () => { if (pending === watcher) settle(); };
+        line.onerror = () => { if (pending === watcher) settle(); };
+
+        watcher.guard = setTimeout(() => {
+            if (pending === watcher) settle();
+        }, guardMs(text, again.rate));
+
+        pending = watcher;
+
         speechSynthesis.cancel();
         speechSynthesis.speak(line);
 
@@ -618,20 +680,21 @@ function speech() {
      * left seconds ago. Cutting the previous letter short keeps the sound on the
      * move that caused it.
      */
-    speech.say = (text, lang) => {
+    speech.say = (text, lang, whenDone) => {
         if (!text || !speech.available()) return false;
 
         if (voices().length === 0) {
-            held = { text: text, lang: lang };
+            held = { text: text, lang: lang, done: whenDone };
             whenVoicesArrive();
             return true;
         }
 
-        return speak(text, lang);
+        return speak(text, lang, whenDone);
     };
 
     speech.hush = () => {
         held = null;
+        settle();
         if (speech.available()) speechSynthesis.cancel();
     };
 
@@ -716,7 +779,6 @@ function speech() {
      * saying a word drops whatever was being said before it. Two marks at once
      * would be claiming both are being spoken, and only the second one is.
      */
-    let sayTimer = null;
     let lit = [];
 
     function unlight() {
@@ -730,15 +792,19 @@ function speech() {
     // For a screen about to be rebuilt: the marked nodes are being thrown away,
     // so there is nothing to put back and nothing left to wait for.
     speech.forget = () => {
-        clearTimeout(sayTimer);
         lit = [];
     };
 
     /*
-     * Marks what is being said — for half a second, not for as long as the
-     * voice takes. The utterance's own `end` arrives just the same when the
-     * device said nothing at all, so it cannot time anything honestly; half a
-     * second is long enough to see which word answered the tap.
+     * Marks what is being said, for exactly as long as it is being said.
+     *
+     * It used to be half a second flat, because the utterance's `end` fired the
+     * same way on a device that had said nothing: a word asked for in a language
+     * with no voice “finished” in about 300ms of silence, and a mark timed by
+     * that would have been claiming speech that never happened. It cannot happen
+     * now — say() finds a voice that exists or refuses to speak at all — so the
+     * end of the utterance is the end of the sound, and the mark can simply
+     * follow it.
      *
      * A fill with dark ink on it rather than coloured letters. The app's two
      * colours are mid-light, which is what makes them good fills and bad text:
@@ -752,7 +818,6 @@ function speech() {
      * rest of the line sideways, and the line is the thing being pointed at.
      */
     function light(els, marks) {
-        clearTimeout(sayTimer);
         unlight();
 
         lit = els.slice();
@@ -776,15 +841,25 @@ function speech() {
     speech.listen = (root, text, lang, marks) => {
         if (!root || !hasWords(text)) return;
 
+        // Put up after say() rather than before it: starting a word settles
+        // whatever was in the air, and settling takes the previous mark back
+        // off. Tapping the same word twice would otherwise undo itself.
+        //
+        // The mark and nothing else. A card is the size of the thing it is
+        // showing and the word inside it is what answered the tap — growing the
+        // whole card would move the line being pointed at, and point at it with
+        // the one part of the screen that was already impossible to miss.
         const mark = (said, els) => { if (said) light(els, marks); };
+
+        const done = () => unlight();
 
         root.addEventListener('click', (e) => {
             const word = e.target.closest('.say-word');
-            if (word) return mark(speech.say(word.textContent, lang), [word]);
+            if (word) return mark(speech.say(word.textContent, lang, done), [word]);
 
             // The whole line lights word by word rather than as one block, so
             // that saying all of it looks like saying each of them.
-            mark(speech.say(text, lang), Array.from(root.querySelectorAll('.say-word')));
+            mark(speech.say(text, lang, done), Array.from(root.querySelectorAll('.say-word')));
         });
     };
 }

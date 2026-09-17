@@ -24,6 +24,25 @@
 }
 
 /*
+ * The grey box a phone paints over whatever was tapped.
+ *
+ * It is the platform saying "I saw that" — drawn before the page can answer, in
+ * a colour the page never chose, over the whole of whatever was pressed. A card
+ * lit up edge to edge in system grey is the loudest thing on the screen at the
+ * moment the quietest is wanted.
+ *
+ * Everything here answers a tap on its own: a card and a bubble grow while they
+ * are being read, a word takes the mark, a button has its pressed state. Two
+ * answers to one tap, and only one of them was designed.
+ *
+ * Inherited, so it is said once. Desktop never showed it — this is a touch-only
+ * flourish, which is why it went unnoticed for so long.
+ */
+:root {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/*
  * Ground and ink sit on :root, not on body, for two reasons: prepaint.js runs
  * before body exists, and the root background is what paints the canvas.
  *

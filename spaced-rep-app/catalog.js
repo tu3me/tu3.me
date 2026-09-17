@@ -567,6 +567,49 @@ function catalog(container) {
     // at that speed reads as breathing rather than as asking to be answered.
     const SLOW_BOUNCE_MS = BOUNCE_MS * 15;
 
+    /*
+     * The bubble that is being read, held a little larger until it stops.
+     *
+     * A bubble is said whole and has nothing inside it to mark, so without this
+     * a tap on one produces no visible answer at all — which on a phone reads as
+     * a tap that missed. Cards and the quiz have the mark on the word instead,
+     * and want none of this: growing a card would move the very line it is
+     * pointing at.
+     *
+     * Here rather than in speech.js, which knows about voices and languages and
+     * has no business knowing how this screen answers a finger. All it hands
+     * over is the moment the sound stops.
+     *
+     * Five per cent. Enough to catch as movement, small enough that a bubble in
+     * a row of bubbles does not shove its neighbours about.
+     *
+     * Written as `scale` with `!important`, which is not decoration: a bubble
+     * carries the bounce animation, a CSS animation outranks ordinary inline
+     * styles, and the keyframes animate `scale` themselves — a polite one would
+     * simply be ignored. Important beats an animation, so the bubble keeps its
+     * skew and its rotation and takes this size on top of them.
+     *
+     * One bubble at a time, because one word at a time is said.
+     */
+    const SWELL = 1.05;
+
+    let swollen = null;
+
+    function shrink() {
+        if (!swollen) return;
+
+        swollen.style.removeProperty('scale');
+        swollen = null;
+    }
+
+    function grow(bubble) {
+        shrink();
+
+        swollen = bubble;
+        bubble.style.transition = 'scale 140ms ease-out';
+        bubble.style.setProperty('scale', String(SWELL), 'important');
+    }
+
     function bubbleMotion(stage, timer, order) {
         // Stage 0 is the pile nothing has happened to yet. It has no wait to sit
         // out and nothing to be ready for, so it does not move at all — and it
@@ -619,7 +662,13 @@ function catalog(container) {
         // here. The pointer is offered anyway: whether a voice exists is not
         // known at draw time, because the voice list arrives asynchronously and
         // is usually still empty on the first render.
-        bubble.addEventListener('click', () => speech.say(word, lang));
+        bubble.addEventListener('click', () => {
+            // Grown after the word is asked for rather than before: asking
+            // settles whatever was in the air, and settling takes the last
+            // bubble back down — this one included, when it is the one that was
+            // talking. Grown at all only if there was something to hear.
+            if (speech.say(word, lang, shrink)) grow(bubble);
+        });
 
         return bubble;
     }
@@ -630,6 +679,11 @@ function catalog(container) {
         // animation armed for whatever redraws next.
         const intro = introduce;
         introduce = false;
+
+        // Every bubble on the screen is about to be thrown away, the swollen one
+        // included. What is still being said goes on being said; there is just
+        // nothing left to take back down afterwards.
+        swollen = null;
 
         const unfold = unfolding;
         unfolding = null;
