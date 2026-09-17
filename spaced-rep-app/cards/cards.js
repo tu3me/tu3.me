@@ -14,7 +14,7 @@ function cards(container) {
         return { selectedSetId: 'all', currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, allowEarly: false };
     }
 
-    // Keyboard: ← is "don't remember", → is "know" before the flip and "got it" after it
+    // Keyboard: ← turns the card over, → is done with this word
     const KEYS = ['ArrowLeft', 'ArrowRight'];
 
     let keyHandler = null;
@@ -338,9 +338,13 @@ function cards(container) {
 
         const actionsContainer = $(container, `<div class="cards-actions-group"></div>`);
 
-        // Seeing the translation is the mistake itself, so it is recorded and shown on the
-        // dots at that moment — by the time "Got it" is pressed there is nothing left to
-        // score. "Don't remember" is the only way to it: a click on the card speaks now.
+        // Seeing the translation is the mistake itself, so it is recorded the
+        // moment the card turns and shown on the dots there and then. Once, not
+        // once per press: the card can be turned back and turned again, and none
+        // of that unsees what was already seen.
+        //
+        // Flip is the only way to it — a click on the card says the word it
+        // landed on and turns nothing over.
         function markRevealed() {
             if (state.hasBeenFlipped) return;
             state.hasBeenFlipped = true;
@@ -373,50 +377,65 @@ function cards(container) {
             }
         }
 
+        /*
+         * Two buttons, the same two throughout: turn the card over, or move on.
+         *
+         * They used to be replaced by a single "Got it" as soon as the card was
+         * turned, which made the turn a one-way door — the front was gone and
+         * the only thing left to do was leave the word. Now the pair stays, Flip
+         * works every time it is pressed, and a player who wants to look at the
+         * two sides one after the other can.
+         *
+         * Drawn once. Nothing about them changes any more, so nothing rebuilds
+         * them.
+         */
         function renderActionButtons() {
             actionsContainer.innerHTML = '';
 
-            if (!state.hasBeenFlipped) {
-                const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 8px;">
-                    <button class="cards-btn-dont-know" id="btn-dont-know" style="flex: 1; padding: 11px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">← ✕ Don't remember</button>
-                    <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 11px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
-                </div>`);
+            const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 8px;">
+                <button class="cards-btn-flip" id="btn-flip" style="flex: 1; padding: 11px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">← Flip</button>
+                <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 11px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
+            </div>`);
 
-                actionButtons.querySelector('#btn-dont-know').addEventListener('click', () => {
-                    markRevealed();
-                    state.isFlipped = true;
-                    const inner = container.querySelector('#card-inner');
-                    if (inner) inner.style.transform = 'rotateY(180deg)';
-                    renderActionButtons();
-                    page.save();
-                });
+            // The card is turned by hand rather than by a redraw: the flip is a
+            // half-second of animation, and rebuilding the card mid-turn would
+            // start it again from wherever it had got to.
+            actionButtons.querySelector('#btn-flip').addEventListener('click', () => {
+                markRevealed();
 
-                actionButtons.querySelector('#btn-know').addEventListener('click', () => {
-                    advance(1, 'correct');
-                });
-            } else {
-                const singleBtn = $(actionsContainer, `<div class="cards-btn-remember-wrapper">
-                    <button class="cards-btn-remember" id="btn-remember" style="width: 100%; padding: 10px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        Got it →
-                    </button>
-                </div>`);
+                state.isFlipped = !state.isFlipped;
 
-                // The mistake was already recorded when the translation was revealed
-                singleBtn.querySelector('#btn-remember').addEventListener('click', () => {
-                    advance();
-                });
-            }
+                const inner = container.querySelector('#card-inner');
+                if (inner) inner.style.transform = state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+
+                page.save();
+            });
+
+            /*
+             * Right is "done with this one", and what that is worth depends on
+             * whether the card was turned.
+             *
+             * Untouched, it is the word answered from memory and counts. Turned,
+             * the mistake was written down at the turn and there is nothing left
+             * to score — pressing this then only moves on, and passing it a
+             * result would write a correct answer over the wrong one and undo
+             * the very thing the turn admitted.
+             */
+            actionButtons.querySelector('#btn-know').addEventListener('click', () => {
+                if (state.hasBeenFlipped) return advance();
+                advance(1, 'correct');
+            });
         }
 
         /*
          * Saying the word is all a click on the card does now.
          *
-         * It used to turn the card over as well, and to say the original
+     * It used to turn the card over as well, and to say the original
          * whichever side was up — the translation being in a language the player
-         * already has. Both are gone. Turning it over is what "Don't remember"
-         * is for, and a click now points at a particular word on a particular
-         * side, so that word is what is said, in that side's own language:
-         * pointing at one word and hearing another would be nonsense.
+         * already has. Both are gone. Turning it over is what Flip is for, and a
+         * click now points at a particular word on a particular side, so that
+         * word is what is said, in that side's own language: pointing at one
+         * word and hearing another would be nonsense.
          *
          * Each face is wired on its own because each has its own language. Only
          * the face in front is ever clicked — the other one is turned away, and
@@ -427,12 +446,9 @@ function cards(container) {
 
         renderActionButtons();
 
-        // The buttons are rebuilt on every flip, so the key press looks them up by then:
-        // ← only exists before the flip, → always confirms whatever the right-hand button is
+        // One key each, and both buttons are always there to press.
         bindKeys((code) => {
-            const btn = code === 'ArrowLeft'
-                ? container.querySelector('#btn-dont-know')
-                : (container.querySelector('#btn-know') || container.querySelector('#btn-remember'));
+            const btn = container.querySelector(code === 'ArrowLeft' ? '#btn-flip' : '#btn-know');
             if (btn) btn.click();
         });
 
@@ -446,11 +462,10 @@ function cards(container) {
 
         palette = {
             dotIdle: t.border,
-            ring: t.accent,
-            // Marks where you are right now — the dot you are on, and in quiz
-            // the option under the keyboard cursor. Its own token rather than
-            // the accent, because `ring` also paints the buttons, and "you are
-            // here" should not shout in the same colour as "press this".
+            // Marks where you are right now: the dot you are on. Its own token
+            // rather than the accent, which is what a button that wants pressing
+            // is painted in — "you are here" should not shout in the same colour
+            // as "press this".
             cursor: t.progress,
             backBtn: t.muted,
 
@@ -475,8 +490,6 @@ function cards(container) {
             // 1.8:1. It still marks this face — as the border around it, where
             // being mid-light costs nothing.
             backText: t.ink,
-
-            onRing: t.onAccent,
 
             // Filled in the two colours, no border, white label.
             noBg: t.err, noText: '#ffffff',
