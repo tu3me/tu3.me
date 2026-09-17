@@ -111,6 +111,46 @@ function seed() {
                     // combining cedilla, which the old split tore in two
                     { original: 'Comment apprendre le franc\u0327ais\u202f?', originalLang: 'fr', translation: 'Как выучить французский?', translationLang: 'ru', repetitions: [] }
                 ]
+            },
+            {
+                /*
+                 * One greeting from each of a dozen languages, all of them
+                 * answering into English — the first set here that is a lesson
+                 * rather than a demonstration of progress or a test bench.
+                 *
+                 * Greetings because they are the one piece of vocabulary every
+                 * language has and nobody needs a course to have a use for, and
+                 * because a screenful of them says what this app is for faster
+                 * than any set of nouns could.
+                 *
+                 * Every English side is different, and that is a rule rather
+                 * than a coincidence: the quiz builds its wrong answers out of
+                 * the other words in the same set, and two words translated
+                 * "hello" would put the same line in front of the player twice
+                 * with one of the two counted wrong. Greetings that mean
+                 * genuinely different things — a time of day, a blessing, a
+                 * question after your health — keep that from happening without
+                 * bending a translation to avoid it.
+                 */
+                id: '4',
+                title: 'GREETINGS',
+                words: [
+                    { original: '你好', originalLang: 'zh', translation: 'hello', translationLang: 'en', repetitions: [] },
+                    { original: 'Καλημέρα', originalLang: 'el', translation: 'good morning', translationLang: 'en', repetitions: [] },
+                    { original: 'こんばんは', originalLang: 'ja', translation: 'good evening', translationLang: 'en', repetitions: [] },
+                    { original: 'Buenas noches', originalLang: 'es', translation: 'good night', translationLang: 'en', repetitions: [] },
+                    { original: 'Guten Tag', originalLang: 'de', translation: 'good day', translationLang: 'en', repetitions: [] },
+                    { original: 'Bienvenue', originalLang: 'fr', translation: 'welcome', translationLang: 'en', repetitions: [] },
+                    // Said to anyone, at any hour, and answered with itself
+                    { original: 'السلام عليكم', originalLang: 'ar', translation: 'peace be upon you', translationLang: 'en', repetitions: [] },
+                    { original: 'שלום', originalLang: 'he', translation: 'peace', translationLang: 'en', repetitions: [] },
+                    { original: 'नमस्ते', originalLang: 'hi', translation: 'greetings', translationLang: 'en', repetitions: [] },
+                    // Literally "what news?", and used as the question it looks
+                    // like: you are expected to answer it
+                    { original: 'Habari gani', originalLang: 'sw', translation: 'how are you?', translationLang: 'en', repetitions: [] },
+                    { original: '처음 뵙겠습니다', originalLang: 'ko', translation: 'nice to meet you', translationLang: 'en', repetitions: [] },
+                    { original: 'Привет', originalLang: 'ru', translation: 'hi', translationLang: 'en', repetitions: [] }
+                ]
             }
         ];
     };

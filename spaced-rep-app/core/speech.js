@@ -519,6 +519,57 @@ function speech() {
         return null;
     }
 
+    /*
+     * Asked for the same thing twice: the second time is slower, and does not
+     * sound quite like the first.
+     *
+     * A word is asked for again because it did not land, and saying it again the
+     * same way says it to the ear that just missed it. Slower gives the
+     * syllables room. The pitch moves as well, a little and at random, because
+     * two identical readings back to back are heard as an echo of the first
+     * rather than as a second go at it — a voice that shifts is a voice saying
+     * it again.
+     *
+     * Every further press takes another step down to a floor. Past the floor the
+     * engines stop slowing the word and start dragging it into something that is
+     * not the word any more; where exactly that is depends on the voice, so the
+     * floor is set where the worst of them is still intelligible.
+     *
+     * Anything else said in between clears the count: what is remembered is the
+     * last thing said, not a history of what has been said.
+     *
+     * Compared with case and surrounding space taken off, because that is what
+     * "the same word" means to the person listening — the snake says a letter in
+     * the case the board shows it in and the word it belongs to in lower case,
+     * and those are not two different words to an ear.
+     *
+     * None of this is stored anywhere. It lives as long as the page does, and a
+     * reload starts again at full speed, which is where someone who has just
+     * arrived should be started.
+     */
+    const REPEAT_STEP = 0.12;
+    const SLOWEST = 0.62;
+    const PITCH_SPREAD = 0.3;
+
+    let lastSaid = null;
+    let repeats = 0;
+
+    function voicing(text) {
+        const key = String(text).normalize('NFC').trim().toLowerCase();
+
+        repeats = key === lastSaid ? repeats + 1 : 0;
+        lastSaid = key;
+
+        // The first time is the plain voice: no reason to colour a word that
+        // nobody has had trouble with yet.
+        if (!repeats) return { rate: 1, pitch: 1 };
+
+        return {
+            rate: Math.max(SLOWEST, 1 - REPEAT_STEP * repeats),
+            pitch: 1 - PITCH_SPREAD / 2 + Math.random() * PITCH_SPREAD
+        };
+    }
+
     function speak(text, lang) {
         const tag = lang || detect(text).lang || FALLBACK;
 
@@ -539,9 +590,16 @@ function speech() {
         const voice = voiceFor(tag) || (owner && owner !== tag ? voiceFor(owner) : null);
         if (!voice) return false;
 
+        // Counted here rather than on the way in: a word the device has no
+        // voice for was never said, and asking for it twice is not a repeat of
+        // anything.
+        const again = voicing(text);
+
         const line = new SpeechSynthesisUtterance(text);
         line.voice = voice;
         line.lang = voice.lang;
+        line.rate = again.rate;
+        line.pitch = again.pitch;
 
         speechSynthesis.cancel();
         speechSynthesis.speak(line);

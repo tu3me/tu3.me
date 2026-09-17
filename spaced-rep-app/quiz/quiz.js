@@ -1,6 +1,7 @@
 /**
  * "Quiz" game. The number of options grows with the word stage, so a word
- * that is well known is asked among more distractors.
+ * that is well known is asked among more distractors — as many as its own set
+ * can supply, and no more.
  */
 function quiz(container) {
     // How many words this game takes per session — its own decision
@@ -123,22 +124,39 @@ function quiz(container) {
         const currentStage = stats.stage || 0;
         const targetOptionsCount = currentStage + 1;
 
+        /*
+         * The answers on offer, drawn from the set the question came from and
+         * from nowhere else.
+         *
+         * Every set there is was the wider net, and it caught nothing: a
+         * translation from another set is rarely a plausible answer to this
+         * question, it is a tell. "багаж" among greetings is not a choice
+         * to weigh, it is the one line that obviously does not belong, and a
+         * round of those asks nothing.
+         *
+         * Read through the pool item's own set rather than the session's,
+         * because a session over every set is still a sequence of questions,
+         * each of which came from one.
+         *
+         * A set too small to fill the stage's count simply asks with fewer
+         * options. What can be asked is limited by what is in the set, and
+         * padding the question from elsewhere is exactly what this stopped
+         * doing.
+         *
+         * Each option carries the language of the word it came from. Within one
+         * set that is usually the same language throughout, but it need not be,
+         * and an option that says which language it is in cannot be read aloud
+         * in the wrong one. Absent where the word never got a language, and then
+         * speech.say guesses from the text, which is all a lone word can offer.
+         */
         const allTranslations = [];
-
-        // What language each of them is in. The distractors are drawn from every
-        // set there is, and a set is not obliged to be in the same language as
-        // this one — so the option carries its own answer rather than borrowing
-        // this word's. Absent where the set never got one, and then speech.say
-        // guesses from the text, which is all a lone word can offer anyway.
         const langOf = new Map();
 
-        store.sets().forEach(s => {
-            s.words.forEach(w => {
-                if (w.translation && !allTranslations.includes(w.translation)) {
-                    allTranslations.push(w.translation);
-                    langOf.set(w.translation, w.translationLang);
-                }
-            });
+        store.wordsOf(currentItem.setId).forEach(({ word }) => {
+            if (!word.translation || allTranslations.includes(word.translation)) return;
+
+            allTranslations.push(word.translation);
+            langOf.set(word.translation, word.translationLang);
         });
 
         const correctTranslation = currentItem.word.translation;
