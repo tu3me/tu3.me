@@ -162,12 +162,29 @@ function snake(container) {
         return lettersOf(upper).length === 1 ? upper : letter;
     }
 
-    // The two header toggles: the label is what the button shows, the index is what is persisted
-    const CONTROL_MODES = ['Off', 'D-pad', 'Stick'];
+    // The two header toggles: the label is what the button shows, the index is what is persisted.
+    //
+    // Controls used to have a third mode, a thumb stick beside the board. It went
+    // because the d-pad beat it at the one thing either of them is for: a snake
+    // turns four ways, a key per way says which one, and a stick made the player
+    // aim at an angle to pick from four.
+    const CONTROL_MODES = ['Off', 'D-pad'];
     const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
     // Milliseconds between free-running steps per difficulty; null — the player steps by hand
     const STEP_MS = [null, 400, 220];
+
+    /*
+     * Where a new game starts: the slowest of the three, which is the one with
+     * no clock at all — the snake waits, and every step is a press.
+     *
+     * The middle one used to be the start, and it is a poor first thirty seconds:
+     * the board is unfamiliar, the letters have to be read off it, and a snake
+     * that walks into a wall while all that is happening crashed for a reason
+     * that had nothing to do with the game. The speed chip is in the header for
+     * the player who wants the pressure.
+     */
+    const SPEED_AT_START = 0;
 
     let state = getEmptyState();
 
@@ -183,7 +200,7 @@ function snake(container) {
         let header, hintBanner, gatheredBar, svg, scene, measure, controlsArea;
         let cellSize = 0;
         let controlMode = 0;
-        let difficulty = 1;
+        let difficulty = SPEED_AT_START;
 
         function translationEl() {
             return hintBanner ? hintBanner.querySelector('#snake-translation') : null;
@@ -266,9 +283,21 @@ function snake(container) {
             return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ${extra || ''}>${body}</svg>`;
         }
 
-        // The control chip keeps one face whatever mode is on — a d-pad laid out like the
-        // panel itself: one key on top, three in a row below. Which scheme is actually on
-        // is visible in the panel and named in the tooltip.
+        /*
+         * What the chip says it is doing, asked the way renderControls asks it:
+         * off, or the one panel there is.
+         *
+         * Not CONTROL_MODES[controlMode], which assumes the number came from that
+         * list. A session saved while the stick still existed carries a 2, and the
+         * label read "Controls: undefined" over a panel that was showing a d-pad.
+         */
+        function controlLabel() {
+            return CONTROL_MODES[controlMode === 0 ? 0 : 1];
+        }
+
+        // The control chip is a d-pad laid out like the panel it summons: one key on top,
+        // three in a row below. The same face whether the panel is up or down — the panel
+        // itself is the answer to which it is, and the tooltip says so in words.
         function controlIcon() {
             const key = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" rx="1.5" fill="currentColor" />`;
             return chipIcon(key(8.5, 4.5) + key(0.5, 12.5) + key(8.5, 12.5) + key(16.5, 12.5));
@@ -323,88 +352,6 @@ function snake(container) {
             btn.addEventListener('contextmenu', swallow);
         }
 
-        // Touch joystick. The knob follows the finger inside the frame, and the direction
-        // is the larger of the two offsets measured against the travel available on that
-        // axis — so a wide frame does not favour left and right. A direction is handed over
-        // only when it changes: every one of them forces a step and restarts the
-        // hold-to-accelerate timer, which a stream of pointermove events would abuse.
-        function bindJoystick(frame, knob) {
-            // The frame is the dead zone. Nothing is sent while the knob still fits inside
-            // it; the direction engages once the knob clears the edge, and it may hang this
-            // many pixels out — which is also what makes the engaged state visible.
-            const OVERHANG = 10;
-            let last = null;
-            let pressed = false;
-
-            function follow(pointerX, pointerY) {
-                const box = frame.getBoundingClientRect();
-                // Offsets at which the knob still just fits inside the frame — the edge of
-                // the dead zone. Travel goes OVERHANG further, and that is all it goes.
-                const edgeX = (box.width - knob.offsetWidth) / 2;
-                const edgeY = (box.height - knob.offsetHeight) / 2;
-
-                const clamp = (v, limit) => Math.max(-limit, Math.min(limit, v));
-                const dx = clamp(pointerX - box.left - box.width / 2, edgeX + OVERHANG);
-                const dy = clamp(pointerY - box.top - box.height / 2, edgeY + OVERHANG);
-
-                const nx = edgeX ? dx / edgeX : 0;
-                const ny = edgeY ? dy / edgeY : 0;
-
-                // One axis at a time — the knob slides along the dominant one and stays
-                // centred on the other, so where it sits is exactly the direction it stands for
-                const horizontal = Math.abs(nx) > Math.abs(ny);
-                knob.style.transform = horizontal ? `translate(${dx}px, 0px)` : `translate(0px, ${dy}px)`;
-
-                // Back inside the frame counts as letting go: the knob still follows the
-                // finger, but nothing is engaged — the acceleration a hold built up is
-                // dropped, and leaving the frame again is a fresh command even if it points
-                // the same way as the last one
-                if (Math.max(Math.abs(nx), Math.abs(ny)) <= 1) {
-                    if (last) {
-                        last = null;
-                        cb.onDirectionRelease();
-                    }
-                    return;
-                }
-
-                const dir = horizontal ? { x: Math.sign(nx), y: 0 } : { x: 0, y: Math.sign(ny) };
-
-                if (last && last.x === dir.x && last.y === dir.y) return;
-                last = dir;
-                cb.onDirection(dir.x, dir.y);
-            }
-
-            function release(e) {
-                if (e) e.preventDefault();
-                pressed = false;
-                last = null;
-                knob.style.transform = 'translate(0px, 0px)';
-                cb.onDirectionRelease();
-            }
-
-            frame.addEventListener('pointerdown', (e) => {
-                e.preventDefault();
-                pressed = true;
-                frame.setPointerCapture(e.pointerId);
-                follow(e.clientX, e.clientY);
-            });
-            frame.addEventListener('pointermove', (e) => {
-                // The stick steers only while it is held down — a mouse merely passing over
-                // the frame must not move anything. `buttons` catches the case of a button
-                // let go somewhere the pointerup never reached us from.
-                if (!pressed) return;
-                if (e.pointerType === 'mouse' && e.buttons === 0) { release(e); return; }
-                e.preventDefault();
-                follow(e.clientX, e.clientY);
-            });
-            frame.addEventListener('pointerup', release);
-            frame.addEventListener('pointercancel', release);
-            // Same reason as the buttons: a held stick is a long press, and Android
-            // answers that gesture with a vibration unless the touch default is cancelled
-            frame.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-            frame.addEventListener('contextmenu', (e) => e.preventDefault());
-        }
-
         function renderControls() {
             const wrapper = controlsArea.querySelector('#controls-wrapper');
             if (!wrapper) return;
@@ -418,27 +365,20 @@ function snake(container) {
 
             wrapper.style.display = 'flex';
 
-            if (controlMode === 1) {
-                const dPad = $(wrapper, `<div class="snake-dpad" style="${PAD_GRID}">
-                    ${padBtn('dpad-up', '▲', '1 / 2')}
-                    ${padBtn('dpad-left', '◀', '2 / 1')}
-                    ${padBtn('dpad-down', '▼', '2 / 2')}
-                    ${padBtn('dpad-right', '▶', '2 / 3')}
-                </div>`);
-
-                bindPad(dPad, 'dpad-up', () => cb.onDirection(0, -1));
-                bindPad(dPad, 'dpad-down', () => cb.onDirection(0, 1));
-                bindPad(dPad, 'dpad-left', () => cb.onDirection(-1, 0));
-                bindPad(dPad, 'dpad-right', () => cb.onDirection(1, 0));
-                return;
-            }
-
-            // Stick mode. The knob ignores pointer events itself — they all belong to the frame.
-            const stick = $(wrapper, `<div class="snake-stick" style="position: relative; width: 120px; height: 120px; margin: 10px 0; background: ${palette.dpadBg}; border: 2px solid ${palette.dpadBorder}; border-radius: 14px; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer;">
-                <div class="snake-stick-knob" style="position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin-left: -30px; margin-top: -30px; background: ${palette.stickKnob}; border-radius: 6px; pointer-events: none; transition: transform 0.08s ease-out;"></div>
+            // Anything that is not "off" is the d-pad, rather than a mode matched
+            // by its number: there is one panel left to show.
+            const dPad = $(wrapper, `<div class="snake-dpad" style="${PAD_GRID}">
+                ${padBtn('dpad-up', '▲', '1 / 2')}
+                ${padBtn('dpad-left', '◀', '2 / 1')}
+                ${padBtn('dpad-down', '▼', '2 / 2')}
+                ${padBtn('dpad-right', '▶', '2 / 3')}
             </div>`);
 
-            bindJoystick(stick, stick.querySelector('.snake-stick-knob'));
+            bindPad(dPad, 'dpad-up', () => cb.onDirection(0, -1));
+            bindPad(dPad, 'dpad-down', () => cb.onDirection(0, 1));
+            bindPad(dPad, 'dpad-left', () => cb.onDirection(-1, 0));
+            bindPad(dPad, 'dpad-right', () => cb.onDirection(1, 0));
+
         }
 
 
@@ -448,35 +388,28 @@ function snake(container) {
         view.mount = (opts) => {
             cb = opts;
             controlMode = opts.controlMode || 0;
-            difficulty = opts.difficulty === undefined ? 1 : opts.difficulty;
+            difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
             const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 28px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 6px; color: ${palette.dpadColor}; cursor: pointer;`;
 
             /*
-             * Three groups of one third each: the arrow back, the dots, and the
-             * settings this game is played with — the control mode, the speed,
-             * the sound.
+             * Three groups of one third each: the way out and the speed, the
+             * dots, the d-pad switch and the sound.
              *
-             * The chips sit at the right end rather than beside the arrow. They
-             * are settings, and the sound switch next to them is a setting too;
-             * on the left they read as things that happen to the round, next to
-             * the button that leaves it. It also gives the row of dots the
-             * middle back: ten of them are wider than a third, and a third is
-             * all they get while the two ends are the same width.
-             *
-             * The gap is six rather than eight so the group stays inside its
-             * share — two chips, a switch and eight-pixel gaps come to 114 of
-             * the 116 a third is worth once the dots have taken theirs, and a
-             * group that outgrows its share pushes the dots off centre.
+             * One chip at each end rather than both at one, which puts the same
+             * weight either side of the dots. The two ends have to stay equal for
+             * a second reason as well: ten dots are wider than a third, and what
+             * keeps them in the middle of the header is the two groups beside
+             * them being the same width — not the third they were handed.
              */
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                    <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
                 </div>
                 <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
-                <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6px;">
-                    <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${CONTROL_MODES[controlMode]}" style="${chipStyle}">${controlIcon()}</button>
-                    <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
+                <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 8px;">
+                    <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${controlLabel()}" style="${chipStyle}">${controlIcon()}</button>
                 </div>
             </div>`);
 
@@ -659,7 +592,7 @@ function snake(container) {
             controlMode = mode;
             // Only the tooltip moves — the icon is the same in every mode
             const btn = header.querySelector('#snake-control-toggle');
-            if (btn) btn.title = 'Controls: ' + CONTROL_MODES[mode];
+            if (btn) btn.title = 'Controls: ' + controlLabel();
             renderControls();
         };
 
@@ -887,7 +820,7 @@ function snake(container) {
     function clock() {
         const FAST_SPEED = 100;
 
-        let difficulty = 1;
+        let difficulty = SPEED_AT_START;
         let isAccelerating = false;
         let paused = true;
         let tickTimer = null;
@@ -1362,7 +1295,7 @@ function snake(container) {
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, allowEarly: false,
-            hadErrorThisRound: false, showHint: false, controlMode: 0, difficulty: 1, savedSnake: null,
+            hadErrorThisRound: false, showHint: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
             savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
@@ -1838,7 +1771,6 @@ function snake(container) {
             dpadBg: t.soft,
             dpadBorder: t.border,
             dpadColor: t.ink,
-            stickKnob: isDark ? 'rgba(86, 196, 166, 0.45)' : 'rgba(70, 183, 149, 0.32)',
             // The speaker at the end of a finished line is an offer rather
             // than the thing to press, so it sits in muted like the ones in
             // cards and quiz.
