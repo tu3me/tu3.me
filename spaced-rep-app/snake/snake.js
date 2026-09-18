@@ -1814,11 +1814,6 @@ function snake(container) {
         }, SAY_DELAY);
     }
 
-    // Whole means there is nothing left to find: every letter open, either eaten
-    // or given away. It is what puts the speaker in the bar, and what turns one
-    // tap per letter into three depths of tap.
-    const wholeLine = () => state.showHint || board.progress() >= board.letters().length;
-
     // The one word a letter stands in, carrying the place it holds in the line:
     // that is what its fill is chosen by, so a word looks the same said alone as
     // it does said inside the line. Nothing, for a letter that is between words.
@@ -1981,21 +1976,24 @@ function snake(container) {
             },
 
             /*
-             * A click on one box of the bar, and what it means depends on how
-             * much of the line is open by then.
+             * A click on one box of the bar.
              *
              * Still hidden — the box reads "?" — and it is the old "show me the
-             * answer", which costs the round. Open, and while there is still
-             * something out there to be eaten it is one answer per tap, as it
-             * has always been: the letter, or the word it stands in once that
-             * word is whole.
+             * answer", which costs the round. That is the one thing a tap can
+             * cost, and it is the only thing that opens a box.
              *
-             * Once the line is finished it is not a round any more, it is
-             * something to pick over, and the tap goes as deep as it is
-             * repeated: the letter, then the word it belongs to, then all of it.
-             * The same three depths a card gives, on the same three taps, and
-             * they arrive with the speaker that reads the line — one moment when
-             * the bar becomes a thing to read rather than a score.
+             * Open, and the tap goes as deep as it is repeated: the letter, then
+             * the word it belongs to, then the whole line. The same three depths
+             * a card gives, on the same three taps, and they do not wait for the
+             * line to be finished — a bar half full of "?" answers the same way
+             * as a full one, because the question a tap asks is about the thing
+             * under the finger and not about how the round is going.
+             *
+             * A word with letters still out there is said all the same, and
+             * nothing about it opens: what is hidden is hidden in the boxes, not
+             * in the sound. The speaker at the head of the bar has read the whole
+             * line aloud, for nothing, since the first frame — see view.gathered
+             * — so there is no secret left for a word of it to give away.
              *
              * Each tap acts at once rather than waiting to see whether another
              * is coming; only the voice waits, in sayLater. A tap answered late
@@ -2029,25 +2027,6 @@ function snake(container) {
                 // engines. The same two rules sayProgress reads the board by.
                 const letter = letters[index];
                 const word = letters.slice(from, to + 1).join('').toLowerCase();
-
-                // Mid-round the bar is still a score, and it answers as it
-                // always has: a letter standing in a half-spelled word is that
-                // letter, and a word already whole is the word — by then the
-                // letter on its own is the less useful of the two, and every
-                // letter of that word answers with the same word, so there is
-                // nothing to aim at. Nothing to count either, at one answer per
-                // tap.
-                if (!wholeLine()) {
-                    forgetTaps();
-
-                    if (isShown(to)) {
-                        sayNow(word, () => view.sayWords([spoken]));
-                    } else {
-                        sayNow(letter, () => view.sayLetter(index));
-                    }
-
-                    return;
-                }
 
                 if (from !== tappedWord) {
                     taps = 0;
