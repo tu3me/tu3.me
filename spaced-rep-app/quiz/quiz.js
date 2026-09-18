@@ -181,18 +181,50 @@ function quiz(container) {
     }
 
     /*
-     * The speaker sits in the corner of the question rather than under it.
+     * The speaker leads the line, as though it were its first letter.
      *
-     * Under the word it was a line of its own, and the question card grows and
-     * shrinks with what is on it — so the card was a line taller than the thing
-     * it was showing. In the corner it costs no height at all.
+     * One place for it everywhere: this is what an option in the quiz has
+     * always looked like, and a card and a question were each putting the same
+     * icon somewhere else — a corner here, a corner there — so the one thing
+     * that means "this can be heard" was in three places depending on what was
+     * offering it.
      *
-     * The card is given a position of its own for this, because an ornament
-     * that hangs off a corner has to have a corner to hang off.
+     * Sized in em, so it is a letter's worth of icon at whatever size the line
+     * ends up: on a card that size is not known until the word has been fitted
+     * to the face, and a speaker fixed in pixels would be half the line on a
+     * long phrase and a speck on a short one.
+     *
+     * Just under the em, which is where a glyph's cap sits: an icon drawn to the
+     * full em stands taller than the capitals beside it and reads as a button
+     * that wandered into the text rather than as part of the line. The bottom of
+     * it lands on the baseline on its own — an inline-flex box is aligned by its
+     * bottom edge — so nothing has to be nudged.
+     *
+     * The gap is the same fraction of the icon that a quiz option leaves beside
+     * its own: ten pixels against eighteen. Written as em on the same element
+     * that sets the font-size, so the em here is the icon's own size and the
+     * margin is that fraction directly — not 0.55 of the line, which at this
+     * size would be half again too much. Standing any nearer, the speaker stops
+     * being a thing in front of the word and starts reading as its first letter.
      */
-    const SAY_CORNER = 'position: absolute; top: 9px; right: 11px; margin-top: 0; font-size: 19px;';
+    const SAY_LEAD = 'margin-top: 0; margin-right: 0.55em; font-size: 0.7em;';
 
     const SAY_DELAY = 250;
+
+    /*
+     * The question, at the size a card's word is drawn at.
+     *
+     * The same thing is on both screens — one word, being studied — and it read
+     * as two different things while the card shouted it and the question
+     * murmured it.
+     *
+     * Its own constant rather than one borrowed from cards: the two screens
+     * agree about a number today, and a screen that cannot change its own type
+     * size without changing another screen's is a screen that stops being
+     * changed. Nothing shrinks it either, because nothing has to — this card
+     * has no height of its own to fit inside, it grows down the page.
+     */
+    const WORD_SIZE = 35.2;
 
     let taps = 0;
     let tapped = null;
@@ -359,9 +391,8 @@ function quiz(container) {
 
         page.muteButton(header, palette.backBtn);
 
-        const questionCard = $(container, `<div class="quiz-question-card" style="position: relative; width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box; cursor: pointer;">
-            <div class="quiz-question-word" style="font-size: 26.4px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${lineHtml(currentItem.word.original)}</div>
-            ${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_CORNER)}
+        const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box; cursor: pointer;">
+            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
         </div>`);
 
         /*

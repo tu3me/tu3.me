@@ -69,12 +69,19 @@ function snake(container) {
      * pass through untouched.
      */
     /*
-     * A letter that is blank, drawn so the player can see it is there.
+     * A letter that is blank: the boundary between two words, and the one thing
+     * in a line that is not collected. Nothing is spawned for it, the snake can
+     * never eat one, and the bar shows it as the space between two letters.
+     *
+     * It used to be a letter like any other — a filled block on the board, to be
+     * steered into in its turn. What that asked of the player was to find a cell
+     * with nothing written on it, in a game about reading the letters off the
+     * board, and the block had to be explained twice over before it read as a
+     * letter's worth of nothing rather than as a letter.
      *
      * Any blank, not the space bar alone: French writes a narrow no-break space
-     * before its question mark, Japanese has an ideographic one, and a cell with
-     * an invisible letter in it is a cell nobody can tell from empty board — and
-     * the one the word is stuck on.
+     * before its question mark and Japanese has an ideographic one, and a word
+     * boundary is a word boundary in every script.
      */
     const BLANK = /^\s+$/;
 
@@ -99,22 +106,6 @@ function snake(container) {
     const SOUNDED = /[\p{L}\p{N}]/u;
 
     const worthSaying = (text) => SOUNDED.test(String(text || ''));
-
-    /*
-     * A blank is painted rather than written: a filled block in the letters'
-     * own colour, half transparent so it reads as a letter's worth of nothing
-     * rather than as a letter.
-     *
-     * It used to borrow the ␣ glyph, which at this size is a short horizontal
-     * bar — indistinguishable from a dash, and a dash is a letter a word can
-     * actually contain.
-     *
-     * How much of the cell it takes: the same inset the snake's own segments
-     * use, so a blank sits on the board like the things already on it.
-     */
-    const BLANK_ALPHA = 0.5;
-    const BLANK_INSET = 3;
-    const BLANK_RADIUS = 4;
 
     /*
      * Whether a word is written right to left.
@@ -202,6 +193,11 @@ function snake(container) {
         let controlMode = 0;
         let difficulty = SPEED_AT_START;
 
+        // Victory takes the control panel away for good. renderControls has to
+        // know: the chip in the header stays live, and without this, switching
+        // the d-pad on would raise the panel again over the end-of-session screen.
+        let controlsRetired = false;
+
         function translationEl() {
             return hintBanner ? hintBanner.querySelector('#snake-translation') : null;
         }
@@ -251,29 +247,91 @@ function snake(container) {
          */
         const BOX_SIZE = 31.2;
 
-        // The gap belongs to the size, not to the starting state: computed by
-        // the same rule here as inside the loop, so the first measurement is of
-        // the spacing the letters will actually have.
-        const gapFor = (size) => Math.max(1, Math.round(size * 0.25));
+        /*
+         * The speaker that reads the finished line, in front of it, the size a
+         * letter of it is — the same place and the same proportion as the one on
+         * a card and the one on a quiz option.
+         *
+         * The margin only tops up the bar's own gap. Letters here stand apart,
+         * unlike the letters of a card, and that gap is already 0.25 of a box —
+         * 0.357 of an icon this size. Another 0.19 brings the space after the
+         * speaker to the 0.55 of itself it has everywhere else, and both numbers
+         * are in em of the icon, so the sum survives every step of fitGathered.
+         *
+         * The end of the line rather than the right of it: the bar is turned
+         * around for a word written right to left, and in front of it is then
+         * the right-hand side.
+         */
+        /*
+         * The colours a word and a line are filled with while they are being
+         * said: four steps off the bubble ramp, far enough apart to be told at a
+         * glance and not close enough to read as a series — the words of a line
+         * are not in an order that means anything, they are simply not each
+         * other. The same four cards fills its words from, for the same reason.
+         *
+         * A word keeps its colour whether it is said on its own or as part of
+         * the line, so the fill is picked by where the word stands in the line
+         * rather than by what is being said at the time.
+         *
+         * They are pale with dark ink on them, which is what makes them usable
+         * here: the bar sits on a banner that is nearly black in one theme and
+         * nearly white in the other, and a fill that carries its own ink does
+         * not care which.
+         */
+        const WORD_FILLS = [3, 6, 9, 12];
+
+        /*
+         * The air around a box that is still hiding its letter.
+         *
+         * The bar is two things at once and they want opposite spacing. What is
+         * still "?" is a row of slots, and a player has to be able to see at a
+         * glance how many are left — six of them run together read as one blob
+         * and have to be counted. What has been collected is a word, and the
+         * letters of a word belong shoulder to shoulder.
+         *
+         * So the spacing is a property of the box rather than of the bar: half
+         * on each side, which puts a full step between two slots, half a step
+         * where the collected part meets the rest, and nothing at all between
+         * two letters. The word closes up as it is spelled out.
+         *
+         * In em, so it comes down with the letters when fitGathered shrinks
+         * them. The bar does get narrower as the slots close, and the fitting
+         * runs again on every letter — a word can come back up a size on its way
+         * to being finished, which is a reward rather than a glitch.
+         */
+        const SLOT_AIR = '0.125em';
+
+        const SAY_SCALE = 0.7;
+        const SAY_LEAD = `margin-top: 0; margin-inline-end: 0.19em; font-size: ${BOX_SIZE * SAY_SCALE}px; flex: none;`;
 
         function fitGathered() {
-            const boxes = gatheredBar.querySelectorAll('.snake-gathered-box');
+            // The gaps standing in for the blanks are measured and sized with
+            // the letters: their width is in em, so a gap left at the starting
+            // size while the letters shrank would grow wider than the words on
+            // either side of it.
+            const boxes = gatheredBar.querySelectorAll('.snake-gathered-box, .snake-gathered-space');
             if (boxes.length === 0) return;
+
+            // The speaker comes down with them, at its own fraction of the size:
+            // it is a letter's worth of icon, and a letter's worth of anything
+            // has to keep being that once the letters have shrunk.
+            const say = gatheredBar.querySelector('.say-all');
+
+            const wear = (size) => {
+                boxes.forEach(b => {
+                    b.style.fontSize = size + 'px';
+                });
+                if (say) say.style.fontSize = (size * SAY_SCALE) + 'px';
+            };
 
             let size = BOX_SIZE;
             const maxH = BAR_MAX;
 
-            gatheredBar.style.gap = gapFor(size) + 'px';
-            boxes.forEach(b => {
-                b.style.fontSize = size + 'px';
-            });
+            wear(size);
 
             while ((gatheredBar.scrollHeight > maxH || gatheredBar.offsetHeight > maxH) && size > 8 && gatheredBar.offsetHeight > 0) {
                 size -= 0.5;
-                gatheredBar.style.gap = gapFor(size) + 'px';
-                boxes.forEach(b => {
-                    b.style.fontSize = size + 'px';
-                });
+                wear(size);
             }
         }
 
@@ -358,12 +416,16 @@ function snake(container) {
 
             wrapper.innerHTML = '';
 
-            if (controlMode === 0) {
-                wrapper.style.display = 'none';
+            // The panel is what is hidden, not the wrapper inside it. An empty
+            // wrapper collapses to nothing, but the panel around it keeps its
+            // 10px margins top and bottom, so a d-pad switched off still pushed
+            // everything below it down by 20px of blank space.
+            if (controlMode === 0 || controlsRetired) {
+                controlsArea.style.display = 'none';
                 return;
             }
 
-            wrapper.style.display = 'flex';
+            controlsArea.style.display = 'flex';
 
             // Anything that is not "off" is the d-pad, rather than a mode matched
             // by its number: there is one panel left to show.
@@ -436,7 +498,12 @@ function snake(container) {
              * wrong. Now only a box that still reads "?" can say that, and once
              * there are none left there is nothing to hit.
              */
-            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; width: 100%;"></div>`);
+            /*
+             * No gap on the bar itself. What air there is belongs to the boxes
+             * that are still hiding a letter, and they carry it themselves —
+             * see SLOT_AIR.
+             */
+            gatheredBar = $(hintBanner, `<div class="snake-gathered-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; width: 100%;"></div>`);
 
             const side = document.body.clientWidth;
 
@@ -465,7 +532,7 @@ function snake(container) {
             cellSize = side / GRID_COUNT;
 
             controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px;">
-                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: none; justify-content: center; width: 100%; min-height: 80px; align-items: center;"></div>
+                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 80px; align-items: center;"></div>
             </div>`);
 
             svg.addEventListener('click', () => cb.onBoardClick());
@@ -516,8 +583,54 @@ function snake(container) {
             // is where its reader expects the next letter to be.
             gatheredBar.style.direction = isRtl(targetLetters.join('')) ? 'rtl' : 'ltr';
 
+            /*
+             * The speaker appears when the whole line is open — collected or
+             * shown — and reads all of it. Before that there is nothing whole to
+             * read: half a word said out loud is not the word, and the letters
+             * already say themselves as they are eaten.
+             *
+             * It leads the line rather than trailing it, which is where a card,
+             * a question and an option all keep theirs, and it rides inside the
+             * bar rather than under it: the banner is a fixed 104px and a third
+             * row would not fit in it.
+             *
+             * Its arrival is also what opens the three depths of tap on the
+             * letters — see onLetterClick. One thing to notice, and it means the
+             * line is finished and can be picked over.
+             */
+            const whole = showHint || collected >= targetLetters.length;
+
+            const speakerHtml = whole
+                ? speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, SAY_LEAD)
+                : '';
+
+            if (speakerHtml) {
+                $(gatheredBar, speakerHtml).addEventListener('click', () => cb.onSayAll());
+            }
+
             for (let i = 0; i < targetLetters.length; i++) {
                 const char = targetLetters[i];
+
+                /*
+                 * A blank is the space between two words and nothing else: no
+                 * box, no "?" standing in for it, nothing to reveal and nothing
+                 * to say. It is not collected, so it is not a secret either —
+                 * the line shows where one word ends from the first frame, and
+                 * every "?" left in the bar is a letter that is out there to be
+                 * eaten.
+                 *
+                 * Sized in em, and scaled by fitGathered along with the letters:
+                 * a gap that kept its size while they shrank would end up wider
+                 * than the words on either side of it.
+                 */
+                if (BLANK.test(char)) {
+                    const gap = document.createElement('div');
+                    gap.className = 'snake-gathered-space';
+                    gap.style.cssText = `width: 0.4em; font-size: ${BOX_SIZE}px;`;
+                    gatheredBar.appendChild(gap);
+                    continue;
+                }
+
                 const isCollected = i < collected;
 
                 let color = palette.letterPending;
@@ -536,56 +649,116 @@ function snake(container) {
 
                 const box = document.createElement('div');
                 box.className = 'snake-gathered-box';
-                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${BOX_SIZE}px; line-height: ${BOX_LINE}; color: ${color}; transition: color 0.2s;`;
 
-                // A revealed blank is the block the board draws, in the colour
-                // this letter would have been written in. Sized in em so it
-                // follows the bar when it shrinks itself to fit.
-                //
-                if (shown && BLANK.test(char)) {
-                    box.style.cssText += ` width: 0.62em; height: 0.86em; border-radius: 2px; background: ${color}; opacity: ${BLANK_ALPHA};`;
-                } else {
-                    box.textContent = displayText;
+                // Which letter of the line this box is, because the boxes and
+                // the letters are not the same list: a blank gets a gap and no
+                // box, so by the second word the two have drifted apart. The
+                // marks are asked for by letter, and this is how they are found.
+                box.dataset.at = i;
 
-                    // An open mark is drawn and left alone — worthSaying says
-                    // why — so it does not offer a pointer it cannot honour.
-                    // Under a "?" it is a box like any other and shows the
-                    // answer like any other: which letter is hiding there is
-                    // exactly what the player does not know yet.
-                    if (!shown || worthSaying(char)) {
-                        box.style.cursor = 'pointer';
-                        box.title = shown ? 'Say it' : 'Click to reveal answer (counts as mistake)';
+                // Air only while it is a slot — see SLOT_AIR. A letter that is
+                // open has nothing to be told apart from: it is part of a word.
+                const air = shown ? '0' : SLOT_AIR;
 
-                        // What the click means depends on how much of the word
-                        // is open, and the board is what knows that — the view
-                        // only says where the click landed.
-                        box.addEventListener('click', () => cb.onLetterClick(i));
-                    }
+                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${BOX_SIZE}px; line-height: ${BOX_LINE}; margin-inline: ${air}; color: ${color}; border-radius: 0.12em; transition: color 0.2s;`;
+
+                box.textContent = displayText;
+
+                // An open mark is drawn and left alone — worthSaying says why —
+                // so it does not offer a pointer it cannot honour. Under a "?"
+                // it is a box like any other and shows the answer like any
+                // other: which letter is hiding there is exactly what the player
+                // does not know yet.
+                if (!shown || worthSaying(char)) {
+                    box.style.cursor = 'pointer';
+                    box.title = shown ? 'Say it' : 'Click to reveal answer (counts as mistake)';
+
+                    // What the click means depends on how much of the word is
+                    // open, and the board is what knows that — the view only
+                    // says where the click landed.
+                    box.addEventListener('click', () => cb.onLetterClick(i));
                 }
 
                 gatheredBar.appendChild(box);
             }
 
-            /*
-             * The speaker appears when the whole line is open — collected or
-             * shown — and reads all of it, the way the one under a card does.
-             * Before that there is nothing whole to read: half a word said out
-             * loud is not the word, and the letters already say themselves as
-             * they are eaten.
-             *
-             * It rides in the bar rather than under it: the banner is a fixed
-             * 104px and a third row would not fit in it.
-             */
-            const whole = showHint || collected >= targetLetters.length;
-            const speakerHtml = whole
-                ? speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, 'margin-top: 0; font-size: 22px; flex: none;')
-                : '';
-
-            if (speakerHtml) {
-                $(gatheredBar, speakerHtml).addEventListener('click', () => cb.onSayAll());
-            }
-
             fitGathered();
+        };
+
+        /*
+         * The mark on what is being said, and the state needed to take it off
+         * again.
+         *
+         * Each box remembers the colour it was wearing rather than being reset
+         * to none: its colour is not decoration, it says whether that letter has
+         * been collected, hinted or is still out there, and a mark that cleared
+         * it would be answering a different question.
+         *
+         * Snake's own copy, like the ones in cards and the quiz. The three ask
+         * the same thing of a tap and paint it over different furniture — faces
+         * of a card, an option, a row of boxes half of which are still "?".
+         */
+        let lit = [];
+
+        const boxAt = (index) => gatheredBar.querySelector(`.snake-gathered-box[data-at="${index}"]`);
+
+        function hold(el) {
+            lit.push({ el, colour: el.style.color });
+        }
+
+        view.unlight = () => {
+            lit.forEach(({ el, colour }) => {
+                el.style.background = '';
+                el.style.color = colour;
+            });
+            lit = [];
+        };
+
+        /*
+         * One letter, written in a colour rather than filled with one.
+         *
+         * Coral, which is what this app paints the thing you act on — the head
+         * you steer, the button you press. Not mint: mint is what a collected
+         * letter is written in, and a letter that turned mint because it was
+         * being read out would be saying the snake had just eaten it.
+         */
+        view.sayLetter = (index) => {
+            view.unlight();
+
+            const el = boxAt(index);
+            if (!el) return;
+
+            hold(el);
+            el.style.color = palette.saying;
+        };
+
+        /*
+         * Whole words, filled behind their letters.
+         *
+         * The boxes alone are the whole fill: the letters of a word touch, so
+         * their backgrounds meet and the word comes out as one block. The fill
+         * used to be carried sideways past each box with a pair of shadows,
+         * because a gap between the letters broke a filled word into a row of
+         * separate tiles; the gap has gone and taken the reason with it.
+         *
+         * What still separates one filled word from the next is the blank
+         * between them, which is a box of its own and is never filled.
+         */
+        view.sayWords = (ranges) => {
+            view.unlight();
+
+            ranges.forEach(({ from, to, place }) => {
+                const stage = tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+
+                for (let at = from; at <= to; at++) {
+                    const el = boxAt(at);
+                    if (!el) continue;
+
+                    hold(el);
+                    el.style.color = stage.ink;
+                    el.style.background = stage.fill;
+                }
+            });
         };
 
         view.setControlMode = (mode) => {
@@ -619,6 +792,7 @@ function snake(container) {
                 </div>
             `;
 
+            controlsRetired = true;
             if (controlsArea) controlsArea.style.display = 'none';
 
             const goDictBtn = gatheredBar.querySelector('#snake-go-dict');
@@ -689,17 +863,10 @@ function snake(container) {
                     dominant-baseline="central">\u2764\ufe0f</text>`;
             }
 
-            // A blank is a letter like any other here: same colour, and a block
-            // of its own where a glyph would go
+            // Every letter out there is one to be read and gone for. The blanks
+            // are not among them — see BLANK.
             s.lettersOnBoard.forEach(l => {
                 if (l.isEaten) return;
-
-                if (BLANK.test(l.char)) {
-                    out += `<rect x="${l.x * cellSize + BLANK_INSET}" y="${l.y * cellSize + BLANK_INSET}"
-                        width="${cellSize - BLANK_INSET * 2}" height="${cellSize - BLANK_INSET * 2}"
-                        rx="${BLANK_RADIUS}" fill="${palette.boardLetter}" fill-opacity="${BLANK_ALPHA}" />`;
-                    return;
-                }
 
                 out += glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, 30, palette.boardLetter, 'bold');
             });
@@ -772,15 +939,7 @@ function snake(container) {
 
                 if (!part.char) return;
 
-                // A carried blank is the same block, on the segment carrying it
-                // and in the colour its letters are written in there.
-                if (BLANK.test(part.char)) {
-                    out += `<rect x="${part.x * cellSize + cellSize * 0.3}" y="${part.y * cellSize + cellSize * 0.3}"
-                        width="${cellSize * 0.4}" height="${cellSize * 0.4}" rx="2"
-                        fill="#ffffff" fill-opacity="${BLANK_ALPHA}" />`;
-                } else {
-                    out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 14.4, '#ffffff', 'bold');
-                }
+                out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 14.4, '#ffffff', 'bold');
             });
 
             // The spark sits on the edge the head ran into: half a cell along the heading,
@@ -969,10 +1128,27 @@ function snake(container) {
             snakeBody = [{ x: rx, y: ry, char: '' }];
         }
 
+        /*
+         * Moves the pointer off a blank and onto the next letter that is
+         * actually on the board.
+         *
+         * The two halves of one rule: spawnLetters places nothing for a blank,
+         * so nothing on the board can ever match one, and the pointer has to
+         * walk over it by itself. Without this a phrase stops dead at its first
+         * space, waiting to be handed a letter that was never put out.
+         */
+        function skipBlanks() {
+            while (nextLetterIndex < targetLetters.length && BLANK.test(targetLetters[nextLetterIndex])) {
+                nextLetterIndex++;
+            }
+        }
+
         function spawnLetters() {
             lettersOnBoard = [];
 
             targetLetters.forEach((char, idx) => {
+                if (BLANK.test(char)) return;
+
                 let pos;
                 let attempts = 0;
                 while (attempts < 500) {
@@ -1068,6 +1244,7 @@ function snake(container) {
             dir = { x: 0, y: -1 };
             inputQueue = [];
             nextLetterIndex = 0;
+            skipBlanks();
             lettersOnBoard = [];
             phase = 'WORD';
             heartPos = null;
@@ -1122,6 +1299,7 @@ function snake(container) {
         board.setWord = (word) => {
             targetLetters = lettersOf(word).map(shownAs);
             nextLetterIndex = 0;
+            skipBlanks();
             phase = 'WORD';
             heartPos = null;
             spawnLetters();
@@ -1138,6 +1316,7 @@ function snake(container) {
             dir = { x: 0, y: -1 };
             inputQueue = [];
             nextLetterIndex = 0;
+            skipBlanks();
             phase = 'WORD';
             heartPos = null;
             isFrozen = false;
@@ -1239,6 +1418,7 @@ function snake(container) {
 
                 touched.isEaten = true;
                 nextLetterIndex++;
+                skipBlanks();
                 grow(headX, headY, touched.char);
 
                 return nextLetterIndex === targetLetters.length ? 'wordDone' : 'letter';
@@ -1309,6 +1489,8 @@ function snake(container) {
     // without the silence.
     function cleanup() {
         clock.stop();
+        forgetTaps();
+        dropMark();
         speech.hush();
         input.detach();
     }
@@ -1345,22 +1527,187 @@ function snake(container) {
      * board narrates every letter it swallows, and a silent session would have
      * the header twitching from one end of the word to the other.
      */
-    function sayAloud(text) {
-        if (speech.say(text, sayLang)) return;
+    function sayAloud(text, whenDone) {
+        if (speech.say(text, sayLang, whenDone)) return true;
+
         if (speech.muted()) page.pulseMute();
+        return false;
     }
+
+    /*
+     * The words of the line, in order, each with the place that decides its
+     * fill. Read off the blanks, which is where a word ends here — see BLANK.
+     */
+    function lineWords(letters) {
+        const out = [];
+        let from = -1;
+
+        letters.forEach((char, at) => {
+            if (!BLANK.test(char)) {
+                if (from < 0) from = at;
+                return;
+            }
+
+            if (from >= 0) out.push({ from, to: at - 1 });
+            from = -1;
+        });
+
+        if (from >= 0) out.push({ from, to: letters.length - 1 });
+
+        return out.map((range, place) => ({ from: range.from, to: range.to, place }));
+    }
+
+    /*
+     * Tapping the finished line, counted rather than read off the event's own
+     * click count — phones do not agree about that one, and a second tap is a
+     * zoom gesture to some of them.
+     *
+     * Counted per word and not per box: a fingertip is wider than a letter, so
+     * the second tap of a double tap lands on the letter next door as often as
+     * not, and in a script without spaces that is most of the time.
+     *
+     * Snake's own copy, like the ones in cards and in the quiz. The three screens
+     * ask the same question of a tap and answer it over different things — three
+     * faces of a card, an option, a row of boxes half of which are still "?" —
+     * and one version shared between them is how one of them stops being able to
+     * change.
+     */
+    const TAP_GAP = 500;
+
+    /*
+     * The voice waits to see what the finger meant; a quarter of a second is the
+     * gap between the two taps of a double tap. Without it a letter starts being
+     * said the instant it is touched and is cut off by its word a moment later,
+     * and every double tap comes out as a stutter.
+     */
+    const SAY_DELAY = 250;
+
+    let taps = 0;
+    let tappedWord = -1;
+    let tapTimer = null;
+    let sayTimer = null;
+
+    /*
+     * Which mark is up, counted rather than named.
+     *
+     * The voice that finishes has to take its own mark down and nobody else's:
+     * by the time it stops, a later tap may have put a different one up, and
+     * that tap's own voice is what will clear it.
+     */
+    let marks = 0;
+
+    /*
+     * Never sooner than a short spell after the mark went up. There are two ways
+     * to be told the sound is over at once rather than in a second — no voice
+     * for the language, or the sound switched off — and either would put the
+     * colour on the bar and take it off again in one blink.
+     */
+    const MARK_LEAST = 450;
+
+    function light(paint) {
+        paint();
+        marks += 1;
+        return marks;
+    }
+
+    function until(mark) {
+        const born = Date.now();
+
+        return () => {
+            if (mark !== marks) return;
+
+            const left = MARK_LEAST - (Date.now() - born);
+            if (left <= 0) return view.unlight();
+
+            setTimeout(() => { if (mark === marks) view.unlight(); }, left);
+        };
+    }
+
+    function forgetTaps() {
+        clearTimeout(tapTimer);
+
+        // A word still waiting its quarter second belongs to the line that was
+        // tapped. Leave the screen fast enough and it would be said into
+        // whatever page was opened next.
+        clearTimeout(sayTimer);
+
+        taps = 0;
+        tappedWord = -1;
+    }
+
+    /*
+     * The mark comes down now rather than when the voice reports back.
+     *
+     * A separate thing from forgetting the gesture, and deliberately not part of
+     * it: the gesture is over half a second after the last tap, while the mark
+     * belongs to the voice and stays up as long as it is talking — which on a
+     * long line is several seconds. Tying the two together took the colour off
+     * mid-sentence, every time.
+     *
+     * The count moving is what tells any wait still out there that the mark it
+     * was holding is not the one that is up.
+     */
+    function dropMark() {
+        marks += 1;
+        view.unlight();
+    }
+
+    // Said and marked at once, for a tap that cannot be deepened by another.
+    function sayNow(text, paint) {
+        clearTimeout(sayTimer);
+
+        const done = until(light(paint));
+        if (!sayAloud(text, done)) done();
+    }
+
+    /*
+     * The mark lands with the finger; the voice waits to see what the finger
+     * meant.
+     *
+     * Only the voice waits. A tap answered by nothing at all for a quarter of a
+     * second is a tap that missed, as far as the person tapping can tell — and
+     * the mark goes up before it is known whether this device even has a voice
+     * for the language.
+     */
+    function sayLater(text, paint) {
+        clearTimeout(sayTimer);
+
+        const mark = light(paint);
+
+        sayTimer = setTimeout(() => {
+            const done = until(mark);
+            if (!sayAloud(text, done)) done();
+        }, SAY_DELAY);
+    }
+
+    // Whole means there is nothing left to find: every letter open, either eaten
+    // or given away. It is what puts the speaker in the bar, and what turns one
+    // tap per letter into three depths of tap.
+    const wholeLine = () => state.showHint || board.progress() >= board.letters().length;
+
+    // The one word a tap landed in, carrying the place it stands in the line:
+    // that is what its fill is chosen by, so a word looks the same said alone
+    // as it does said inside the line.
+    const placeOf = (letters, from) => lineWords(letters).find(w => w.from === from);
 
     function sayProgress() {
         const letters = board.letters();
         const done = board.progress();
-        const index = done - 1;
 
-        if (index < 0 || index >= letters.length) return;
+        // What was just eaten is the last letter before the pointer that is not
+        // a blank. The pointer steps over the blanks itself — nothing is spawned
+        // for them — so at a word boundary it stands a place further on than the
+        // letter that was actually swallowed.
+        let index = done - 1;
+        while (index >= 0 && BLANK.test(letters[index])) index--;
 
-        const isBlank = /^\s+$/.test(letters[index]);
+        if (index < 0) return;
+
+        // Stepping over a blank to get here is what closes a word.
+        const crossedBlank = index < done - 1;
         const atEnd = done === letters.length;
         const phrase = letters.join('');
-        const isPhrase = letters.some(l => /^\s+$/.test(l));
+        const isPhrase = letters.some(l => BLANK.test(l));
 
         // A letter is said as the board shows it — upper case is how a letter is
         // named. A word is said in the case it was written in: a run of capitals
@@ -1369,11 +1716,11 @@ function snake(container) {
         if (worthSaying(letters[index])) speech.say(letters[index], sayLang);
 
         // The word just closed: everything back to the blank before it
-        if (isBlank || atEnd) {
-            let from = index - (isBlank ? 1 : 0);
-            while (from >= 0 && !/^\s+$/.test(letters[from])) from--;
+        if (crossedBlank || atEnd) {
+            let from = index;
+            while (from >= 0 && !BLANK.test(letters[from])) from--;
 
-            const word = letters.slice(from + 1, isBlank ? index : done).join('').toLowerCase();
+            const word = letters.slice(from + 1, index + 1).join('').toLowerCase();
 
             if (isPhrase && worthSaying(word)) clock.after(420, () => speech.say(word, sayLang));
         }
@@ -1421,26 +1768,32 @@ function snake(container) {
             },
 
             /*
-             * A click on one box of the bar, and it means three different things
-             * depending on how much of the line is open by then.
+             * A click on one box of the bar, and what it means depends on how
+             * much of the line is open by then.
              *
              * Still hidden — the box reads "?" — and it is the old "show me the
-             * answer", which costs the round. Open but standing in an unfinished
-             * word, and it is that one letter: there is no word yet to say.
-             * Open in a word that is whole, and it is the word — by then the
-             * letter on its own is the less useful of the two, and every letter
-             * of that word answers with the same word, so there is nothing to
-             * aim at.
+             * answer", which costs the round. Open, and while there is still
+             * something out there to be eaten it is one answer per tap, as it
+             * has always been: the letter, or the word it stands in once that
+             * word is whole.
              *
-             * Whole is read off the word's last letter rather than checked
-             * across all of them: the letters are collected in order, so the
-             * last one being open is the same statement.
+             * Once the line is finished it is not a round any more, it is
+             * something to pick over, and the tap goes as deep as it is
+             * repeated: the letter, then the word it belongs to, then all of it.
+             * The same three depths a card gives, on the same three taps, and
+             * they arrive with the speaker that reads the line — one moment when
+             * the bar becomes a thing to read rather than a score.
+             *
+             * Each tap acts at once rather than waiting to see whether another
+             * is coming; only the voice waits, in sayLater. A tap answered late
+             * reads as a tap that missed.
              */
             onLetterClick: (index) => {
                 const letters = board.letters();
                 const isShown = (at) => state.showHint || at < board.progress();
 
                 if (!isShown(index)) {
+                    forgetTaps();
                     revealHint();
                     return;
                 }
@@ -1448,6 +1801,8 @@ function snake(container) {
                 // A blank or a mark says nothing on its own — see worthSaying
                 if (!worthSaying(letters[index])) return;
 
+                // The word this letter stands in: everything between the blanks
+                // on either side of it.
                 let from = index;
                 while (from > 0 && !BLANK.test(letters[from - 1])) from--;
 
@@ -1458,16 +1813,54 @@ function snake(container) {
                 // how a letter is named; a word in the case it was written in,
                 // because a run of capitals is read out letter by letter by some
                 // engines. The same two rules sayProgress reads the board by.
-                if (!isShown(to)) {
-                    sayAloud(letters[index]);
+                const letter = letters[index];
+                const word = letters.slice(from, to + 1).join('').toLowerCase();
+
+                // Mid-round the bar is still a score, and it answers as it
+                // always has: a letter standing in a half-spelled word is that
+                // letter, and a word already whole is the word — by then the
+                // letter on its own is the less useful of the two, and every
+                // letter of that word answers with the same word, so there is
+                // nothing to aim at. Nothing to count either, at one answer per
+                // tap.
+                if (!wholeLine()) {
+                    forgetTaps();
+
+                    if (isShown(to)) {
+                        sayNow(word, () => view.sayWords([placeOf(letters, from)]));
+                    } else {
+                        sayNow(letter, () => view.sayLetter(index));
+                    }
+
                     return;
                 }
 
-                sayAloud(letters.slice(from, to + 1).join('').toLowerCase());
+                if (from !== tappedWord) {
+                    taps = 0;
+                    tappedWord = from;
+                }
+
+                taps = Math.min(3, taps + 1);
+
+                clearTimeout(tapTimer);
+                tapTimer = setTimeout(forgetTaps, TAP_GAP);
+
+                if (taps === 1) return sayLater(letter, () => view.sayLetter(index));
+                if (taps === 2) return sayLater(word, () => view.sayWords([placeOf(letters, from)]));
+
+                // Every word in a colour of its own, so the line reads as the
+                // words it is made of rather than as one long stripe.
+                sayLater(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
             },
 
+            // The speaker says the line whatever has been tapped, and ends the
+            // gesture: a letter still waiting its quarter second would otherwise
+            // be said over the top of it.
             onSayAll: () => {
-                sayAloud(board.letters().join('').toLowerCase());
+                forgetTaps();
+
+                const letters = board.letters();
+                sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
             },
 
             onBoardClick: () => {
@@ -1507,6 +1900,12 @@ function snake(container) {
         }
 
         function refreshGathered() {
+            // The boxes that were tapped are gone with the redraw, and a tap on
+            // one of them counts towards nothing on the boxes that replace them.
+            // The mark goes with them: the nodes it was painted on are about to
+            // stop existing, and whatever was said over them is over too.
+            forgetTaps();
+            dropMark();
             view.gathered(board.letters(), board.progress(), state.showHint);
         }
 
@@ -1775,6 +2174,17 @@ function snake(container) {
             // than the thing to press, so it sits in muted like the ones in
             // cards and quiz.
             sayIcon: t.muted,
+
+            /*
+             * A letter being read out loud.
+             *
+             * Coral, which is what this app paints the thing being acted on: the
+             * snake's head, the button under the finger. It is the one colour
+             * left that means something here and is not already spoken for —
+             * mint is a letter collected, muted is a letter still out there, and
+             * a mark in either would be answering a question nobody asked.
+             */
+            saying: t.accent,
 
             letterPending: t.muted,
             // A collected letter turns mint — the colour progress and a right

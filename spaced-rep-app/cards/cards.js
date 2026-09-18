@@ -38,36 +38,54 @@ function cards(container) {
     /*
      * How big the word is, and how small it is allowed to get.
      *
-     * Twice what it was. A card holds one word and shows it to a person who may
-     * be holding the phone at arm's length, so the word should be the thing in
-     * the room — at the old size it sat in the middle of a card with space all
-     * round it, politely.
+     * A card holds one word and shows it to a person who may be holding the
+     * phone at arm's length, so the word should be the thing in the room rather
+     * than something sitting politely in the middle of a card with space all
+     * round it. It was half again bigger for a while, which was too far: a card
+     * is 170px and the room inside it is 136, so at that size a phrase of any
+     * length was landing on the fitting below — four of the seeded seventy-four
+     * came out at a size this number had no say in. At this one none of them do.
      *
-     * Not every word fits at that size, and the card is not allowed to grow:
-     * it is 170px whatever is on it, because the deck has to look like a deck
-     * and not like a column of boxes of different heights. So the size is where
-     * the fitting starts rather than where it ends.
+     * Not every word fits even here, and the card is not allowed to grow: it is
+     * 170px whatever is on it, because the deck has to look like a deck and not
+     * like a column of boxes of different heights. So the size is where the
+     * fitting starts rather than where it ends.
      *
      * The floor is where the word stops being readable at arm's length. A line
      * that cannot fit even there is a line that was never going to fit — it
      * overflows, and overflowing is a better answer than a size nobody can read.
      */
-    const WORD_SIZE = 52.8;
+    const WORD_SIZE = 35.2;
     const WORD_MIN = 15;
 
     /*
-     * The speaker sits in the corner of the face rather than under the word.
+     * The speaker leads the line, as though it were its first letter.
      *
-     * Under it, it was a line of its own: thirty pixels of the card's hundred
-     * and seventy went to an icon, and the word — the thing the card is for —
-     * was fitted into what was left. In the corner it costs nothing, and the
-     * word gets the whole face.
+     * One place for it everywhere: this is what an option in the quiz has
+     * always looked like, and a card and a question were each putting the same
+     * icon somewhere else — a corner here, a corner there — so the one thing
+     * that means "this can be heard" was in three places depending on what was
+     * offering it.
      *
-     * The face is already positioned, so this hangs off it. `top` and `right`
-     * are inside the face's own padding, which is where a corner ornament
-     * belongs: it is not part of the line, and nothing should reflow around it.
+     * Sized in em, so it is a letter's worth of icon at whatever size the line
+     * ends up: on a card that size is not known until the word has been fitted
+     * to the face, and a speaker fixed in pixels would be half the line on a
+     * long phrase and a speck on a short one.
+     *
+     * Just under the em, which is where a glyph's cap sits: an icon drawn to the
+     * full em stands taller than the capitals beside it and reads as a button
+     * that wandered into the text rather than as part of the line. The bottom of
+     * it lands on the baseline on its own — an inline-flex box is aligned by its
+     * bottom edge — so nothing has to be nudged.
+     *
+     * The gap is the same fraction of the icon that a quiz option leaves beside
+     * its own: ten pixels against eighteen. Written as em on the same element
+     * that sets the font-size, so the em here is the icon's own size and the
+     * margin is that fraction directly — not 0.55 of the line, which at this
+     * size would be half again too much. Standing any nearer, the speaker stops
+     * being a thing in front of the word and starts reading as its first letter.
      */
-    const SAY_CORNER = 'position: absolute; top: 9px; right: 11px; margin-top: 0; font-size: 19px;';
+    const SAY_LEAD = 'margin-top: 0; margin-right: 0.55em; font-size: 0.7em;';
 
     /*
      * Shrinks the line until it fits the face it is on.
@@ -82,9 +100,11 @@ function cards(container) {
      * A pixel at a time, downwards, because the answer is usually one or two
      * steps away and a search would cost more reflows than the walk does.
      *
-     * The room is the whole of the face, less its padding. The speaker takes
-     * none of it any more — it hangs in the corner, out of the flow — so there
-     * is nothing else to subtract.
+     * The room is the whole of the face, less its padding. Nothing else is
+     * taken out for the speaker: it stands in the line now, so the height being
+     * measured already has it in it — and it is sized in em, so it comes down
+     * with every step of the walk instead of eating more of the line at each
+     * one.
      */
     function fitWord(face) {
         const text = face && face.querySelector('.cards-word-text');
@@ -457,14 +477,12 @@ function cards(container) {
         const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 170px; cursor: pointer; margin-bottom: 16px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
-                <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${lineHtml(currentItem.word.original)}</div>
-                    ${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_CORNER)}
+                <div class="card-face-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
                 </div>
 
-                <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
-                    ${speech.speakerHtml(currentItem.word.translation, currentItem.word.translationLang, palette.sayIcon, SAY_CORNER)}
+                <div class="card-face-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.word.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
                 </div>
 
             </div>
@@ -575,14 +593,14 @@ function cards(container) {
          * the face in front is ever clicked — the other one is turned away, and
          * a backface-hidden element is not painted and so not hit either.
          */
-        listen(cardWrapper.querySelector('.card-face--front'), currentItem.word.original, currentItem.word.originalLang);
-        listen(cardWrapper.querySelector('.card-face--back'), currentItem.word.translation, currentItem.word.translationLang);
+        listen(cardWrapper.querySelector('.card-face-front'), currentItem.word.original, currentItem.word.originalLang);
+        listen(cardWrapper.querySelector('.card-face-back'), currentItem.word.translation, currentItem.word.translationLang);
 
         // Both faces, and both now: the back is turned away but it is laid out
         // all the same, and a size worked out only when it comes round would be
         // worked out in the middle of the turn.
-        fitWord(cardWrapper.querySelector('.card-face--front'));
-        fitWord(cardWrapper.querySelector('.card-face--back'));
+        fitWord(cardWrapper.querySelector('.card-face-front'));
+        fitWord(cardWrapper.querySelector('.card-face-back'));
 
         renderActionButtons();
 
