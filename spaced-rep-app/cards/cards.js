@@ -72,20 +72,34 @@ function cards(container) {
      * to the face, and a speaker fixed in pixels would be half the line on a
      * long phrase and a speck on a short one.
      *
-     * Just under the em, which is where a glyph's cap sits: an icon drawn to the
-     * full em stands taller than the capitals beside it and reads as a button
-     * that wandered into the text rather than as part of the line. The bottom of
-     * it lands on the baseline on its own — an inline-flex box is aligned by its
-     * bottom edge — so nothing has to be nudged.
+     * A letter's worth means a capital's worth, and two measurements decide what
+     * that costs. The drawing fills two thirds of its own square — the 24-unit
+     * path runs from y=4 to y=20 — and a capital in this face stands 0.7 of the
+     * type size. So the box has to be larger than the type, not smaller, to put
+     * the same height of ink on the line: 0.7 over two thirds. It was 0.7 flat
+     * before, which was the cap height applied to the box instead of to the ink,
+     * and what arrived was two thirds of a capital.
+     *
+     * And it has to hang a little lower. An inline-flex box rests its bottom
+     * edge on the baseline, so the empty sixth below the drawing would hold the
+     * speaker up off the line; dropped by that sixth, its foot stands where the
+     * foot of a capital stands.
      *
      * The gap is the same fraction of the icon that a quiz option leaves beside
      * its own: ten pixels against eighteen. Written as em on the same element
      * that sets the font-size, so the em here is the icon's own size and the
-     * margin is that fraction directly — not 0.55 of the line, which at this
-     * size would be half again too much. Standing any nearer, the speaker stops
+     * margin is that fraction directly. Standing any nearer, the speaker stops
      * being a thing in front of the word and starts reading as its first letter.
      */
-    const SAY_LEAD = 'margin-top: 0; margin-right: 0.55em; font-size: 0.7em;';
+    const SAY_INK = 2 / 3;
+    const CAP_HEIGHT = 0.7;
+
+    const round3 = (n) => Math.round(n * 1000) / 1000;
+
+    const SAY_SCALE = round3(CAP_HEIGHT / SAY_INK);
+    const SAY_DROP = round3((1 - SAY_INK) / 2);
+
+    const SAY_LEAD = `margin-top: 0; margin-right: 0.55em; font-size: ${SAY_SCALE}em; vertical-align: -${SAY_DROP}em;`;
 
     /*
      * Shrinks the line until it fits the face it is on.

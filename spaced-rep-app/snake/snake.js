@@ -319,8 +319,22 @@ function snake(container) {
          *
          * Divided by the scale because the margin is em of the icon's own size
          * and the space it is matching is em of a letter's.
+         *
+         * The scale itself is a capital's worth of ink. The drawing fills two
+         * thirds of its own square — the 24-unit path runs from y=4 to y=20 —
+         * and a capital stands 0.7 of the type size, so the box comes out larger
+         * than a letter to put the same height of ink beside it. It was 0.7 flat
+         * before: the cap height applied to the box rather than to the ink, and
+         * what arrived was two thirds of a capital.
+         *
+         * Nothing has to be nudged downwards here, unlike on a card. The ink sits
+         * dead centre of its square, and the bar centres what it holds, so the
+         * speaker lines up with the letters by being the same shape of problem.
          */
-        const SAY_SCALE = 0.7;
+        const SAY_INK = 2 / 3;
+        const CAP_HEIGHT = 0.7;
+
+        const SAY_SCALE = Math.round((CAP_HEIGHT / SAY_INK) * 1000) / 1000;
         const SAY_LEAD = `margin-top: 0; margin-inline-end: ${WORD_SPACE / SAY_SCALE}em; font-size: ${BOX_SIZE * SAY_SCALE}px; flex: none;`;
 
         function fitGathered() {
@@ -1572,26 +1586,38 @@ function snake(container) {
     }
 
     /*
-     * The words of the line, in order, each with the place that decides its
-     * fill. Read off the blanks, which is where a word ends here — see BLANK.
+     * The words of the line, in order, as ranges of letters, each with the place
+     * that decides its fill.
+     *
+     * Asked of speech.words rather than read off the blanks. Where a word ends
+     * is a question about the language and the player has already answered it —
+     * the Split words setting — and answering it again here, with "wherever
+     * there is a space", is no answer at all in a script that does not use them.
+     * A Japanese line came out as one word: one colour across the whole of it,
+     * and a double tap anywhere in it reading the lot.
+     *
+     * In letters rather than in characters, because everything else here counts
+     * the way a reader does: й is two code units and न्न is three, and the board
+     * spawns one glyph for each of them.
+     *
+     * What falls between the words — the spaces, the commas, the question mark —
+     * belongs to no range and so takes no colour, which is what a card does with
+     * the same marks. They are still out there to be eaten; they are simply not
+     * a word.
      */
     function lineWords(letters) {
         const out = [];
-        let from = -1;
+        let at = 0;
 
-        letters.forEach((char, at) => {
-            if (!BLANK.test(char)) {
-                if (from < 0) from = at;
-                return;
-            }
+        speech.words(letters.join('')).forEach(part => {
+            const size = speech.letters(part.text).length;
 
-            if (from >= 0) out.push({ from, to: at - 1 });
-            from = -1;
+            if (part.isWord) out.push({ from: at, to: at + size - 1, place: out.length });
+
+            at += size;
         });
 
-        if (from >= 0) out.push({ from, to: letters.length - 1 });
-
-        return out.map((range, place) => ({ from: range.from, to: range.to, place }));
+        return out;
     }
 
     /*
@@ -1722,10 +1748,10 @@ function snake(container) {
     // tap per letter into three depths of tap.
     const wholeLine = () => state.showHint || board.progress() >= board.letters().length;
 
-    // The one word a tap landed in, carrying the place it stands in the line:
-    // that is what its fill is chosen by, so a word looks the same said alone
-    // as it does said inside the line.
-    const placeOf = (letters, from) => lineWords(letters).find(w => w.from === from);
+    // The one word a letter stands in, carrying the place it holds in the line:
+    // that is what its fill is chosen by, so a word looks the same said alone as
+    // it does said inside the line. Nothing, for a letter that is between words.
+    const wordAt = (letters, at) => lineWords(letters).find(w => at >= w.from && at <= w.to);
 
     /*
      * The breath between one thing the board says and the next, counted from
@@ -1751,24 +1777,41 @@ function snake(container) {
      */
     let narration = 0;
 
-    function sayInTurn(queue) {
+    /*
+     * `whenDone` is called once the last of the queue has stopped, and not at all
+     * if a later narration takes over — the caller is being told that this one
+     * finished, which a narration that was interrupted did not.
+     */
+    function sayInTurn(queue, whenDone) {
         const mine = narration;
 
         const next = () => {
             if (mine !== narration) return;
 
-            const text = queue.shift();
-            if (text === undefined) return;
+            const said = queue.shift();
+            if (!said) return whenDone && whenDone();
+
+            // Marked before it is spoken and for as long as it is spoken, which
+            // is what a tap does — see sayLater. The bar is the only place the
+            // board can point at, and a letter said with nothing lit is a sound
+            // with no source.
+            const done = until(light(said.paint));
+
+            const after = () => {
+                done();
+                clock.after(NARRATION_GAP, next);
+            };
 
             // Nothing was heard — no voice for this, or the sound is off — so
-            // there is nothing to wait behind and the rest follows at once.
-            if (!speech.say(text, sayLang, () => clock.after(NARRATION_GAP, next))) next();
+            // there is nothing to wait behind and the rest follows at once. The
+            // mark still stands its minimum: see MARK_LEAST.
+            if (!speech.say(said.text, sayLang, after)) after();
         };
 
         next();
     }
 
-    function sayProgress() {
+    function sayProgress(whenDone) {
         // Whatever the board was still saying about the letter before this one
         // has been overtaken by events.
         narration += 1;
@@ -1785,22 +1828,22 @@ function snake(container) {
 
         if (index < 0) return;
 
-        // Stepping over a blank to get here is what closes a word.
-        const crossedBlank = index < done - 1;
         const atEnd = done === letters.length;
         const phrase = letters.join('');
-        const isPhrase = letters.some(l => BLANK.test(l));
 
-        // The word this letter ends: everything back to the blank before it.
-        let from = index;
-        while (from > 0 && !BLANK.test(letters[from - 1])) from--;
+        // Where the words of this line end — see lineWords, and the Split words
+        // setting behind it. A word closes when its last letter is the one that
+        // has just been swallowed.
+        const words = lineWords(letters);
+        const isPhrase = words.length > 1;
 
-        const closed = crossedBlank || atEnd;
-        const word = letters.slice(from, index + 1).join('').toLowerCase();
+        const spoken = words.find(w => index >= w.from && index <= w.to);
+        const closed = !!spoken && index === spoken.to;
+        const word = spoken ? letters.slice(spoken.from, spoken.to + 1).join('').toLowerCase() : '';
 
         // The word is this one letter, so the letter is the word and saying both
         // would be saying it twice.
-        const alone = closed && from === index;
+        const alone = closed && spoken.from === index;
 
         const queue = [];
 
@@ -1808,13 +1851,23 @@ function snake(container) {
         // named. A word is said in the case it was written in: a run of capitals
         // is read out letter by letter by some engines, which is the right sound
         // for one letter and the wrong one for seven.
-        if (!alone && worthSaying(letters[index])) queue.push(letters[index]);
+        //
+        // Each carries what to light while it is being said, and they are the
+        // same three marks a tap puts up: the letter written in coral, the word
+        // filled behind its letters, the line filled a colour to a word.
+        if (!alone && worthSaying(letters[index])) {
+            queue.push({ text: letters[index], paint: () => view.sayLetter(index) });
+        }
 
-        if (closed && isPhrase && worthSaying(word)) queue.push(word);
+        if (closed && isPhrase && worthSaying(word)) {
+            queue.push({ text: word, paint: () => view.sayWords([spoken]) });
+        }
 
-        if (atEnd && worthSaying(phrase)) queue.push(phrase.toLowerCase());
+        if (atEnd && worthSaying(phrase)) {
+            queue.push({ text: phrase.toLowerCase(), paint: () => view.sayWords(words) });
+        }
 
-        sayInTurn(queue);
+        sayInTurn(queue, whenDone);
     }
 
     function render() {
@@ -1890,13 +1943,14 @@ function snake(container) {
                 // A blank or a mark says nothing on its own — see worthSaying
                 if (!worthSaying(letters[index])) return;
 
-                // The word this letter stands in: everything between the blanks
-                // on either side of it.
-                let from = index;
-                while (from > 0 && !BLANK.test(letters[from - 1])) from--;
+                // The word this letter stands in — see lineWords. A letter
+                // that is in none of them is a mark between words, and there is
+                // nothing to say about it that worthSaying has not said already.
+                const spoken = wordAt(letters, index);
+                if (!spoken) return;
 
-                let to = index;
-                while (to < letters.length - 1 && !BLANK.test(letters[to + 1])) to++;
+                const from = spoken.from;
+                const to = spoken.to;
 
                 // A letter is said as the board shows it, upper case, which is
                 // how a letter is named; a word in the case it was written in,
@@ -1916,7 +1970,7 @@ function snake(container) {
                     forgetTaps();
 
                     if (isShown(to)) {
-                        sayNow(word, () => view.sayWords([placeOf(letters, from)]));
+                        sayNow(word, () => view.sayWords([spoken]));
                     } else {
                         sayNow(letter, () => view.sayLetter(index));
                     }
@@ -1935,7 +1989,7 @@ function snake(container) {
                 tapTimer = setTimeout(forgetTaps, TAP_GAP);
 
                 if (taps === 1) return sayLater(letter, () => view.sayLetter(index));
-                if (taps === 2) return sayLater(word, () => view.sayWords([placeOf(letters, from)]));
+                if (taps === 2) return sayLater(word, () => view.sayWords([spoken]));
 
                 // Every word in a colour of its own, so the line reads as the
                 // words it is made of rather than as one long stripe.
@@ -2127,7 +2181,12 @@ function snake(container) {
         }
 
         /*
-         * The whole session is finished: freeze the board and offer the way back.
+         * The end of a session, in two halves, because they want different
+         * moments.
+         *
+         * The board stops the instant the last letter lands — a snake that went
+         * on walking while the line was being read out would walk into a wall
+         * and lose a round that had already been won.
          *
          * Stopped by hand rather than through cleanup(), which silences the
          * screen it is leaving. Nothing is being left here — the panel appears
@@ -2136,14 +2195,31 @@ function snake(container) {
          * the word and the line behind a wait. cleanup() cancelled the one and
          * cleared the other, so the last word of every session was the one word
          * that went by in silence.
+         *
+         * The session is closed here too rather than with the panel: leaving the
+         * page during the wait has to leave a finished session behind, not one
+         * the "Continue" banner will offer to resume onto a board with nothing
+         * left on it.
          */
-        function showVictory() {
+        function stopPlaying() {
             clock.stop(true);
             input.detach();
 
             clock.setAcceleration(false);
             paint();
             page.endSession();
+        }
+
+        /*
+         * And the panel waits for the line to be read out.
+         *
+         * It is drawn over the bar — the banner is a fixed 104px and there is no
+         * room for both — so putting it up while the line is still being narrated
+         * takes away the very thing the narration is pointing at, marks and all.
+         * The wait is however long the voice takes, which on a phrase is a couple
+         * of seconds and on a silent device is almost none.
+         */
+        function showVictory() {
             view.victory();
         }
 
@@ -2187,8 +2263,12 @@ function snake(container) {
             }
 
             if (event === 'letter') {
-                sayProgress();
+                // Redrawn first, and then narrated. A redraw throws the boxes
+                // away, and a mark goes with the box it was painted on — so a
+                // narration that marked before this ran was marking nodes that
+                // were about to be replaced.
                 refreshGathered();
+                sayProgress();
                 board.persistTo(state);
                 paint();
                 page.save();
@@ -2196,8 +2276,13 @@ function snake(container) {
             }
 
             if (event === 'wordDone') {
-                sayProgress();
+                // Redrawn before it is narrated — same reason as above.
                 refreshGathered();
+
+                const lastOfSession = state.currentIndex >= pool.length - 1;
+
+                if (!lastOfSession) sayProgress();
+
                 board.persistTo(state);
 
                 const clean = !state.hadErrorThisRound;
@@ -2205,13 +2290,17 @@ function snake(container) {
                 state.sessionResults[state.currentIndex] = clean ? 'correct' : 'wrong';
                 store.save();
 
-                // The last word of the session ends it right away; otherwise the
-                // player has to catch a heart before the next word appears
-                if (state.currentIndex >= pool.length - 1) {
+                // The last word of the session ends it; otherwise the player has
+                // to catch a heart before the next word appears.
+                if (lastOfSession) {
                     state.currentIndex++;
                     state.savedSnake = null;
                     refreshDots();
-                    showVictory();
+
+                    // The board stops now and the panel comes when the line has
+                    // been read out — see stopPlaying.
+                    stopPlaying();
+                    sayProgress(showVictory);
                     return;
                 }
 
