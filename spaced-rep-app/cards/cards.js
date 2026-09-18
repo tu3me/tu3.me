@@ -35,6 +35,75 @@ function cards(container) {
         keyHandler = null;
     }
 
+    /*
+     * How big the word is, and how small it is allowed to get.
+     *
+     * Twice what it was. A card holds one word and shows it to a person who may
+     * be holding the phone at arm's length, so the word should be the thing in
+     * the room — at the old size it sat in the middle of a card with space all
+     * round it, politely.
+     *
+     * Not every word fits at that size, and the card is not allowed to grow:
+     * it is 170px whatever is on it, because the deck has to look like a deck
+     * and not like a column of boxes of different heights. So the size is where
+     * the fitting starts rather than where it ends.
+     *
+     * The floor is where the word stops being readable at arm's length. A line
+     * that cannot fit even there is a line that was never going to fit — it
+     * overflows, and overflowing is a better answer than a size nobody can read.
+     */
+    const WORD_SIZE = 52.8;
+    const WORD_MIN = 15;
+
+    /*
+     * The speaker sits in the corner of the face rather than under the word.
+     *
+     * Under it, it was a line of its own: thirty pixels of the card's hundred
+     * and seventy went to an icon, and the word — the thing the card is for —
+     * was fitted into what was left. In the corner it costs nothing, and the
+     * word gets the whole face.
+     *
+     * The face is already positioned, so this hangs off it. `top` and `right`
+     * are inside the face's own padding, which is where a corner ornament
+     * belongs: it is not part of the line, and nothing should reflow around it.
+     */
+    const SAY_CORNER = 'position: absolute; top: 9px; right: 11px; margin-top: 0; font-size: 19px;';
+
+    /*
+     * Shrinks the line until it fits the face it is on.
+     *
+     * By the rendered height rather than by counting letters: what fits is
+     * decided by the font, the script and where the browser puts the line
+     * breaks, and only the browser knows all three. A Japanese line of eight
+     * glyphs and an English line of eight letters take different room, and both
+     * take different room again in the light theme's face, which is the same
+     * size but holds the same text at a different weight.
+     *
+     * A pixel at a time, downwards, because the answer is usually one or two
+     * steps away and a search would cost more reflows than the walk does.
+     *
+     * The room is the whole of the face, less its padding. The speaker takes
+     * none of it any more — it hangs in the corner, out of the flow — so there
+     * is nothing else to subtract.
+     */
+    function fitWord(face) {
+        const text = face && face.querySelector('.cards-word-text');
+        if (!text) return;
+
+        const box = getComputedStyle(face);
+
+        const room = face.clientHeight
+            - parseFloat(box.paddingTop) - parseFloat(box.paddingBottom);
+
+        let size = WORD_SIZE;
+        text.style.fontSize = size + 'px';
+
+        while (text.offsetHeight > room && size > WORD_MIN) {
+            size -= 1;
+            text.style.fontSize = size + 'px';
+        }
+    }
+
     // A word off a card goes straight into markup, and a word is whatever
     // somebody typed into the box.
     function escapeText(text) {
@@ -67,16 +136,10 @@ function cards(container) {
                 return `<span class="say-word" style="${tinted}">${letters}</span>`;
             }
 
-            // Between the words: the spaces stay as they were written, and
-            // anything that is not a space gets a span of its own. It cannot be
-            // tapped — a comma has nothing to say — but it is part of the line,
-            // and a line read aloud with its punctuation left uncoloured comes
-            // out striped, with a gap wherever it was written.
-            return part.text.split(/(\s+)/).filter(Boolean)
-                .map(run => (/^\s+$/.test(run)
-                    ? escapeText(run)
-                    : `<span class="say-mark" style="${tinted}">${escapeText(run)}</span>`))
-                .join('');
+            // What sits between the words stays as it was written and takes
+            // no colour: a comma has nothing to say, and marking it would be
+            // pointing at a thing the tap cannot reach.
+            return escapeText(part.text);
         }).join('');
     }
 
@@ -198,24 +261,22 @@ function cards(container) {
     const TAP_GAP = 500;
 
     /*
-     * A colour for every piece of the line — the words and the punctuation
-     * between them — and the same colour every time that piece is marked.
+     * A colour for every word of the line, and the same colour every time that
+     * word is marked.
      *
      * Taken from the bubble ramp, four steps far enough apart to be told at a
-     * glance and not close enough to read as a series: the pieces of a line are
+     * glance and not close enough to read as a series: the words of a line are
      * not in an order that means anything, they are simply not each other.
      *
-     * A piece keeps its colour whether it is marked alone or as part of the
-     * line. The word used to be mint when it was said on its own and gold when
-     * the line was said, and that change was the loudest thing on the card at a
-     * moment when nothing had changed but the reason for looking.
+     * A word keeps its colour whether it is said on its own or as part of the
+     * line. It used to be mint alone and gold in the line, and that change was
+     * the loudest thing on the card at a moment when nothing had changed but
+     * the reason for looking.
      */
     const WORD_FILLS = [3, 6, 9, 12];
 
-    const PIECES = '.say-word, .say-mark';
-
-    function piecesOf(face) {
-        return Array.from(face.querySelectorAll(PIECES));
+    function wordsIn(face) {
+        return Array.from(face.querySelectorAll('.say-word'));
     }
 
     function tint(el, place) {
@@ -304,7 +365,13 @@ function cards(container) {
 
         sayTimer = setTimeout(() => {
             const done = until(mark);
-            if (!speech.say(text, lang, done)) done();
+            if (speech.say(text, lang, done)) return;
+
+            done();
+
+            // Nothing was heard, and when the reason is the switch in the
+            // header, the switch is what answers.
+            if (speech.muted()) page.pulseMute();
         }, SAY_DELAY);
     }
 
@@ -315,14 +382,14 @@ function cards(container) {
     function sayWord(face, word, lang) {
         if (!word) return;
 
-        sayLater(word.textContent, lang, light([tint(word, piecesOf(face).indexOf(word))]));
+        sayLater(word.textContent, lang, light([tint(word, wordsIn(face).indexOf(word))]));
     }
 
     function sayLine(face, text, lang) {
-        // A colour each, so the line reads as the pieces it is made of rather
-        // than as one long stripe. They repeat past the fourth, which is where
-        // a card stops being a card and starts being a sentence.
-        sayLater(text, lang, light(piecesOf(face).map(tint)));
+        // A colour each, so the line reads as the words it is made of rather
+        // than as one long stripe. They repeat past the fourth word, which is
+        // where a card stops being a card and starts being a sentence.
+        sayLater(text, lang, light(wordsIn(face).map(tint)));
     }
 
     function render() {
@@ -373,10 +440,10 @@ function cards(container) {
         }
 
         const header = $(container, `<div class="cards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="cards-header-info" style="display: flex; align-items: center; gap: 8px;">
+            <div class="cards-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="cards-dots-group" style="display: flex; align-items: center; gap: 6px;">
+            <div class="cards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;">
                 ${dotsHtml()}
             </div>
         </div>`);
@@ -385,17 +452,19 @@ function cards(container) {
             page.home();
         });
 
+        page.muteButton(header, palette.backBtn);
+
         const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 170px; cursor: pointer; margin-bottom: 16px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
                 <div class="card-face card-face--front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.frontText}; text-align: center; word-break: break-word;">${lineHtml(currentItem.word.original)}</div>
-                    ${speech.speakerHtml(currentItem.word.original, palette.sayIcon)}
+                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${lineHtml(currentItem.word.original)}</div>
+                    ${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_CORNER)}
                 </div>
 
                 <div class="card-face card-face--back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: 26.4px; font-weight: 700; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
-                    ${speech.speakerHtml(currentItem.word.translation, palette.sayIcon)}
+                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
+                    ${speech.speakerHtml(currentItem.word.translation, currentItem.word.translationLang, palette.sayIcon, SAY_CORNER)}
                 </div>
 
             </div>
@@ -509,7 +578,19 @@ function cards(container) {
         listen(cardWrapper.querySelector('.card-face--front'), currentItem.word.original, currentItem.word.originalLang);
         listen(cardWrapper.querySelector('.card-face--back'), currentItem.word.translation, currentItem.word.translationLang);
 
+        // Both faces, and both now: the back is turned away but it is laid out
+        // all the same, and a size worked out only when it comes round would be
+        // worked out in the middle of the turn.
+        fitWord(cardWrapper.querySelector('.card-face--front'));
+        fitWord(cardWrapper.querySelector('.card-face--back'));
+
         renderActionButtons();
+
+        // Drawn before the voices were known, which means the speaker beside
+        // the word was drawn on trust. One redraw when the list lands settles
+        // it: a card in a language this device cannot say loses the offer it
+        // could not have kept.
+        speech.onVoices(render);
 
         // One key each, and both buttons are always there to press.
         bindKeys((code) => {

@@ -186,6 +186,23 @@ body {
 }
 
 /*
+ * The sound switch, answering a tap it had to swallow.
+ *
+ * A word was asked for and nothing was said, which without this reads as a tap
+ * that missed or an app that is broken. The switch that swallowed it moves —
+ * out and back, twice the width of a breath — which points at both the cause
+ * and the cure, since the same button is what turns the sound back on.
+ *
+ * Scale rather than colour: the button already means something by its colour,
+ * and a size is the one thing about it that nothing else is using.
+ */
+@keyframes mute-pulse {
+    0%, 100% { scale: 1; }
+    30% { scale: 1.3; }
+    65% { scale: 0.94; }
+}
+
+/*
  * What a word bubble does while it waits its turn.
  *
  * A word whose time has come hops. It says the same thing the missing timer

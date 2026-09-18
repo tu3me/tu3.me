@@ -453,18 +453,20 @@ function snake(container) {
             const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 28px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 6px; color: ${palette.dpadColor}; cursor: pointer;`;
 
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="snake-header-info" style="display: flex; align-items: center; gap: 8px;">
+                <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
                     <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${CONTROL_MODES[controlMode]}" style="${chipStyle}">${controlIcon()}</button>
                     <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
                 </div>
-                <div class="snake-dots-group" id="snake-dots" style="display: flex; align-items: center; gap: 6px;"></div>
+                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
             </div>`);
 
             header.querySelector('.back-btn').addEventListener('click', (e) => {
                 e.preventDefault();
                 cb.onBack();
             });
+            page.muteButton(header, palette.backBtn);
+
             header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
             header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
 
@@ -624,7 +626,7 @@ function snake(container) {
              */
             const whole = showHint || collected >= targetLetters.length;
             const speakerHtml = whole
-                ? speech.speakerHtml(targetLetters.join(''), palette.sayIcon, 'margin-top: 0; font-size: 22px; flex: none;')
+                ? speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, 'margin-top: 0; font-size: 22px; flex: none;')
                 : '';
 
             if (speakerHtml) {
@@ -1384,6 +1386,18 @@ function snake(container) {
     // they spell. Set wherever the target word is.
     let sayLang = null;
 
+    /*
+     * A word asked for by hand, rather than said by the board as the snake eats.
+     *
+     * Only these are answered by the sound switch when nothing comes out: the
+     * board narrates every letter it swallows, and a silent session would have
+     * the header twitching from one end of the word to the other.
+     */
+    function sayAloud(text) {
+        if (speech.say(text, sayLang)) return;
+        if (speech.muted()) page.pulseMute();
+    }
+
     function sayProgress() {
         const letters = board.letters();
         const done = board.progress();
@@ -1493,15 +1507,15 @@ function snake(container) {
                 // because a run of capitals is read out letter by letter by some
                 // engines. The same two rules sayProgress reads the board by.
                 if (!isShown(to)) {
-                    speech.say(letters[index], sayLang);
+                    sayAloud(letters[index]);
                     return;
                 }
 
-                speech.say(letters.slice(from, to + 1).join('').toLowerCase(), sayLang);
+                sayAloud(letters.slice(from, to + 1).join('').toLowerCase());
             },
 
             onSayAll: () => {
-                speech.say(board.letters().join('').toLowerCase(), sayLang);
+                sayAloud(board.letters().join('').toLowerCase());
             },
 
             onBoardClick: () => {

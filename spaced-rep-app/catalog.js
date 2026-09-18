@@ -143,6 +143,18 @@ function catalog(container) {
 
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
+    // The same speaker the words carry, with and without what comes out of it.
+    // Crossed out rather than greyed: a grey icon is one you cannot press, and
+    // this one is the only way back to the sound.
+    const SPEAKER = chromeIcon(`
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+        <path d="M18.8 5.2a9 9 0 0 1 0 13.6" />`);
+
+    const SPEAKER_OFF = chromeIcon(`
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <path d="M16 9.5l5 5M21 9.5l-5 5" />`);
+
     /*
      * The ways a word list gets here, each folded away under the box it ends in.
      *
@@ -615,6 +627,21 @@ function catalog(container) {
         bubble.style.setProperty('scale', String(SWELL), 'important');
     }
 
+    /*
+     * The sound switch, saying that it is the reason nothing was said.
+     *
+     * The animation is cleared when it ends so that the next tap can start it
+     * again: an animation already on an element is not restarted by being set
+     * to the same value, and the second tap would move nothing.
+     */
+    function pulseMute() {
+        const btn = container.querySelector('#mute-btn');
+        if (!btn) return;
+
+        btn.style.animation = 'mute-pulse 420ms ease-out';
+        btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
+    }
+
     function bubbleMotion(stage, timer, order) {
         // Stage 0 is the pile nothing has happened to yet. It has no wait to sit
         // out and nothing to be ready for, so it does not move at all — and it
@@ -672,7 +699,12 @@ function catalog(container) {
             // settles whatever was in the air, and settling takes the last
             // bubble back down — this one included, when it is the one that was
             // talking. Grown at all only if there was something to hear.
-            if (speech.say(word, lang, shrink)) grow(bubble);
+            if (speech.say(word, lang, shrink)) return grow(bubble);
+
+            // Nothing was heard, and when the reason is the switch in the
+            // header, the switch is what answers: a tap that produces neither
+            // sound nor movement is a tap that looks lost.
+            if (speech.muted()) pulseMute();
         });
 
         return bubble;
@@ -723,8 +755,22 @@ function catalog(container) {
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
                 <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
                 <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${SLIDERS}</button>
+                <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
             </div>
         </div>`);
+
+        /*
+         * The sound, on and off.
+         *
+         * A redraw rather than a swapped icon: the header is drawn from what is
+         * true, and the mute state is now part of that. Nothing else on the
+         * screen changes shape, so the redraw is invisible.
+         */
+        header.querySelector('#mute-btn').addEventListener('click', () => {
+            speech.mute(!speech.muted());
+            saveSetting('muted', speech.muted());
+            render();
+        });
 
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press
@@ -1970,6 +2016,10 @@ async function bootCatalog() {
 
     // Words are split by spaces unless the player asked for the other way.
     speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
+
+    // Silent unless the player has turned the sound on. An absent setting is a
+    // first run, and a first run is silent.
+    speech.mute(settings ? settings.muted !== false : true);
 
     const container = $(`<div class="app-main-content"></div>`);
     catalog(container);

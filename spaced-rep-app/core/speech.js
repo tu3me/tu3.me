@@ -633,24 +633,63 @@ function speech() {
         return Math.min(20000, (3000 + String(text).length * 400) / rate);
     }
 
-    function speak(text, lang, whenDone) {
+    /*
+     * The voice that would read this, or none.
+     *
+     * A device with no Ukrainian voice reads Ukrainian with a Russian one. The
+     * neighbour is worth having: naming the language exactly is what this file
+     * spent its table on, but a machine has the voices it has, and knowing a
+     * word is Ukrainian must not be the reason it stops being read at all.
+     * Before the tag was passed in, every Cyrillic word went to the Russian
+     * voice and was heard; without this it would go silent.
+     *
+     * The tag may be a language the table never heard of — the picker offers
+     * every language there is a code for, and the table knows sixty-odd. Then
+     * the script of the text itself answers the same question: Italian asked
+     * for and not installed is read by whatever reads Latin.
+     *
+     * Its own function because the answer is wanted twice: once by say(), on
+     * its way to speaking, and once by whatever is deciding whether to offer a
+     * speaker at all.
+     */
+    function voiceOf(text, lang) {
         const tag = lang || detect(text).lang || FALLBACK;
-
-        /*
-         * A device with no Ukrainian voice reads Ukrainian with a Russian one.
-         *
-         * The neighbour is worth having: naming the language exactly is what
-         * this file spent its table on, but a machine has the voices it has, and
-         * knowing a word is Ukrainian must not be the reason it stops being read
-         * at all. Before the tag was passed in, every Cyrillic word went to the
-         * Russian voice and was heard; without this it would go silent.
-         */
-        // The tag may be a language the table never heard of — the picker offers
-        // every language there is a code for, and the table knows sixty-odd.
-        // Then the script of the text itself answers the same question: Italian
-        // asked for and not installed is read by whatever reads Latin.
         const owner = scriptOwner(tag) || scriptOwner(detect(text).lang);
-        const voice = voiceFor(tag) || (owner && owner !== tag ? voiceFor(owner) : null);
+
+        return voiceFor(tag) || (owner && owner !== tag ? voiceFor(owner) : null);
+    }
+
+    /*
+     * Whether anything on this device would read this out.
+     *
+     * Not knowing counts as yes. The voice list arrives after the page does and
+     * is empty for the first moments; a speaker missing from the first card of
+     * a session because the list had not landed yet is worse than one that
+     * promises a little too much, and say() is optimistic in exactly the same
+     * way — it holds the word and tries again when the voices turn up.
+     */
+    /*
+     * Calls back once, when the voice list first arrives.
+     *
+     * For a screen that had to draw before it could know: the answer it drew is
+     * the optimistic one, and this is the moment it can be checked. Nothing is
+     * registered when the list is already here — the screen has already drawn
+     * the right thing and has nothing to redo.
+     */
+    speech.onVoices = (whenKnown) => {
+        if (!speech.available() || voices().length) return;
+        speechSynthesis.addEventListener('voiceschanged', whenKnown, { once: true });
+    };
+
+    speech.readable = (text, lang) => {
+        if (!speech.available() || !hasWords(text)) return false;
+        if (voices().length === 0) return true;
+
+        return !!voiceOf(text, lang);
+    };
+
+    function speak(text, lang, whenDone) {
+        const voice = voiceOf(text, lang);
         if (!voice) return false;
 
         // Counted here rather than on the way in: a word the device has no
@@ -700,8 +739,32 @@ function speech() {
      * left seconds ago. Cutting the previous letter short keeps the sound on the
      * move that caused it.
      */
+    /*
+     * The sound, switched off by default.
+     *
+     * Where this app is used decides that: a phone taken out in a queue, a
+     * popup opened beside somebody working. An app that speaks the moment it is
+     * touched, before anyone has asked it to, is an app that stops being opened
+     * in public — and every word it would say is on the screen anyway.
+     *
+     * Kept here rather than asked of the caller, because every way a word can
+     * be said goes through say(), and one gate is one place to be wrong.
+     */
+    let muted = true;
+
+    speech.muted = () => muted;
+
+    speech.mute = (on) => { muted = !!on; };
+
+    /*
+     * Muted, nothing is said and say() answers false — the same answer it gives
+     * when the device has no voice, and for the same reason: the caller is being
+     * told that no sound happened, whatever the cause. What is different is that
+     * this one has a cause the player can undo, and the screen says so by
+     * pulsing the switch that is keeping it quiet.
+     */
     speech.say = (text, lang, whenDone) => {
-        if (!text || !speech.available()) return false;
+        if (!text || muted || !speech.available()) return false;
 
         if (voices().length === 0) {
             held = { text: text, lang: lang, done: whenDone };
@@ -871,11 +934,15 @@ function speech() {
      * under a word on a card, beside one in an option. The glyph is 1em, so
      * font-size is the one thing that resizes it.
      *
-     * Empty where there is nothing to say — an untranslated word would
-     * otherwise offer a speaker that answers with silence.
+     * Empty where there is nothing to say, and where there is nothing to say
+     * it with: an untranslated word, or a language this device has no voice
+     * for. The speaker is a promise that this can be heard, and on a machine
+     * without the voice pressing it did exactly what pressing the word did,
+     * which was nothing — an offer that answers with silence is worse than no
+     * offer, because the silence reads as the app being broken.
      */
-    speech.speakerHtml = (text, colour, css) => {
-        if (!hasWords(text)) return '';
+    speech.speakerHtml = (text, lang, colour, css) => {
+        if (!speech.readable(text, lang)) return '';
 
         return `<span class="say-all" title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
     };
