@@ -537,6 +537,36 @@ function catalog(container) {
      * Build bubble data for a word object based on its repetition history.
      * Marks are the symbols of the whole timeline: results, skipped and pending intervals.
      */
+    /*
+     * A word whose last answer was wrong, written in the red of the mark it just
+     * earned — the same #ff1744 the failed dot is drawn in, so the colour of the
+     * word and the colour of the dot under it are one statement and not two.
+     *
+     * Both lines of the bubble, the word and its translation: what is wrong is
+     * the word, not one of the two languages it is written in.
+     *
+     * This replaces a rule that painted stage 1 alone, which could never show
+     * anything this one does not — stage 1 is reachable by error only, so every
+     * word on it has a failed last answer. The other direction is not true, and
+     * that is the point of the change: a word with a long run behind it lands
+     * three rungs down rather than at the bottom, and was still just got wrong.
+     */
+    const FAIL_INK = '#ff1744';
+
+    /*
+     * Stage 1 is not a rung of the ramp so much as a hole under it: the only one
+     * a success cannot reach, where a word lands when a mistake has taken the
+     * whole of its run. The ramp's own colour for it is the first pale yellow of
+     * a series that means ripening, which is the opposite of what happened.
+     *
+     * So it takes a light red instead — the colour of a thing that has been hit,
+     * and the palest one that still reads as red rather than as pink. Kept here
+     * rather than swapped into tokens.stages(), because that ramp is generated as
+     * one arc and a step recoloured by hand inside it is a step that will drift
+     * away from its neighbours the next time the arc is regenerated.
+     */
+    const DAMAGED_FILL = '#f9d4d4';
+
     function buildBubbleData(word) {
         const progress = spacedRepetitions.getWordProgress(word);
         const colors = getStageColors(progress.stage);
@@ -545,11 +575,12 @@ function catalog(container) {
         return {
             word: word.original,
             translation: word.translation,
-            bgColor: colors.fill,
-            textColor: colors.ink,
-            transColor: colors.sub,
+            bgColor: progress.stage === 1 ? DAMAGED_FILL : colors.fill,
+            textColor: progress.lastFailed ? FAIL_INK : colors.ink,
+            transColor: progress.lastFailed ? FAIL_INK : colors.sub,
             marks: progress.marks,
             stage: progress.stage, // TEMP (debug): stage number shown in the bubble
+            sad: progress.lastFailed,
             timer,
             lang: word.originalLang
         };
@@ -580,9 +611,18 @@ function catalog(container) {
      */
     const BOUNCE_MS = 650;
 
-    // A word still counting down takes the same hop fifteen times slower, which
-    // at that speed reads as breathing rather than as asking to be answered.
-    const SLOW_BOUNCE_MS = BOUNCE_MS * 15;
+    /*
+     * A word that was just got wrong swings instead of hopping — see sad-bounce —
+     * and takes five times as long over it.
+     *
+     * Five times is far enough that the two are not compared but simply
+     * different: at three the slow one still read as the fast one being dragged,
+     * and a viewer measured it against its neighbours. At three and a quarter
+     * seconds it stops having a tempo and becomes something that moves about once
+     * while you are looking at it, which is what lets the shape be as wide as it
+     * is without the row looking unsteady.
+     */
+    const SAD_BOUNCE_MS = BOUNCE_MS * 5;
 
     /*
      * The bubble that is being read, held a little larger until it stops.
@@ -642,19 +682,31 @@ function catalog(container) {
         btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
     }
 
-    function bubbleMotion(stage, timer, order) {
-        // Stage 0 is the pile nothing has happened to yet. It has no wait to sit
-        // out and nothing to be ready for, so it does not move at all — and it
-        // would otherwise hop from the very first draw.
-        if (stage === 0) return '';
+    /*
+     * How a bubble moves, which is a single question: is this word asking to be
+     * answered right now.
+     *
+     * Only a word that is due moves at all, and the speed says how brightly it
+     * is asking. Everything else is still.
+     *
+     * Two kinds of still, and they look the same on purpose. A word nothing has
+     * happened to yet has nothing to be ready for — and would otherwise hop from
+     * the very first draw. A word counting down is not ready either, whatever it
+     * has been through: its badge says when, and a bubble that moved while its
+     * own timer was running would be contradicting it. Motion here means one
+     * thing or it means nothing, and the screen is quieter for having only the
+     * words that want something on it moving.
+     */
+    function bubbleMotion(stage, timer, sad, order) {
+        if (stage === 0 || timer) return '';
 
-        const period = timer ? SLOW_BOUNCE_MS : BOUNCE_MS;
-        const stagger = timer ? 1300 : 170;
-        return `animation: bounce ${period}ms ease-in-out ${-order * stagger}ms infinite;`;
+        const period = sad ? SAD_BOUNCE_MS : BOUNCE_MS;
+
+        return `animation: ${sad ? 'sad-bounce' : 'bounce'} ${period}ms ease-in-out ${-order * 170}ms infinite;`;
     }
 
     function createBubble(bubbleData, parent, order) {
-        const { word, translation, bgColor, textColor, transColor, marks, stage, timer, lang } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang } = bubbleData;
 
         // Build the repetition timeline: one sprite icon per repetition or elapsed interval
         let dotsHtml = '';
@@ -673,7 +725,7 @@ function catalog(container) {
             : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
+            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
                 <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1;">
                     ${dotsHtml}

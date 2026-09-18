@@ -264,6 +264,41 @@ body {
 }
 
 /*
+ * What a word bubble does when the last answer given to it was wrong.
+ *
+ * One wide swing over and back, like something too heavy to hop.
+ *
+ * It is the hop turned upside down and opened out: the same anchor at the foot
+ * of the bubble, but the height goes out of it rather than into it — 0.95 at the
+ * bottom of the swing against the hop's 1.0556 at the top — and it leans while
+ * it does so instead of springing straight up. A thing that swings rather than a
+ * thing that jumps.
+ *
+ * The swing returns past the middle, not to it: over to one side at 35%, back
+ * through and out the other side at 70%, a small last lean at 88%, home at the
+ * end. Three passes, each about half the one before, the way anything heavy on a
+ * hinge runs out. Without that decay the second half is the first half played
+ * backwards, and a movement that retraces itself reads as a rewind.
+ *
+ * The two big passes are turns and nothing else: the bubble does not travel on
+ * them. It does not need to — the anchor is at its foot, so turning is already
+ * what carries its top across. Sliding it sideways as well moved the foot too,
+ * and a body that leaves its own feet is not leaning, it is being pushed.
+ *
+ * Only the last small pass keeps a slide, half a pixel of it, and because the
+ * two before it name no translate at all the property drifts there from rest and
+ * back rather than stepping. It is the tail of the movement and it is allowed to
+ * wander that far.
+ */
+@keyframes sad-bounce {
+    0%, 35%, 70%, 88%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; translate: 0 0; rotate: 0deg; }
+    35% { scale: 1.0389 0.95; rotate: -1.4deg; }
+    70% { scale: 1.0194 0.975; rotate: 1deg; }
+    88% { scale: 1.0056 0.9944; translate: -0.5px 0; rotate: -0.3deg; }
+}
+
+/*
  * Motion that never stops is exactly what this setting is set for, and a screen
  * of bubbles all moving at once is the worst of it. The colours and the badge
  * carry the same information standing still.

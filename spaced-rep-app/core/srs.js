@@ -14,7 +14,16 @@ function spacedRepetitions() {
     // survived a day is not at risk of being forgotten by tomorrow.
     const INTERVALS = [
         0,                      // stage 0 — starting state, word is available right away
-        3 * MINUTE,
+
+        /*
+         * Stage 1 waits for nothing either, and it is the only rung a success
+         * cannot reach: a success sets stage = successRun + 1 with successRun at
+         * least 1, so it lands on 2 or above. Stage 1 is what an error leaves
+         * behind when the penalty has taken the whole run — "got it wrong with
+         * nothing to fall back on" — and that is a word to be asked again now
+         * rather than in three minutes.
+         */
+        0,
         5 * MINUTE,
         10 * MINUTE,
         30 * MINUTE,
@@ -86,12 +95,23 @@ function spacedRepetitions() {
         let stage = 0;
         let successRun = 0; // error-free repetitions since the start or the last error
         let errors = 0;
+
+        // Whether the most recent answer was wrong, which is not the same thing
+        // as being on a low stage: a word with a long run behind it lands well
+        // above the floor after a mistake, and is still a word that was just
+        // got wrong. dict draws it differently — see FAIL_INK there.
+        let lastFailed = false;
         let nextRepetition = null; // null — stage 0, no timer set yet
         const marks = [];
 
         for (const rep of reps) {
             const success = rep.result === 1;
             const isEarly = nextRepetition !== null && rep.timestamp < nextRepetition;
+
+            // Set for every repetition, early ones included: an early success
+            // changes nothing else about the word, but it is still the last
+            // answer given and it was not a mistake.
+            lastFailed = !success;
 
             if (isEarly) {
                 marks.push(success ? MARKS.EARLY_OK : MARKS.EARLY_FAIL);
@@ -133,7 +153,7 @@ function spacedRepetitions() {
             for (let i = 0; i < pending; i++) marks.push(MARKS.MISSED);
         }
 
-        return { stage, errors, nextRepetition, marks };
+        return { stage, errors, nextRepetition, marks, lastFailed };
     }
 
     // Thin wrapper used by the quiz screen and the set progress bar
