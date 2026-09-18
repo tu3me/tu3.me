@@ -301,8 +301,27 @@ function snake(container) {
          */
         const SLOT_AIR = '0.125em';
 
+        /*
+         * How wide a blank is, in the letters' own size, and the only space this
+         * bar has anywhere: what stands between two words.
+         */
+        const WORD_SPACE = 0.4;
+
+        /*
+         * The speaker and the air after it.
+         *
+         * A word's space, the same one that stands between two words — which is
+         * what the speaker is to the line, a thing in front of it rather than
+         * its first letter. It had a sliver before, written back when the bar
+         * put a quarter of a letter between every pair of letters and the margin
+         * only had to top that up to the gap a card gives; the bar's gap has
+         * since gone and the sliver stayed behind as the whole of it.
+         *
+         * Divided by the scale because the margin is em of the icon's own size
+         * and the space it is matching is em of a letter's.
+         */
         const SAY_SCALE = 0.7;
-        const SAY_LEAD = `margin-top: 0; margin-inline-end: 0.19em; font-size: ${BOX_SIZE * SAY_SCALE}px; flex: none;`;
+        const SAY_LEAD = `margin-top: 0; margin-inline-end: ${WORD_SPACE / SAY_SCALE}em; font-size: ${BOX_SIZE * SAY_SCALE}px; flex: none;`;
 
         function fitGathered() {
             // The gaps standing in for the blanks are measured and sized with
@@ -584,25 +603,26 @@ function snake(container) {
             gatheredBar.style.direction = isRtl(targetLetters.join('')) ? 'rtl' : 'ltr';
 
             /*
-             * The speaker appears when the whole line is open — collected or
-             * shown — and reads all of it. Before that there is nothing whole to
-             * read: half a word said out loud is not the word, and the letters
-             * already say themselves as they are eaten.
+             * The speaker is there from the first frame, with every letter still
+             * a "?", and it reads the line out loud without opening any of them.
+             *
+             * It costs nothing — no mistake, nothing on the dots. Hearing the
+             * word you are hunting for is the round being played rather than a
+             * way around it: the board is a row of letters in no order, and what
+             * turns it into a word is knowing which word it is. Opening the
+             * letters is the shortcut, and that one still costs.
+             *
+             * It used to wait until the line was whole, on the grounds that half
+             * a word said out loud is not the word — true of the letters as they
+             * are eaten, and beside the point for this, which says all of it
+             * whatever has been found so far.
              *
              * It leads the line rather than trailing it, which is where a card,
              * a question and an option all keep theirs, and it rides inside the
              * bar rather than under it: the banner is a fixed 104px and a third
              * row would not fit in it.
-             *
-             * Its arrival is also what opens the three depths of tap on the
-             * letters — see onLetterClick. One thing to notice, and it means the
-             * line is finished and can be picked over.
              */
-            const whole = showHint || collected >= targetLetters.length;
-
-            const speakerHtml = whole
-                ? speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, SAY_LEAD)
-                : '';
+            const speakerHtml = speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, SAY_LEAD);
 
             if (speakerHtml) {
                 $(gatheredBar, speakerHtml).addEventListener('click', () => cb.onSayAll());
@@ -626,7 +646,7 @@ function snake(container) {
                 if (BLANK.test(char)) {
                     const gap = document.createElement('div');
                     gap.className = 'snake-gathered-space';
-                    gap.style.cssText = `width: 0.4em; font-size: ${BOX_SIZE}px;`;
+                    gap.style.cssText = `width: ${WORD_SPACE}em; font-size: ${BOX_SIZE}px;`;
                     gatheredBar.appendChild(gap);
                     continue;
                 }
@@ -1491,6 +1511,12 @@ function snake(container) {
         clock.stop();
         forgetTaps();
         dropMark();
+
+        // The narration goes with the screen — see `narration`. hush() below
+        // cancels the voice it may be waiting on, and a cancelled voice reports
+        // back the same way a finished one does.
+        narration += 1;
+
         speech.hush();
         input.detach();
     }
@@ -1506,10 +1532,21 @@ function snake(container) {
      * word as it lands and then the whole of it, which is the only way to hear
      * what the parts add up to.
      *
+     * A word of one letter is not spelled out before it is said. The letter and
+     * the word are the same sound, and hearing it twice in a row does not teach
+     * anything it did not teach the first time.
+     *
      * Blanks and punctuation are not announced: neither has a sound of its own,
      * and "space" and "question mark" are not what a reader hears when they read
      * across one. A mark inside the word it was written in is another matter —
      * see worthSaying.
+     *
+     * One thing at a time, each starting a breath after the one before it has
+     * stopped. The waits used to run from the moment a letter started instead,
+     * and 420ms is less than a letter takes to say — so the word did not follow
+     * the letter, it landed on top of it and cut it off. Waiting on the voice
+     * rather than on a guess is also the only way to keep the gap the same on a
+     * device that reads slowly.
      *
      * The waits go through clock.after, which the clock clears when the screen
      * is left. A bare setTimeout would keep its word and say it into whatever
@@ -1690,7 +1727,52 @@ function snake(container) {
     // as it does said inside the line.
     const placeOf = (letters, from) => lineWords(letters).find(w => w.from === from);
 
+    /*
+     * The breath between one thing the board says and the next, counted from
+     * where the last one stopped.
+     *
+     * Short enough to hear the two as one thought — the letter and the word it
+     * finished — and long enough that they are two sounds rather than a slur.
+     */
+    const NARRATION_GAP = 350;
+
+    /*
+     * Which screen the narration belongs to, and which letter of it.
+     *
+     * A chain of waits outlives the moment it was started in, and there are two
+     * ways for it to become wrong. The player eats the next letter, and what the
+     * board was still saying about the last one is out of date. Or the player
+     * leaves, and hush() cancels the voice — which reports back exactly the way
+     * finishing does, so the chain wakes up on a screen that is gone and says
+     * its word into whatever page was opened next.
+     *
+     * Both are the same question — is this still the narration that is running —
+     * and a number answers it without either caller knowing about the other.
+     */
+    let narration = 0;
+
+    function sayInTurn(queue) {
+        const mine = narration;
+
+        const next = () => {
+            if (mine !== narration) return;
+
+            const text = queue.shift();
+            if (text === undefined) return;
+
+            // Nothing was heard — no voice for this, or the sound is off — so
+            // there is nothing to wait behind and the rest follows at once.
+            if (!speech.say(text, sayLang, () => clock.after(NARRATION_GAP, next))) next();
+        };
+
+        next();
+    }
+
     function sayProgress() {
+        // Whatever the board was still saying about the letter before this one
+        // has been overtaken by events.
+        narration += 1;
+
         const letters = board.letters();
         const done = board.progress();
 
@@ -1709,23 +1791,30 @@ function snake(container) {
         const phrase = letters.join('');
         const isPhrase = letters.some(l => BLANK.test(l));
 
+        // The word this letter ends: everything back to the blank before it.
+        let from = index;
+        while (from > 0 && !BLANK.test(letters[from - 1])) from--;
+
+        const closed = crossedBlank || atEnd;
+        const word = letters.slice(from, index + 1).join('').toLowerCase();
+
+        // The word is this one letter, so the letter is the word and saying both
+        // would be saying it twice.
+        const alone = closed && from === index;
+
+        const queue = [];
+
         // A letter is said as the board shows it — upper case is how a letter is
         // named. A word is said in the case it was written in: a run of capitals
         // is read out letter by letter by some engines, which is the right sound
         // for one letter and the wrong one for seven.
-        if (worthSaying(letters[index])) speech.say(letters[index], sayLang);
+        if (!alone && worthSaying(letters[index])) queue.push(letters[index]);
 
-        // The word just closed: everything back to the blank before it
-        if (crossedBlank || atEnd) {
-            let from = index;
-            while (from >= 0 && !BLANK.test(letters[from])) from--;
+        if (closed && isPhrase && worthSaying(word)) queue.push(word);
 
-            const word = letters.slice(from + 1, index + 1).join('').toLowerCase();
+        if (atEnd && worthSaying(phrase)) queue.push(phrase.toLowerCase());
 
-            if (isPhrase && worthSaying(word)) clock.after(420, () => speech.say(word, sayLang));
-        }
-
-        if (atEnd && worthSaying(phrase)) clock.after(isPhrase ? 1100 : 420, () => speech.say(phrase.toLowerCase(), sayLang));
+        sayInTurn(queue);
     }
 
     function render() {
@@ -1853,9 +1942,15 @@ function snake(container) {
                 sayLater(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
             },
 
-            // The speaker says the line whatever has been tapped, and ends the
-            // gesture: a letter still waiting its quarter second would otherwise
-            // be said over the top of it.
+            /*
+             * The speaker says the line whatever has been tapped, and ends the
+             * gesture: a letter still waiting its quarter second would otherwise
+             * be said over the top of it.
+             *
+             * Nothing here touches showHint or hadErrorThisRound. Listening is
+             * free — see the speaker in view.gathered — and the marks it paints
+             * are over boxes that go on reading "?" until they are found.
+             */
             onSayAll: () => {
                 forgetTaps();
 
@@ -2134,6 +2229,23 @@ function snake(container) {
         }
 
         refreshGathered();
+
+        /*
+         * Drawn before the voices were known, which means the speaker at the
+         * head of the bar was drawn on trust — an empty voice list reads as "yes"
+         * rather than as "no", because a speaker missing from the first word of
+         * a session is worse than one that promises a little too much.
+         *
+         * One redraw when the list lands settles it, and a redraw of the bar
+         * rather than of the screen: a screen is a board with a snake somewhere
+         * on it, and this is a row of boxes.
+         *
+         * It began to matter when the speaker stopped waiting for the line to be
+         * finished. While it only appeared at the end of a round the list had
+         * long since arrived, and the guess was never the one on screen.
+         */
+        speech.onVoices(refreshGathered);
+
         view.banner(currentItem.word.translation);
         paint();
         board.persistTo(state);
