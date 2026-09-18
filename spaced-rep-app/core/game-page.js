@@ -142,9 +142,17 @@ async function bootGame(id, module) {
     await storage.init();
 
     const settings = await storage.get('settings');
-    // Dark unless the player has chosen otherwise; there is no first-run prompt
-    // and no system sniffing, so an absent setting simply means the default.
-    const isDark = settings ? !!settings.isDark : true;
+    /*
+     * Dark unless the player has chosen otherwise; there is no first-run prompt
+     * and no system sniffing, so an absent setting simply means the default.
+     *
+     * Absent is the word that matters. This used to ask whether the record
+     * existed, which was the same question while the record could only be
+     * written by choosing a theme — and stopped being it the moment anything
+     * else was saved beside it. Turning the sound on inside a game wrote the
+     * record with no theme in it, and the catalog came back in the light one.
+     */
+    const isDark = settings ? settings.isDark !== false : true;
 
     // Where a word ends, which is what a tap on a card lands on: spaces, unless
     // the player asked for the dictionary's answer instead.
