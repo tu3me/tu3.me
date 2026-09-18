@@ -452,13 +452,32 @@ function snake(container) {
 
             const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 28px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 6px; color: ${palette.dpadColor}; cursor: pointer;`;
 
+            /*
+             * Three groups of one third each: the arrow back, the dots, and the
+             * settings this game is played with — the control mode, the speed,
+             * the sound.
+             *
+             * The chips sit at the right end rather than beside the arrow. They
+             * are settings, and the sound switch next to them is a setting too;
+             * on the left they read as things that happen to the round, next to
+             * the button that leaves it. It also gives the row of dots the
+             * middle back: ten of them are wider than a third, and a third is
+             * all they get while the two ends are the same width.
+             *
+             * The gap is six rather than eight so the group stays inside its
+             * share — two chips, a switch and eight-pixel gaps come to 114 of
+             * the 116 a third is worth once the dots have taken theirs, and a
+             * group that outgrows its share pushes the dots off centre.
+             */
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                </div>
+                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
+                <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6px;">
                     <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${CONTROL_MODES[controlMode]}" style="${chipStyle}">${controlIcon()}</button>
                     <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
                 </div>
-                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
             </div>`);
 
             header.querySelector('.back-btn').addEventListener('click', (e) => {

@@ -71,7 +71,12 @@ function page() {
         // The share belongs to the group and not to the button: a button with a
         // third of the header in it is a button you press by aiming at nothing
         // in particular.
-        const end = $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
+        // Reused when the game has already put one there. Snake keeps its own
+        // controls at this end and builds the group with them; the switch then
+        // hangs off what is there rather than opening a second group beside it,
+        // which would be a fourth share of a header divided in three.
+        const end = header.querySelector('.game-header-end')
+            || $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
 
         const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: none; color: ${colour}; cursor: pointer;"></button>`);
 
