@@ -813,6 +813,73 @@ function snake(container) {
         };
 
         // Replaces the banner and the letter row with the end-of-session panel
+        /*
+         * The confetti that comes down over a finished board.
+         *
+         * It rains: every piece starts above the top edge, falls the height of
+         * the board and a bit more, and goes out the bottom. No burst, no
+         * cannon — the shape of the thing is the falling, and anything thrown
+         * reads as an explosion somewhere.
+         *
+         * Over the board rather than the banner, because it is the place the
+         * work was done and by the time this runs it is the biggest empty thing
+         * on the screen: the snake has stopped and the letters are all eaten.
+         *
+         * Fixed rather than absolute, and hung on nothing: a piece is above the
+         * board before it is over it and below the board after, and an overlay
+         * inside the layout would either clip it or push something. Fixed means
+         * viewport coordinates, which is exactly what getBoundingClientRect
+         * hands back, and means nothing on the screen moves an inch to make room.
+         *
+         * Two things keep it from being a curtain: they do not all set off at
+         * once, and they do not all fall at the same speed. Either one alone
+         * still reads as a single sheet coming down.
+         *
+         * The sky takes itself down when the last piece lands. The timer after it
+         * is for the cases where no piece ever lands — animations turned off at
+         * the system level, a tab that was in the background the whole time — and
+         * removing a node twice costs nothing.
+         */
+        const CONFETTI = ['🎉', '🎊', '✨', '🎆', '🎇', '⭐', '🌟', '💫', '🥳', '🏆'];
+
+        const PIECES = 44;
+        const START_WINDOW = 900;
+        const FALL_LEAST = 1500;
+        const FALL_SPAN = 900;
+
+        function fireworks() {
+            const board = svg && svg.getBoundingClientRect();
+            if (!board || !board.width) return;
+
+            const sky = $(host, `<div class="snake-confetti" style="position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5;"></div>`);
+
+            let falling = 0;
+            const landed = () => { if (--falling <= 0) sky.remove(); };
+
+            for (let i = 0; i < PIECES; i++) {
+                // Spread across the width and then nudged, so the pieces cover
+                // it without coming down in a row.
+                const along = (i + Math.random()) / PIECES;
+
+                const x = board.left + board.width * along;
+
+                // Above the top edge by more than a piece is tall, so none of
+                // them is seen waiting to start.
+                const y = board.top - 40;
+
+                // Far enough past the bottom edge that the last of it is out of
+                // sight rather than stopping on the line.
+                const fall = board.height + 80;
+
+                const piece = $(sky, `<span class="snake-confetti-piece" style="position: absolute; left: ${Math.round(x)}px; top: ${Math.round(y)}px; margin-left: -0.5em; font-size: ${Math.round(15 + Math.random() * 14)}px; line-height: 1; will-change: transform, opacity; --dx: ${Math.round((Math.random() - 0.5) * board.width * 0.22)}px; --fall: ${Math.round(fall)}px; --sway: ${Math.round(6 + Math.random() * 14)}px; --spin: ${Math.round((Math.random() * 2 - 1) * 360)}deg; animation: snake-rain ${Math.round(FALL_LEAST + Math.random() * FALL_SPAN)}ms linear ${Math.round(Math.random() * START_WINDOW)}ms both;">${CONFETTI[i % CONFETTI.length]}</span>`);
+
+                falling += 1;
+                piece.addEventListener('animationend', landed, { once: true });
+            }
+
+            setTimeout(() => sky.remove(), START_WINDOW + FALL_LEAST + FALL_SPAN + 500);
+        }
+
         view.victory = () => {
             const el = translationEl();
             if (el) {
@@ -833,6 +900,10 @@ function snake(container) {
             if (goDictBtn) {
                 goDictBtn.addEventListener('click', () => cb.onGoDictionary());
             }
+
+            // Last, so the burst is measured against the board as it now stands
+            // and lands on a screen that has finished changing.
+            fireworks();
         };
 
         // Markup is being assembled as text, so anything coming from a word has

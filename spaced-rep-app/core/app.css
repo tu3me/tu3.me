@@ -231,13 +231,54 @@ body {
 }
 
 /*
+ * One piece of the confetti that comes down over a finished snake board.
+ *
+ * It falls, and that is the whole of it: in above the top edge, out below the
+ * bottom one, drifting a little to one side and turning over on the way.
+ *
+ * Linear, with no easing at all, which is the one thing that makes falling
+ * paper look like falling paper: it reaches its speed in the first inch and
+ * keeps it. An eased fall accelerates the whole way down, which is what a stone
+ * does. How fast is each piece's own business — see the script — and pieces at
+ * different speeds are what turn a curtain coming down into rain.
+ *
+ * The sway is four stops of lean, one way and then the other, and it is the
+ * difference between confetti and a screen of falling dots. It rides on top of
+ * the drift rather than replacing it, so a piece wanders as it goes across.
+ *
+ * Everything else about where a piece goes arrives as custom properties — one
+ * rule, four dozen paths. --fall is how far down it goes, --dx how far across,
+ * --sway how wide it wanders doing it, --spin how far it turns.
+ *
+ * It fades in at the top and out at the bottom, so that nothing is seen either
+ * appearing out of nowhere or stopping in mid-air.
+ */
+@keyframes snake-rain {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    25% { transform: translate(calc(var(--dx) * 0.25 + var(--sway)), calc(var(--fall) * 0.25)) rotate(calc(var(--spin) * 0.25)); }
+    50% { transform: translate(calc(var(--dx) * 0.5 - var(--sway)), calc(var(--fall) * 0.5)) rotate(calc(var(--spin) * 0.5)); }
+    75% { transform: translate(calc(var(--dx) * 0.75 + var(--sway)), calc(var(--fall) * 0.75)) rotate(calc(var(--spin) * 0.75)); }
+    88% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--fall)) rotate(var(--spin)); opacity: 0; }
+}
+
+/*
  * Motion that never stops is exactly what this setting is set for, and a screen
  * of bubbles all moving at once is the worst of it. The colours and the badge
  * carry the same information standing still.
+ *
+ * The confetti is the other kind — it happens once and is over — but it is
+ * also the loudest thing in the app, so it goes as well. Nothing is lost with
+ * it: the banner says Victory in words.
  */
 @media (prefers-reduced-motion: reduce) {
     .word-bubble-card {
         animation: none !important;
+    }
+
+    .snake-confetti {
+        display: none !important;
     }
 }
 

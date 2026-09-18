@@ -79,12 +79,46 @@ function store() {
         return items;
     }
 
-    // The one word-selection rule, shared by every game: whatever is due, or —
-    // when the player chose to play early and nothing is due — everything.
+    /*
+     * Fisher-Yates, on a copy of the list rather than in place.
+     *
+     * Every index gets an equal chance at every place, which the one-liner
+     * people reach for — sort() with a random comparator — does not: a sort is
+     * entitled to assume its comparator is consistent, and given one that is
+     * not, what comes out depends on which sort the engine happens to use.
+     */
+    function shuffled(list) {
+        const out = list.slice();
+
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const keep = out[i];
+            out[i] = out[j];
+            out[j] = keep;
+        }
+
+        return out;
+    }
+
+    /*
+     * The one word-selection rule, shared by every game: whatever is due, or —
+     * when the player chose to play early and nothing is due — everything.
+     *
+     * Shuffled, and shuffled before the limit rather than after it. Two things
+     * come of that, and both are wanted. A session asks its words in a different
+     * order every time, so what is being learned is the word rather than the
+     * place it sits in the row. And when more is due than fits in one session,
+     * it is a different handful each time: taken in order, the first ten due
+     * words were the whole of every session until they were answered, and the
+     * eleventh waited however long that took.
+     *
+     * The catalog calls this to count what is due and never looks at the order;
+     * a shuffle it throws away costs nothing on a list this size.
+     */
     function duePool(setId, allowEarly, limit) {
         const items = wordsOf(setId);
         const due = items.filter(i => spacedRepetitions.isWordDue(i.word));
-        const pool = (allowEarly && due.length === 0) ? items : due;
+        const pool = shuffled((allowEarly && due.length === 0) ? items : due);
         return limit ? pool.slice(0, limit) : pool;
     }
 
