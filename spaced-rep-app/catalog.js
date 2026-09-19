@@ -115,45 +115,37 @@ function catalog(container) {
     const LOGO_SIZE = 40;
 
     /*
-     * The two rings, and the other way of drawing them: filled in, on a thinner
-     * stroke. A press on the mark switches between the two and a second press
-     * switches back — nothing else in the app changes, and nothing is saved.
+     * The two rings of the mark, which are eyes: a dark pupil inside a thin
+     * white ring, the same face the snake's head wears — see faceOn in
+     * snake.js. They were hollow outlines once, and a press on the mark
+     * switched between the two; the switch is gone and the eyes stayed.
      *
-     * Screen state, like the open settings panel: it is a look being tried on,
-     * not a setting, and a reload brings the mark back as it is drawn here.
+     * The pupil is the dark theme's own ground, written out rather than taken
+     * from tokens: one fixed value in both themes, the way the game colours
+     * are, and a pupil that followed the theme would be a mark that changes
+     * when the page does. Not black, which on this coral is a hole punched
+     * through the card; this is the navy the whole app is built on, and at
+     * this size it reads as a dark that belongs to something.
      *
-     * Filled in, they are eyes rather than rings, and eyes blink — see
-     * blinkLogo. Shut is a line where the ring was, the length of its diameter,
-     * which is the same drawing the snake's head wears; the two faces are the
-     * same face and they close the same way.
+     * Shut is a line where the ring was, the length of its diameter — the
+     * same eye with the lid down, and the same drawing the snake closes with.
      */
     const RINGS = [
-        { cx: 11.37, r: 4.86, width: 2.83 },
-        { cx: 23.02, r: 3.01, width: 1.75 }
+        { cx: 11.37, r: 4.86 },
+        { cx: 23.02, r: 3.01 }
     ];
 
-    /*
-     * The pupil is the dark theme's own ground, written out rather than taken
-     * from tokens: it is one fixed colour in both themes, the way the game
-     * colours are, and a pupil that followed the theme would be a mark that
-     * changes when the page does.
-     *
-     * Not black, which on a coral card is a hole punched through it. This is
-     * the navy the whole app is built on, and at this size it reads as black
-     * that belongs to something.
-     */
-    const FILLED_RING = { fill: '#0f2b3c', width: 1.5 };
+    const RING_INK = '#0f2b3c';
+    const RING_STROKE = 1.5;
 
-    let ringsFilled = false;
     let ringsShut = false;
 
     function ringsSvg() {
-        return RINGS.map(ring => (ringsFilled && ringsShut)
+        return RINGS.map(ring => ringsShut
             ? `<path d="M${ring.cx - ring.r} 16H${ring.cx + ring.r}" fill="none"
-                    stroke="#ffffff" stroke-width="${FILLED_RING.width}" stroke-linecap="round" />`
-            : `<circle cx="${ring.cx}" cy="16" r="${ring.r}"
-                    fill="${ringsFilled ? FILLED_RING.fill : 'none'}" stroke="#ffffff"
-                    stroke-width="${ringsFilled ? FILLED_RING.width : ring.width}" />`).join('');
+                    stroke="#ffffff" stroke-width="${RING_STROKE}" stroke-linecap="round" />`
+            : `<circle cx="${ring.cx}" cy="16" r="${ring.r}" fill="${RING_INK}"
+                    stroke="#ffffff" stroke-width="${RING_STROKE}" />`).join('');
     }
 
     function logoSvg(fill, size) {
@@ -167,8 +159,9 @@ function catalog(container) {
     }
 
     /*
-     * The blink, and the one place in this file that changes what is on screen
-     * without redrawing it.
+     * The blink. It runs from the first render to the end of the page, and it
+     * is the one place in this file that changes what is on screen without
+     * redrawing it.
      *
      * Everything else here answers a press, and a press is rare enough that
      * rebuilding the catalog costs nothing. This happens every few seconds for
@@ -183,17 +176,27 @@ function catalog(container) {
      *
      * The gap is uneven, for the reason snake.js gives at its own blink: on a
      * metronome it reads as a machine.
+     *
+     * Started once, from the first render, and never stopped: there is one
+     * catalog page and it lives as long as the tab does.
      */
     const BLINK_SHUT_MS = 130;
     const BLINK_GAP_MS = 2400;
 
     let blinkTimer = null;
+    let blinking = false;
+
+    function startBlinking() {
+        if (blinking) return;
+
+        blinking = true;
+        blinkLogo();
+    }
 
     function blinkLogo() {
         clearTimeout(blinkTimer);
 
         ringsShut = false;
-        if (!ringsFilled) return;
 
         blinkTimer = setTimeout(() => {
             ringsShut = true;
@@ -1137,15 +1140,9 @@ function catalog(container) {
             render();
         });
 
-        // The mark's rings, filled in and back — see RINGS. A redraw for the
-        // same reason the mute button takes one: the header is built from what
-        // is true, and swapping attributes underneath it would leave the two
-        // disagreeing the next time anything else redraws.
-        header.querySelector('.dict-logo').addEventListener('click', () => {
-            ringsFilled = !ringsFilled;
-            render();
-            blinkLogo();
-        });
+        // The mark is a picture and nothing else now: no press, no state. The
+        // one thing it does, it does on its own — see blinkLogo.
+        startBlinking();
 
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press
