@@ -2380,16 +2380,33 @@ function catalog(container) {
 
                 return {
                     colour: i < ladder.lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle,
+                    boost: i < ladder.lit ? palette.stepBoost : '',
                     height,
                     radius: height / 2
                 };
             };
 
-            const waiting = { colour: palette.stepIdle, height: STEP_WAIT, radius: STEP_WAIT / 2 };
+            const waiting = { colour: palette.stepIdle, boost: '', height: STEP_WAIT, radius: STEP_WAIT / 2 };
 
+            /*
+             * The colour eases in; the size does not, and that is deliberate.
+             *
+             * Four pixels to ten is six pixels of change, and a screen can
+             * only show it six ways — animated over half a second it is six
+             * visible steps, a strip climbing a staircase. The radius is worse
+             * still at three. A colour has two hundred and fifty-six levels a
+             * channel and crosses them smoothly, so it is the one property
+             * here worth animating.
+             *
+             * So a segment snaps to its size the moment its turn comes and
+             * takes its colour on over the next half second. The wave is the
+             * sequence of snaps — see the stagger below — and the fade is what
+             * keeps it from looking like thirteen lights being switched.
+             */
             const stepStyle = (look) => `flex: 1; height: ${look.height}px; border-radius: ${look.radius}px;`
                 + ` background-color: ${look.colour};`
-                + ` transition: height 0.5s ease-out, border-radius 0.5s ease-out, background-color 0.5s ease-out;`;
+                + (look.boost ? ` filter: ${look.boost};` : '')
+                + ` transition: background-color 0.5s ease-out;`;
 
             // Drawn empty and coloured in a frame later, so the boxes light up
             // when the catalog opens rather than being found already lit. The
@@ -2437,18 +2454,42 @@ function catalog(container) {
                 });
             }
 
-            // Let the first frame land as a row of waiting strips, then run
-            // the real state in.
+            /*
+             * The first frame lands as a row of waiting strips, and then the
+             * real state runs in — one segment at a time, left to right.
+             *
+             * All thirteen at once was the first go, and thirteen strips
+             * growing in lockstep reads as one block changing height: the row
+             * is the thing that moves and the segments are not visible as
+             * parts of it. Started one after another it is a wave running down
+             * the ladder, which is both nicer to watch and truer — that is the
+             * order a word climbs the rungs in.
+             *
+             * The step is short enough that the wave is one motion rather
+             * than a queue: the segments snap 60ms apart and each one's colour
+             * keeps arriving for half a second after that, so a dozen are
+             * always still changing and the whole run is under a second and a
+             * half.
+             *
+             * Every segment gets its turn, including the ones that have
+             * nothing to change. The wave passes down the whole bar and simply
+             * stops being visible where the colour runs out, which is what
+             * makes the end of the colour look like the end of something
+             * rather than like a bar that is half drawn.
+             */
+            const STEP_WAVE_MS = 60;
+
             if (grows) {
-                setTimeout(() => {
-                    card.querySelectorAll('.set-progress-step').forEach((step, i) => {
+                card.querySelectorAll('.set-progress-step').forEach((step, i) => {
+                    setTimeout(() => {
                         const look = stepLook(i);
 
                         step.style.backgroundColor = look.colour;
+                        step.style.filter = look.boost;
                         step.style.height = `${look.height}px`;
                         step.style.borderRadius = `${look.radius}px`;
-                    });
-                }, 150);
+                    }, 150 + i * STEP_WAVE_MS);
+                });
             }
 
             card.querySelectorAll('.set-play-btn').forEach(btn => {
@@ -2533,6 +2574,34 @@ function catalog(container) {
              * dark theme keeps the quiet one it had.
              */
             stepIdle: isDark ? t.soft : stageRamp[0].fill,
+
+            /*
+             * On the light theme a lit segment is put through a filter that
+             * makes its colour denser.
+             *
+             * The ramp is not touched, and neither is its lightness. The
+             * filter takes each of the thirteen colours and pushes it away
+             * from grey along its own hue — the same rung, not washed out —
+             * and that moves the average distance from the white card from dE
+             * 34 to 52 while leaving the WCAG contrast at 1.5, because chroma
+             * is not lightness.
+             *
+             * Taking an eighth of the light off as well was tried: it puts
+             * that contrast at 1.8 and keeps the chroma, and it was still the
+             * wrong trade. The bar is a legend for the shelf, the shelf is
+             * pastel, and a legend printed darker than the thing it explains
+             * stops being the same colour at a glance.
+             *
+             * On the segment rather than on the bar, which costs nothing and
+             * keeps the option: a filter over the whole strip would reach the
+             * waiting ones too, and their near grey was lightened on purpose —
+             * see stepIdle just above.
+             *
+             * Nothing on the dark theme: there the same pastels are already
+             * 4.6 to 8.8 against the card, and deepening them would only make
+             * the bar louder than the bubbles it is a legend for.
+             */
+            stepBoost: isDark ? '' : 'saturate(1.7)',
 
             // The timer badge is the same colour family as the bar, taken deep
             // enough to carry white text: the bar has nothing written on it and
