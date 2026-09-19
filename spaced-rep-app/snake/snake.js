@@ -1085,11 +1085,17 @@ function snake(container) {
              * rotated. atan2(-dx, dy) is the angle that does it — zero for
              * down, 180 for up, ±90 for the sides.
              *
-             * Filled black inside the white ring, which is the mark's other
-             * look — the one the logo in the header takes when it is pressed.
-             * An open ring on a coral square reads as a hole in the head; a
-             * dark centre reads as a pupil, and a pupil is what makes the
-             * thing look back at you.
+             * Filled inside the white ring, which is the mark's other look —
+             * the one the logo in the header takes when it is pressed. An open
+             * ring on a coral square reads as a hole in the head; a dark
+             * centre reads as a pupil, and a pupil is what makes the thing
+             * look back at you.
+             *
+             * The fill is the dark theme's ground, the same value the logo's
+             * pupil takes, and fixed in both themes for the same reason the
+             * game colours are. Black was tried and is a hole punched in the
+             * head; this is the navy the app is built on, and it reads as a
+             * dark that belongs here.
              *
              * Shut is a line where the ring was, the length of its diameter and
              * the thickness of its stroke: the same eye with the lid down. A
@@ -1112,7 +1118,7 @@ function snake(container) {
                     return shut
                         ? `<path d="M${x - r} 0H${x + r}" stroke="#ffffff"
                             stroke-width="${width}" stroke-linecap="round" fill="none" />`
-                        : `<circle cx="${x}" cy="0" r="${r}" fill="#000000"
+                        : `<circle cx="${x}" cy="0" r="${r}" fill="#0f2b3c"
                             stroke="#ffffff" stroke-width="${width}" />`;
                 }).join('');
 

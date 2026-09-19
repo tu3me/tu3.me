@@ -169,7 +169,12 @@ function tokens() {
      * whole signal.
      */
     const STAGES = [
-        { fill: '#e3e5e8', ink: '#4a4f55', sub: '#6d737a' },   // 0  stone — a seed, nothing yet
+        // Stone, and lighter than anything else here on purpose: it is not a
+        // step of the arc but the state before it starts, and on the light
+        // theme it is also what an untouched segment of the progress bar is
+        // painted in — see palette.stepIdle in catalog.js. A seed should be
+        // the quietest thing on either screen.
+        { fill: '#ebedef', ink: '#4a4f55', sub: '#6d737a' },   // 0  stone — a seed, nothing yet
         { fill: '#fbedc3', ink: '#605024', sub: '#857447' },   // 1  pale yellow
         { fill: '#ebe9bc', ink: '#605e24', sub: '#858347' },   // 2  yellow
         { fill: '#dfebb9', ink: '#526024', sub: '#768547' },   // 3  gold

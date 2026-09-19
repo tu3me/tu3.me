@@ -132,7 +132,17 @@ function catalog(container) {
         { cx: 23.02, r: 3.01, width: 1.75 }
     ];
 
-    const FILLED_RING = { fill: '#000000', width: 1.5 };
+    /*
+     * The pupil is the dark theme's own ground, written out rather than taken
+     * from tokens: it is one fixed colour in both themes, the way the game
+     * colours are, and a pupil that followed the theme would be a mark that
+     * changes when the page does.
+     *
+     * Not black, which on a coral card is a hole punched through it. This is
+     * the navy the whole app is built on, and at this size it reads as black
+     * that belongs to something.
+     */
+    const FILLED_RING = { fill: '#0f2b3c', width: 1.5 };
 
     let ringsFilled = false;
     let ringsShut = false;
@@ -760,6 +770,75 @@ function catalog(container) {
      * away from its neighbours the next time the arc is regenerated.
      */
     const DAMAGED_FILL = '#f9d4d4';
+
+    /*
+     * The bar under a set's name: thirteen boxes, one per rung a word can
+     * climb, and the colour of each is the colour its bubbles wear on that
+     * rung. It is the legend the shelf never had — the bubbles have always
+     * been a ramp and nothing said so.
+     *
+     * Thirteen because that is how many rungs there are to climb: stage 0 is a
+     * word nothing has happened to and stage 1 is one an error has taken back
+     * to the floor, and neither is progress. The climbing starts at 2, so
+     * segment one is stage 2 and segment thirteen is the top of the ramp.
+     *
+     * Two words decide what it shows, and they are the two ends of the set:
+     *
+     *   the best word colours middles — how far anything here has got;
+     *   the worst word colours edges  — how far all of it has got.
+     *
+     * So a set fills in twice over, and a segment has three states it passes
+     * through in order:
+     *
+     *   waiting  the thinnest pill, in the resting colour — see stepIdle;
+     *   lit      a little taller, and in the colour of its stage;
+     *   grown    taller again, and the tallest the row goes.
+     *
+     * Height is the whole of it, and that is the second attempt. The first
+     * built the same three states out of a border and a fill — a thick
+     * transparent edge that the colour later filled in — and it was wrong in
+     * two ways at once. A transparent edge insets the strip sideways as well,
+     * so the small state sat in a gap three pixels wider at each end than the
+     * one the flex row gives, and a row of short dashes drifted apart. And a
+     * background is painted under the border unless it is clipped, so the
+     * small state was not small at all until background-clip was set — a fix
+     * for a problem the design did not need to have.
+     *
+     * Nothing moves sideways now. Every segment is the full width of its
+     * share of the row in all three states, the gaps between them are the
+     * row's own, and what changes is how tall the strip is and whether its
+     * ends are round.
+     *
+     * The gap between the passes is the spread of the set, which is worth
+     * seeing and which one number for the whole set can never show.
+     *
+     * Counting: a word on stage s has climbed s - 1 rungs of the thirteen, so
+     * stage 2 lights the first box and stage 14 lights the last. The ask said
+     * s - 2, which leaves the top box dark on a set that is entirely mastered —
+     * a bar that cannot be finished is a bar nobody trusts.
+     */
+    const SEGMENTS = 13;
+    const FIRST_RUNG = 2;
+
+    // Three states, three heights, and every one of them a pill: the radius
+    // is always half the height, so what changes down the row is size and
+    // nothing else. Four, six and ten — each step is enough to see without
+    // comparing, which is the whole job of a bar read at a glance.
+    const STEP_WAIT = 4;
+    const STEP_LIT = 6;
+    const STEP_TALL = 10;
+
+    function ladderOf(words) {
+        const stages = (words || []).map(w => spacedRepetitions.getWordProgress(w).stage);
+        const climbed = (stage) => Math.max(0, Math.min(SEGMENTS, stage - FIRST_RUNG + 1));
+
+        if (stages.length === 0) return { lit: 0, grown: 0 };
+
+        return {
+            lit: climbed(Math.max(...stages)),
+            grown: climbed(Math.min(...stages))
+        };
+    }
 
     function buildBubbleData(word) {
         const progress = spacedRepetitions.getWordProgress(word);
@@ -2290,8 +2369,33 @@ function catalog(container) {
             // The number beside it is not animated. A bar sweeping to its length
             // reads as one motion; a digit counting up beside it reads as a
             // second, slower one, and the eye ends up watching the wrong one.
-            const from = intro ? 0 : progress;
-            const grows = from !== progress;
+            const ladder = ladderOf(set.words);
+
+            // The three states of one segment, and the style that draws any of
+            // them. Shared by the markup below and by the timeout that runs
+            // the bar up when the catalog opens, so there is one description
+            // of what a segment looks like rather than two that must agree.
+            const stepLook = (i) => {
+                const height = i < ladder.grown ? STEP_TALL : (i < ladder.lit ? STEP_LIT : STEP_WAIT);
+
+                return {
+                    colour: i < ladder.lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle,
+                    height,
+                    radius: height / 2
+                };
+            };
+
+            const waiting = { colour: palette.stepIdle, height: STEP_WAIT, radius: STEP_WAIT / 2 };
+
+            const stepStyle = (look) => `flex: 1; height: ${look.height}px; border-radius: ${look.radius}px;`
+                + ` background-color: ${look.colour};`
+                + ` transition: height 0.5s ease-out, border-radius 0.5s ease-out, background-color 0.5s ease-out;`;
+
+            // Drawn empty and coloured in a frame later, so the boxes light up
+            // when the catalog opens rather than being found already lit. The
+            // redraws the screen does to itself skip that and draw the end
+            // state — see the timeout below.
+            const grows = intro;
 
             $(card, `
                 <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -2309,8 +2413,9 @@ function catalog(container) {
                     </div>
                 </div>
 
-                <div class="set-progress-bar-bg" style="background: ${palette.barBg}; border-radius: 999px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 14px;">
-                    <div class="set-progress-bar-fill" style="background: ${palette.barFill}; height: 100%; border-radius: 999px; width: ${from}%; transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
+                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 4px; height: ${STEP_TALL}px; margin-bottom: 14px;">
+                    ${Array.from({ length: SEGMENTS }, (_, i) => `<div class="set-progress-step"
+                        style="${stepStyle(grows ? waiting : stepLook(i))}"></div>`).join('')}
                 </div>
 
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
@@ -2332,11 +2437,17 @@ function catalog(container) {
                 });
             }
 
-            // Let the first frame land at zero, then run to the real value.
+            // Let the first frame land as a row of waiting strips, then run
+            // the real state in.
             if (grows) {
                 setTimeout(() => {
-                    const bar = card.querySelector('.set-progress-bar-fill');
-                    if (bar) bar.style.width = `${progress}%`;
+                    card.querySelectorAll('.set-progress-step').forEach((step, i) => {
+                        const look = stepLook(i);
+
+                        step.style.backgroundColor = look.colour;
+                        step.style.height = `${look.height}px`;
+                        step.style.borderRadius = `${look.radius}px`;
+                    });
                 }, 150);
             }
 
@@ -2405,7 +2516,23 @@ function catalog(container) {
             inputBg: t.soft,
             inputText: t.ink,
             barBg: t.soft,
-            barFill: t.progress,
+
+            /*
+             * What a segment of the ladder is before anything has happened to
+             * it, and the two themes answer differently.
+             *
+             * On the light theme it is stage 0's own colour — the stone a
+             * bubble wears when nothing has happened to it either. The bar is
+             * a legend for the shelf, and its resting state saying the same
+             * thing as a resting bubble is the whole idea; the warm neutral it
+             * used is the colour of chips and tracks, which on paper reads as
+             * part of the page rather than as the bottom of a scale.
+             *
+             * On the dark theme that stone is near-white and a row of it would
+             * be the brightest thing on the card — an empty bar shouting. The
+             * dark theme keeps the quiet one it had.
+             */
+            stepIdle: isDark ? t.soft : stageRamp[0].fill,
 
             // The timer badge is the same colour family as the bar, taken deep
             // enough to carry white text: the bar has nothing written on it and
