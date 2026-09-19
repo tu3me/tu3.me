@@ -822,11 +822,12 @@ function catalog(container) {
 
     // Three states, three heights, and every one of them a pill: the radius
     // is always half the height, so what changes down the row is size and
-    // nothing else. Four, six and ten — each step is enough to see without
-    // comparing, which is the whole job of a bar read at a glance.
+    // nothing else. Four, seven and twelve — the gaps grow as the states do,
+    // which is a difference that needs no comparing, and that is the whole
+    // job of a bar read at a glance.
     const STEP_WAIT = 4;
-    const STEP_LIT = 6;
-    const STEP_TALL = 10;
+    const STEP_LIT = 7;
+    const STEP_TALL = 12;
 
     function ladderOf(words) {
         const stages = (words || []).map(w => spacedRepetitions.getWordProgress(w).stage);
@@ -2380,13 +2381,12 @@ function catalog(container) {
 
                 return {
                     colour: i < ladder.lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle,
-                    boost: i < ladder.lit ? palette.stepBoost : '',
                     height,
                     radius: height / 2
                 };
             };
 
-            const waiting = { colour: palette.stepIdle, boost: '', height: STEP_WAIT, radius: STEP_WAIT / 2 };
+            const waiting = { colour: palette.stepIdle, height: STEP_WAIT, radius: STEP_WAIT / 2 };
 
             /*
              * The colour eases in; the size does not, and that is deliberate.
@@ -2405,7 +2405,6 @@ function catalog(container) {
              */
             const stepStyle = (look) => `flex: 1; height: ${look.height}px; border-radius: ${look.radius}px;`
                 + ` background-color: ${look.colour};`
-                + (look.boost ? ` filter: ${look.boost};` : '')
                 + ` transition: background-color 0.5s ease-out;`;
 
             // Drawn empty and coloured in a frame later, so the boxes light up
@@ -2485,7 +2484,6 @@ function catalog(container) {
                         const look = stepLook(i);
 
                         step.style.backgroundColor = look.colour;
-                        step.style.filter = look.boost;
                         step.style.height = `${look.height}px`;
                         step.style.borderRadius = `${look.radius}px`;
                     }, 150 + i * STEP_WAVE_MS);
@@ -2575,33 +2573,6 @@ function catalog(container) {
              */
             stepIdle: isDark ? t.soft : stageRamp[0].fill,
 
-            /*
-             * On the light theme a lit segment is put through a filter that
-             * makes its colour denser.
-             *
-             * The ramp is not touched, and neither is its lightness. The
-             * filter takes each of the thirteen colours and pushes it away
-             * from grey along its own hue — the same rung, not washed out —
-             * and that moves the average distance from the white card from dE
-             * 34 to 52 while leaving the WCAG contrast at 1.5, because chroma
-             * is not lightness.
-             *
-             * Taking an eighth of the light off as well was tried: it puts
-             * that contrast at 1.8 and keeps the chroma, and it was still the
-             * wrong trade. The bar is a legend for the shelf, the shelf is
-             * pastel, and a legend printed darker than the thing it explains
-             * stops being the same colour at a glance.
-             *
-             * On the segment rather than on the bar, which costs nothing and
-             * keeps the option: a filter over the whole strip would reach the
-             * waiting ones too, and their near grey was lightened on purpose —
-             * see stepIdle just above.
-             *
-             * Nothing on the dark theme: there the same pastels are already
-             * 4.6 to 8.8 against the card, and deepening them would only make
-             * the bar louder than the bubbles it is a legend for.
-             */
-            stepBoost: isDark ? '' : 'saturate(1.7)',
 
             // The timer badge is the same colour family as the bar, taken deep
             // enough to carry white text: the bar has nothing written on it and
