@@ -237,12 +237,12 @@ function snake(container) {
          *
          * 1.2 was enough while the letters were Latin, and cut everything else:
          * a line box that tall leaves 2.9px under the baseline at this size,
-         * and a Hebrew final kaf or a sheva needs 4. Measured across the whole
-         * of WRITING SYSTEMS, the deepest letter (हूँ) reaches 5px below the
-         * baseline and the tallest (कै) 18px above it — past the font's own
-         * ascent of 17 — so the ink wants 23px where the line gave 18.7. The
-         * bar clips what does not fit, which is what made the tops and tails
-         * disappear.
+         * and a Hebrew final kaf or a sheva needs 4. Measured across a page
+         * of ten scripts, the deepest letter (हूँ, a Devanagari vowel sign
+         * hanging under its consonant) reaches 5px below the baseline and the
+         * tallest (कै) 18px above it — past the font's own ascent of 17 — so
+         * the ink wants 23px where the line gave 18.7. The bar clips what does
+         * not fit, which is what made the tops and tails disappear.
          *
          * 1.6 leaves about a pixel of air at each end. The cap grows with it,
          * so a word that takes two lines still does so at full size rather than
