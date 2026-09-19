@@ -98,7 +98,11 @@
 /* The system preference deliberately plays no part: everyone starts dark, and
    light is only ever an explicit choice the player made. */
 :root[data-theme="light"] {
-    --ground: #d5e3df;
+    /* The same two values as LIGHT.ground and LIGHT.ink in tokens.js, and they
+       have to be kept the same by hand: this rule exists so the page is the
+       right colour in the first frame, before any script has run, and a script
+       is exactly what it cannot wait for. */
+    --ground: #e8dfd0;
     --ink: #153040;
 }
 

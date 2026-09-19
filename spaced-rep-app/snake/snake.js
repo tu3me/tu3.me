@@ -2589,18 +2589,27 @@ function snake(container) {
             saying: t.accent,
 
             letterPending: t.muted,
-            // A collected letter turns mint — the colour progress and a right
-            // answer are painted in everywhere else in the app, and collecting
-            // a letter is exactly that.
-            letterCollected: t.progress,
+            /*
+             * A collected letter turns mint — the colour progress and a right
+             * answer are painted in everywhere else in the app, and collecting a
+             * letter is exactly that.
+             *
+             * The deep mint on the light theme, and it is the same statement in
+             * a readable voice. Mint is mid-light by design: on the dark banner
+             * it is 5.8 against its ground, on the light one 1.4, which is a
+             * letter you have to go looking for. progressFill exists for exactly
+             * this and is the same hue.
+             */
+            letterCollected: isDark ? t.progress : t.progressFill,
             letterHinted: t.muted,
             grid: t.soft,
             // The letters keep the mint that progress and a right answer are
-            // painted in. The head takes the coral of the button you press —
-            // the thing you steer told apart from the thing you steer at, and
-            // far enough from the body's blues and violets to stay legible
-            // against every segment behind it.
-            boardLetter: t.progress,
+            // painted in — the deep one on the light theme, where the board is
+            // white and the light mint comes to 2.1 against it. The head takes
+            // the coral of the button you press: the thing you steer told apart
+            // from the thing you steer at, and far enough from the body's blues
+            // and violets to stay legible against every segment behind it.
+            boardLetter: isDark ? t.progress : t.progressFill,
             head: t.accent,
             bodyHueStart: isDark ? 180 : 210,
             bodyHueEnd: isDark ? 280 : 300,

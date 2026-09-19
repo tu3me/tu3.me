@@ -52,23 +52,42 @@ function tokens() {
         err: '#ef6f5a'
     };
 
+    /*
+     * Warm paper, which is what the dark theme's deep sea-navy is answered by —
+     * the two are complementary rather than one being the other turned inside
+     * out. It was a soft grey-green for a while, at a fifth of the mint's
+     * saturation, and the trouble with that was not the hue but the company it
+     * kept: a desaturated green page under pure white cards reads as something
+     * clinical, and every grey thing on it — the bubbles of a word nothing has
+     * happened to, the chips, the tracks — joined in. Warmed, the page stops
+     * competing and the coral and mint on top of it have somewhere to be bright.
+     *
+     * Four steps of one ladder, set by luminance rather than by eye, so that
+     * each is told from the one above it at a glance: the card at 1.00, the page
+     * at 0.75, the chips and tracks at 0.70, the borders at 0.66. The page keeps
+     * exactly the distance from the card it always had — 1.32 — so a card still
+     * sits on the page rather than in it.
+     *
+     * The border is held no darker than the green one it replaces, which is not
+     * a free choice: snake lays its banner in it and writes collected letters on
+     * it in mint, and mint on anything light is about 1.4 whatever the hue. A
+     * warmer, deeper border would have made a bad number worse.
+     *
+     * The ink stays the navy of the other theme's ground. It is the one thing
+     * the two share besides the coral and the mint, and navy on cream is a
+     * combination older than either of them.
+     *
+     * muted is set by contrast, not by eye — it is the one neutral that carries
+     * text, on the white card and on the page both, and at 6.65 and 5.04 it
+     * clears 4.5 on each.
+     */
     const LIGHT = {
-        // A soft grey-green: the mint's hue, but at a fifth of its saturation,
-        // so it reads as a neutral with a cast rather than as a pale mint. The
-        // saturated version was tried and thrown out — at 56% it turns clinical,
-        // and the page should be the quietest thing on screen.
-        //
-        // soft and border keep their old distances from the ground; muted is set
-        // by contrast instead, because it is the one that carries text. It sits
-        // on the white card and on the ground both, and at 6.06 and 4.59 it now
-        // clears 4.5 on each — which the warm muted it replaces never did on the
-        // ground (4.08).
-        ground: '#d5e3df',
+        ground: '#e8dfd0',
         surface: '#ffffff',
-        soft: '#d9e5e2',
-        border: '#c3d6d0',
+        soft: '#e3d9c8',
+        border: '#ddd2bf',
         ink: '#153040',
-        muted: '#516761',
+        muted: '#655b4f',
 
         accent: '#ef6f5a',
         onAccent: '#ffffff',
