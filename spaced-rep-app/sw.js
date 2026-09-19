@@ -11,7 +11,7 @@
  * what makes the app instant offline — and what would serve stale code if the
  * name were left to a person to remember.
  */
-const CACHE = 'spaced-repetition-app-b9121f14';
+const CACHE = 'spaced-repetition-app-6d7eb0ee';
 
 // Every file the app needs to start with no network. A new game means one more
 // pair of lines here, alongside its line in registry.js.
@@ -42,10 +42,39 @@ const SHELL = [
     'icons/icon-512.png'
 ];
 
+/*
+ * Filling the cache, and doing it from the network rather than from whatever
+ * the browser happens to be holding.
+ *
+ * cache.addAll would be the one-liner for this, and it was — but the fetches it
+ * makes are ordinary ones, so they are served out of the HTTP cache like any
+ * others. GitHub Pages hands every file out with max-age=600, which means a
+ * phone that opened the app within ten minutes of a deploy could install a
+ * worker under the new name and fill it with the old bytes. Nothing ever
+ * refetches a shell file afterwards — that is the whole point of the name — so
+ * that copy would be served until the deploy after next.
+ *
+ * `cache: 'reload'` is the request that will not be answered from a cache: it
+ * goes to the network, and it drops what it gets back into the HTTP cache on
+ * the way through.
+ *
+ * One failure still fails the whole install, which is what addAll did and what
+ * is wanted: a shell missing one file is a shell that breaks offline in a way
+ * nobody would notice until they were offline. A worker that refuses to install
+ * leaves the last one running, which is a working app.
+ */
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE)
-            .then(cache => cache.addAll(SHELL.map(p => new URL(p, self.registration.scope).href)))
+            .then(cache => Promise.all(SHELL.map(p => {
+                const url = new URL(p, self.registration.scope).href;
+
+                return fetch(new Request(url, { cache: 'reload' })).then(answer => {
+                    if (!answer.ok) throw new Error(`${answer.status} ${url}`);
+
+                    return cache.put(url, answer);
+                });
+            })))
             .then(() => self.skipWaiting())
     );
 });

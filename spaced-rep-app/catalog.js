@@ -47,6 +47,12 @@ function catalog(container) {
      * change the theme or to wipe the data, and what lay between those two was
      * a question about word boundaries and thirteen numbers. Both are worth
      * having and neither is worth meeting on the way past.
+     *
+     * Drawn as a heading and not as a row — small caps in the hint colour with
+     * a rule running off to the edge, no pill and no border. In the pill it
+     * wore first it was the third switch in a column of switches, and a switch
+     * is a thing that has a state: it read as a setting called Advanced that
+     * was currently off.
      */
     let advancedOpen = false;
 
@@ -156,6 +162,10 @@ function catalog(container) {
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
 
     const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
+
+    // The same arrow cut down for the Advanced heading, where it stands beside
+    // a 12px word rather than a 15px one.
+    const CHEVRON_SMALL = chromeIcon(`<path d="M9 5l7 7-7 7" />`, 14);
 
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
@@ -1474,9 +1484,10 @@ function catalog(container) {
                     <span>Theme</span>
                     <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
                 </button>
-                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
-                    <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
-                    <span style="flex: 1; text-align: left;">Advanced</span>
+                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 2px; background: transparent; border: none; font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
+                    <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON_SMALL}</span>
+                    <span>Advanced</span>
+                    <span class="dict-advanced-rule" style="flex: 1; height: 1px; background: ${palette.softBorder};"></span>
                 </button>
                 <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
                 <div class="dict-advanced-body" style="padding-top: 8px;">
