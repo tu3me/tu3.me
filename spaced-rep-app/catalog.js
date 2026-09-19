@@ -612,15 +612,18 @@ function catalog(container) {
     const BOUNCE_MS = 650;
 
     /*
-     * A word that was just got wrong swings instead of hopping — see sad-bounce —
-     * and takes five times as long over it.
+     * A word that was just got wrong takes the same hop five times slower.
      *
-     * Five times is far enough that the two are not compared but simply
-     * different: at three the slow one still read as the fast one being dragged,
+     * The same hop, because there is only one thing a moving bubble has to say —
+     * answer me — and a word that was got wrong is not asking for something
+     * different, it is asking less brightly. A shape of its own said that in a
+     * second language nobody had been taught.
+     *
+     * Five times is far enough that the two speeds are not compared but simply
+     * different: at three the slow one still read as the same hop being dragged,
      * and a viewer measured it against its neighbours. At three and a quarter
-     * seconds it stops having a tempo and becomes something that moves about once
-     * while you are looking at it, which is what lets the shape be as wide as it
-     * is without the row looking unsteady.
+     * seconds it stops being a hop with a tempo and becomes something that moves
+     * about once while you are looking at it.
      */
     const SAD_BOUNCE_MS = BOUNCE_MS * 5;
 
@@ -702,7 +705,7 @@ function catalog(container) {
 
         const period = sad ? SAD_BOUNCE_MS : BOUNCE_MS;
 
-        return `animation: ${sad ? 'sad-bounce' : 'bounce'} ${period}ms ease-in-out ${-order * 170}ms infinite;`;
+        return `animation: bounce ${period}ms ease-in-out ${-order * 170}ms infinite;`;
     }
 
     function createBubble(bubbleData, parent, order) {

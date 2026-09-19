@@ -190,6 +190,21 @@ function snake(container) {
         let cb = {};
         let header, hintBanner, gatheredBar, svg, scene, measure, controlsArea;
         let cellSize = 0;
+
+        /*
+         * Whether the snake is drawn at all this frame.
+         *
+         * Display state and nothing else, which is why it lives here and not on
+         * the board: a snake that is blinking has not changed — where it is, how
+         * long it is and what it is carrying are all exactly as they were. It is
+         * also why it is never persisted. Leaving the screen mid-blink and coming
+         * back to a snake that is not there would be a saved game with a hole in
+         * it, and the hole would last until the next crash.
+         */
+        let bodyShown = true;
+
+        view.flashBody = (on) => { bodyShown = on; };
+
         let controlMode = 0;
         let difficulty = SPEED_AT_START;
 
@@ -482,6 +497,10 @@ function snake(container) {
         // Builds the screen from scratch and remembers the callbacks
         view.mount = (opts) => {
             cb = opts;
+
+            // A screen built fresh has nothing mid-blink about it, whatever the
+            // last one was doing when it went away.
+            bodyShown = true;
             controlMode = opts.controlMode || 0;
             difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
@@ -594,15 +613,6 @@ function snake(container) {
             if (el) {
                 el.textContent = text;
                 fitTranslation(el);
-            }
-        };
-
-        // The heart round shows a single big glyph instead of the translation
-        view.bannerHeart = () => {
-            const el = translationEl();
-            if (el) {
-                el.innerHTML = '❤️';
-                el.style.fontSize = '28.8px';
             }
         };
 
@@ -1002,7 +1012,10 @@ function snake(container) {
             const jointReach = SEG_INSET + 1;   // 1px into each segment, so no seam shows
             const jointWidth = cellSize * 0.42;
 
-            for (let i = 0; i < s.snakeBody.length - 1; i++) {
+            // Gone for a blink after a crash — see view.flashBody. The joints go
+            // with the segments they bridge; the spark below does not, because it
+            // marks the place of the bang rather than the thing that banged.
+            for (let i = 0; bodyShown && i < s.snakeBody.length - 1; i++) {
                 const a = s.snakeBody[i];
                 const b = s.snakeBody[i + 1];
                 if (Math.abs(b.x - a.x) + Math.abs(b.y - a.y) !== 1) continue;
@@ -1020,7 +1033,7 @@ function snake(container) {
                 }
             }
 
-            s.snakeBody.forEach((part, idx) => {
+            (bodyShown ? s.snakeBody : []).forEach((part, idx) => {
                 const partColor = segmentColor(idx);
                 const radius = idx === 0 ? 6 : 4;
 
@@ -2198,6 +2211,52 @@ function snake(container) {
             }
         }
 
+        /*
+         * The snake blinks once where it crashed, and only then is moved.
+         *
+         * Once, not a flutter: this is a wince, and a wince is one movement. A
+         * run of them turns an accident into an animation, and the player is
+         * waiting to play rather than to be told at length what went wrong.
+         *
+         * It happens before the turn rather than after it, for the same reason a
+         * wince comes before the step back — the blink is about what has just
+         * happened, and once the snake has been picked up and turned around,
+         * what just happened is over.
+         *
+         * Driven by clock.after and not by the game's own ticks, which is the only
+         * way it works at every speed: on the slowest there is no free-running clock
+         * at all and the board is repainted only when the player presses something,
+         * so a blink counted in ticks would never come.
+         *
+         * It opens with a beat of stillness. The spark is drawn on the frame of the
+         * crash, and hiding the snake in that same instant would take the picture
+         * away before it had been seen. The beat and the blink are each half of
+         * the half second the crash used to wait out doing nothing, so the pause
+         * before the turn is exactly the length it always was — what changed is
+         * that something happens during it.
+         */
+        const CRASH_BLINKS = 1;
+        const BLINK_MS = 250;
+
+        function blinkCrash(whenDone) {
+            // Two flips to a blink: away and back. The last one puts the snake back,
+            // so whatever runs afterwards starts from a board that is whole.
+            let left = CRASH_BLINKS * 2;
+
+            const flip = () => {
+                left -= 1;
+
+                view.flashBody(left % 2 === 0);
+                paint();
+
+                if (left > 0) return clock.after(BLINK_MS, flip);
+
+                whenDone();
+            };
+
+            clock.after(BLINK_MS, flip);
+        }
+
         // Restarts the round after the crash animation has played out
         function afterCrash(event) {
             if (event === 'crashHeart') {
@@ -2289,7 +2348,7 @@ function snake(container) {
             if (event === 'crashHeart' || event === 'crashRestart') {
                 board.persistTo(state);
                 paint();
-                clock.after(500, () => afterCrash(event));
+                blinkCrash(() => afterCrash(event));
                 return;
             }
 
@@ -2354,9 +2413,13 @@ function snake(container) {
                     return;
                 }
 
+                // The banner keeps the translation through the heart round.
+                // It used to be replaced by a single big heart, which said
+                // nothing the board was not already saying — there is a heart on
+                // it to be caught — and took away the one thing worth reading at
+                // that moment: the word just spelled out, next to what it means.
                 board.beginHeartPhase();
                 board.persistTo(state);
-                view.bannerHeart();
                 paint();
                 page.save();
                 return;
