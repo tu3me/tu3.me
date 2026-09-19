@@ -1287,9 +1287,11 @@ function catalog(container) {
      * seen — putting the two side by side is what turns thirteen numbers into a
      * shape a person can recognise on the shelf behind the panel.
      *
-     * Two columns because there are thirteen of them: in one column the ladder
-     * is taller than the panel, and a list you have to scroll to see the ends of
-     * is a list you cannot compare the ends of.
+     * Three columns because there are thirteen of them: in one column the
+     * ladder is taller than the panel, and a list you have to scroll to see the
+     * ends of is a list you cannot compare the ends of. Three fit across 300px
+     * once the cells are cut to what they hold — a two-digit stage and "14d",
+     * which is the longest interval anyone is going to type.
      *
      * Stage 0 has no field. It is the state of a word nothing has happened to,
      * and its interval is never read — a repetition always leaves a word on
@@ -1310,22 +1312,22 @@ function catalog(container) {
             const ink = stage === 1 ? FAIL_INK : c.ink;
 
             const field = stage === 0
-                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 26px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 8px; font-size: 14.4px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
-                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-family: inherit; font-size: 14.4px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
+                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 26px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 8px; font-size: 13.2px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
+                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 3px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-family: inherit; font-size: 13.2px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
 
             // min-width on the cell as well as on the field inside it: a grid
             // item is auto-sized to its content, and a text input's content is
             // whatever twenty characters come to — which pushed the first
             // column wide enough to squeeze the second out of the panel.
-            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: ${fill}; color: ${ink}; font-size: 12px; font-weight: 700; line-height: 1;">${stage}</span>
+            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 4px; min-width: 0;">
+                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 26px; border-radius: 8px; background: ${fill}; color: ${ink}; font-size: 12px; font-weight: 700; line-height: 1;">${stage}</span>
                 ${field}
             </div>`;
         }).join('');
 
         return `<div style="padding-top: 8px;">
             <div class="dict-intervals-hint" style="margin-bottom: 8px; font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">How long a word waits on each stage before it comes up again. Minutes unless the number carries <b>h</b> or <b>d</b>.</div>
-            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px;">${cells}</div>
+            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${cells}</div>
             <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 8px;">
                 <button class="dict-intervals-reset" style="padding: 5px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; font-family: inherit; font-size: 13.2px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">Defaults</button>
             </div>
