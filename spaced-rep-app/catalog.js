@@ -40,6 +40,16 @@ function catalog(container) {
     // reading about it should not put the reading away.
     let splitHintOpen = false;
 
+    /*
+     * Whether everything under the theme switch is folded out.
+     *
+     * Shut to begin with, and that is the point of it: the panel is opened to
+     * change the theme or to wipe the data, and what lay between those two was
+     * a question about word boundaries and thirteen numbers. Both are worth
+     * having and neither is worth meeting on the way past.
+     */
+    let advancedOpen = false;
+
     // Whether the interval ladder is folded out. Panel state like the hint
     // above it, and it outlives a redraw for a sharper reason: every interval
     // taken redraws the catalog under the panel, and a section that put itself
@@ -1464,6 +1474,12 @@ function catalog(container) {
                     <span>Theme</span>
                     <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
                 </button>
+                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                    <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
+                    <span style="flex: 1; text-align: left;">Advanced</span>
+                </button>
+                <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
+                <div class="dict-advanced-body" style="padding-top: 8px;">
                 <div class="dict-split-line" style="display: flex; align-items: center; gap: 8px;">
                     <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: 1; min-width: 0; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
                         <span>Split words</span>
@@ -1485,6 +1501,8 @@ function catalog(container) {
                 </button>
                 <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
                 <div class="dict-settings-body" style="margin-top: 14px;"></div>
+                </div>
+                </div>
             </div>
         </div>`);
 
@@ -1523,6 +1541,23 @@ function catalog(container) {
          * dictionary for writing without spaces, and quietly wrong where it does
          * not — speech.js says why that cannot be asked about in advance.
          */
+        /*
+         * Advanced holds the other two folds inside it, and nothing has to be
+         * done about that: foldOut takes the cap off as soon as its run ends,
+         * so a section opened inside this one is free to make it taller
+         * afterwards. Only a fold left permanently capped would clip them.
+         */
+        const deep = overlay.querySelector('.dict-advanced-fold');
+        const deepLine = overlay.querySelector('.dict-advanced-line');
+        const deepTurn = overlay.querySelector('.dict-advanced-chevron');
+
+        deepLine.addEventListener('click', () => {
+            advancedOpen = !advancedOpen;
+            deepLine.setAttribute('aria-expanded', advancedOpen);
+            deepTurn.style.transform = `rotate(${advancedOpen ? 90 : 0}deg)`;
+            foldOut(deep, advancedOpen);
+        });
+
         // The question mark unrolls its answer and rolls it back — see foldOut.
         const help = overlay.querySelector('.dict-split-help');
         const hint = overlay.querySelector('.dict-split-hint');
