@@ -101,7 +101,7 @@ function tokens() {
     tokens.of = (isDark) => (isDark ? DARK : LIGHT);
 
     /*
-     * The bubble ramp: one colour per stage, thirteen of them, the same thirteen
+     * The bubble ramp: one colour per stage, fifteen of them, the same fifteen
      * in both themes.
      *
      * A flower coming on. Stone grey while the word is a seed and nothing has
@@ -114,17 +114,27 @@ function tokens() {
      * to help tell two neighbours apart, nowhere near enough to let the late
      * stages shout over the early ones.
      *
-     * That hint is doing real work, not decoration. Thirteen steps of hue alone
+     * That hint is doing real work, not decoration. Fifteen steps of hue alone
      * put neighbours a few degrees apart in the middle of the arc, where they
      * stop being tellable apart and the series stops meaning anything; with
      * lightness moving too, any two neighbours differ in two ways at once. It is
      * also the reason the band is a band rather than a single value: flat
-     * lightness across thirteen pastel steps reads as one colour with the hue
+     * lightness across fifteen pastel steps reads as one colour with the hue
      * wobbling, not as a series.
      *
-     * Generated rather than picked one by one, for the same reason: thirteen
+     * Generated rather than picked one by one, for the same reason: fifteen
      * colours chosen by eye drift, and the drift always shows up as two
      * neighbours that have quietly become the same colour.
+     *
+     * The last two were added when the ladder grew, and they continue the arc
+     * past violet rather than re-dividing it. Re-dividing is what the sentence
+     * above would suggest, and it is wrong here for a measurable reason: the
+     * tightest pair on this arc is the first two yellows at dE 5.4, and
+     * fitting two more steps between the same ends would take that pair under
+     * 5, where two bubbles across a screen stop being different colours. Going
+     * further round costs nothing — orchid and magenta land 9.5 and 8.4 from
+     * their neighbours, wider apart than anything in the middle — and no
+     * existing stage moves.
      *
      * Two corrections on top. Hue is spaced for the eye rather than by degrees —
      * yellow and green change fast, blue through violet slowly — and lightness
@@ -156,7 +166,9 @@ function tokens() {
         { fill: '#b8dff0', ink: '#244e60', sub: '#477285' },   // 9  teal
         { fill: '#b4ccf0', ink: '#243c60', sub: '#476085' },   // 10 blue
         { fill: '#b1b1f0', ink: '#242460', sub: '#474785' },   // 11 indigo
-        { fill: '#c6adf1', ink: '#3a2460', sub: '#5e4785' }    // 12 violet — mastered
+        { fill: '#c6adf1', ink: '#3a2460', sub: '#5e4785' },   // 12 violet
+        { fill: '#deaaf1', ink: '#502460', sub: '#744785' },   // 13 orchid
+        { fill: '#f1a7ea', ink: '#60245a', sub: '#85477f' }    // 14 magenta — mastered
     ];
 
     tokens.stages = () => STAGES;

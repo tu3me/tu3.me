@@ -45,7 +45,7 @@ function catalog(container) {
      *
      * Shut to begin with, and that is the point of it: the panel is opened to
      * change the theme or to wipe the data, and what lay between those two was
-     * a question about word boundaries and thirteen numbers. Both are worth
+     * a question about word boundaries and fifteen numbers. Both are worth
      * having and neither is worth meeting on the way past.
      *
      * Drawn as a heading and not as a row — small caps in the hint colour with
@@ -1352,10 +1352,10 @@ function catalog(container) {
      *
      * The colours are half of what the section is for. A number of hours means
      * little on its own, and the ramp is the only place the stages are ever
-     * seen — putting the two side by side is what turns thirteen numbers into a
+     * seen — putting the two side by side is what turns fifteen numbers into a
      * shape a person can recognise on the shelf behind the panel.
      *
-     * Three columns because there are thirteen of them: in one column the
+     * Three columns because there are fifteen of them: in one column the
      * ladder is taller than the panel, and a list you have to scroll to see the
      * ends of is a list you cannot compare the ends of. Three fit across 300px
      * once the cells are cut to what they hold — a two-digit stage and "14d",

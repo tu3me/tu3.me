@@ -7,11 +7,31 @@ function spacedRepetitions() {
     const HOUR = 60 * MINUTE;
     const DAY = 24 * HOUR;
 
-    // Thirteen rungs, so a word has thirteen states to be in and the bubble ramp
-    // has thirteen colours to say which. Roughly a doubling each time: the first
-    // hour is where a new word is won or lost, so the early rungs are minutes
-    // apart, and past a day the gaps stretch to weeks because a word that
-    // survived a day is not at risk of being forgotten by tomorrow.
+    /*
+     * Fifteen rungs, so a word has fifteen states to be in and the bubble
+     * ramp has fifteen colours to say which.
+     *
+     * The ladder itself is the ordinary one, in two halves. Below a day each
+     * rung is three times the last — five minutes, a quarter of an hour, three
+     * quarters, two hours, six — which is the expanding rehearsal every
+     * introduction to this subject opens with, and it is what carries a word
+     * through the evening it was met in. Above a day it is 1-3-7-14-30 and
+     * then double, which is Leitner.
+     *
+     * Eight months at the top, reached by doubling twice past two months. The
+     * top of this ladder is not a place a word arrives at quickly — eleven
+     * right answers in a row, the last of them most of a year after the
+     * first — and that is what the last colour of the ramp is for: not
+     * "answered a lot lately" but "this one is yours now".
+     *
+     * Days rather than months at the top, because days are what the settings
+     * panel can write and read back: 60d, not 2mo. The unit is the only thing
+     * being simplified, not the number.
+     *
+     * None of this is fixed any more — the panel edits every rung — so these
+     * are the numbers a person starts from and not the numbers they are stuck
+     * with.
+     */
     const DEFAULTS = [
         0,                      // stage 0 — starting state, word is available right away
 
@@ -25,16 +45,18 @@ function spacedRepetitions() {
          */
         0,
         5 * MINUTE,
-        10 * MINUTE,
-        30 * MINUTE,
-        1 * HOUR,
-        4 * HOUR,
-        12 * HOUR,
+        15 * MINUTE,
+        45 * MINUTE,
+        2 * HOUR,
+        6 * HOUR,
         1 * DAY,
-        2 * DAY,
-        4 * DAY,
+        3 * DAY,
         7 * DAY,
-        14 * DAY
+        14 * DAY,
+        30 * DAY,
+        60 * DAY,
+        120 * DAY,
+        240 * DAY
     ];
 
     /*
@@ -45,9 +67,9 @@ function spacedRepetitions() {
      * being replaced: the panel offers a way back to them, and an array handed
      * out and then written into would take that away.
      *
-     * How many there are is not up for discussion. Thirteen is not a number this
+     * How many there are is not up for discussion. Fifteen is not a number this
      * algorithm happens to use, it is the number of states a word can be in and
-     * the number of colours the bubble ramp has to say which — a fourteenth rung
+     * the number of colours the bubble ramp has to say which — one more rung
      * would be a rung with no colour and no meaning.
      */
     let INTERVALS = DEFAULTS.slice();
