@@ -1737,22 +1737,6 @@ function catalog(container) {
      */
     const MORE_FILL = '#4a90d9';
 
-    /*
-     * The two things the fourth button says, and it says them in turn: a press
-     * moves to the next one and round again.
-     *
-     * The answer is written smaller because it is twice the length of the
-     * question and the button is a quarter of a card wide. The alternative was
-     * letting it wrap, which costs the picture above it — two lines and an icon
-     * are taller than the row, and the row is fixed so that every card's games
-     * line up with every other's. Losing the icon on every other press makes
-     * the button flicker between two shapes; a smaller word keeps it one
-     * button that is saying something else.
-     */
-    const MORE_WORDS = [
-        { text: 'More...', size: '' },
-        { text: 'Coming soon!', size: '11.4px' }
-    ];
 
     /*
      * Empties every store and starts the app over.
@@ -2274,25 +2258,10 @@ function catalog(container) {
                 btn.addEventListener('click', () => launch(game, set.id));
             });
 
-            /*
-             * The fourth button is not a game, it is the place the next
-             * one goes — see MORE_FILL for what it is painted in and why.
-             *
-             * It answers anyway. A button that does nothing at all when pressed
-             * reads as broken, and the one thing there is to say is that this
-             * is not finished — so it says it, and puts itself back a moment
-             * later so the row is not left holding a sentence.
-             */
-            const moreLabel = card.querySelector('.set-more-label');
-
-            let said = 0;
-
-            card.querySelector('.set-more-btn').addEventListener('click', () => {
-                said = (said + 1) % MORE_WORDS.length;
-
-                moreLabel.textContent = MORE_WORDS[said].text;
-                moreLabel.style.fontSize = MORE_WORDS[said].size;
-            });
+            // The fourth button is not a game, it is the place the next one
+            // goes: MORE_FILL says what it is painted in, moreSoon what it
+            // says when pressed.
+            card.querySelector('.set-more-btn').addEventListener('click', moreSoon);
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
@@ -2391,6 +2360,38 @@ function catalog(container) {
             startedAt: Date.now()
         });
         await nav.game(game, setId, allowEarly);
+    }
+
+    /*
+     * What the fourth button has to say, which is more than a button can hold.
+     *
+     * It was two words swapped in place at first, and two words cannot carry
+     * either half of this: that the row is not finished, and that finishing it
+     * will cost the people here now nothing. The promise is the heading and not
+     * a line in the middle, because it is the half worth interrupting someone
+     * for — an app with three games and no reason to keep it is an app that
+     * goes when the phone runs short of room.
+     *
+     * Built like the early-play dialog below and dismissed the same two ways,
+     * because it is the same kind of thing: something said in the middle of the
+     * catalog that the catalog goes back to being once it is read.
+     */
+    function moreSoon() {
+        const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;">
+            <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 20px; padding: 20px; max-width: 320px; width: 100%;">
+                <div class="more-dialog-title" style="font-size: 16.8px; font-weight: 700; margin-bottom: 8px;">Forever free for early adopters</div>
+                <div class="more-dialog-text" style="font-size: 15px; line-height: 1.4; color: ${palette.dialogBody};">
+                    <p style="margin: 0 0 10px;">Congratulations — you are one of the first to install it, so it stays free for you whatever this app charges later.</p>
+                    <p style="margin: 0 0 14px;">More games to help you remember words are coming soon.</p>
+                </div>
+                <button class="more-dialog-ok" style="width: 100%; padding: 9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Got it</button>
+            </div>
+        </div>`);
+
+        const close = () => overlay.remove();
+
+        overlay.querySelector('.more-dialog-ok').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
     // Modal shown when every word of the selection is still waiting for its timer
