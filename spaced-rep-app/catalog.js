@@ -238,8 +238,14 @@ function catalog(container) {
      * The heading names the sources rather than promising instructions — what
      * is wanted is not "how do I export from Google Translate" but the fact
      * that a hundred words can come from somewhere other than the keyboard.
+     *
+     * Cut to one line, which at 326px of label is about forty-seven
+     * characters: two lines of heading over three headings is a paragraph, and
+     * a paragraph is the thing this fold exists to put away. What the nouns
+     * lost is only detail the sections under them repeat — a book is a paper
+     * book, a video is a YouTube video.
      */
-    const ROUTES_LABEL = 'Add from Google Translate, a paper book, a web page or a YouTube video';
+    const ROUTES_LABEL = 'From Google Translate, a book, a page or a video';
 
     const ROUTES = [
         {
