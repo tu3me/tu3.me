@@ -166,7 +166,7 @@ function catalog(container) {
     const DOTS = chromeIcon(`
         <circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none" />
         <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
-        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`, 20);
+        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`, 24);
 
     const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
 
@@ -1673,9 +1673,22 @@ function catalog(container) {
      */
     const MORE_FILL = '#4a90d9';
 
-    // How long the fourth button holds its answer before going back to being
-    // the empty slot it is.
-    const MORE_SOON_MS = 2200;
+    /*
+     * The two things the fourth button says, and it says them in turn: a press
+     * moves to the next one and round again.
+     *
+     * The answer is written smaller because it is twice the length of the
+     * question and the button is a quarter of a card wide. The alternative was
+     * letting it wrap, which costs the picture above it — two lines and an icon
+     * are taller than the row, and the row is fixed so that every card's games
+     * line up with every other's. Losing the icon on every other press makes
+     * the button flicker between two shapes; a smaller word keeps it one
+     * button that is saying something else.
+     */
+    const MORE_WORDS = [
+        { text: 'More...', size: '' },
+        { text: 'Coming soon!', size: '11.4px' }
+    ];
 
     /*
      * Empties every store and starts the app over.
@@ -2159,7 +2172,7 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; gap: 8px; height: 58px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(20)}<span>${g.title}</span></button>`).join('')}
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(24)}<span>${g.title}</span></button>`).join('')}
                     <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${DOTS}<span class="set-more-label">More...</span></button>
                 </div>
             `);
@@ -2197,25 +2210,15 @@ function catalog(container) {
              * is not finished — so it says it, and puts itself back a moment
              * later so the row is not left holding a sentence.
              */
-            const more = card.querySelector('.set-more-btn');
-            const moreDots = more.querySelector('svg');
-            const moreLabel = more.querySelector('.set-more-label');
+            const moreLabel = card.querySelector('.set-more-label');
 
-            let moreTimer = null;
+            let said = 0;
 
-            // The dots step aside while the answer is up. It wraps to two lines
-            // in a button this narrow, and two lines plus the picture is taller
-            // than the row — which is fixed, because every card's row of games
-            // has to line up with every other's.
-            more.addEventListener('click', () => {
-                moreDots.style.display = 'none';
-                moreLabel.textContent = 'More... soon!';
+            card.querySelector('.set-more-btn').addEventListener('click', () => {
+                said = (said + 1) % MORE_WORDS.length;
 
-                clearTimeout(moreTimer);
-                moreTimer = setTimeout(() => {
-                    moreDots.style.display = '';
-                    moreLabel.textContent = 'More...';
-                }, MORE_SOON_MS);
+                moreLabel.textContent = MORE_WORDS[said].text;
+                moreLabel.style.fontSize = MORE_WORDS[said].size;
             });
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
