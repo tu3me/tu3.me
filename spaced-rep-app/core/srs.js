@@ -12,7 +12,7 @@ function spacedRepetitions() {
     // hour is where a new word is won or lost, so the early rungs are minutes
     // apart, and past a day the gaps stretch to weeks because a word that
     // survived a day is not at risk of being forgotten by tomorrow.
-    const INTERVALS = [
+    const DEFAULTS = [
         0,                      // stage 0 — starting state, word is available right away
 
         /*
@@ -37,8 +37,23 @@ function spacedRepetitions() {
         14 * DAY
     ];
 
+    /*
+     * The intervals actually in force, which the player is allowed to change —
+     * see the Repetition intervals section of the settings panel.
+     *
+     * A copy rather than the array itself, because the defaults have to survive
+     * being replaced: the panel offers a way back to them, and an array handed
+     * out and then written into would take that away.
+     *
+     * How many there are is not up for discussion. Thirteen is not a number this
+     * algorithm happens to use, it is the number of states a word can be in and
+     * the number of colours the bubble ramp has to say which — a fourteenth rung
+     * would be a rung with no colour and no meaning.
+     */
+    let INTERVALS = DEFAULTS.slice();
+
     // Stage s waits INTERVALS[s]; the last interval is the maximum stage
-    const MAX_STAGE = INTERVALS.length - 1;
+    const MAX_STAGE = DEFAULTS.length - 1;
 
     // How many stages a mistake costs (the stage never drops below 1)
     const ERROR_PENALTY = 3;
@@ -174,6 +189,27 @@ function spacedRepetitions() {
         return Math.round((totalStages / maxStages) * 100);
     }
 
+    /*
+     * Taking a new set of intervals, and refusing a set that is not one.
+     *
+     * The only setting in this app a person types rather than picks, which is
+     * the whole reason for the check: everything else arrives from a switch that
+     * can only produce the two things it has. A length that does not match would
+     * silently shorten the ladder, and a value that is not a number would turn
+     * every date it touches into NaN — a word that is due never and shows a
+     * timer of nothing.
+     */
+    function setIntervals(list) {
+        if (!Array.isArray(list) || list.length !== DEFAULTS.length) return false;
+        if (!list.every(ms => Number.isFinite(ms) && ms >= 0)) return false;
+
+        INTERVALS = list.slice();
+        return true;
+    }
+
+    spacedRepetitions.intervals = () => INTERVALS.slice();
+    spacedRepetitions.defaultIntervals = () => DEFAULTS.slice();
+    spacedRepetitions.setIntervals = setIntervals;
     spacedRepetitions.getWordProgress = getWordProgress;
     spacedRepetitions.getWordStats = getWordStats;
     spacedRepetitions.isWordDue = isWordDue;

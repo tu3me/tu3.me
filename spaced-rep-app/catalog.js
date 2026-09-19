@@ -40,6 +40,12 @@ function catalog(container) {
     // reading about it should not put the reading away.
     let splitHintOpen = false;
 
+    // Whether the interval ladder is folded out. Panel state like the hint
+    // above it, and it outlives a redraw for a sharper reason: every interval
+    // taken redraws the catalog under the panel, and a section that put itself
+    // away each time would be a section you can change one number in.
+    let intervalsOpen = false;
+
     /*
      * The room the Continue banner was taking when the form was opened, measured
      * before the redraw that hides it.
@@ -531,6 +537,49 @@ function catalog(container) {
 
         const diffDays = Math.floor(diffHours / 24);
         return `${diffDays}d`;
+    }
+
+    /*
+     * An interval as the settings panel writes it, and as a person types it
+     * back: "0", "45m", "4h", "14d".
+     *
+     * The same notation the bubbles wear, because it is the same quantity —
+     * someone who has read "2h" on a word and wants it asked sooner should be
+     * able to write "1h" without learning a second way of saying an hour.
+     *
+     * In the largest unit that divides the span exactly, so that what is read
+     * back is what was typed: ninety minutes stays 90m instead of becoming an
+     * hour and a half rounded to one of them.
+     */
+    const SPAN_UNITS = { m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+
+    function spanText(ms) {
+        if (!ms) return '0';
+        if (ms % SPAN_UNITS.d === 0) return `${ms / SPAN_UNITS.d}d`;
+        if (ms % SPAN_UNITS.h === 0) return `${ms / SPAN_UNITS.h}h`;
+
+        return `${ms / SPAN_UNITS.m}m`;
+    }
+
+    /*
+     * And back, or null when what was typed is not an interval.
+     *
+     * Minutes when the unit is left off, which is the one guess worth making:
+     * the short rungs are the ones that get edited, and "5" is what a person
+     * types into a field already saying "5m".
+     *
+     * Null rather than a fallback for anything else. This is the only place in
+     * the app where a value is typed rather than picked, and a value that is
+     * not a number has to be refused here — srs.js says what a NaN does to
+     * every date it touches.
+     */
+    function spanValue(text) {
+        const parts = /^\s*(\d+(?:[.,]\d+)?)\s*([mhd]?)\s*$/i.exec(text || '');
+        if (!parts) return null;
+
+        const unit = SPAN_UNITS[(parts[2] || 'm').toLowerCase()];
+
+        return Math.round(Number(parts[1].replace(',', '.')) * unit);
     }
 
     /**
@@ -1229,6 +1278,115 @@ function catalog(container) {
      * what a 15px label needs — while the border carries the same warning at a
      * size where that contrast is enough.
      */
+    /*
+     * The ladder itself: one cell per stage, in the colour that stage wears on
+     * a bubble.
+     *
+     * The colours are half of what the section is for. A number of hours means
+     * little on its own, and the ramp is the only place the stages are ever
+     * seen — putting the two side by side is what turns thirteen numbers into a
+     * shape a person can recognise on the shelf behind the panel.
+     *
+     * Two columns because there are thirteen of them: in one column the ladder
+     * is taller than the panel, and a list you have to scroll to see the ends of
+     * is a list you cannot compare the ends of.
+     *
+     * Stage 0 has no field. It is the state of a word nothing has happened to,
+     * and its interval is never read — a repetition always leaves a word on
+     * stage 1 or above, which is where the waiting starts. It keeps its cell so
+     * that the ramp is shown whole, with the wait drawn as a blank.
+     */
+    function intervalRows() {
+        const spans = spacedRepetitions.intervals();
+
+        const cells = spans.map((ms, stage) => {
+            const c = getStageColors(stage);
+
+            // Stage 1 in the colours it is actually drawn in, which are not the
+            // ramp's — see DAMAGED_FILL. A swatch showing the pale yellow of a
+            // rung nothing is ever drawn in would be a legend for a colour that
+            // is not on screen.
+            const fill = stage === 1 ? DAMAGED_FILL : c.fill;
+            const ink = stage === 1 ? FAIL_INK : c.ink;
+
+            const field = stage === 0
+                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 26px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 8px; font-size: 14.4px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
+                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-family: inherit; font-size: 14.4px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
+
+            // min-width on the cell as well as on the field inside it: a grid
+            // item is auto-sized to its content, and a text input's content is
+            // whatever twenty characters come to — which pushed the first
+            // column wide enough to squeeze the second out of the panel.
+            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: ${fill}; color: ${ink}; font-size: 12px; font-weight: 700; line-height: 1;">${stage}</span>
+                ${field}
+            </div>`;
+        }).join('');
+
+        return `<div style="padding-top: 8px;">
+            <div class="dict-intervals-hint" style="margin-bottom: 8px; font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">How long a word waits on each stage before it comes up again. Minutes unless the number carries <b>h</b> or <b>d</b>.</div>
+            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px;">${cells}</div>
+            <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button class="dict-intervals-reset" style="padding: 5px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; font-family: inherit; font-size: 13.2px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">Defaults</button>
+            </div>
+        </div>`;
+    }
+
+    /*
+     * A block unrolled and rolled back, with nothing else on the panel moving:
+     * both the hint and the ladder are drawn where they belong and only hidden,
+     * so this is a fold rather than a redraw.
+     *
+     * Height through max-height, because neither has a height to animate to —
+     * it is however many lines the text wraps into at whatever width the panel
+     * ends up, and that is known only once it is in the page. The cap is
+     * measured there and dropped as soon as the run ends: left on, it would clip
+     * the content the moment anything reflowed it.
+     *
+     * Opacity alongside it, because content sliding out from under a cap reads
+     * as content being cut off; fading as it comes reads as content arriving.
+     *
+     * The panel is already as tall as the screen allows and scrolls inside
+     * itself, so a block longer than the room left over can still be read.
+     *
+     * The timers are held per element rather than in one variable: two folds
+     * can be running at once, and a press on one would otherwise arrive to tidy
+     * away the other one's run. Weakly, because the elements are thrown away on
+     * every redraw of the panel and there is no moment to clear the entry in.
+     */
+    const PANEL_OPEN = 190;
+    const PANEL_SHUT = 150;
+
+    const foldTimers = new WeakMap();
+
+    function foldOut(el, open) {
+        // A press during the run leaves the last one's clean-up in the air, and
+        // it would arrive to tidy away a fold going the other way.
+        clearTimeout(foldTimers.get(el));
+
+        if (open) el.hidden = false;
+
+        el.style.opacity = open ? '0' : '1';
+        el.style.maxHeight = open ? '0px' : `${el.scrollHeight}px`;
+
+        pin(el);
+
+        el.style.transition = open
+            ? `max-height ${PANEL_OPEN}ms ease-out, opacity ${PANEL_OPEN}ms ease-out`
+            : `max-height ${PANEL_SHUT}ms ease-in, opacity ${PANEL_SHUT}ms ease-in`;
+
+        el.style.opacity = open ? '1' : '0';
+        el.style.maxHeight = open ? `${el.scrollHeight}px` : '0px';
+
+        foldTimers.set(el, setTimeout(() => {
+            if (!open) el.hidden = true;
+
+            el.style.maxHeight = '';
+            el.style.opacity = '';
+            el.style.transition = '';
+        }, (open ? PANEL_OPEN : PANEL_SHUT) + 40));
+    }
+
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
@@ -1257,6 +1415,11 @@ function catalog(container) {
                         <div style="margin-top: 8px;"><b>If this browser cannot</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
                     </div>
                 </div>
+                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                    <span class="dict-intervals-chevron" style="display: block; flex: none; transform: rotate(${intervalsOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
+                    <span style="flex: 1; text-align: left;">Repetition intervals</span>
+                </button>
+                <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
                 <div class="dict-settings-body" style="margin-top: 14px;"></div>
             </div>
         </div>`);
@@ -1296,64 +1459,73 @@ function catalog(container) {
          * dictionary for writing without spaces, and quietly wrong where it does
          * not — speech.js says why that cannot be asked about in advance.
          */
-        /*
-         * The question mark unrolls its answer and rolls it back, and nothing
-         * else on the panel moves: the hint is drawn where it belongs and only
-         * hidden, so this is a fold rather than a redraw.
-         *
-         * Height through max-height, because the hint has no height to animate
-         * to — it is however many lines the text wraps into at whatever width
-         * the panel ends up, and that is known only once it is in the page. The
-         * cap is measured there and dropped as soon as the run ends: left on, it
-         * would clip the text the moment anything reflowed it.
-         *
-         * Opacity alongside it, because a line of text sliding out from under a
-         * cap reads as text being cut off; fading as it comes reads as text
-         * arriving.
-         *
-         * The panel is already as tall as the screen allows and scrolls inside
-         * itself, so an answer longer than the room left over can still be read.
-         */
-        const HINT_OPEN = 190;
-        const HINT_SHUT = 150;
-
+        // The question mark unrolls its answer and rolls it back — see foldOut.
         const help = overlay.querySelector('.dict-split-help');
         const hint = overlay.querySelector('.dict-split-hint');
 
-        let hintTimer = null;
+        help.addEventListener('click', () => {
+            splitHintOpen = !splitHintOpen;
+            help.setAttribute('aria-expanded', splitHintOpen);
+            foldOut(hint, splitHintOpen);
+        });
 
-        function foldHint(open) {
-            splitHintOpen = open;
-            help.setAttribute('aria-expanded', open);
+        const ladder = overlay.querySelector('.dict-intervals-fold');
+        const ladderLine = overlay.querySelector('.dict-intervals-line');
+        const ladderTurn = overlay.querySelector('.dict-intervals-chevron');
 
-            // A press during the run leaves the last one's clean-up in the air,
-            // and it would arrive to tidy away a fold going the other way.
-            clearTimeout(hintTimer);
+        ladderLine.addEventListener('click', () => {
+            intervalsOpen = !intervalsOpen;
+            ladderLine.setAttribute('aria-expanded', intervalsOpen);
+            ladderTurn.style.transform = `rotate(${intervalsOpen ? 90 : 0}deg)`;
+            foldOut(ladder, intervalsOpen);
+        });
 
-            if (open) hint.hidden = false;
-
-            hint.style.opacity = open ? '0' : '1';
-            hint.style.maxHeight = open ? '0px' : `${hint.scrollHeight}px`;
-
-            pin(hint);
-
-            hint.style.transition = open
-                ? `max-height ${HINT_OPEN}ms ease-out, opacity ${HINT_OPEN}ms ease-out`
-                : `max-height ${HINT_SHUT}ms ease-in, opacity ${HINT_SHUT}ms ease-in`;
-
-            hint.style.opacity = open ? '1' : '0';
-            hint.style.maxHeight = open ? `${hint.scrollHeight}px` : '0px';
-
-            hintTimer = setTimeout(() => {
-                if (!open) hint.hidden = true;
-
-                hint.style.maxHeight = '';
-                hint.style.opacity = '';
-                hint.style.transition = '';
-            }, (open ? HINT_OPEN : HINT_SHUT) + 40);
+        /*
+         * An interval is taken when the field is left rather than as it is
+         * typed. A ladder rebuilt on every keystroke would pass through "1" on
+         * the way to "14d" — every timer in the catalog behind the panel redrawn
+         * against an interval nobody asked for, twice.
+         */
+        for (const field of overlay.querySelectorAll('.dict-interval-input')) {
+            field.addEventListener('change', () => takeInterval(field));
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') field.blur(); });
         }
 
-        help.addEventListener('click', () => foldHint(!splitHintOpen));
+        overlay.querySelector('.dict-intervals-reset')
+            .addEventListener('click', () => applyIntervals(spacedRepetitions.defaultIntervals()));
+
+        function takeInterval(field) {
+            const stage = Number(field.dataset.stage);
+            const ms = spanValue(field.value);
+            const spans = spacedRepetitions.intervals();
+
+            // Anything that is not an interval puts the field back to what it
+            // was showing. Refused without a word, because the refusal is the
+            // whole of the message and it is visible in the field itself.
+            if (ms === null) {
+                field.value = spanText(spans[stage]);
+                return;
+            }
+
+            if (ms === spans[stage]) return;
+
+            spans[stage] = ms;
+            applyIntervals(spans);
+        }
+
+        /*
+         * The catalog is redrawn rather than the panel alone, because the
+         * ladder is what every timer and every stage colour on the shelf is
+         * computed from: a word's stage is replayed from its history against
+         * the intervals in force, so a rung moved can move bubbles that are
+         * nowhere near the stage that was edited.
+         */
+        function applyIntervals(spans) {
+            if (!spacedRepetitions.setIntervals(spans)) return;
+
+            saveSetting('intervals', spans);
+            render();
+        }
 
         overlay.querySelector('.dict-split-row').addEventListener('click', () => {
             speech.splitByLanguage(!speech.splitsByLanguage());
@@ -2065,6 +2237,11 @@ async function bootCatalog() {
     await storage.init();
 
     const settings = await storage.get('settings');
+
+    // The ladder the player is on, if they have changed it. Absent means the
+    // defaults, which is what the algorithm starts with anyway — see srs.js.
+    if (settings && settings.intervals) spacedRepetitions.setIntervals(settings.intervals);
+
     /*
      * Dark unless the player has chosen otherwise; there is no first-run prompt
      * and no system sniffing, so an absent setting simply means the default.

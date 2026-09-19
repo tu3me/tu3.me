@@ -147,6 +147,11 @@ async function bootGame(id, module) {
     await storage.init();
 
     const settings = await storage.get('settings');
+
+    // The ladder the player is on, if they have changed it. Absent means the
+    // defaults, which is what the algorithm starts with anyway — see srs.js.
+    if (settings && settings.intervals) spacedRepetitions.setIntervals(settings.intervals);
+
     /*
      * Dark unless the player has chosen otherwise; there is no first-run prompt
      * and no system sniffing, so an absent setting simply means the default.
