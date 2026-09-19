@@ -206,6 +206,13 @@ function snake(container) {
 
         view.headRun = (at) => { headRun = at; };
 
+        // Whether the eyes are shut this frame — the blink, and nothing else.
+        // Display state like headRun: it is never saved, and a round resumed
+        // from storage opens its eyes.
+        let eyesShut = false;
+
+        view.eyesShut = (on) => { eyesShut = on; };
+
         let controlMode = 0;
         let difficulty = SPEED_AT_START;
 
@@ -1061,6 +1068,58 @@ function snake(container) {
                 }
             }
 
+            /*
+             * The face, and it is the app's own: the two rings of the mark in
+             * the header, the left one larger, which is what gives it the
+             * puzzled look — see logoSvg in catalog.js.
+             *
+             * The numbers are that drawing's, divided by the width of the card
+             * it sits on, so the face keeps its proportions on a head of any
+             * size. They are offsets from the middle of the pair rather than
+             * from the middle of the card, because the mark's pair is not
+             * centred on its card and a snake's is centred on its head.
+             *
+             * Turned to face where the snake is going. The pair is laid out
+             * along x across the middle of the head, which is the snake
+             * heading down the screen; every other heading is that picture
+             * rotated. atan2(-dx, dy) is the angle that does it — zero for
+             * down, 180 for up, ±90 for the sides.
+             *
+             * Filled black inside the white ring, which is the mark's other
+             * look — the one the logo in the header takes when it is pressed.
+             * An open ring on a coral square reads as a hole in the head; a
+             * dark centre reads as a pupil, and a pupil is what makes the
+             * thing look back at you.
+             *
+             * Shut is a line where the ring was, the length of its diameter and
+             * the thickness of its stroke: the same eye with the lid down. A
+             * closed eye drawn any other way stops being the same eye.
+             */
+            const EYES = [
+                { off: -0.207, r: 0.173, width: 0.101 },
+                { off: 0.207, r: 0.107, width: 0.062 }
+            ];
+
+            const faceOn = (part, shut) => {
+                const size = cellSize - SEG_INSET * 2;
+                const turn = Math.atan2(-s.dir.x, s.dir.y) * 180 / Math.PI;
+
+                const pair = EYES.map(eye => {
+                    const x = eye.off * size;
+                    const r = eye.r * size;
+                    const width = eye.width * size;
+
+                    return shut
+                        ? `<path d="M${x - r} 0H${x + r}" stroke="#ffffff"
+                            stroke-width="${width}" stroke-linecap="round" fill="none" />`
+                        : `<circle cx="${x}" cy="0" r="${r}" fill="#000000"
+                            stroke="#ffffff" stroke-width="${width}" />`;
+                }).join('');
+
+                return `<g transform="translate(${(part.x + 0.5) * cellSize} ${(part.y + 0.5) * cellSize})
+                    rotate(${turn})">${pair}</g>`;
+            };
+
             s.snakeBody.forEach((part, idx) => {
                 const partColor = colourAt(idx);
                 const radius = idx === 0 ? 6 : 4;
@@ -1087,6 +1146,11 @@ function snake(container) {
                 out += `<rect x="${part.x * cellSize + SEG_INSET}" y="${part.y * cellSize + SEG_INSET}"
                     width="${cellSize - SEG_INSET * 2}" height="${cellSize - SEG_INSET * 2}"
                     rx="${radius}" fill="${partColor}" />`;
+
+                // Only while there is a head to put them on: during the run
+                // down the body the head has gone out, and a face on a link
+                // that is only borrowing the colour would be a second snake.
+                if (idx === 0 && headRun === null) out += faceOn(part, eyesShut);
 
                 if (!part.char) return;
 
@@ -2334,6 +2398,54 @@ function snake(container) {
             clock.after(HEART_BLINK_MS, flip);
         }
 
+        /*
+         * The blink. It runs for as long as the screen does — standing still,
+         * moving, crashed, waiting to be set off again.
+         *
+         * On its own timer rather than on the tick, and that is what makes
+         * "always" possible at all: the board is repainted by the tick while
+         * the snake is running and by nothing whatever while it waits, and on
+         * the slowest speed there is no tick to begin with. clock.after covers
+         * all three, and it is tracked, so leaving the screen takes the blink
+         * with it.
+         *
+         * The gap is uneven on purpose. Blinking on a metronome is the one way
+         * to make something look less alive than not blinking at all.
+         *
+         * Numbered like the heart's blink below, and for the same reason: the
+         * loop outlives the state it was started in, and a second one started
+         * over the top of it would shut and open the same eyes twice over.
+         */
+        const BLINK_SHUT_MS = 130;
+        const BLINK_GAP_MS = 2400;
+
+        let idleBlink = 0;
+
+        function blinkEyes() {
+            const mine = ++idleBlink;
+            const gap = () => BLINK_GAP_MS + Math.random() * 2000;
+
+            const open = () => {
+                if (mine !== idleBlink) return;
+
+                view.eyesShut(false);
+                paint();
+
+                clock.after(gap(), shut);
+            };
+
+            const shut = () => {
+                if (mine !== idleBlink) return;
+
+                view.eyesShut(true);
+                paint();
+
+                clock.after(BLINK_SHUT_MS, open);
+            };
+
+            clock.after(gap(), shut);
+        }
+
         // Restarts the round after the crash animation has played out
         function afterCrash(event) {
             if (event === 'crashHeart') {
@@ -2539,6 +2651,9 @@ function snake(container) {
         view.banner(currentItem.word.translation);
         paint();
         board.persistTo(state);
+
+        // Started once, here, and it runs until the screen goes.
+        blinkEyes();
     }
 
     snake.render = render;

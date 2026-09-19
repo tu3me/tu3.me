@@ -114,15 +114,92 @@ function catalog(container) {
      */
     const LOGO_SIZE = 40;
 
+    /*
+     * The two rings, and the other way of drawing them: filled in, on a thinner
+     * stroke. A press on the mark switches between the two and a second press
+     * switches back — nothing else in the app changes, and nothing is saved.
+     *
+     * Screen state, like the open settings panel: it is a look being tried on,
+     * not a setting, and a reload brings the mark back as it is drawn here.
+     *
+     * Filled in, they are eyes rather than rings, and eyes blink — see
+     * blinkLogo. Shut is a line where the ring was, the length of its diameter,
+     * which is the same drawing the snake's head wears; the two faces are the
+     * same face and they close the same way.
+     */
+    const RINGS = [
+        { cx: 11.37, r: 4.86, width: 2.83 },
+        { cx: 23.02, r: 3.01, width: 1.75 }
+    ];
+
+    const FILLED_RING = { fill: '#000000', width: 1.5 };
+
+    let ringsFilled = false;
+    let ringsShut = false;
+
+    function ringsSvg() {
+        return RINGS.map(ring => (ringsFilled && ringsShut)
+            ? `<path d="M${ring.cx - ring.r} 16H${ring.cx + ring.r}" fill="none"
+                    stroke="#ffffff" stroke-width="${FILLED_RING.width}" stroke-linecap="round" />`
+            : `<circle cx="${ring.cx}" cy="16" r="${ring.r}"
+                    fill="${ringsFilled ? FILLED_RING.fill : 'none'}" stroke="#ffffff"
+                    stroke-width="${ringsFilled ? FILLED_RING.width : ring.width}" />`).join('');
+    }
+
     function logoSvg(fill, size) {
         return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
             aria-hidden="true" style="display: block; flex-shrink: 0;">
             <g transform="rotate(-7 16 16)">
                 <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
-                <circle cx="11.37" cy="16" r="4.86" fill="none" stroke="#ffffff" stroke-width="2.83" />
-                <circle cx="23.02" cy="16" r="3.01" fill="none" stroke="#ffffff" stroke-width="1.75" />
+                <g class="dict-logo-eyes">${ringsSvg()}</g>
             </g>
         </svg>`;
+    }
+
+    /*
+     * The blink, and the one place in this file that changes what is on screen
+     * without redrawing it.
+     *
+     * Everything else here answers a press, and a press is rare enough that
+     * rebuilding the catalog costs nothing. This happens every few seconds for
+     * as long as the mark is wearing eyes, and a redraw on that clock would
+     * restart every bubble's animation on the shelf below — the whole page
+     * twitching in time with a blink. So the two rings are replaced where they
+     * stand, in a group of their own kept for exactly that.
+     *
+     * The group is looked up again on every beat rather than held: a redraw for
+     * some other reason throws the old svg away, and a reference to it would go
+     * on blinking an element that is no longer in the page.
+     *
+     * The gap is uneven, for the reason snake.js gives at its own blink: on a
+     * metronome it reads as a machine.
+     */
+    const BLINK_SHUT_MS = 130;
+    const BLINK_GAP_MS = 2400;
+
+    let blinkTimer = null;
+
+    function blinkLogo() {
+        clearTimeout(blinkTimer);
+
+        ringsShut = false;
+        if (!ringsFilled) return;
+
+        blinkTimer = setTimeout(() => {
+            ringsShut = true;
+            paintRings();
+
+            blinkTimer = setTimeout(() => {
+                ringsShut = false;
+                paintRings();
+                blinkLogo();
+            }, BLINK_SHUT_MS);
+        }, BLINK_GAP_MS + Math.random() * 2000);
+    }
+
+    function paintRings() {
+        const eyes = container.querySelector('.dict-logo-eyes');
+        if (eyes) eyes.innerHTML = ringsSvg();
     }
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
@@ -942,6 +1019,16 @@ function catalog(container) {
             speech.mute(!speech.muted());
             saveSetting('muted', speech.muted());
             render();
+        });
+
+        // The mark's rings, filled in and back — see RINGS. A redraw for the
+        // same reason the mute button takes one: the header is built from what
+        // is true, and swapping attributes underneath it would leave the two
+        // disagreeing the next time anything else redraws.
+        header.querySelector('.dict-logo').addEventListener('click', () => {
+            ringsFilled = !ringsFilled;
+            render();
+            blinkLogo();
         });
 
         // Opens the settings layer and closes it again. A toggle, like the New
