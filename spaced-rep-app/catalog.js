@@ -2629,13 +2629,17 @@ function catalog(container) {
 
             /*
              * How much darker a lit segment's hairline is than the segment,
-             * and zero for no hairline at all — see shade.
+             * and zero for no hairline at all — see shade. At 0.78 the edge
+             * keeps 57% of the light of its own fill and stands 1.65 against
+             * it, which is a line you see without looking for it; the first
+             * try at 0.88 was 75% and 1.30, and that is a line you find only
+             * once you know it is there.
              *
              * Only the light theme has one. On the dark theme a pastel on the
              * card is 4.6 to 8.8 and already an object; ringing it would be
              * outlining something that is not in any danger of being missed.
              */
-            stepEdge: isDark ? 0 : 0.88,
+            stepEdge: isDark ? 0 : 0.78,
 
 
             // The timer badge is the same colour family as the bar, taken deep
