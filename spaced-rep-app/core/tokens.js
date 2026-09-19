@@ -126,15 +126,30 @@ function tokens() {
      * colours chosen by eye drift, and the drift always shows up as two
      * neighbours that have quietly become the same colour.
      *
-     * The last two were added when the ladder grew, and they continue the arc
-     * past violet rather than re-dividing it. Re-dividing is what the sentence
-     * above would suggest, and it is wrong here for a measurable reason: the
-     * tightest pair on this arc is the first two yellows at dE 5.4, and
-     * fitting two more steps between the same ends would take that pair under
-     * 5, where two bubbles across a screen stop being different colours. Going
-     * further round costs nothing — orchid and magenta land 9.5 and 8.4 from
-     * their neighbours, wider apart than anything in the middle — and no
-     * existing stage moves.
+     * The last two were added when the ladder grew, and they are the only
+     * steps that move by depth rather than by hue: the same violet, saturated
+     * further and lightened less, so the arc ends by deepening instead of
+     * going anywhere new.
+     *
+     * Re-dividing the arc across fifteen is what the sentence above would
+     * suggest, and it is wrong here for a measurable reason: the tightest pair
+     * on this arc is the first two yellows at dE 5.4, and fitting two more
+     * steps between the same ends would take that pair under 5, where two
+     * bubbles across a screen stop being different colours.
+     *
+     * Carrying on round the wheel is what was tried instead, and orchid and
+     * magenta were the result — well separated, and wrong anyway. Past about
+     * 300 degrees a pale colour reads as pink, pink reads as red, and red in
+     * this app is the colour of a word just got wrong. The top of this ramp
+     * means the opposite. Coral would be worse still: it is the accent, and
+     * the accent is what every warning in the app is drawn in.
+     *
+     * So the hue stops at 276 and the last two steps get their distance from
+     * saturation and lightness instead — 7.9 and 12.7 from their neighbours,
+     * wider apart than anything in the middle of the arc, and 20.5 between the
+     * violet at 12 and the deepest at 14. They are the two steps that leave
+     * the pastel band, which is the point: the end of the ramp is the one
+     * place where arriving should look like arriving.
      *
      * Two corrections on top. Hue is spaced for the eye rather than by degrees —
      * yellow and green change fast, blue through violet slowly — and lightness
@@ -167,8 +182,8 @@ function tokens() {
         { fill: '#b4ccf0', ink: '#243c60', sub: '#476085' },   // 10 blue
         { fill: '#b1b1f0', ink: '#242460', sub: '#474785' },   // 11 indigo
         { fill: '#c6adf1', ink: '#3a2460', sub: '#5e4785' },   // 12 violet
-        { fill: '#deaaf1', ink: '#502460', sub: '#744785' },   // 13 orchid
-        { fill: '#f1a7ea', ink: '#60245a', sub: '#85477f' }    // 14 magenta — mastered
+        { fill: '#c7a2f1', ink: '#402460', sub: '#644785' },   // 13 violet, deeper
+        { fill: '#cb91f2', ink: '#482460', sub: '#6c4785' }    // 14 violet, deepest — mastered
     ];
 
     tokens.stages = () => STAGES;
