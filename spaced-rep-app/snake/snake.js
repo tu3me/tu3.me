@@ -2569,7 +2569,17 @@ function snake(container) {
             boardBg: isDark ? t.ground : t.surface,
             boardBorder: t.border,
             boardShadow: '0',
-            dpadBg: t.soft,
+            /*
+             * The d-pad and the header chips stand straight on the page, with no
+             * card under them, so they have to be the thing that lifts.
+             *
+             * On the dark theme `soft` does that — it is the ground raised a
+             * step. On the light theme it cannot: every light neutral is within
+             * a tenth of every other, so a soft-filled button on the page was
+             * 1.06 against it, which is a button you find by knowing where it is.
+             * White gives it the 1.32 a card gets, and the border does the rest.
+             */
+            dpadBg: isDark ? t.soft : t.surface,
             dpadBorder: t.border,
             dpadColor: t.ink,
             // The speaker at the end of a finished line is an offer rather
@@ -2611,12 +2621,33 @@ function snake(container) {
             // and violets to stay legible against every segment behind it.
             boardLetter: isDark ? t.progress : t.progressFill,
             head: t.accent,
-            bodyHueStart: isDark ? 180 : 210,
-            bodyHueEnd: isDark ? 280 : 300,
-            bodySatChar: isDark ? 85 : 90,
-            bodySatPlain: isDark ? 50 : 60,
-            bodyLightChar: isDark ? 55 : 45,
-            bodyLightPlain: isDark ? 35 : 60
+            /*
+             * The body, along its length.
+             *
+             * It used to cross a hundred degrees of hue at high saturation —
+             * cyan to violet — and what that bought was a snake so loud it
+             * competed with the letters it was there to collect. The point of
+             * the ramp is to say which end is which and to keep a coiled snake
+             * readable where it lies alongside itself; a rainbow is more than
+             * that costs.
+             *
+             * Thirty degrees now, teal drifting to blue, and the work is done by
+             * lightness instead: the body goes from light at the neck to dark at
+             * the tail on the dark theme, the other way on the light one, so on
+             * either the far end is the end that fades into its ground. Two
+             * neighbours still differ in two ways at once, which is what makes a
+             * coil legible; they simply no longer differ in kind.
+             *
+             * A segment carrying a letter is deeper and more saturated than a
+             * plain one, and that gap is kept — it is the one place the body has
+             * anything to say, and the white letter on it needs the contrast.
+             */
+            bodyHueStart: isDark ? 186 : 200,
+            bodyHueEnd: isDark ? 214 : 228,
+            bodySatChar: isDark ? 66 : 72,
+            bodySatPlain: isDark ? 40 : 46,
+            bodyLightChar: isDark ? 50 : 45,
+            bodyLightPlain: isDark ? 38 : 60
         });
     };
 
