@@ -160,6 +160,14 @@ function catalog(container) {
      * the machine it is opened on, and a globe would have said "the web", which
      * is what all three are.
      */
+    // Three dots over the slot where the next game goes, so that the fourth
+    // button is built like the three beside it — a picture with a word under
+    // it — and not a lone label in a row of them.
+    const DOTS = chromeIcon(`
+        <circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`, 20);
+
     const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
 
     const DESKTOP = chromeIcon(`
@@ -1644,6 +1652,32 @@ function catalog(container) {
     const CACHE_PREFIX = 'spaced-repetition-app-';
 
     /*
+     * The colour of the slot where the next game goes.
+     *
+     * Filled like the three beside it, because the row is four blocks and an
+     * outline among them is a hole in it — the button was drawn that way first
+     * and it read as something gone wrong rather than as something to come.
+     *
+     * Blue, which is the one place left in the row: coral, gold and mint cover
+     * the warm half of the wheel and the green corner of the cool one, and this
+     * sits opposite all three. It was a warm greige first, and a neutral among
+     * three colours is what a disabled button looks like — the slot is meant to
+     * be inviting, not switched off.
+     *
+     * Light enough to clear the card it lies on in the dark theme, which is
+     * itself blue: 3.2 against that surface, and 3.3 under the white label, so
+     * it neither sinks into the card nor swallows its own word.
+     *
+     * One value for both themes, like the game colours in registry.js: a block
+     * that changed colour with the theme would be two blocks.
+     */
+    const MORE_FILL = '#4a90d9';
+
+    // How long the fourth button holds its answer before going back to being
+    // the empty slot it is.
+    const MORE_SOON_MS = 2200;
+
+    /*
      * Empties every store and starts the app over.
      *
      * Reloading rather than redrawing: half this app's state lives in variables
@@ -2124,8 +2158,9 @@ function catalog(container) {
 
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
-                <div class="set-actions-group" style="display: flex; gap: 8px; height:50px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; padding: 7px 4px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 7px;">${g.icon(18)} ${g.title}</button>`).join('')}
+                <div class="set-actions-group" style="display: flex; gap: 8px; height: 58px; margin-top: 18px;">
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(20)}<span>${g.title}</span></button>`).join('')}
+                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${DOTS}<span class="set-more-label">More...</span></button>
                 </div>
             `);
 
@@ -2151,6 +2186,36 @@ function catalog(container) {
             card.querySelectorAll('.set-play-btn').forEach(btn => {
                 const game = GAMES.find(g => g.id === btn.dataset.game);
                 btn.addEventListener('click', () => launch(game, set.id));
+            });
+
+            /*
+             * The fourth button is not a game, it is the place the next
+             * one goes — see MORE_FILL for what it is painted in and why.
+             *
+             * It answers anyway. A button that does nothing at all when pressed
+             * reads as broken, and the one thing there is to say is that this
+             * is not finished — so it says it, and puts itself back a moment
+             * later so the row is not left holding a sentence.
+             */
+            const more = card.querySelector('.set-more-btn');
+            const moreDots = more.querySelector('svg');
+            const moreLabel = more.querySelector('.set-more-label');
+
+            let moreTimer = null;
+
+            // The dots step aside while the answer is up. It wraps to two lines
+            // in a button this narrow, and two lines plus the picture is taller
+            // than the row — which is fixed, because every card's row of games
+            // has to line up with every other's.
+            more.addEventListener('click', () => {
+                moreDots.style.display = 'none';
+                moreLabel.textContent = 'More... soon!';
+
+                clearTimeout(moreTimer);
+                moreTimer = setTimeout(() => {
+                    moreDots.style.display = '';
+                    moreLabel.textContent = 'More...';
+                }, MORE_SOON_MS);
             });
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
