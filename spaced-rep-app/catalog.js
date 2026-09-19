@@ -111,8 +111,8 @@ function catalog(container) {
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
     // so the header does not look like it was drawn by someone else.
-    function chromeIcon(body) {
-        return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+    function chromeIcon(body, size = 18) {
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
     }
@@ -148,6 +148,28 @@ function catalog(container) {
     const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
 
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
+
+    /*
+     * The three ways to have this app — see platformStrip. Drawn a size up from
+     * the chrome around them: they are the picture in a cell rather than the
+     * mark on a button, and at 18 they read as three smudges.
+     *
+     * A puzzle piece for the extension, because that is the picture the browser
+     * itself uses for one — it is on the button this popup hangs from. A
+     * monitor and a handset for the other two: the thing that separates them is
+     * the machine it is opened on, and a globe would have said "the web", which
+     * is what all three are.
+     */
+    const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
+
+    const DESKTOP = chromeIcon(`
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M12 17v4" />
+        <path d="M8 21h8" />`, 22);
+
+    const HANDSET = chromeIcon(`
+        <rect x="6" y="2" width="12" height="20" rx="3" />
+        <path d="M11 18h2" />`, 22);
 
     // The same speaker the words carry, with and without what comes out of it.
     // Crossed out rather than greyed: a grey icon is one you cannot press, and
@@ -1389,6 +1411,37 @@ function catalog(container) {
         }, (open ? PANEL_OPEN : PANEL_SHUT) + 40));
     }
 
+    /*
+     * Where this app can be had, and which of those exists.
+     *
+     * One codebase, three deliveries: the extension is the one that is
+     * finished, the site and the phone app are not. It goes at the top of the
+     * settings panel rather than into a readme because the panel is the only
+     * page a person opens without being sent to it, and the question this
+     * answers — "is a browser all this runs in?" — is asked once, early.
+     *
+     * The two that do not exist yet are drawn in dashes, the same dashes the
+     * stage with no interval of its own wears further down the panel: an
+     * outline with nothing filling it is the shortest way to say planned rather
+     * than missing. Nothing here can be pressed — it is a legend, and a cell
+     * that looked like a button would promise a place to go.
+     */
+    function platformStrip() {
+        const spots = [
+            { icon: PUZZLE, name: 'Extension', note: 'You are here', here: true },
+            { icon: DESKTOP, name: 'Web App', note: 'In progress' },
+            { icon: HANDSET, name: 'Phone', note: 'In progress' }
+        ];
+
+        const cells = spots.map(spot => `<div class="dict-where-cell" style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; min-width: 0; box-sizing: border-box; padding: 9px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 12px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};">
+                ${spot.icon}
+                <span style="font-size: 12px; font-weight: 700; line-height: 1;">${spot.name}</span>
+                <span style="font-size: 11.4px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};">${spot.note}</span>
+            </div>`).join('');
+
+        return `<div class="dict-where" style="display: flex; gap: 6px; margin-bottom: 10px;">${cells}</div>`;
+    }
+
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
@@ -1398,6 +1451,7 @@ function catalog(container) {
                     <div class="dict-settings-title" style="font-size: 16.8px; font-weight: 700; color: ${palette.heading};">Settings</div>
                     <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
                 </div>
+                ${platformStrip()}
                 <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 8px;">
                     <span>Theme</span>
                     <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
