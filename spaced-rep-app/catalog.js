@@ -229,6 +229,18 @@ function catalog(container) {
      * Data rather than three blocks of markup: they are the same shape, and a
      * fourth route should cost one entry.
      */
+    /*
+     * All three of them behind one heading, because the form is for the box and
+     * not for them: a person who already has a list in the clipboard opened
+     * this to paste it, and three questions between the box and Save is three
+     * questions asked of someone who was not asking.
+     *
+     * The heading names the sources rather than promising instructions — what
+     * is wanted is not "how do I export from Google Translate" but the fact
+     * that a hundred words can come from somewhere other than the keyboard.
+     */
+    const ROUTES_LABEL = 'Add from Google Translate, a paper book, a web page or a YouTube video';
+
     const ROUTES = [
         {
             question: 'How to export from Google Translate?',
@@ -1891,9 +1903,16 @@ function catalog(container) {
                 + r.steps.map(s => `<li style="margin-bottom: 3px;">${stepBody(s)}</li>`).join('')
                 + `</ol>`;
 
+            // The routes are nested one level in: the folds are plain hidden
+            // bodies, so a section inside a section needs nothing but the
+            // indent that says which is which.
+            const routes = `<div class="set-fold-nest" style="padding-left: 12px;">`
+                + ROUTES.map(r => foldingSection(r.question, steps(r), false)).join('')
+                + `</div>`;
+
             const formBody = guided
                 ? staticSection('Paste words here', box)
-                    + ROUTES.map(r => foldingSection(r.question, steps(r), false)).join('')
+                    + foldingSection(ROUTES_LABEL, routes, false)
                 : box;
 
             // The page turns selection off everywhere — it is a popup full of
@@ -1913,7 +1932,9 @@ function catalog(container) {
 
             // Each header opens its own section and closes nothing else: the
             // routes are alternatives, not steps, and comparing two of them
-            // should not mean opening one twice.
+            // should not mean opening one twice. The heading they sit under
+            // works the same way and needs no special case — every toggle's
+            // body is the element right after it, nested or not.
             editForm.querySelectorAll('.set-fold-toggle').forEach(toggle => {
                 toggle.addEventListener('click', () => {
                     const body = toggle.nextElementSibling;
