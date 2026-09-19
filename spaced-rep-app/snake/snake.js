@@ -192,18 +192,19 @@ function snake(container) {
         let cellSize = 0;
 
         /*
-         * Whether the snake is drawn at all this frame.
+         * Which link is wearing the head's colour this frame, while the head is
+         * running down the body after a crash — null the rest of the time.
          *
          * Display state and nothing else, which is why it lives here and not on
-         * the board: a snake that is blinking has not changed — where it is, how
-         * long it is and what it is carrying are all exactly as they were. It is
-         * also why it is never persisted. Leaving the screen mid-blink and coming
-         * back to a snake that is not there would be a saved game with a hole in
-         * it, and the hole would last until the next crash.
+         * the board: nothing about the snake has changed while this runs. Where
+         * it is, how long it is and what it is carrying are all exactly as they
+         * were, and they stay that way until headToTail turns it round for real.
+         * It is also why it is never persisted — a saved game that resumed
+         * halfway through a flash would be a saved game with a glitch in it.
          */
-        let bodyShown = true;
+        let headRun = null;
 
-        view.flashBody = (on) => { bodyShown = on; };
+        view.headRun = (at) => { headRun = at; };
 
         let controlMode = 0;
         let difficulty = SPEED_AT_START;
@@ -500,7 +501,7 @@ function snake(container) {
 
             // A screen built fresh has nothing mid-blink about it, whatever the
             // last one was doing when it went away.
-            bodyShown = true;
+            headRun = null;
             controlMode = opts.controlMode || 0;
             difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
@@ -1002,6 +1003,36 @@ function snake(container) {
                 return `hsl(${h}, ${sat}%, ${light}%)`;
             };
 
+            /*
+             * What a link wears this frame, which is not always what its place in
+             * the snake says.
+             *
+             * While the head is running down the body after a crash, three things
+             * are true at once: everything the flash has passed already wears the
+             * colour it will have once the snake is turned round, the one link it
+             * is on wears the head's colour, and everything ahead of it still
+             * wears what it wore before the crash.
+             *
+             * The colour after the turn is the colour of the slot at the other
+             * end, because that is the slot that will be standing on this cell:
+             * headToTail swaps the coordinates and leaves the slots where they
+             * are, so the cell the flash has just left will be lit by slot
+             * total-1-idx — its hue, and its saturation, which depends on whether
+             * that slot is carrying a letter.
+             *
+             * The last link is the exception that needs no code: total-1-idx is 0
+             * there, and slot 0 is the head, so the flash arrives at the tail and
+             * simply stays. The snake has a head again, at the other end.
+             */
+            const total = s.snakeBody.length;
+
+            const colourAt = (idx) => {
+                if (headRun === null || idx > headRun) return segmentColor(idx);
+                if (idx === headRun) return palette.head;
+
+                return segmentColor(total - 1 - idx);
+            };
+
             // Joints between consecutive segments, drawn under them. A tightly coiled snake
             // is otherwise one blob: a neighbouring cell looks the same whether it is the
             // next segment or another coil lying alongside, and the path cannot be read.
@@ -1012,15 +1043,12 @@ function snake(container) {
             const jointReach = SEG_INSET + 1;   // 1px into each segment, so no seam shows
             const jointWidth = cellSize * 0.42;
 
-            // Gone for a blink after a crash — see view.flashBody. The joints go
-            // with the segments they bridge; the spark below does not, because it
-            // marks the place of the bang rather than the thing that banged.
-            for (let i = 0; bodyShown && i < s.snakeBody.length - 1; i++) {
+            for (let i = 0; i < s.snakeBody.length - 1; i++) {
                 const a = s.snakeBody[i];
                 const b = s.snakeBody[i + 1];
                 if (Math.abs(b.x - a.x) + Math.abs(b.y - a.y) !== 1) continue;
 
-                const fill = segmentColor(i + 1);
+                const fill = colourAt(i + 1);
 
                 if (a.y === b.y) {
                     const edge = Math.max(a.x, b.x) * cellSize;
@@ -1033,8 +1061,8 @@ function snake(container) {
                 }
             }
 
-            (bodyShown ? s.snakeBody : []).forEach((part, idx) => {
-                const partColor = segmentColor(idx);
+            s.snakeBody.forEach((part, idx) => {
+                const partColor = colourAt(idx);
                 const radius = idx === 0 ? 6 : 4;
 
                 if (s.isFrozen && idx === s.losingHeartIdx) {
@@ -1042,7 +1070,12 @@ function snake(container) {
                     const centerY = (part.y + 0.5) * cellSize;
                     const heartChar = s.blinkVisible ? '\u2764\ufe0f' : '\ud83d\udda4';
 
-                    out += `<g transform="translate(${centerX} ${centerY}) scale(1.5)">
+                    // Drawn as a group because the glyph has to sit on its own
+                    // square, not because it is any bigger than its neighbours —
+                    // it used to be scaled half again, which made the loss look
+                    // like an event happening to the board rather than to one
+                    // link of the snake.
+                    out += `<g transform="translate(${centerX} ${centerY})">
                         <rect x="${-cellSize / 2 + 1}" y="${-cellSize / 2 + 1}"
                             width="${cellSize - 2}" height="${cellSize - 2}" rx="${radius}" fill="${partColor}" />
                         <text x="0" y="0" font-family="${LETTER_FONT}" font-size="15.6" font-weight="bold"
@@ -2212,49 +2245,93 @@ function snake(container) {
         }
 
         /*
-         * The snake blinks once where it crashed, and only then is moved.
+         * The crash, told as a picture: the head goes out, and a flash of its
+         * colour runs down the body to the tail.
          *
-         * Once, not a flutter: this is a wince, and a wince is one movement. A
-         * run of them turns an accident into an animation, and the player is
-         * waiting to play rather than to be told at length what went wrong.
+         * What actually happens to a crashed snake is that it is turned round —
+         * headToTail swaps the coordinates end for end, and every link changes
+         * colour where it stands. Done in one frame that is a jump: the same
+         * cells, suddenly a different snake, and the player has to work out what
+         * they are looking at. Run link by link it is a single readable event —
+         * the head leaves the wall it hit, travels the length of its own body,
+         * and stops at the far end, which is where the head now is.
          *
-         * It happens before the turn rather than after it, for the same reason a
-         * wince comes before the step back — the blink is about what has just
-         * happened, and once the snake has been picked up and turned around,
-         * what just happened is over.
+         * Nothing moves. Every cell is exactly where it was, and only the colours
+         * change — see colourAt. The whole turn is a re-colouring, and this is
+         * what makes that legible instead of surprising.
          *
-         * Driven by clock.after and not by the game's own ticks, which is the only
-         * way it works at every speed: on the slowest there is no free-running clock
-         * at all and the board is repainted only when the player presses something,
-         * so a blink counted in ticks would never come.
+         * Fast on purpose. This is a beat between the crash and playing again,
+         * not a cutscene: a long snake has more links to light and so takes
+         * longer, which is right — there is more of it to turn round.
          *
-         * It opens with a beat of stillness. The spark is drawn on the frame of the
-         * crash, and hiding the snake in that same instant would take the picture
-         * away before it had been seen. The beat and the blink are each half of
-         * the half second the crash used to wait out doing nothing, so the pause
-         * before the turn is exactly the length it always was — what changed is
-         * that something happens during it.
+         * Driven by clock.after rather than by the game's own ticks, which is the
+         * only way it works at every speed: on the slowest there is no
+         * free-running clock at all and the board is repainted only when the
+         * player presses something.
          */
-        const CRASH_BLINKS = 1;
-        const BLINK_MS = 250;
+        const HEAD_RUN_MS = 45;
 
-        function blinkCrash(whenDone) {
-            // Two flips to a blink: away and back. The last one puts the snake back,
-            // so whatever runs afterwards starts from a board that is whole.
-            let left = CRASH_BLINKS * 2;
+        function runHeadToTail(whenDone) {
+            const total = board.snapshot().snakeBody.length;
 
-            const flip = () => {
-                left -= 1;
+            // A snake of one link is all head. There is nothing for the flash to
+            // run along and nothing that turning it round would change.
+            if (total < 2) return clock.after(HEAD_RUN_MS * 4, whenDone);
 
-                view.flashBody(left % 2 === 0);
+            let at = 1;
+
+            const step = () => {
+                view.headRun(at);
                 paint();
 
-                if (left > 0) return clock.after(BLINK_MS, flip);
+                at += 1;
+                if (at < total) return clock.after(HEAD_RUN_MS, step);
 
+                // Cleared without painting: the frame that follows is the one
+                // headToTail draws, and it is the same picture this leaves —
+                // so there is nothing to see in between, and nothing to flicker.
+                view.headRun(null);
                 whenDone();
             };
 
-            clock.after(BLINK_MS, flip);
+            clock.after(HEAD_RUN_MS, step);
+        }
+
+        /*
+         * The heart the crash cost, blinking red and black where it lies in the
+         * body, until the player sets off again.
+         *
+         * On a timer rather than on the game's ticks, for the same reason as the
+         * run above: at the slowest speed the board has no ticks to blink on, and
+         * this is exactly the moment the game is standing still waiting for a
+         * press. It stops by asking the board whether it is still frozen, which
+         * is the same question as "has the player moved yet".
+         *
+         * Numbered, because that question can be answered wrongly. A snake that
+         * has just been turned round is often pointing straight back into its own
+         * body, so the press that ends one crash can begin the next inside the
+         * same tick — and the old blink, whose next beat had not come yet, would
+         * wake to find the board frozen again and carry on beside the new one,
+         * two loops blinking one heart at twice the rate. Starting a blink puts
+         * the one before it out of date.
+         */
+        const HEART_BLINK_MS = 380;
+
+        let heartBlink = 0;
+
+        function blinkLostHeart() {
+            const mine = ++heartBlink;
+
+            const flip = () => {
+                if (mine !== heartBlink || !board.isFrozen()) return;
+
+                board.blink();
+                paint();
+
+                clock.after(HEART_BLINK_MS, flip);
+            };
+
+            clock.after(HEART_BLINK_MS, flip);
         }
 
         // Restarts the round after the crash animation has played out
@@ -2264,6 +2341,7 @@ function snake(container) {
                 paint();
                 board.persistTo(state);
                 clock.after(500, () => board.releaseInput());
+                blinkLostHeart();
                 return;
             }
 
@@ -2336,7 +2414,8 @@ function snake(container) {
         // decides what it means for the player's progress.
         function onTick() {
             if (board.isFrozen() || clock.isPaused()) {
-                board.blink();
+                // The lost heart blinks on its own timer — see blinkLostHeart —
+                // so a tick arriving in the middle of it only repaints.
                 paint();
                 board.persistTo(state);
                 return;
@@ -2345,10 +2424,19 @@ function snake(container) {
             const wasHeartPhase = board.phase() === 'HEART';
             const event = board.step();
 
-            if (event === 'crashHeart' || event === 'crashRestart') {
+            if (event === 'crashHeart') {
                 board.persistTo(state);
                 paint();
-                blinkCrash(() => afterCrash(event));
+                runHeadToTail(() => afterCrash(event));
+                return;
+            }
+
+            // Nothing to turn round: the round starts over, so the crash is a
+            // beat long enough to see the spark and no more.
+            if (event === 'crashRestart') {
+                board.persistTo(state);
+                paint();
+                clock.after(500, () => afterCrash(event));
                 return;
             }
 
