@@ -151,6 +151,20 @@ function tokens() {
      * the pastel band, which is the point: the end of the ramp is the one
      * place where arriving should look like arriving.
      *
+     * The yellow end has one more step of room than it looks. Stage 1 is on
+     * the arc and is never drawn from it: a word lands there only by getting
+     * something wrong, and catalog.js paints that state in a light red of its
+     * own — see DAMAGED_FILL — while the progress bar starts counting at
+     * stage 2. So the pale yellow that slot holds is a colour nothing wears,
+     * and stages 2, 3 and 4 are spread across it rather than crowding above
+     * it: their hues start where stage 1's does and reach stage 5 in three
+     * even steps instead of three short ones.
+     *
+     * That is where the arc was tightest and it is now its widest part at the
+     * yellow end: the three pairs went from dE 5.8, 6.1 and 6.1 to 9.3, 8.1
+     * and 6.7. Stage 1 and stage 2 are near enough the same colour now, which
+     * costs nothing — one of the two is never on screen.
+     *
      * Two corrections on top. Hue is spaced for the eye rather than by degrees —
      * yellow and green change fast, blue through violet slowly — and lightness
      * is pulled down across the yellows, which otherwise read brighter than
@@ -176,9 +190,9 @@ function tokens() {
         // the quietest thing on either screen.
         { fill: '#ebedef', ink: '#4a4f55', sub: '#6d737a' },   // 0  stone — a seed, nothing yet
         { fill: '#fbedc3', ink: '#605024', sub: '#857447' },   // 1  pale yellow
-        { fill: '#ebe9bc', ink: '#605e24', sub: '#858347' },   // 2  yellow
-        { fill: '#dfebb9', ink: '#526024', sub: '#768547' },   // 3  gold
-        { fill: '#d0ecb8', ink: '#406024', sub: '#648547' },   // 4  chartreuse
+        { fill: '#f8eabf', ink: '#605124', sub: '#857647' },   // 2  yellow
+        { fill: '#ebf1bb', ink: '#596024', sub: '#7d8547' },   // 3  gold
+        { fill: '#d4efb9', ink: '#426024', sub: '#668547' },   // 4  chartreuse
         { fill: '#c0edb9', ink: '#2c6024', sub: '#508547' },   // 5  lime
         { fill: '#bdefc8', ink: '#246032', sub: '#478556' },   // 6  green
         { fill: '#bff0dc', ink: '#246048', sub: '#47856c' },   // 7  emerald

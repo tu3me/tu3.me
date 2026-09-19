@@ -822,12 +822,48 @@ function catalog(container) {
 
     // Three states, three heights, and every one of them a pill: the radius
     // is always half the height, so what changes down the row is size and
-    // nothing else. Four, seven and twelve — the gaps grow as the states do,
-    // which is a difference that needs no comparing, and that is the whole
-    // job of a bar read at a glance.
+    // nothing else. Four, six and eleven — the first step small enough to
+    // read as the same thing lit, the second big enough to read as the thing
+    // finished, and neither needs comparing to see, which is the whole job of
+    // a bar read at a glance.
     const STEP_WAIT = 4;
-    const STEP_LIT = 7;
-    const STEP_TALL = 12;
+    const STEP_LIT = 6;
+    const STEP_TALL = 11;
+
+    /*
+     * The same colour with the light turned down a notch.
+     *
+     * A lit segment on the light theme is a pastel on a white card — 1.2 to
+     * 2.4 against it — and a shape that pale has no edge of its own: thirteen
+     * of them read as one soft smear rather than as thirteen things. A
+     * hairline of the segment's own colour, taken a tenth darker, gives each
+     * one a boundary without giving it a second colour.
+     *
+     * Multiplying all three channels by the same factor rather than mixing
+     * towards black. It is the one operation that holds the hue: the channels
+     * keep their ratios, so both the hue angle and the purity — the HSV kind,
+     * (max - min) / max — come out where they went in. Measured across the
+     * ramp the hue angle moves by at most a fifth of a degree, and that is
+     * rounding to whole channel values, not the maths.
+     *
+     * The factor is read in gamma-encoded sRGB, which is where the hex sits,
+     * so 0.88 is not 12% less light: light goes to about 0.88^2.2, three
+     * quarters of what it was. That is the number to think in — a tenth off
+     * the code, a quarter off the lamp — and it is why so small a factor is
+     * enough to draw an edge.
+     *
+     * What it does not do is deepen the colour. Lab chroma drops by about a
+     * tenth along with the lightness, so the hairline is the same hue, a
+     * little darker and a hair less colourful. For a line half a pixel wide
+     * that is invisible; it is written down because the obvious guess — that
+     * darkening concentrates a colour — is the wrong way round here.
+     */
+    function shade(hex, by) {
+        const n = parseInt(hex.slice(1), 16);
+        const down = (v) => Math.round(v * by);
+
+        return `rgb(${down((n >> 16) & 255)}, ${down((n >> 8) & 255)}, ${down(n & 255)})`;
+    }
 
     function ladderOf(words) {
         const stages = (words || []).map(w => spacedRepetitions.getWordProgress(w).stage);
@@ -2378,34 +2414,39 @@ function catalog(container) {
             // of what a segment looks like rather than two that must agree.
             const stepLook = (i) => {
                 const height = i < ladder.grown ? STEP_TALL : (i < ladder.lit ? STEP_LIT : STEP_WAIT);
+                const lit = i < ladder.lit;
+                const colour = lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle;
 
                 return {
-                    colour: i < ladder.lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle,
+                    colour,
+                    edge: (lit && palette.stepEdge) ? shade(colour, palette.stepEdge) : '',
                     height,
                     radius: height / 2
                 };
             };
 
-            const waiting = { colour: palette.stepIdle, height: STEP_WAIT, radius: STEP_WAIT / 2 };
+            const waiting = { colour: palette.stepIdle, edge: '', height: STEP_WAIT, radius: STEP_WAIT / 2 };
 
             /*
-             * The colour eases in; the size does not, and that is deliberate.
+             * Nothing here eases. A segment arrives at its state the moment
+             * its turn comes, whole.
              *
-             * Four pixels to ten is six pixels of change, and a screen can
-             * only show it six ways — animated over half a second it is six
-             * visible steps, a strip climbing a staircase. The radius is worse
-             * still at three. A colour has two hundred and fifty-six levels a
-             * channel and crosses them smoothly, so it is the one property
-             * here worth animating.
-             *
-             * So a segment snaps to its size the moment its turn comes and
-             * takes its colour on over the next half second. The wave is the
-             * sequence of snaps — see the stagger below — and the fade is what
-             * keeps it from looking like thirteen lights being switched.
+             * Height cannot ease: four pixels to eleven is seven pixels of
+             * change and a screen can only show it seven ways, so half a
+             * second of it is a strip climbing a staircase. Colour could —
+             * two hundred and fifty-six levels a channel is smooth enough —
+             * and it was fading for a while, but a fade under a snap reads as
+             * the segment arriving twice. The wave below is the animation;
+             * each segment is one beat of it.
              */
+            // The hairline is a shadow rather than a border: a border would eat
+            // into a strip that is four pixels tall to begin with, and half a
+            // pixel of one is not a thing the box model can hold. A spread
+            // shadow sits outside the box, follows the rounding and costs the
+            // layout nothing.
             const stepStyle = (look) => `flex: 1; height: ${look.height}px; border-radius: ${look.radius}px;`
                 + ` background-color: ${look.colour};`
-                + ` transition: background-color 0.5s ease-out;`;
+                + (look.edge ? ` box-shadow: 0 0 0 0.5px ${look.edge};` : '');
 
             // Drawn empty and coloured in a frame later, so the boxes light up
             // when the catalog opens rather than being found already lit. The
@@ -2417,7 +2458,7 @@ function catalog(container) {
                 <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                         <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 18px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
-                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.barBg}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
                     </div>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 8px;">
                         <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
@@ -2465,10 +2506,9 @@ function catalog(container) {
              * order a word climbs the rungs in.
              *
              * The step is short enough that the wave is one motion rather
-             * than a queue: the segments snap 60ms apart and each one's colour
-             * keeps arriving for half a second after that, so a dozen are
-             * always still changing and the whole run is under a second and a
-             * half.
+             * than a queue: the segments snap 60ms apart, which is close to
+             * the rate the eye stops counting at, and the whole run is over
+             * in under a second.
              *
              * Every segment gets its turn, including the ones that have
              * nothing to change. The wave passes down the whole bar and simply
@@ -2484,6 +2524,7 @@ function catalog(container) {
                         const look = stepLook(i);
 
                         step.style.backgroundColor = look.colour;
+                        step.style.boxShadow = look.edge ? `0 0 0 0.5px ${look.edge}` : '';
                         step.style.height = `${look.height}px`;
                         step.style.borderRadius = `${look.radius}px`;
                     }, 150 + i * STEP_WAVE_MS);
@@ -2572,6 +2613,32 @@ function catalog(container) {
              * dark theme keeps the quiet one it had.
              */
             stepIdle: isDark ? t.soft : stageRamp[0].fill,
+
+            /*
+             * The plate the percentage sits on beside a set's name. On the
+             * light theme it is the page's own colour, so the plate reads as
+             * a hole cut in the card rather than as another chip laid on it.
+             *
+             * It used to be `soft`, the colour of chips and tracks — one step
+             * below the page and a shade warmer. Close enough to the page to
+             * look like it was meant to be the page and missed by a hair,
+             * which is the worst thing a neutral can do.
+             *
+             * The dark theme keeps `soft`: there it is a step up from the
+             * card rather than a tint of it, and it reads as a plate on the
+             * card instead of a hole through it.
+             */
+            progressPlate: isDark ? t.soft : t.ground,
+
+            /*
+             * How much darker a lit segment's hairline is than the segment,
+             * and zero for no hairline at all — see shade.
+             *
+             * Only the light theme has one. On the dark theme a pastel on the
+             * card is 4.6 to 8.8 and already an object; ringing it would be
+             * outlining something that is not in any danger of being missed.
+             */
+            stepEdge: isDark ? 0 : 0.88,
 
 
             // The timer badge is the same colour family as the bar, taken deep
