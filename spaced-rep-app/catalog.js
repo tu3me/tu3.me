@@ -127,25 +127,38 @@ function catalog(container) {
      * through the card; this is the navy the whole app is built on, and at
      * this size it reads as a dark that belongs to something.
      *
-     * Shut is a line where the ring was, the length of its diameter — the
-     * same eye with the lid down, and the same drawing the snake closes with.
+     * Shut is a line across the eye — the same eye with the lid down, and
+     * the same drawing the snake closes with.
+     *
+     * An eye is written as the two circles a reader actually sees: `eye`, how
+     * far the white reaches, and `pupil`, where the dark ends. The ring
+     * between them is whatever is left over. SVG wants the other pair — a
+     * path radius with a stroke straddling it — and converting is two sums,
+     * which is a better place for the arithmetic than a comment explaining
+     * that a radius of 4.4 and a stroke of 2.4 happen to make an eye of 5.6.
+     *
+     * It also keeps the one rule this drawing has: the left eye is the larger
+     * of the two, and how much of it is pupil is a separate question from how
+     * big it is. The left pupil is the smaller share on purpose — two pupils
+     * of the same size in eyes of different sizes is what a face does when it
+     * is looking at something.
      */
     const RINGS = [
-        { cx: 11.37, r: 4.86 },
-        { cx: 23.02, r: 3.01 }
+        { cx: 11.37, eye: 5.61, pupil: 3.2 },
+        { cx: 23.02, eye: 3.76, pupil: 2.26 }
     ];
 
     const RING_INK = '#0f2b3c';
-    const RING_STROKE = 1.5;
+    const LID = 1.5;
 
     let ringsShut = false;
 
     function ringsSvg() {
         return RINGS.map(ring => ringsShut
-            ? `<path d="M${ring.cx - ring.r} 16H${ring.cx + ring.r}" fill="none"
-                    stroke="#ffffff" stroke-width="${RING_STROKE}" stroke-linecap="round" />`
-            : `<circle cx="${ring.cx}" cy="16" r="${ring.r}" fill="${RING_INK}"
-                    stroke="#ffffff" stroke-width="${RING_STROKE}" />`).join('');
+            ? `<path d="M${ring.cx - ring.eye + LID / 2} 16H${ring.cx + ring.eye - LID / 2}" fill="none"
+                    stroke="#ffffff" stroke-width="${LID}" stroke-linecap="round" />`
+            : `<circle cx="${ring.cx}" cy="16" r="${(ring.eye + ring.pupil) / 2}" fill="${RING_INK}"
+                    stroke="#ffffff" stroke-width="${ring.eye - ring.pupil}" />`).join('');
     }
 
     function logoSvg(fill, size) {
