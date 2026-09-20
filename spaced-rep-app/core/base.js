@@ -179,22 +179,23 @@ popupHeight();
  */
 function resizeGrip() {
     /*
-     * No size the app stops at that anybody chose, at either end.
+     * As narrow as the handle will pull. There is no other end to it: the app
+     * is as wide as it is dragged, and what stops it growing is the screen.
      *
-     * There was a floor, and it kept moving: 305, which is where the catalog's
-     * header used to stop fitting, and then 260, where the type stopped being
-     * comfortable to read. The first reason left with the reflowing -- the app
-     * is not laid out again at a smaller size, it is the same 410px drawing
-     * shown smaller, and nothing in it can stop fitting. The second was taste,
-     * and it was standing between the person dragging and the size they were
-     * dragging to.
+     * A chosen number, and it is worth being clear that it is only that.
+     * Nothing in the app stops working above it and nothing starts working
+     * below it -- the app is not laid out again at a smaller size, it is the
+     * same 410px drawing shown smaller, and a quarter of a drawing is a
+     * perfectly well-formed quarter of a drawing. The two floors before this
+     * one were measurements of something (305, where the catalog's header
+     * stopped fitting, and 260, where the type stopped being comfortable), and
+     * both went when what they measured stopped being true.
      *
-     * What is left is arithmetic, and it is in the drag below: the width is
-     * the top of the zoom and the bottom of the handle's own counter-zoom, so
-     * at nought the app vanishes and takes the handle with it. Stopping at the
-     * handle's own width is as small as the app has any business being, and it
-     * leaves the thing that undoes it exactly where it was.
+     * What this one is for is to end the drag a long way before the arithmetic
+     * does. The width is the top of the zoom and the bottom of the handle's
+     * own counter-zoom, so there is nothing good waiting near nought.
      */
+    const LEAST_WIDTH = 100;
 
     /*
      * Two presses closer together than this are one gesture, and the gesture
@@ -382,9 +383,7 @@ function resizeGrip() {
         };
 
         const move = (e) => {
-            // Asked of the handle rather than written down, so the floor is
-            // the same 12px the stylesheet gives it and stays that way.
-            wanted = Math.max(handle.offsetWidth, from.width - (e.screenX - from.x));
+            wanted = Math.max(LEAST_WIDTH, from.width - (e.screenX - from.x));
 
             if (!frame) frame = requestAnimationFrame(apply);
         };
