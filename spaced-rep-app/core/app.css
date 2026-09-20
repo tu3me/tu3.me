@@ -66,6 +66,25 @@
 }
 
 /*
+ * How large the app is drawn against how large it is written.
+ *
+ * The layout is 410px wide and always will be — see body below — and the
+ * handle on its left edge does not change that number, it changes the zoom the
+ * whole of it is shown at. So one of these is the scale and the other is its
+ * reciprocal, for the two or three things that have to undo it.
+ *
+ * Unitless, because a zoom is a number and because it is the only form both
+ * uses can be written from without nesting one calc inside another.
+ * --app-width is a plain count of screen pixels, set by prepaint.js from
+ * storage before the first frame and by the handle while it is dragged; absent
+ * means the app is shown at the size it is drawn.
+ */
+:root {
+    --app-scale: calc(var(--app-width, 410) / 410);
+    --app-unscale: calc(410 / var(--app-width, 410));
+}
+
+/*
  * Ground and ink sit on :root, not on body, for two reasons: prepaint.js runs
  * before body exists, and the root background is what paints the canvas.
  *
@@ -147,7 +166,10 @@
 }
 
 :root.in-popup body {
-    max-height: 600px;
+    /* Chrome's 600 is 600 of the screen's pixels; this cap is inside the zoom
+       and is counted in the layout's. At a smaller scale they are not the same
+       number, and the plain 600 would cut the page off well above the fold. */
+    max-height: calc(600px * var(--app-unscale));
     overflow-y: auto;
 
     /* An inner scrollbar would eat into the 410px layout exactly as the popup's
@@ -163,6 +185,26 @@
     height: 0;
 }
 
+/*
+ * In the popup the app hangs from the right edge instead of being centred.
+ *
+ * While nothing is resizing the two are the same place: the column is the
+ * window. They differ for one frame at a time while the grip is being dragged.
+ * Chrome takes the popup's size from the document and gets there a frame
+ * behind, so the freshly narrowed body spends that frame in a window that is
+ * still the old width -- and a centred body spends it half a shrink away from
+ * where it is about to be, which across a drag is the whole interface
+ * shivering sideways. Held against the edge Chrome anchors the window by, it
+ * does not move at all.
+ *
+ * Only in the popup. On the web the window is nobody's to resize and the
+ * column belongs in the middle of it.
+ */
+:root.in-popup body {
+    margin-left: auto;
+    margin-right: 0;
+}
+
 body {
     /* A plain absolute width, and deliberately nothing viewport-derived — no vw,
        no width media query. In a popup the viewport is derived from the content,
@@ -172,8 +214,22 @@ body {
        at 410px.
        A phone narrower than this is handled by the viewport meta tag in each page
        — the browser scales the fixed 410px layout down to fit, which costs nothing
-       here because the design is a fixed-width popup to begin with. */
+       here because the design is a fixed-width popup to begin with.
+
+       None of that changed when the app became resizable, because the layout
+       did not: it is 410 at every size, and what the handle on the left edge
+       moves is the zoom it is all shown at. Which is also why every other
+       number in the app — the paddings, the type sizes, the board's cells, the
+       two dozen radii — can go on being written in plain pixels and go on being
+       right: in the units they are written in, the app is never another size.
+       Scaling rather than reflowing, because one column of cards has no second
+       arrangement to find; at 340 it is the same drawing, smaller.
+
+       The zoom is a stored number and not a measurement of anything, which is
+       what keeps the loop above open: nothing here asks how wide the window
+       is. */
     width: 410px;
+    zoom: var(--app-scale);
     margin: 0 auto;
 
     /* No background of its own: a transparent body lets the root's ground paint
@@ -187,6 +243,77 @@ body {
 
 .app-main-content {
     padding: 12px;
+}
+
+/*
+ * The handle on the app's left edge, taken hold of to see the layout at a
+ * width other than the one it is drawn at.
+ *
+ * On the left, because that is the edge the popup has to give. Chrome hangs the
+ * popup off the toolbar button at the top right and grows it down and to the
+ * left, so the right edge is the one that never moves: the window follows the
+ * document's size, and the document can only lose width on the left.
+ *
+ * It stands in the strip of padding the layout keeps down that edge, and is as
+ * wide as the strip: everything the app draws starts 12px in, so there is a
+ * column of empty page there on every screen and the handle costs nothing to
+ * put in it. Beside the card rather than over it.
+ *
+ * Only where there is a mouse. It is a small target to be caught and held,
+ * which is a thing a pointer does and a fingertip does not, and on a phone it
+ * would be a smudge down the side of every screen with nothing able to use it.
+ * `any-pointer` rather than `pointer`: a laptop with a touchscreen answers
+ * "coarse" to the second one and still has the mouse this is for.
+ *
+ * Where it sits is set from script -- see resizeGrip in base.js -- because the
+ * app is a column held in the middle of whatever it is shown in, and on a wide
+ * window the window's own edge is nowhere near the app's.
+ */
+.app-grip {
+    display: none;
+    position: fixed;
+
+    /* Over the dialogs, which stop at 100. It is the window's furniture rather
+       than part of what the window is showing, and a dialog is exactly when a
+       popup is at its tallest. */
+    z-index: 200;
+
+    /* The width of the padding strip it stands in -- see .app-main-content.
+       The air above and below is the rest of the target: the dots are 20px of
+       it and a hand aiming at them is not that exact. */
+    width: 12px;
+    padding: 6px 0;
+    line-height: 0;
+
+    /* Out of the app's zoom, which it is inside of. It is the handle that sets
+       that zoom, and a handle that shrank with what it was shrinking would be
+       at its smallest exactly where it most needs catching -- and would have
+       to have every coordinate the script gives it divided by the same number
+       it is being placed by. */
+    zoom: var(--app-unscale);
+    color: var(--ink);
+    opacity: 0.32;
+
+    /* Sideways, and only sideways: the cursor says what the grip does, and
+       what it does no longer has anything to do with height. */
+    cursor: ew-resize;
+
+    /* A drag here is a resize and never a scroll: without this the browser
+       claims the gesture on anything with a touchscreen before the first
+       pointermove arrives. */
+    touch-action: none;
+
+    transition: opacity 0.2s;
+}
+
+@media (any-pointer: fine) {
+    .app-grip {
+        display: block;
+    }
+}
+
+.app-grip:hover {
+    opacity: 0.7;
 }
 
 /*

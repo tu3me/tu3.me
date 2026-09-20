@@ -866,7 +866,10 @@ function snake(container) {
         const FALL_SPAN = 900;
 
         function fireworks() {
-            const board = svg && svg.getBoundingClientRect();
+            // In the layout's pixels, because that is what the pieces are
+            // placed with and the rect is measured outside the app's zoom —
+            // see appScale.
+            const board = svg && appRect(svg);
             if (!board || !board.width) return;
 
             const sky = $(host, `<div class="snake-confetti" style="position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5;"></div>`);

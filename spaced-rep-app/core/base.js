@@ -156,3 +156,307 @@ function popupHeight() {
     if (inPopup) window.addEventListener('resize', remember);
 }
 popupHeight();
+
+/**
+ * The handle on the left edge: drag it sideways and the app changes width.
+ *
+ * Which corner it is and why it is mouse-only is in app.css, with the rest of
+ * its looks. What is here is where it sits, what a drag does to the body and
+ * where the width is kept.
+ *
+ * Width and nothing else. Height is the one measurement the app has always
+ * been able to work out for itself -- it is as tall as what is in it, and in
+ * the popup Chrome caps that at 600 anyway -- so there was nothing for a
+ * person to decide, only something for them to get wrong.
+ *
+ * The width outlives the page. The popup is rebuilt from scratch on every
+ * navigation, and a width that went with it would last until the first game
+ * was opened -- so the number goes to localStorage and comes back out in
+ * prepaint.js, before <body> is parsed, as the custom property the body takes
+ * its width from. Re-applying it from here instead would put a frame of the
+ * old width at the top of every navigation, which in a popup is the window
+ * itself jumping.
+ */
+function resizeGrip() {
+    /*
+     * As narrow as the handle will pull, and there is no other end to it: the
+     * app is as wide as it is dragged, and what stops it is the screen.
+     *
+     * Nothing breaks below this and nothing can: the app is not re-laid out at
+     * a smaller size, it is the same 410px drawing shown smaller — see body in
+     * app.css. The floor used to be 305 because that is where the catalog's
+     * header stopped fitting, and that reason went with the reflowing.
+     *
+     * What is left is reading. At 260 the scale is a little under two thirds
+     * and the app's 16.8px type lands just under 11px, which is the last size
+     * that is comfortable rather than merely possible.
+     */
+    const LEAST_WIDTH = 260;
+
+    /*
+     * Two presses closer together than this are one gesture, and the gesture
+     * is "put it back".
+     *
+     * Counted here rather than left to a dblclick listener: the pointerdown is
+     * prevented, or the drag takes the page with it, and a prevented
+     * pointerdown does not produce the mouse events a double click is made of.
+     */
+    const DOUBLE_GAP = 400;
+
+    // Read back by prepaint.js, which is the only other place that knows it.
+    const WIDTH_KEY = 'app-width';
+
+    const root = document.documentElement;
+
+    /*
+     * Three dots up the edge, which is what a thing you drag looks like when
+     * it is not pretending to be anything else.
+     *
+     * It says "take hold here" and says nothing about which way, which is the
+     * division of labour that works -- the cursor turns into a two-headed
+     * arrow the moment the pointer arrives, and that is the last thing seen
+     * before the hand moves. Drawing the arrow here instead was tried, and so
+     * were two upright bars and the diagonals of a window corner: the first
+     * says the same thing twice, the second reads as a pause button, and the
+     * third promises a height it no longer touches.
+     */
+    const handle = $(`<div class="app-grip" title="Drag to set the width, double-click to reset">
+        <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor"
+            stroke="none" aria-hidden="true">
+            <circle cx="6" cy="4" r="1.6" />
+            <circle cx="6" cy="10" r="1.6" />
+            <circle cx="6" cy="16" r="1.6" />
+        </svg></div>`);
+
+    let held = null;
+    let saveTimer = null;
+    let lastDown = 0;
+
+    /*
+     * On the app's own left edge rather than the window's. In the popup the
+     * two are the same place -- there the column is the window -- and
+     * everywhere else the window's edge is across an empty margin from
+     * anything the handle can resize.
+     *
+     * Halfway down what is showing, and not halfway down the app: the two are
+     * the same thing while the app fits, and when it does not, the middle of
+     * the app is somewhere off the bottom of the screen. A handle that has to
+     * be scrolled to is a handle nobody finds.
+     *
+     * Which means this is asked again every time the app changes height -- see
+     * the watcher at the foot of this function.
+     *
+     * Across, it stands in the middle of the strip of padding the layout keeps
+     * down its left edge -- and that strip is inside the zoom, so it is 12px
+     * of the app's pixels and fewer or more of the screen's. The handle keeps
+     * its own size out of the zoom, on purpose: it is what sets the zoom, and
+     * it should not be at its smallest exactly where it most needs catching.
+     * Its distance from the edge is another matter. Left in the screen's
+     * pixels, the dots crowd the card when the app is small and drift off it
+     * when the app is large, because the strip moves under them and they do
+     * not.
+     */
+    function place() {
+        const box = document.body.getBoundingClientRect();
+        const middle = (Math.max(0, box.top) + Math.min(box.bottom, window.innerHeight)) / 2;
+
+        // The handle is as wide as the strip it stands in, so the strip on
+        // screen is that width scaled, and centring one in the other is the
+        // difference halved. Below the size the app is drawn at that is a
+        // negative number and the handle hangs a pixel or two past the app's
+        // edge, which is what centring in a strip narrower than the handle
+        // means. Only its padding hangs; the dots stay inside.
+        const strip = handle.offsetWidth * appScale();
+
+        // The clamp is on the app's edge and not on the answer. Past the
+        // centring it also clamped away that negative offset -- and only where
+        // the app's left edge sits at zero, which is to say only in the popup,
+        // which is the one place the handle is used. The web, where the column
+        // is centred and its edge is nowhere near zero, showed none of it.
+        const edge = Math.max(0, box.left);
+
+        handle.style.left = edge + (strip - handle.offsetWidth) / 2 + 'px';
+        handle.style.top = middle - handle.offsetHeight / 2 + 'px';
+    }
+
+    // Written behind a pause, like the popup's own height a few lines up: a
+    // drag is sixty widths a second and only the last of them is a width
+    // anybody chose.
+    function remember() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            try {
+                if (held) localStorage.setItem(WIDTH_KEY, held);
+                else localStorage.removeItem(WIDTH_KEY);
+            } catch (e) { }
+        }, 200);
+    }
+
+    /*
+     * Through the root's custom property rather than onto body, because that
+     * is the number the stylesheet already reads and prepaint.js already
+     * writes. One way in for a width, whether it arrives from a drag now or
+     * from storage before the page existed.
+     */
+    function paint(width) {
+        held = Math.round(width);
+
+        // Bare, with no unit: see app.css, where it is divided by.
+        root.style.setProperty('--app-width', held);
+
+        place();
+        remember();
+    }
+
+    // Back to the width the stylesheet draws, and nothing left behind to bring
+    // the old one back on the next page.
+    function reset() {
+        held = null;
+
+        root.style.removeProperty('--app-width');
+
+        place();
+        remember();
+    }
+
+    handle.addEventListener('pointerdown', (event) => {
+        // Otherwise the drag begins by selecting the page, and the grip spends
+        // it dragging a selection around instead of a corner.
+        event.preventDefault();
+
+        const twice = Date.now() - lastDown < DOUBLE_GAP;
+        lastDown = Date.now();
+
+        if (twice) return reset();
+
+        /*
+         * Where the pointer is on the screen, and not where it is in the
+         * window.
+         *
+         * In the popup the window is the thing being resized, and Chrome holds
+         * it by the top right corner: every pixel the app gives up in width
+         * moves the window's left edge a pixel right, and a pointer that has
+         * not moved at all reports a clientX a pixel smaller. Measured against
+         * the window, a drag therefore reads its own last move back as a fresh
+         * one with the sign flipped -- w := 2*w0 - w - moved, which has no
+         * fixed point and flips between two widths -- and the popup shakes for
+         * as long as the button is held. The web never showed it, because
+         * there nothing moves the window.
+         *
+         * screenX is outside all of that: it says where the mouse is, and the
+         * mouse is not resized by anything the page does. What it costs is
+         * being in the screen's pixels rather than the page's, so a popup at
+         * some zoom other than 100% follows the pointer a little fast or a
+         * little slow. Nobody has ever noticed a resize doing that; everybody
+         * notices shaking.
+         */
+        const from = { x: event.screenX, width: document.body.getBoundingClientRect().width };
+
+        // The grip keeps the pointer for the length of the drag, so letting go
+        // outside it -- or outside the window -- still ends the drag, and moving
+        // faster than the corner can follow does not drop it.
+        handle.setPointerCapture(event.pointerId);
+
+        /*
+         * One pixel of pointer is one pixel of width, which is exact in the
+         * popup and half speed anywhere else: the column is centred, so a
+         * hundred pixels off its width moves each edge by fifty. Following the
+         * pointer instead would put the error in the popup -- the one place
+         * that has both a mouse and a window that really resizes.
+         *
+         * Applied once a frame, however many moves arrive in it. A mouse
+         * reports oftener than the screen is drawn, and in the popup every one
+         * of those reports is a window for Chrome to resize around a page it
+         * is still laying out. Nothing is lost by dropping the rest: only the
+         * last width of a frame was ever going to be seen.
+         */
+        let wanted = 0;
+        let frame = 0;
+
+        const apply = () => {
+            frame = 0;
+            paint(wanted);
+        };
+
+        const move = (e) => {
+            wanted = Math.max(LEAST_WIDTH, from.width - (e.screenX - from.x));
+
+            if (!frame) frame = requestAnimationFrame(apply);
+        };
+
+        const stop = () => {
+            handle.removeEventListener('pointermove', move);
+            handle.removeEventListener('pointerup', stop);
+            handle.removeEventListener('pointercancel', stop);
+        };
+
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', stop);
+        handle.addEventListener('pointercancel', stop);
+    });
+
+    // Capture, because a scroll inside the body does not bubble: in the popup
+    // the body is the thing that scrolls, and the corner moves with it.
+    window.addEventListener('scroll', place, true);
+
+    // The window moving the column without resizing it: the app is centred, so
+    // a wider window puts its left edge somewhere else, and a shorter one moves
+    // the fold the corner is clamped to.
+    window.addEventListener('resize', place);
+
+    /*
+     * And the body's own height, which is what the handle is halfway down.
+     * This runs before anything has been drawn -- the page is built by script
+     * after two async reads -- so there is no first position to take up yet,
+     * and the app goes on changing height long afterwards: a set folded open,
+     * a dialog, a game swapping its board for a victory panel.
+     *
+     * The body is the only box worth watching for as long as nothing pins its
+     * height: it is as tall as whatever is in it, so its own size answers for
+     * all of them. It was not always -- while the grip dragged a height as
+     * well, the body became the one box in the document that could not change
+     * size, and the catalog opened at a stale corner without noticing. Width
+     * only is what makes one observer enough.
+     *
+     * No loop in it: the grip is out of flow, so placing it cannot change the
+     * size that placed it.
+     */
+    new ResizeObserver(place).observe(document.body);
+
+    place();
+}
+resizeGrip();
+
+/**
+ * How large the app is being shown against how large it is drawn, and the
+ * usual thing done with that number.
+ *
+ * The app is one 410px-wide drawing shown at whatever size the handle was
+ * dragged to, and the way that is done is a zoom on body — see app.css. Inside
+ * that zoom a style is written in the layout's pixels, while
+ * getBoundingClientRect, the viewport's own size and a pointer's clientX all
+ * speak the screen's. At the size the app is drawn at the two are the same and
+ * the difference cannot be seen, which is the whole danger of it: the few
+ * places that measure the screen and then write a length back into the page
+ * are right until somebody drags the handle, and then they are wrong by
+ * exactly the scale.
+ *
+ * appRect is that conversion for the usual case — where is this element, in
+ * the units something inside the page can be positioned with.
+ */
+function appScale() {
+    const drawn = document.body.clientWidth;
+
+    return drawn ? document.body.getBoundingClientRect().width / drawn : 1;
+}
+
+function appRect(el) {
+    const box = el.getBoundingClientRect();
+    const scale = appScale();
+
+    return {
+        left: box.left / scale, right: box.right / scale,
+        top: box.top / scale, bottom: box.bottom / scale,
+        width: box.width / scale, height: box.height / scale
+    };
+}

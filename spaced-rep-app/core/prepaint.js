@@ -23,6 +23,26 @@
         const dark = localStorage.getItem('dark');
         root.dataset.theme = dark === '0' ? 'light' : 'dark';
 
+        /*
+         * The width the corner was last dragged to -- see resizeGrip in base.js.
+         *
+         * Here, and not where the dragging is, because body takes its width
+         * from this property and the stylesheet is the only thing that paints
+         * before the page has been built. Applied a script later, every
+         * navigation would open at 410 and jump -- and in the popup the jump is
+         * the window.
+         *
+         * Nothing is stored until the corner is dragged, and the shape of what
+         * is stored is checked rather than trusted: a value that is not a
+         * number is not a width, and the stylesheet's own default is a
+         * perfectly good answer.
+         */
+        const width = /^\d+$/.exec(localStorage.getItem('app-width') || '');
+
+        // Bare, with no unit on it: the stylesheet divides by it. A length
+        // would be the one thing calc() cannot divide by.
+        if (width) root.style.setProperty('--app-width', width[0]);
+
         // Popup only: on the web the window height is given from outside and
         // there is nothing to reserve.
         //

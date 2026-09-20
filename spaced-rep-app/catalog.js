@@ -1454,8 +1454,11 @@ function catalog(container) {
      * transform to grow from.
      */
     function hangUnder(panel, anchor) {
-        const a = anchor.getBoundingClientRect();
-        const room = document.documentElement.clientHeight;
+        // Both in the layout's pixels rather than the screen's: the panel is
+        // positioned from inside the app's zoom, and a rect and the viewport
+        // are measured outside it. See appScale.
+        const a = appRect(anchor);
+        const room = document.documentElement.clientHeight / appScale();
 
         const left = Math.max(SCREEN_EDGE, a.right - panel.offsetWidth);
         const top = a.bottom + ANCHOR_GAP;
