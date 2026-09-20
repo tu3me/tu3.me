@@ -1073,11 +1073,18 @@ function snake(container) {
              * the header, the left one larger, which is what gives it the
              * puzzled look — see logoSvg in catalog.js.
              *
-             * The numbers are that drawing's, divided by the width of the card
-             * it sits on, so the face keeps its proportions on a head of any
-             * size. They are offsets from the middle of the pair rather than
-             * from the middle of the card, because the mark's pair is not
-             * centred on its card and a snake's is centred on its head.
+             * The numbers are that drawing's, divided by the width of the
+             * card it sits on, so the face keeps its proportions on a head of
+             * any size.
+             *
+             * The offsets centre the pair by its edges, not by its centres.
+             * Two eyes of different sizes with their middles the same
+             * distance out have their ink further out on the big side, and
+             * the face ends up leaning that way — a snake looking slightly
+             * left of where it is going. Placed so the outer edge of each eye
+             * is the same distance from the middle of the head, at -0.388 and
+             * +0.388, the pair sits in the middle and the big eye simply
+             * reaches closer to it.
              *
              * Turned to face where the snake is going. The pair is laid out
              * along x across the middle of the head, which is the snake
@@ -1102,8 +1109,8 @@ function snake(container) {
              * closed eye drawn any other way stops being the same eye.
              */
             const EYES = [
-                { off: -0.207, r: 0.173, width: 0.101 },
-                { off: 0.207, r: 0.107, width: 0.062 }
+                { off: -0.164, r: 0.173, width: 0.101 },
+                { off: 0.250, r: 0.107, width: 0.062 }
             ];
 
             const faceOn = (part, shut) => {

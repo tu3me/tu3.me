@@ -9,7 +9,7 @@
  *
  * Both languages are written on every word rather than worked out by
  * speech.languageOfAll: what is in here is known, and a starting set has no
- * business depending on a detector being right about fourteen languages at
+ * business depending on a detector being right about ten languages at
  * once. store.label only fills in words that name no language, so what is
  * written here is what stays.
  */
@@ -18,7 +18,7 @@ function seed() {
         return [
             {
                 /*
-                 * One set, fourteen languages, and every line a phrase whose
+                 * One set, ten languages, and every line a phrase whose
                  * meaning the reader already knows before they have read a
                  * word of it.
                  *
@@ -34,7 +34,7 @@ function seed() {
                  * months; what it says is worth choosing.
                  *
                  * The scripts are mixed on purpose — Latin, Greek,
-                 * Devanagari, Han, Kana, Hangul, Arabic, Persian, Thai. Snake
+                 * Devanagari, Han, Kana, Hangul, Thai. Snake
                  * lays a word out one letter to a cell and cards splits a line
                  * into words, and both have to agree with the reader about
                  * what a letter is; a starting set that exercises that on the
@@ -49,16 +49,16 @@ function seed() {
                  * it, and only some browsers carry the dictionaries that could
                  * work that out; a space works everywhere and needs nothing.
                  *
-                 * The capitals are uneven on purpose, and it is the languages
-                 * that are uneven rather than the typing. German, Dutch and
-                 * Turkish capitalise an adjective made from a country's name —
-                 * Schweizer Uhr, Belgische chocolade, Türk kahvesi — and
-                 * Spanish, French, Italian, Finnish and Greek do not:
-                 * guitarra española, parfum français, moda italiana,
-                 * suomalainen sauna, ελληνική φιλοξενία. The rest of the scripts here have
-                 * no letters to capitalise. None of these is the first word of
-                 * a sentence, so nothing gets a capital for standing first.
-                 * Squaring them up would put a spelling mistake on five cards.
+                 * The capitals are uneven on purpose, and it is the
+                 * languages that are uneven rather than the typing. German
+                 * capitalises an adjective made from a country's name —
+                 * Schweizer Uhr — and Spanish, French, Italian and Greek do
+                 * not: guitarra española, parfum français, moda italiana,
+                 * ελληνική φιλοξενία. The rest of the scripts here have no
+                 * letters to capitalise. None of these is the first word of a
+                 * sentence, so nothing gets a capital for standing first.
+                 * Squaring them up would put a spelling mistake on four
+                 * cards.
                  *
                  * The English side is level because English is: the nationality
                  * takes the capital, the thing it names does not.
@@ -82,21 +82,17 @@ function seed() {
                  * what a first screen should be.
                  */
                 id: '1',
-                title: 'Multilingual set',
+                title: 'Around the world',
                 words: [
                     { original: 'guitarra española', originalLang: 'es', translation: 'Spanish guitar', translationLang: 'en', repetitions: [] },
                     { original: '中国 丝绸', originalLang: 'zh', translation: 'Chinese silk', translationLang: 'en', repetitions: [] },
                     { original: 'parfum français', originalLang: 'fr', translation: 'French perfume', translationLang: 'en', repetitions: [] },
                     { original: '日本 庭園', originalLang: 'ja', translation: 'Japanese garden', translationLang: 'en', repetitions: [] },
                     { original: 'Schweizer Uhr', originalLang: 'de', translation: 'Swiss watch', translationLang: 'en', repetitions: [] },
-                    { original: 'Türk kahvesi', originalLang: 'tr', translation: 'Turkish coffee', translationLang: 'en', repetitions: [] },
                     { original: 'भारतीय चाय', originalLang: 'hi', translation: 'Indian tea', translationLang: 'en', repetitions: [] },
                     { original: 'ελληνική φιλοξενία', originalLang: 'el', translation: 'Greek hospitality', translationLang: 'en', repetitions: [] },
                     { original: 'moda italiana', originalLang: 'it', translation: 'Italian fashion', translationLang: 'en', repetitions: [] },
-                    { original: 'فرش ایرانی', originalLang: 'fa', translation: 'Persian carpet', translationLang: 'en', repetitions: [] },
-                    { original: 'suomalainen sauna', originalLang: 'fi', translation: 'Finnish sauna', translationLang: 'en', repetitions: [] },
                     { original: '한국 김치', originalLang: 'ko', translation: 'Korean kimchi', translationLang: 'en', repetitions: [] },
-                    { original: 'Belgische chocolade', originalLang: 'nl', translation: 'Belgian chocolate', translationLang: 'en', repetitions: [] },
                     { original: 'นวด แผนไทย', originalLang: 'th', translation: 'Thai massage', translationLang: 'en', repetitions: [] }
                 ]
             }
