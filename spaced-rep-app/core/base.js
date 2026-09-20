@@ -179,19 +179,22 @@ popupHeight();
  */
 function resizeGrip() {
     /*
-     * As narrow as the handle will pull, and there is no other end to it: the
-     * app is as wide as it is dragged, and what stops it is the screen.
+     * No size the app stops at that anybody chose, at either end.
      *
-     * Nothing breaks below this and nothing can: the app is not re-laid out at
-     * a smaller size, it is the same 410px drawing shown smaller — see body in
-     * app.css. The floor used to be 305 because that is where the catalog's
-     * header stopped fitting, and that reason went with the reflowing.
+     * There was a floor, and it kept moving: 305, which is where the catalog's
+     * header used to stop fitting, and then 260, where the type stopped being
+     * comfortable to read. The first reason left with the reflowing -- the app
+     * is not laid out again at a smaller size, it is the same 410px drawing
+     * shown smaller, and nothing in it can stop fitting. The second was taste,
+     * and it was standing between the person dragging and the size they were
+     * dragging to.
      *
-     * What is left is reading. At 260 the scale is a little under two thirds
-     * and the app's 16.8px type lands just under 11px, which is the last size
-     * that is comfortable rather than merely possible.
+     * What is left is arithmetic, and it is in the drag below: the width is
+     * the top of the zoom and the bottom of the handle's own counter-zoom, so
+     * at nought the app vanishes and takes the handle with it. Stopping at the
+     * handle's own width is as small as the app has any business being, and it
+     * leaves the thing that undoes it exactly where it was.
      */
-    const LEAST_WIDTH = 260;
 
     /*
      * Two presses closer together than this are one gesture, and the gesture
@@ -379,7 +382,9 @@ function resizeGrip() {
         };
 
         const move = (e) => {
-            wanted = Math.max(LEAST_WIDTH, from.width - (e.screenX - from.x));
+            // Asked of the handle rather than written down, so the floor is
+            // the same 12px the stylesheet gives it and stays that way.
+            wanted = Math.max(handle.offsetWidth, from.width - (e.screenX - from.x));
 
             if (!frame) frame = requestAnimationFrame(apply);
         };
