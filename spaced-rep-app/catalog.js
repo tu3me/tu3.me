@@ -255,11 +255,38 @@ function catalog(container) {
      * sit. Two knobs on two lines have somewhere to be: one pushed left, one
      * pushed right, which is what a setting looks like.
      */
-    const SLIDERS = chromeIcon(`
-        <circle cx="7.5" cy="8" r="3.4" />
-        <path d="M12.4 8h8.6" />
-        <path d="M3 16h8.6" />
-        <circle cx="16.5" cy="16" r="3.4" />`);
+    /*
+     * The settings button: a cog with six teeth rather than the eight or ten
+     * a cog usually has.
+     *
+     * The icon is drawn on a 24 grid and shown at 18, so a tooth is about two
+     * pixels of screen. Eight of them at this stroke close the gaps between
+     * themselves and the ring turns into a blurred circle; six keep air
+     * between them and still read as a cog. Seven was tried too and looked
+     * like a six with a mistake in it; five reads as a rounded pentagon,
+     * because an odd count has no axis to stand on.
+     *
+     * It is also half a flower. There are no corners anywhere on it: the
+     * radius follows a cosine, 9.6 at the top of a lobe and 6.4 at the bottom
+     * of a valley, so the six bumps are petals as much as they are teeth. The
+     * wave was shallower at first and the petals were only implied; a third
+     * deeper and they are the thing you see, while the outline is still round
+     * everywhere and never points. A
+     * cog drawn the honest way — arcs joined by straight radial sides — is a
+     * picture of a machine part, and at eighteen pixels a picture of a
+     * machine part is a smudge. This one is the idea of one, and the softer
+     * silhouette survives being small.
+     *
+     * Generated rather than drawn: the curve is sampled four times per lobe
+     * and the samples joined with Catmull-Rom, which is what makes it smooth
+     * at every point rather than smooth in places. Six samples per lobe were
+     * indistinguishable and half again as long; three began to flatten the
+     * valleys into a hexagon. Changing the count, the depth or the sampling
+     * means generating it again, not nudging points.
+     */
+    const GEAR = chromeIcon(`
+        <path d="M21.60 12.00 C21.60 12.69 20.40 13.54 19.73 14.07 C19.05 14.60 17.89 14.60 17.54 15.20 C17.20 15.80 17.78 16.80 17.66 17.66 C17.53 18.51 17.40 19.97 16.80 20.31 C16.20 20.66 14.87 20.05 14.07 19.73 C13.27 19.41 12.69 18.40 12.00 18.40 C11.31 18.40 10.73 19.41 9.93 19.73 C9.13 20.05 7.80 20.66 7.20 20.31 C6.60 19.97 6.47 18.51 6.34 17.66 C6.22 16.80 6.80 15.80 6.46 15.20 C6.11 14.60 4.95 14.60 4.27 14.07 C3.60 13.54 2.40 12.69 2.40 12.00 C2.40 11.31 3.60 10.46 4.27 9.93 C4.95 9.40 6.11 9.40 6.46 8.80 C6.80 8.20 6.22 7.20 6.34 6.34 C6.47 5.49 6.60 4.03 7.20 3.69 C7.80 3.34 9.13 3.95 9.93 4.27 C10.73 4.59 11.31 5.60 12.00 5.60 C12.69 5.60 13.27 4.59 14.07 4.27 C14.87 3.95 16.20 3.34 16.80 3.69 C17.40 4.03 17.53 5.49 17.66 6.34 C17.78 7.20 17.20 8.20 17.54 8.80 C17.89 9.40 19.05 9.40 19.73 9.93 C20.40 10.46 21.60 11.31 21.60 12.00 Z" />
+        <circle cx="12" cy="12" r="3" />`);
 
     const MOON = chromeIcon(`
         <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
@@ -1134,9 +1161,9 @@ function catalog(container) {
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 8px;">
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
-                <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${SLIDERS}</button>
-                <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
+                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
+                <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${GEAR}</button>
+                <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
             </div>
         </div>`);
 
@@ -2487,9 +2514,15 @@ function catalog(container) {
 
                 <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
 
+                <!-- The label under each icon is 13.2px because of the
+                     longest of them: "Flashcards" at 15px is 79 wide and the
+                     button has 78 to give, and it is one word, so it cannot
+                     wrap out of trouble — it just spills over the corner. At
+                     13.2 it is 70, which leaves room for the system font on a
+                     phone being wider than the one this was measured in. -->
                 <div class="set-actions-group" style="display: flex; gap: 8px; height: 58px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(24)}<span>${g.title}</span></button>`).join('')}
-                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${DOTS}<span class="set-more-label">More...</span></button>
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 13.2px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(24)}<span>${g.title}</span></button>`).join('')}
+                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 13.2px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${DOTS}<span class="set-more-label">More...</span></button>
                 </div>
             `);
 
@@ -2600,6 +2633,25 @@ function catalog(container) {
             softBg: t.soft,
             softColor: t.muted,
             softBorder: t.border,
+
+            /*
+             * The outline of the three buttons in the header, which on the
+             * light theme is darker than every other border in the app.
+             *
+             * They are the only controls that stand on the page itself rather
+             * than on a card, and the page is warm paper: the ordinary border
+             * against it is 1.13, which is a line you have to look for. The
+             * same border on a white card is 1.50 and perfectly visible —
+             * nothing was wrong with the colour, only with what it was asked
+             * to sit on.
+             *
+             * 1.78 against the page here, the same reading a border gets on a
+             * card, so a button on the page and a button on a card have the
+             * same weight. The dark theme has no such problem — there the
+             * card and the page are near enough the same darkness — and keeps
+             * the one border.
+             */
+            chromeBorder: isDark ? t.border : '#b9a782',
             cardBg: t.surface,
             cardBorder: t.border,
             hint: t.muted,

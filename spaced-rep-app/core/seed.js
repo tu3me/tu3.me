@@ -82,7 +82,7 @@ function seed() {
                  * what a first screen should be.
                  */
                 id: '1',
-                title: 'Around the world',
+                title: 'Your first card set',
                 words: [
                     { original: 'guitarra española', originalLang: 'es', translation: 'Spanish guitar', translationLang: 'en', repetitions: [] },
                     { original: '中国 丝绸', originalLang: 'zh', translation: 'Chinese silk', translationLang: 'en', repetitions: [] },

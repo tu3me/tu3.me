@@ -1954,15 +1954,17 @@ function snake(container) {
     /*
      * Which screen the narration belongs to, and which letter of it.
      *
-     * A chain of waits outlives the moment it was started in, and there are two
-     * ways for it to become wrong. The player eats the next letter, and what the
-     * board was still saying about the last one is out of date. Or the player
-     * leaves, and hush() cancels the voice — which reports back exactly the way
-     * finishing does, so the chain wakes up on a screen that is gone and says
-     * its word into whatever page was opened next.
+     * A chain of waits outlives the moment it was started in, and there are
+     * three ways for it to become wrong. The player eats the next letter, and
+     * what the board was still saying about the last one is out of date. The
+     * player catches the heart, and the line being read is no longer the line on
+     * the bar. Or the player leaves, and hush() cancels the voice — which
+     * reports back exactly the way finishing does, so the chain wakes up on a
+     * screen that is gone and says its word into whatever page was opened next.
      *
-     * Both are the same question — is this still the narration that is running —
-     * and a number answers it without either caller knowing about the other.
+     * All three are the same question — is this still the narration that is
+     * running — and a number answers it without any caller knowing about the
+     * others.
      */
     let narration = 0;
 
@@ -2480,6 +2482,23 @@ function snake(container) {
         }
 
         function moveToNextWord() {
+            /*
+             * Whatever the board was still reading goes with the word that is
+             * leaving.
+             *
+             * The line is read out as the last letter lands, and the heart is
+             * one move away: catch it quickly and the reading is still going
+             * when the next word arrives. It did not stop — it could not know
+             * the bar had been rebuilt under it — so the old line went on being
+             * said over the new one, marking the new boxes letter by letter and
+             * word by word as it went.
+             *
+             * Both halves of it stop here: the number retires the chain of waits
+             * behind it, hush() the sound already in the air.
+             */
+            narration += 1;
+            speech.hush();
+
             currentItem = pool[state.currentIndex];
             targetWord = currentItem.word.original.toLowerCase();
             sayLang = currentItem.word.originalLang;

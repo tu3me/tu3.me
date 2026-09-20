@@ -28,7 +28,7 @@ function gameIcon(size, body) {
 const GAMES = [
     {
         id: 'cards',
-        title: 'Cards',
+        title: 'Flashcards',
         // One card in front, a second showing behind it — its top-left corner
         // sticking out, leaning the opposite way from the front card.
         //
