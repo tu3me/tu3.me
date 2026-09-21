@@ -122,8 +122,18 @@ function store() {
         return limit ? pool.slice(0, limit) : pool;
     }
 
-    // The pool item carries setId + original, so the live word object is resolved in its own
-    // set only — the same word placed in two sets keeps independent histories.
+    /*
+     * The pool item carries setId + original, so the live word object is resolved in its own
+     * set only — the same word placed in two sets keeps independent histories.
+     *
+     * `result` is a number from 0 to 1 and only 1 is a success — srs.js reads
+     * it as `result === 1` and nothing else. Cards and quiz have nothing to
+     * say between the two and write one or the other; snake writes the share
+     * of the word the player had before asking to be shown it, which is a
+     * mistake like any other and is a different mistake from having none of
+     * it. Nothing downstream ranks the fractions yet; they are recorded
+     * because they are what happened.
+     */
     function recordRepetition(poolItem, result, game) {
         const entry = { timestamp: Date.now(), result: result, game: game };
 

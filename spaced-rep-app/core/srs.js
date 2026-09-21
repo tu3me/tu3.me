@@ -142,6 +142,9 @@ function spacedRepetitions() {
         const marks = [];
 
         for (const rep of reps) {
+            // Only the whole word counts. A result can be a fraction — snake
+            // records how much of the word was recalled before the answer was
+            // asked for — and most of a word is still not the word.
             const success = rep.result === 1;
             const isEarly = nextRepetition !== null && rep.timestamp < nextRepetition;
 

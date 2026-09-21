@@ -2236,6 +2236,30 @@ function snake(container) {
             view.gathered(board.letters(), board.progress(), state.showHint);
         }
 
+        /*
+         * How much of the word the player had before they asked to be shown
+         * the rest of it, as a share of the whole.
+         *
+         * Counted in letters and not in boxes: the spaces are boxes on the bar
+         * and are neither remembered nor forgotten -- nothing is spawned for
+         * them and nothing is gone for. A word of two letters and a space is
+         * out of two.
+         *
+         * Two decimals, and truncated rather than rounded. Two is already more
+         * precision than a share of a dozen letters can carry, and truncating
+         * is what keeps a word that was opened from ever recording a 1 --
+         * which is the one number that means it was not.
+         */
+        function recalledShare() {
+            const letters = board.letters();
+            const held = letters.slice(0, board.progress());
+
+            const total = letters.filter(ch => !BLANK.test(ch)).length;
+            const known = held.filter(ch => !BLANK.test(ch)).length;
+
+            return total ? Math.floor(known / total * 100) / 100 : 0;
+        }
+
         // Showing the answer, which is only ever asked for by clicking a letter
         // that is still hidden
         function revealHint() {
@@ -2243,6 +2267,29 @@ function snake(container) {
 
             state.showHint = true;
             state.hadErrorThisRound = true;
+
+            /*
+             * The repetition is written here, and not when the word is
+             * finally spelled out.
+             *
+             * This is the moment the round is decided: everything after it is
+             * the player copying letters off a bar that already shows them.
+             * Written at the end instead, the verdict lived only in the dot —
+             * open the word, walk out of the game, and dict showed a word
+             * nothing had ever happened to. The dot said one thing and the
+             * shelf said another, and the shelf is the one that is still
+             * there tomorrow.
+             *
+             * The share is measured before the bar is redrawn below: a moment
+             * later it shows the whole word, and by the end of the round every
+             * box of it is filled in either way.
+             *
+             * wordDone writes nothing for a round that came through here —
+             * see `clean` there. One round is one repetition.
+             */
+            store.recordRepetition(currentItem, recalledShare(), 'snake');
+            store.save();
+
             refreshGathered();
 
             // The round is lost the moment the answer is shown, so the dot says
@@ -2629,8 +2676,19 @@ function snake(container) {
 
                 board.persistTo(state);
 
+                /*
+                 * A whole word, spelled out without ever asking to see it.
+                 *
+                 * The other kind of round wrote its repetition the moment the
+                 * player asked -- see revealHint, which also explains why the
+                 * result there is a fraction and not a 0. Both are one
+                 * repetition each; this is the half of that rule that lives
+                 * here.
+                 */
                 const clean = !state.hadErrorThisRound;
-                store.recordRepetition(currentItem, clean ? 1 : 0, 'snake');
+
+                if (clean) store.recordRepetition(currentItem, 1, 'snake');
+
                 state.sessionResults[state.currentIndex] = clean ? 'correct' : 'wrong';
                 store.save();
 
