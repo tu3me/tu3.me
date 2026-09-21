@@ -242,10 +242,18 @@ function resizeGrip() {
      * everywhere else the window's edge is across an empty margin from
      * anything the handle can resize.
      *
-     * Halfway down what is showing, and not halfway down the app: the two are
-     * the same thing while the app fits, and when it does not, the middle of
-     * the app is somewhere off the bottom of the screen. A handle that has to
-     * be scrolled to is a handle nobody finds.
+     * Level with the first thing in the header: the mark in dict, the way out
+     * in the games. Both sit in the same corner of their page, so the handle
+     * has one height on every screen of the app instead of a height that
+     * depends on how much is below it -- and the top of a page is somewhere a
+     * hand goes looking without being told.
+     *
+     * Halfway down what is showing is the answer when neither is there, which
+     * is every frame before the page has been built: both are drawn by script
+     * after two async reads. It is also the honest answer for a page that
+     * grows one later -- and clamped to the fold, because the app can be
+     * taller than the window and a handle off the bottom of it is a handle
+     * nobody finds.
      *
      * Which means this is asked again every time the app changes height -- see
      * the watcher at the foot of this function.
@@ -262,7 +270,15 @@ function resizeGrip() {
      */
     function place() {
         const box = document.body.getBoundingClientRect();
-        const middle = (Math.max(0, box.top) + Math.min(box.bottom, window.innerHeight)) / 2;
+
+        // One selector for the two of them: no page has both, and a page that
+        // has neither has not been built yet.
+        const anchor = document.querySelector('.dict-logo, .back-btn');
+        const seat = anchor ? anchor.getBoundingClientRect() : null;
+
+        const middle = seat
+            ? seat.top + seat.height / 2
+            : (Math.max(0, box.top) + Math.min(box.bottom, window.innerHeight)) / 2;
 
         // The handle is as wide as the strip it stands in, so the strip on
         // screen is that width scaled, and centring one in the other is the
@@ -279,8 +295,13 @@ function resizeGrip() {
         // is centred and its edge is nowhere near zero, showed none of it.
         const edge = Math.max(0, box.left);
 
+        // The top is clamped rather than the middle: on a page scrolled past
+        // its own header the handle stays on screen instead of riding the
+        // header out of it.
+        const top = middle - handle.offsetHeight / 2;
+
         handle.style.left = edge + (strip - handle.offsetWidth) / 2 + 'px';
-        handle.style.top = middle - handle.offsetHeight / 2 + 'px';
+        handle.style.top = Math.max(0, Math.min(top, window.innerHeight - handle.offsetHeight)) + 'px';
     }
 
     // Written behind a pause, like the popup's own height a few lines up: a

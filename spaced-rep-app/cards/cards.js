@@ -475,7 +475,7 @@ function cards(container) {
 
         const header = $(container, `<div class="cards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div class="cards-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
             <div class="cards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;">
                 ${dotsHtml()}
@@ -486,7 +486,7 @@ function cards(container) {
             page.home();
         });
 
-        page.muteButton(header, palette.backBtn);
+        page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
         const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 170px; cursor: pointer; margin-bottom: 16px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
@@ -640,6 +640,10 @@ function cards(container) {
 
         palette = {
             dotIdle: t.border,
+
+            // The way out and the sound stand on the page, like dict's header
+            // buttons, and are outlined the same — see tokens.chrome.
+            chromeBorder: t.chrome,
             // Marks where you are right now: the dot you are on. Its own token
             // rather than the accent, which is what a button that wants pressing
             // is painted in — "you are here" should not shout in the same colour

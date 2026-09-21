@@ -2637,24 +2637,10 @@ function catalog(container) {
             softColor: t.muted,
             softBorder: t.border,
 
-            /*
-             * The outline of the three buttons in the header, which on the
-             * light theme is darker than every other border in the app.
-             *
-             * They are the only controls that stand on the page itself rather
-             * than on a card, and the page is warm paper: the ordinary border
-             * against it is 1.13, which is a line you have to look for. The
-             * same border on a white card is 1.50 and perfectly visible —
-             * nothing was wrong with the colour, only with what it was asked
-             * to sit on.
-             *
-             * 1.78 against the page here, the same reading a border gets on a
-             * card, so a button on the page and a button on a card have the
-             * same weight. The dark theme has no such problem — there the
-             * card and the page are near enough the same darkness — and keeps
-             * the one border.
-             */
-            chromeBorder: isDark ? t.border : '#b9a782',
+            // The outline of the three header buttons, which stand on the page
+            // and not on a card — see tokens, where the colour and the reason
+            // for it live, and the games, which outline their own two the same.
+            chromeBorder: t.chrome,
             cardBg: t.surface,
             cardBorder: t.border,
             hint: t.muted,

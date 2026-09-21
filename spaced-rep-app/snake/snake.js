@@ -526,7 +526,7 @@ function snake(container) {
              */
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
                     <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
                 </div>
                 <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
@@ -539,7 +539,7 @@ function snake(container) {
                 e.preventDefault();
                 cb.onBack();
             });
-            page.muteButton(header, palette.backBtn);
+            page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
             header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
             header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
@@ -2770,6 +2770,10 @@ function snake(container) {
         view.setTheme({
             backBtn: t.muted,
             dotIdle: t.border,
+
+            // The way out and the sound stand on the page, like dict's header
+            // buttons, and are outlined the same — see tokens.chrome.
+            chromeBorder: t.chrome,
             ring: t.accent,
             // Marks where you are right now — the dot you are on, and in quiz
             // the option under the keyboard cursor. Its own token rather than

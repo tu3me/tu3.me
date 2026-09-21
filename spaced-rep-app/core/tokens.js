@@ -26,6 +26,7 @@ function tokens() {
         surface: '#1a4154',      // cards, quiz options — lifted in the same hue
         soft: '#16384a',         // tracks, chips, inputs
         border: '#2a5568',
+        chrome: '#2a5568',       // buttons standing on the page — see LIGHT.chrome
         ink: '#eef6f7',
         muted: '#9bb4c1',
 
@@ -86,6 +87,23 @@ function tokens() {
         surface: '#ffffff',
         soft: '#e3d9c8',
         border: '#ddd2bf',
+
+        /*
+         * The outline of a button that stands on the page itself rather than
+         * on a card: the header buttons in dict, and the way out and the sound
+         * in the games.
+         *
+         * Darker than `border`, which is the only colour in this theme that
+         * needs two. A border on white reads at 1.50 and a border on this warm
+         * paper at 1.13 — the same line, and on the page it is a line you have
+         * to look for. This one is 1.78 against the page, which is what a
+         * border on a card already gets, so a button on the page and a button
+         * on a card have the same weight.
+         *
+         * The dark theme needs no second colour: there the card and the page
+         * are near enough the same darkness.
+         */
+        chrome: '#b9a782',
         ink: '#153040',
         muted: '#655b4f',
 

@@ -409,7 +409,7 @@ function quiz(container) {
 
         const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; background: transparent; border: none; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
             <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;">
                 ${dotsHtml()}
@@ -420,7 +420,7 @@ function quiz(container) {
             page.home();
         });
 
-        page.muteButton(header, palette.backBtn);
+        page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
         const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box; cursor: pointer;">
             <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
@@ -667,6 +667,10 @@ function quiz(container) {
 
         palette = {
             dotIdle: t.border,
+
+            // The way out and the sound stand on the page, like dict's header
+            // buttons, and are outlined the same — see tokens.chrome.
+            chromeBorder: t.chrome,
             // Marks where you are right now — the dot you are on, and in quiz
             // the option under the keyboard cursor. Its own token rather than
             // the accent, because `ring` also paints the buttons, and "you are

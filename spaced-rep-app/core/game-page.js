@@ -59,7 +59,7 @@ function page() {
      * is mid-session when this is pressed, and a redraw would be a redraw of a
      * board, a card mid-turn or a question already answered.
      */
-    page.muteButton = (header, colour) => {
+    page.muteButton = (header, colour, border) => {
         if (!header) return null;
 
         // In a group of its own, and the group takes a third of the header the
@@ -78,7 +78,7 @@ function page() {
         const end = header.querySelector('.game-header-end')
             || $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
 
-        const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: none; color: ${colour}; cursor: pointer;"></button>`);
+        const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 12px; color: ${colour}; cursor: pointer;"></button>`);
 
         drawMute(btn);
 
