@@ -1,11 +1,28 @@
 /**
  * "Quiz" game. The number of options grows with the word stage, so a word
  * that is well known is asked among more distractors — as many as its own set
- * can supply, and no more.
+ * can supply, up to a ceiling, and no more.
  */
 function quiz(container) {
     // How many words this game takes per session — its own decision
     const POOL_LIMIT = 10;
+
+    /*
+     * The most answers a question is ever asked with, and the fewest.
+     *
+     * Two at the bottom because one is not a question: a word being seen for
+     * the first time is at stage 0, and offering it the answer on its own asks
+     * nothing and teaches nothing. Two is the smallest thing that can be got
+     * wrong.
+     *
+     * Six at the top because a list read from the top every time stops being a
+     * question somewhere around there and becomes a search. The ladder goes to
+     * fourteen and the stage keeps climbing long after the asking has stopped
+     * getting harder; six is also what the popup can show under the question
+     * without the last answer falling past the fold.
+     */
+    const LEAST_OPTIONS = 2;
+    const MOST_OPTIONS = 6;
 
     let state = getEmptyState();
     let palette = {};
@@ -425,10 +442,11 @@ function quiz(container) {
         // lands takes back the ones this device cannot keep.
         speech.onVoices(render);
 
-        // The better the word is known, the more options are offered
+        // The better the word is known, the more options are offered — see
+        // LEAST_OPTIONS and MOST_OPTIONS for where it starts and where it stops.
         const stats = spacedRepetitions.getWordStats(currentItem.word);
         const currentStage = stats.stage || 0;
-        const targetOptionsCount = currentStage + 1;
+        const targetOptionsCount = Math.min(currentStage + LEAST_OPTIONS, MOST_OPTIONS);
 
         /*
          * The answers on offer, drawn from the set the question came from and
