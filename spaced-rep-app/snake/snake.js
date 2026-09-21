@@ -2692,6 +2692,19 @@ function snake(container) {
                 state.sessionResults[state.currentIndex] = clean ? 'correct' : 'wrong';
                 store.save();
 
+                /*
+                 * And the dot says so now, with the last letter, rather than
+                 * when the heart is caught.
+                 *
+                 * The heart is the fee for the next word, not part of
+                 * answering this one -- the word was spelled out a move ago
+                 * and the repetition is already in the log. The dots were
+                 * redrawn only where the index moves, which is at the heart,
+                 * so a word could be finished and still look unanswered for
+                 * as long as it took to go and get one.
+                 */
+                refreshDots();
+
                 // The last word of the session ends it; otherwise the player has
                 // to catch a heart before the next word appears.
                 if (lastOfSession) {
