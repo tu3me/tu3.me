@@ -951,6 +951,22 @@ function catalog(container) {
         EARLY_FAIL: { id: 'mark-ring-red', size: 5 }
     };
 
+    /*
+     * The height the row of marks holds whether there are any or not.
+     *
+     * A word with no repetitions has an empty row, and an empty flex row is
+     * nothing at all: the bubble comes out shorter. On a shelf where some
+     * words have been answered that goes unnoticed — the bubbles of a line
+     * stretch to the tallest of them — and on a set nobody has started yet,
+     * where no word has a mark, every bubble is five pixels shorter than it
+     * will be after the first answer. The whole shelf then grows a step the
+     * moment one word is answered.
+     *
+     * Taken from the marks rather than written down, so a mark that changes
+     * size takes the row with it.
+     */
+    const MARK_ROW = Math.max(...Object.values(MARK_ICONS).map(icon => icon.size));
+
     /**
      * Creates a bubble HTML element and appends it to parent
      */
@@ -1083,7 +1099,7 @@ function catalog(container) {
         const bubbleHtml = `
             <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
-                <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1;">
+                <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1; min-height: ${MARK_ROW}px;">
                     ${dotsHtml}
                 </div>
                 <span class="bubble-trans-text" style="font-size: 15.6px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
@@ -1717,9 +1733,9 @@ function catalog(container) {
      */
     function platformStrip() {
         const spots = [
-            { icon: PUZZLE, name: 'Extension', note: 'You are here', here: true },
+            { icon: PUZZLE, name: 'Browser', note: 'You are here', here: true },
             { icon: DESKTOP, name: 'Web App', note: 'In progress' },
-            { icon: HANDSET, name: 'Phone', note: 'In progress' }
+            { icon: HANDSET, name: 'Mobile', note: 'In progress' }
         ];
 
         const cells = spots.map(spot => `<div class="dict-where-cell" style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; min-width: 0; box-sizing: border-box; padding: 9px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 12px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};">

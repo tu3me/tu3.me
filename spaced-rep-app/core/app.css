@@ -66,22 +66,29 @@
 }
 
 /*
- * How large the app is drawn against how large it is written.
+ * How large the app is shown against how large it is written.
  *
- * The layout is 410px wide and always will be — see body below — and the
- * handle on its left edge does not change that number, it changes the zoom the
- * whole of it is shown at. So one of these is the scale and the other is its
- * reciprocal, for the two or three things that have to undo it.
+ * Two different numbers, and this is the one place both appear. The layout is
+ * 410px wide and always will be — see body below — and the handle in its
+ * corner does not change that, it changes the zoom the whole of it is shown
+ * at. So one of these is the scale and the other is its reciprocal, for the
+ * two or three things that have to undo it.
+ *
+ * 350 is the width it is shown at when nobody has said otherwise, which is a
+ * zoom of a little under 0.86 — the same thing the handle does, already done.
+ * Everything keeps its proportions because nothing is laid out again: it is
+ * the 410 drawing, smaller. Making the layout itself 350 was tried and is a
+ * different thing altogether — the text stays its size, the column reflows
+ * around it, and the header's "+ New Set" comes out on two lines.
  *
  * Unitless, because a zoom is a number and because it is the only form both
  * uses can be written from without nesting one calc inside another.
  * --app-width is a plain count of screen pixels, set by prepaint.js from
- * storage before the first frame and by the handle while it is dragged; absent
- * means the app is shown at the size it is drawn.
+ * storage before the first frame and by the handle while it is dragged.
  */
 :root {
-    --app-scale: calc(var(--app-width, 410) / 410);
-    --app-unscale: calc(410 / var(--app-width, 410));
+    --app-scale: calc(var(--app-width, 350) / 410);
+    --app-unscale: calc(410 / var(--app-width, 350));
 }
 
 /*
@@ -220,9 +227,10 @@ body {
        width, the rule shrinks the body to match, that becomes the measured width,
        and the popup settles at its minimum (or shudders between sizes) instead of
        at 410px.
-       A phone narrower than this is handled by the viewport meta tag in each page
-       — the browser scales the fixed 410px layout down to fit, which costs nothing
-       here because the design is a fixed-width popup to begin with.
+       A phone narrower than this is handled by the viewport meta tag in each page,
+       which is set to the width the app is *shown* at rather than to this one:
+       the browser lays out that many CSS pixels and fits them to the screen, and
+       what fills them is this column at its zoom.
 
        None of that changed when the app became resizable, because the layout
        did not: it is 410 at every size, and what the handle on the left edge
