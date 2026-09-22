@@ -1977,7 +1977,7 @@ function catalog(container) {
         function offer() {
             body.innerHTML = `
                 <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Clear data</button>
-                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set, all progress and the offline copy of the app kept on this device.</p>`;
+                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device.</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
         }
@@ -1996,12 +1996,6 @@ function catalog(container) {
 
         offer();
     }
-
-    // The name every cache of this app starts with, kept in step with web/sw.js
-    // by hand: the worker is a separate script that this file cannot import, and
-    // in the extension it is not shipped at all. The rest of the name is the
-    // build hash that build.sh stamps in.
-    const CACHE_PREFIX = 'spaced-repetition-app-';
 
     /*
      * The colour of the slot where the next game goes.
@@ -2029,6 +2023,22 @@ function catalog(container) {
     /*
      * Empties every store and starts the app over.
      *
+     * The data and nothing else: IndexedDB and localStorage. The offline copy —
+     * the service worker and the shell it cached — is not data, it is the app,
+     * and it used to go with them.
+     *
+     * The reason it did was that a cache-first worker serves whatever build it
+     * installed, so the reload below came back on that build rather than on the
+     * newest one. That was true and it was the smaller problem. The bigger one
+     * is what the button left behind: a PWA with no shell, which is an app that
+     * does not open at all until it is next online — and being asked to start
+     * over is not a reason to lose the ability to open the thing.
+     *
+     * Nothing is lost by keeping it: the worker checks for a new build every
+     * time the app comes back to the front and reloads the page under itself
+     * when one lands — see web.js. The reset simply arrives on the build that
+     * was already there.
+     *
      * Reloading rather than redrawing: half this app's state lives in variables
      * that were read at boot, and a redraw over a database that no longer exists
      * would show a catalog built from memories of it. A reload comes back to an
@@ -2042,51 +2052,8 @@ function catalog(container) {
         }
 
         await storage.wipe();
-        await dropOfflineCopy();
 
         location.reload();
-    }
-
-    /*
-     * The offline copy: the service worker and the caches it filled.
-     *
-     * Without this the button clears the data and leaves the code. The worker is
-     * cache-first, so a page that has one keeps being served the shell that
-     * worker installed — a reload right after wiping would come back on the old
-     * build, and "start over" would mean starting over on whatever version
-     * happened to be cached. Dropping both makes the reload below come from the
-     * network, and the next worker installs its shell from scratch.
-     *
-     * Only ours are touched. Both of these namespaces belong to the whole
-     * origin, and the site this is published under has other pages on it: the
-     * caches are matched by the prefix sw.js gives them, the workers by whether
-     * their scope is inside this app. The extension has neither and falls
-     * through both blocks without doing anything.
-     */
-    async function dropOfflineCopy() {
-        const root = new URL('./', location.href).href;
-
-        try {
-            if (globalThis.navigator && navigator.serviceWorker) {
-                const workers = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(workers
-                    .filter(worker => worker.scope.startsWith(root))
-                    .map(worker => worker.unregister()));
-            }
-        } catch (e) {
-            // No worker to remove, or no API to remove it with
-        }
-
-        try {
-            if (globalThis.caches) {
-                const names = await caches.keys();
-                await Promise.all(names
-                    .filter(name => name.startsWith(CACHE_PREFIX))
-                    .map(name => caches.delete(name)));
-            }
-        } catch (e) {
-            // Cache Storage is not reachable outside a secure origin
-        }
     }
 
     // Takes down whatever the New Set button opened. The set behind the form
