@@ -213,23 +213,22 @@ function resizeGrip() {
     const root = document.documentElement;
 
     /*
-     * Three dots up the edge, which is what a thing you drag looks like when
-     * it is not pretending to be anything else.
+     * The corner of a window, drawn the way corners of windows are drawn:
+     * short diagonals nested into it, getting shorter as they approach.
      *
      * It says "take hold here" and says nothing about which way, which is the
      * division of labour that works -- the cursor turns into a two-headed
      * arrow the moment the pointer arrives, and that is the last thing seen
-     * before the hand moves. Drawing the arrow here instead was tried, and so
-     * were two upright bars and the diagonals of a window corner: the first
-     * says the same thing twice, the second reads as a pause button, and the
-     * third promises a height it no longer touches.
+     * before the hand moves. Drawing that arrow here instead was tried, and so
+     * were two upright bars and three dots up the edge: the first says the
+     * same thing twice, the second reads as a pause button, and the third has
+     * nothing to say about corners.
      */
     const handle = $(`<div class="app-grip" title="Drag to set the width, double-click to reset">
-        <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor"
-            stroke="none" aria-hidden="true">
-            <circle cx="6" cy="4" r="1.6" />
-            <circle cx="6" cy="10" r="1.6" />
-            <circle cx="6" cy="16" r="1.6" />
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M2 10.5L10.5 2" />
+            <path d="M2 5.5L5.5 2" />
         </svg></div>`);
 
     let held = null;
@@ -237,63 +236,27 @@ function resizeGrip() {
     let lastDown = 0;
 
     /*
-     * On the app's own left edge rather than the window's. In the popup the
-     * two are the same place -- there the column is the window -- and
-     * everywhere else the window's edge is across an empty margin from
-     * anything the handle can resize.
+     * On the app's own corner rather than the window's. In the popup the two
+     * are the same place -- there the column is the window -- and everywhere
+     * else the window's corner is across an empty margin from anything the
+     * handle can resize.
      *
-     * Level with the first thing in the header: the mark in dict, the way out
-     * in the games. Both sit in the same corner of their page, so the handle
-     * has one height on every screen of the app instead of a height that
-     * depends on how much is below it -- and the top of a page is somewhere a
-     * hand goes looking without being told.
+     * Nothing about what the page contains comes into it any more. The handle
+     * sat level with the first thing in the header for a while, and halfway
+     * down what was showing before that, and both had to be asked again every
+     * time the app changed height. A corner is where the page begins: the
+     * same place on every screen of the app, from the first frame, before
+     * anything at all has been drawn into it.
      *
-     * Halfway down what is showing is the answer when neither is there, which
-     * is every frame before the page has been built: both are drawn by script
-     * after two async reads. It is also the honest answer for a page that
-     * grows one later -- and clamped to the fold, because the app can be
-     * taller than the window and a handle off the bottom of it is a handle
-     * nobody finds.
-     *
-     * Which means this is asked again every time the app changes height -- see
-     * the watcher at the foot of this function.
-     *
-     * Across, it stands in the middle of the strip of padding the layout keeps
-     * down its left edge -- and that strip is inside the zoom, so it is 12px
-     * of the app's pixels and fewer or more of the screen's. The handle keeps
-     * its own size out of the zoom, on purpose: it is what sets the zoom, and
-     * it should not be at its smallest exactly where it most needs catching.
-     * Its distance from the edge is another matter. Left in the screen's
-     * pixels, the dots crowd the card when the app is small and drift off it
-     * when the app is large, because the strip moves under them and they do
-     * not.
+     * Clamped to the window all the same, because the app can be wider than
+     * what is showing it and the page under it can be scrolled: a corner past
+     * the edge is a grip that cannot be reached without first scrolling to it.
      */
     function place() {
         const box = document.body.getBoundingClientRect();
 
-        // One selector for the two of them: no page has both, and a page that
-        // has neither has not been built yet.
-        const anchor = document.querySelector('.dict-logo, .back-btn');
-        const seat = anchor ? anchor.getBoundingClientRect() : null;
-
-        const middle = seat
-            ? seat.top + seat.height / 2
-            : (Math.max(0, box.top) + Math.min(box.bottom, window.innerHeight)) / 2;
-
-        // The handle is as wide as the strip it stands in, so the strip on
-        // screen is that width scaled, and centring one in the other is the
-        // difference halved. Below the size the app is drawn at that is a
-        // negative number and the handle hangs a pixel or two past the app's
-        // edge, which is what centring in a strip narrower than the handle
-        // means. Only its padding hangs; the dots stay inside.
-        const strip = handle.offsetWidth * appScale();
-
-        // The clamp is on the app's edge and not on the answer. Past the
-        // centring it also clamped away that negative offset -- and only where
-        // the app's left edge sits at zero, which is to say only in the popup,
-        // which is the one place the handle is used. The web, where the column
-        // is centred and its edge is nowhere near zero, showed none of it.
         const edge = Math.max(0, box.left);
+        const top = Math.max(0, box.top);
 
         /*
          * Everything above is measured on the screen; `left` below is not.
@@ -313,13 +276,8 @@ function resizeGrip() {
          */
         const origin = document.documentElement.getBoundingClientRect().left + window.scrollX;
 
-        // The top is clamped rather than the middle: on a page scrolled past
-        // its own header the handle stays on screen instead of riding the
-        // header out of it.
-        const top = middle - handle.offsetHeight / 2;
-
-        handle.style.left = edge - origin + (strip - handle.offsetWidth) / 2 + 'px';
-        handle.style.top = Math.max(0, Math.min(top, window.innerHeight - handle.offsetHeight)) + 'px';
+        handle.style.left = edge - origin + 'px';
+        handle.style.top = Math.min(top, window.innerHeight - handle.offsetHeight) + 'px';
     }
 
     // Written behind a pause, like the popup's own height a few lines up: a

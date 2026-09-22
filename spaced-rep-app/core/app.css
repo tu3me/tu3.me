@@ -254,18 +254,18 @@ body {
 }
 
 /*
- * The handle on the app's left edge, taken hold of to see the layout at a
- * width other than the one it is drawn at.
+ * The handle in the app's top-left corner, taken hold of to see the layout at
+ * a width other than the one it is drawn at.
  *
  * On the left, because that is the edge the popup has to give. Chrome hangs the
  * popup off the toolbar button at the top right and grows it down and to the
  * left, so the right edge is the one that never moves: the window follows the
  * document's size, and the document can only lose width on the left.
  *
- * It stands in the strip of padding the layout keeps down that edge, and is as
- * wide as the strip: everything the app draws starts 12px in, so there is a
- * column of empty page there on every screen and the handle costs nothing to
- * put in it. Beside the card rather than over it.
+ * In the corner, which is the one point of a page that is always in the same
+ * place -- and the corner of a window is where a hand already looks for the
+ * thing that resizes it. The layout keeps 12px of air along both edges, so the
+ * mark sits on the app's own empty margin rather than over anything it draws.
  *
  * Only where there is a mouse. It is a small target to be caught and held,
  * which is a thing a pointer does and a fingertip does not, and on a phone it
@@ -286,11 +286,13 @@ body {
        popup is at its tallest. */
     z-index: 200;
 
-    /* The width of the padding strip it stands in -- see .app-main-content.
-       The air above and below is the rest of the target: the dots are 20px of
-       it and a hand aiming at them is not that exact. */
-    width: 12px;
-    padding: 6px 0;
+    /* Sixteen square, which is the size a window's own resize corner is and
+       nobody has ever missed one. No padding around it: the layout keeps 12px
+       of air in this corner and the mark is allowed the four past that, but a
+       hit area any bigger would reach into the button below it — the way out
+       in a game sits at exactly 12,12 — and take the press meant for it. */
+    width: 16px;
+    padding: 0;
     line-height: 0;
 
     /* Out of the app's zoom, which it is inside of. It is the handle that sets
