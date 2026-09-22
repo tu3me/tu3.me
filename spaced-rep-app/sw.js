@@ -11,7 +11,7 @@
  * what makes the app instant offline — and what would serve stale code if the
  * name were left to a person to remember.
  */
-const CACHE = 'spaced-repetition-app-8618336c';
+const CACHE = 'spaced-repetition-app-5a9cc3ea';
 
 // Every file the app needs to start with no network. A new game means one more
 // pair of lines here, alongside its line in registry.js.
@@ -98,8 +98,22 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
     if (new URL(request.url).origin !== self.location.origin) return;
 
+    /*
+     * Ignoring the query, because every way into a game carries one.
+     *
+     * The shell is cached under the addresses in SHELL, which are bare paths,
+     * and nav.game leaves for `snake?set=3&early=1`. A match is by whole URL
+     * unless told otherwise, so that request missed the cache, went to the
+     * network, found none and fell through to the fallback below: offline,
+     * every game button opened the catalog again. The catalog itself always
+     * worked, which is what made it look like the app worked.
+     *
+     * Safe across the shell: it is static files, and none of them is a
+     * different file for a different query. The app puts nothing in a query
+     * but where a session is going.
+     */
     event.respondWith(
-        caches.match(request).then(hit => hit || fetch(request).catch(() => {
+        caches.match(request, { ignoreSearch: true }).then(hit => hit || fetch(request).catch(() => {
             // Offline and not in the shell: a navigation still gets the catalog,
             // which is enough to reach every game from there.
             if (request.mode === 'navigate') {
