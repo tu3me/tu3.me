@@ -139,12 +139,20 @@
  * The popup below is the opposite case and hides its own: there the app is the
  * whole window and has no width to give up.
  *
+ * On both edges, which is the difference between centring the app and leaning
+ * it. Reserved on one side only — the scrollbar's own side — the box the
+ * margins centre in is a scrollbar narrower on the right than on the left, and
+ * an auto margin splits what is left: the app stands half a scrollbar left of
+ * the middle of the window, on every page, forever. That is a worse bargain
+ * than the jump it was bought to prevent, and `both-edges` costs only the same
+ * strip of empty page on the other side.
+ *
  * Nothing is reserved where scrollbars are overlaid on the content and take no
  * width to begin with — every phone, and macOS unless it is set otherwise — so
  * this costs those nothing.
  */
 :root:not(.in-popup) {
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
 }
 
 /*

@@ -295,12 +295,30 @@ function resizeGrip() {
         // is centred and its edge is nowhere near zero, showed none of it.
         const edge = Math.max(0, box.left);
 
+        /*
+         * Everything above is measured on the screen; `left` below is not.
+         *
+         * A fixed element is laid out in the initial containing block, and the
+         * strips reserved for the scrollbar are outside it — see
+         * scrollbar-gutter in app.css. The two spaces agree to the pixel while
+         * nothing is reserved, and the day both edges were, the handle stood a
+         * whole gutter to the right of the edge it belongs on.
+         *
+         * The root's own box is that block, so its left edge is where `left: 0`
+         * lands. Plus the page's horizontal scroll, which slides the root under
+         * the viewport and leaves anything fixed where it was.
+         *
+         * Only across. There is no such strip at the top, and the root's top
+         * does move with the page.
+         */
+        const origin = document.documentElement.getBoundingClientRect().left + window.scrollX;
+
         // The top is clamped rather than the middle: on a page scrolled past
         // its own header the handle stays on screen instead of riding the
         // header out of it.
         const top = middle - handle.offsetHeight / 2;
 
-        handle.style.left = edge + (strip - handle.offsetWidth) / 2 + 'px';
+        handle.style.left = edge - origin + (strip - handle.offsetWidth) / 2 + 'px';
         handle.style.top = Math.max(0, Math.min(top, window.innerHeight - handle.offsetHeight)) + 'px';
     }
 
