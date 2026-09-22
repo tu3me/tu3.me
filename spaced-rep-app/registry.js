@@ -81,7 +81,7 @@ const GAMES = [
         // The 8-bit snake: square segments on a grid with a pixel of food ahead
         // of the head. It climbs — three along the bottom, up the middle, then
         // out to the head — turning twice, with a run of three between turns.
-        // A body that turns at every segment is a staircase at 18px, and a
+        // A body that turns at every segment is a staircase at 15.4px, and a
         // staircase reads as nothing at all.
         //
         // Blocks are filled rather than outlined: outlining each segment turns

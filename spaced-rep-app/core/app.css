@@ -34,7 +34,7 @@
  *
  * `manipulation` gives up double-tap zoom and nothing else: scrolling with a
  * finger and pinching to zoom both carry on. The zoom that is given up was not
- * worth much here to begin with — the layout is a fixed 410px designed to be
+ * worth much here to begin with — the layout is a fixed 350px designed to be
  * read at arm's length.
  *
  * On the root, where it covers the whole page: touch-action is not inherited,
@@ -66,29 +66,22 @@
 }
 
 /*
- * How large the app is shown against how large it is written.
+ * How large the app is drawn against how large it is written.
  *
- * Two different numbers, and this is the one place both appear. The layout is
- * 410px wide and always will be — see body below — and the handle in its
- * corner does not change that, it changes the zoom the whole of it is shown
- * at. So one of these is the scale and the other is its reciprocal, for the
- * two or three things that have to undo it.
- *
- * 350 is the width it is shown at when nobody has said otherwise, which is a
- * zoom of a little under 0.86 — the same thing the handle does, already done.
- * Everything keeps its proportions because nothing is laid out again: it is
- * the 410 drawing, smaller. Making the layout itself 350 was tried and is a
- * different thing altogether — the text stays its size, the column reflows
- * around it, and the header's "+ New Set" comes out on two lines.
+ * The layout is 350px wide and always will be — see body below — and the
+ * handle on its left edge does not change that number, it changes the zoom the
+ * whole of it is shown at. So one of these is the scale and the other is its
+ * reciprocal, for the two or three things that have to undo it.
  *
  * Unitless, because a zoom is a number and because it is the only form both
  * uses can be written from without nesting one calc inside another.
  * --app-width is a plain count of screen pixels, set by prepaint.js from
- * storage before the first frame and by the handle while it is dragged.
+ * storage before the first frame and by the handle while it is dragged; absent
+ * means the app is shown at the size it is drawn.
  */
 :root {
-    --app-scale: calc(var(--app-width, 350) / 410);
-    --app-unscale: calc(410 / var(--app-width, 350));
+    --app-scale: calc(var(--app-width, 350) / 350);
+    --app-unscale: calc(350 / var(--app-width, 350));
 }
 
 /*
@@ -136,7 +129,7 @@
  * The window's scrollbar gets its width reserved instead of being left to come
  * and go.
  *
- * The layout is a fixed 410px column held in the middle by auto margins, so the
+ * The layout is a fixed 350px column held in the middle by auto margins, so the
  * width a scrollbar takes is width the centring divides in two: the moment a
  * page grows past the fold the whole app slides sideways by half a scrollbar,
  * and back again when it shrinks. Opening the new-set form does exactly that.
@@ -187,7 +180,7 @@
     max-height: calc(600px * var(--app-unscale));
     overflow-y: auto;
 
-    /* An inner scrollbar would eat into the 410px layout exactly as the popup's
+    /* An inner scrollbar would eat into the 350px layout exactly as the popup's
        own did — it is not zero-width on Windows. Hidden rather than reserved with
        scrollbar-gutter, because the design has no width to give up and content
        cut off at the fold is its own cue that there is more. Wheel, touch, keys
@@ -226,11 +219,10 @@ body {
        so any such rule closes a feedback loop: Chrome lays out at a provisional
        width, the rule shrinks the body to match, that becomes the measured width,
        and the popup settles at its minimum (or shudders between sizes) instead of
-       at 410px.
-       A phone narrower than this is handled by the viewport meta tag in each page,
-       which is set to the width the app is *shown* at rather than to this one:
-       the browser lays out that many CSS pixels and fits them to the screen, and
-       what fills them is this column at its zoom.
+       at 350px.
+       A phone narrower than this is handled by the viewport meta tag in each page
+       — the browser scales the fixed 350px layout down to fit, which costs nothing
+       here because the design is a fixed-width popup to begin with.
 
        None of that changed when the app became resizable, because the layout
        did not: it is 410 at every size, and what the handle on the left edge
@@ -244,7 +236,7 @@ body {
        The zoom is a stored number and not a measurement of anything, which is
        what keeps the loop above open: nothing here asks how wide the window
        is. */
-    width: 410px;
+    width: 350px;
     zoom: var(--app-scale);
     margin: 0 auto;
 
@@ -254,11 +246,11 @@ body {
 
     user-select: none;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 16.8px;
+    font-size: 14.3px;
 }
 
 .app-main-content {
-    padding: 12px;
+    padding: 10.2px;
 }
 
 /*
@@ -272,7 +264,7 @@ body {
  *
  * In the corner, which is the one point of a page that is always in the same
  * place -- and the corner of a window is where a hand already looks for the
- * thing that resizes it. The layout keeps 12px of air along both edges, so the
+ * thing that resizes it. The layout keeps 10.2px of air along both edges, so the
  * mark sits on the app's own empty margin rather than over anything it draws.
  *
  * Only where there is a mouse. It is a small target to be caught and held,
@@ -295,11 +287,11 @@ body {
     z-index: 200;
 
     /* Sixteen square, which is the size a window's own resize corner is and
-       nobody has ever missed one. No padding around it: the layout keeps 12px
+       nobody has ever missed one. No padding around it: the layout keeps 10.2px
        of air in this corner and the mark is allowed the four past that, but a
        hit area any bigger would reach into the button below it — the way out
        in a game sits at exactly 12,12 — and take the press meant for it. */
-    width: 16px;
+    width: 13.7px;
     padding: 0;
     line-height: 0;
 

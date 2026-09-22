@@ -243,12 +243,12 @@ function snake(container) {
          * of it.
          *
          * 1.2 was enough while the letters were Latin, and cut everything else:
-         * a line box that tall leaves 2.9px under the baseline at this size,
+         * a line box that tall leaves 2.5px under the baseline at this size,
          * and a Hebrew final kaf or a sheva needs 4. Measured across a page
          * of ten scripts, the deepest letter (हूँ, a Devanagari vowel sign
-         * hanging under its consonant) reaches 5px below the baseline and the
-         * tallest (कै) 18px above it — past the font's own ascent of 17 — so
-         * the ink wants 23px where the line gave 18.7. The bar clips what does
+         * hanging under its consonant) reaches 4.3px below the baseline and the
+         * tallest (कै) 15.4px above it — past the font's own ascent of 17 — so
+         * the ink wants 19.6px where the line gave 18.7. The bar clips what does
          * not fit, which is what made the tops and tails disappear.
          *
          * 1.6 leaves about a pixel of air at each end. The cap grows with it,
@@ -257,7 +257,7 @@ function snake(container) {
          * room, and what is over three lines shrinks as it always did.
          */
         const BOX_LINE = 1.6;
-        const BAR_MAX = 56;
+        const BAR_MAX = 47.8;
 
         /*
          * The size the letters start at, before anything is measured.
@@ -268,7 +268,7 @@ function snake(container) {
          * up exactly where it would have anyway, and a short one keeps the size
          * it was given.
          */
-        const BOX_SIZE = 31.2;
+        const BOX_SIZE = 26.6;
 
         /*
          * The speaker that reads the finished line, in front of it, the size a
@@ -394,7 +394,7 @@ function snake(container) {
         // The header chips draw their state instead of naming it. Everything is currentColor,
         // so both icons follow the chip's own colour in either theme.
         function chipIcon(body, extra) {
-            return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ${extra || ''}>${body}</svg>`;
+            return `<svg viewBox="0 0 24 24" width="17.1" height="17.1" aria-hidden="true" ${extra || ''}>${body}</svg>`;
         }
 
         /*
@@ -431,11 +431,11 @@ function snake(container) {
         // panels are 3-column grids filling the whole width — this is thumb territory on
         // a phone, so the cell places the button and `place` only says which cell.
         function padBtn(id, glyph, place) {
-            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 56px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 14px; font-weight: 700; font-size: 24px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
+            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 47.8px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 20.5px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
         }
 
         // Both panels share it: three equal columns, full width
-        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%;';
+        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 6.8px; width: 100%;';
 
         // A press asks for a move, a release drops the acceleration the hold built up.
         //
@@ -474,8 +474,8 @@ function snake(container) {
 
             // The panel is what is hidden, not the wrapper inside it. An empty
             // wrapper collapses to nothing, but the panel around it keeps its
-            // 10px margins top and bottom, so a d-pad switched off still pushed
-            // everything below it down by 20px of blank space.
+            // 8.5px margins top and bottom, so a d-pad switched off still pushed
+            // everything below it down by 17.1px of blank space.
             if (controlMode === 0 || controlsRetired) {
                 controlsArea.style.display = 'none';
                 return;
@@ -512,7 +512,7 @@ function snake(container) {
             controlMode = opts.controlMode || 0;
             difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
-            const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 28px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 6px; color: ${palette.dpadColor}; cursor: pointer;`;
+            const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 23.9px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 5.1px; color: ${palette.dpadColor}; cursor: pointer;`;
 
             /*
              * Three groups of one third each: the way out and the speed, the
@@ -524,13 +524,13 @@ function snake(container) {
              * keeps them in the middle of the header is the two groups beside
              * them being the same width — not the third they were handed.
              */
-            header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+            header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+                <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
+                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
                     <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
                 </div>
-                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;"></div>
-                <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 8px;">
+                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5.1px;"></div>
+                <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6.8px;">
                     <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${controlLabel()}" style="${chipStyle}">${controlIcon()}</button>
                 </div>
             </div>`);
@@ -544,8 +544,8 @@ function snake(container) {
             header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
             header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
 
-            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 14px; padding: 8px 14px; text-align: center; margin-bottom: 10px; height: 104px; min-height: 104px; max-height: 104px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; overflow: hidden;">
-                <div class="snake-translation-text" id="snake-translation" style="font-size: 19.2px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 42px; overflow: hidden;">${opts.translation}</div>
+            hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 8.5px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
+                <div class="snake-translation-text" id="snake-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${opts.translation}</div>
             </div>`);
 
             /*
@@ -576,7 +576,7 @@ function snake(container) {
                 grid += `M${at} 0V${side}M0 ${at}H${side}`;
             }
 
-            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;">
+            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 12px; box-shadow: 0 3.4px 10.2px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;">
                 <path d="${grid}" stroke="${palette.grid}" stroke-width="1" fill="none" />
                 <g class="snake-svg-scene"></g>
             </svg>`);
@@ -591,8 +591,8 @@ function snake(container) {
 
             cellSize = side / GRID_COUNT;
 
-            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px;">
-                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 80px; align-items: center;"></div>
+            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; margin-bottom: 8.5px;">
+                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 68.3px; align-items: center;"></div>
             </div>`);
 
             svg.addEventListener('click', () => cb.onBoardClick());
@@ -612,7 +612,7 @@ function snake(container) {
                 const isCurrent = idx === currentIndex;
                 const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
-                return `<div class="snake-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+                return `<div class="snake-dot" style="width: 8.5px; height: 8.5px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
             }).join('');
         };
 
@@ -651,7 +651,7 @@ function snake(container) {
              *
              * It leads the line rather than trailing it, which is where a card,
              * a question and an option all keep theirs, and it rides inside the
-             * bar rather than under it: the banner is a fixed 104px and a third
+             * bar rather than under it: the banner is a fixed 88.8px and a third
              * row would not fit in it.
              */
             const speakerHtml = speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, SAY_LEAD);
@@ -909,8 +909,8 @@ function snake(container) {
             }
 
             gatheredBar.innerHTML = `
-                <div class="snake-win-actions" style="display: flex; gap: 8px; width: 100%;">
-                    <button class="snake-go-dict-btn" id="snake-go-dict" style="flex: 1; padding: 9px 10px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 14px; font-weight: 700; font-size: 14.4px; cursor: pointer; transition: background 0.2s;">📚 Dictionary</button>
+                <div class="snake-win-actions" style="display: flex; gap: 6.8px; width: 100%;">
+                    <button class="snake-go-dict-btn" id="snake-go-dict" style="flex: 1; padding: 7.7px 8.5px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 12px; font-weight: 700; font-size: 12.3px; cursor: pointer; transition: background 0.2s;">📚 Dictionary</button>
                 </div>
             `;
 
@@ -985,7 +985,7 @@ function snake(container) {
 
             if (s.phase === 'HEART' && s.heartPos) {
                 out += `<text x="${(s.heartPos.x + 0.5) * cellSize}" y="${(s.heartPos.y + 0.5) * cellSize}"
-                    font-family="${LETTER_FONT}" font-size="19.2" text-anchor="middle"
+                    font-family="${LETTER_FONT}" font-size="16.4" text-anchor="middle"
                     dominant-baseline="central">\u2764\ufe0f</text>`;
             }
 
@@ -994,7 +994,7 @@ function snake(container) {
             s.lettersOnBoard.forEach(l => {
                 if (l.isEaten) return;
 
-                out += glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, 30, palette.boardLetter, 'bold');
+                out += glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, 25.6, palette.boardLetter, 'bold');
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -1049,7 +1049,7 @@ function snake(container) {
             // The segments are inset far enough that only a real joint bridges the gap.
             // Pairs split by the wrap around the board edge are skipped — on screen those
             // two cells are on opposite sides and there is nothing to bridge.
-            const SEG_INSET = 3;
+            const SEG_INSET = 2.6;
             const jointReach = SEG_INSET + 1;   // 1px into each segment, so no seam shows
             const jointWidth = cellSize * 0.42;
 
@@ -1170,7 +1170,7 @@ function snake(container) {
 
                 if (!part.char) return;
 
-                out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 14.4, '#ffffff', 'bold');
+                out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 12.3, '#ffffff', 'bold');
             });
 
             // The spark sits on the edge the head ran into: half a cell along the heading,
@@ -2594,7 +2594,7 @@ function snake(container) {
         /*
          * And the panel waits for the line to be read out.
          *
-         * It is drawn over the bar — the banner is a fixed 104px and there is no
+         * It is drawn over the bar — the banner is a fixed 88.8px and there is no
          * room for both — so putting it up while the line is still being narrated
          * takes away the very thing the narration is pointing at, marks and all.
          * The wait is however long the voice takes, which on a phrase is a couple

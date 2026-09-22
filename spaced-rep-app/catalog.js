@@ -99,7 +99,7 @@ function catalog(container) {
      *
      * It used to be icons/icon-128.png, and a PNG cannot be recoloured — the
      * blue is baked into the pixels. Redrawn here it takes a fill like anything
-     * else, and it stays sharp at any size instead of being a 128px bitmap
+     * else, and it stays sharp at any size instead of being a 109.3px bitmap
      * squeezed into 32.
      *
      * The geometry is make-icons.py's, resolved to a 32-unit grid: a landscape
@@ -112,7 +112,7 @@ function catalog(container) {
      * wordmark beside it. Matching that height exactly makes the mark look like
      * a third line of the text rather than the thing the text is next to.
      */
-    const LOGO_SIZE = 40;
+    const LOGO_SIZE = 34.1;
 
     /*
      * The two rings of the mark, which are eyes: a dark pupil inside a thin
@@ -230,14 +230,14 @@ function catalog(container) {
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
     // so the header does not look like it was drawn by someone else.
-    function chromeIcon(body, size = 18) {
+    function chromeIcon(body, size = 15.4) {
         return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
     }
 
     // A disc and eight marks around it. The rays are half what they were and the
-    // disc is wider: at 18px eight long spokes crowd the ring until the middle
+    // disc is wider: at 15.4px eight long spokes crowd the ring until the middle
     // of the sun is the smallest part of it, which is the one thing a sun is
     // not. Short marks read as light coming off something.
     const SUN = chromeIcon(`
@@ -294,8 +294,8 @@ function catalog(container) {
     const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
 
     // The same arrow cut down for the Advanced heading, where it stands beside
-    // a 12px word rather than a 15px one.
-    const CHEVRON_SMALL = chromeIcon(`<path d="M9 5l7 7-7 7" />`, 14);
+    // a 10.2px word rather than a 12.8px one.
+    const CHEVRON_SMALL = chromeIcon(`<path d="M9 5l7 7-7 7" />`, 12);
 
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
@@ -369,7 +369,7 @@ function catalog(container) {
      * is wanted is not "how do I export from Google Translate" but the fact
      * that a hundred words can come from somewhere other than the keyboard.
      *
-     * Cut to one line, which at 326px of label is about forty-seven
+     * Cut to one line, which at 278.3px of label is about forty-seven
      * characters: two lines of heading over three headings is a paragraph, and
      * a paragraph is the thing this fold exists to put away. What the nouns
      * lost is only detail the sections under them repeat — a book is a paper
@@ -426,11 +426,11 @@ function catalog(container) {
      */
     function foldingSection(label, bodyHtml, open) {
         return `<div class="set-fold">
-            <button class="set-fold-toggle" aria-expanded="${open}" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 14.4px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
+            <button class="set-fold-toggle" aria-expanded="${open}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; padding: 7.7px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 12.3px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
                 <span class="set-fold-chevron" style="display: block; flex: none; color: ${palette.softColor}; transform: rotate(${open ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                 <span class="set-fold-label" style="flex: 1;">${label}</span>
             </button>
-            <div class="set-fold-body" style="padding-bottom: 10px;"${open ? '' : ' hidden'}>${bodyHtml}</div>
+            <div class="set-fold-body" style="padding-bottom: 8.5px;"${open ? '' : ' hidden'}>${bodyHtml}</div>
         </div>`;
     }
 
@@ -444,7 +444,7 @@ function catalog(container) {
      * would glare, and a hole reads as a hole in both.
      */
     function sheetIcon() {
-        return `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="display: inline-block; vertical-align: -4px; margin-left: 5px;">
+        return `<svg width="15.4" height="15.4" viewBox="0 0 24 24" aria-hidden="true" style="display: inline-block; vertical-align: -4px; margin-left: 4.3px;">
             <rect x="2.5" y="2.5" width="19" height="19" rx="4.6" fill="currentColor" />
             <g stroke="${palette.cardBg}" stroke-width="3">
                 <path d="M10.3 5.6v12.8" />
@@ -494,10 +494,10 @@ function catalog(container) {
      * button lifts, and a caption inside it would ride along into the paste.
      */
     function promptBox(text) {
-        return `<div class="set-prompt-lead" style="margin-top: 4px;">Here is your prompt</div>
-        <div class="set-prompt" style="margin: 5px 0 7px; background: ${palette.inputBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px;">
-            <div class="set-prompt-text" style="font-size: 12.6px; font-weight: 500; line-height: 1.45; color: ${palette.inputText};">${text}</div>
-            <button class="set-prompt-copy" style="display: block; margin: 7px 0 0 auto; padding: 3px 10px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 12.6px; font-weight: 600; cursor: pointer;">Copy</button>
+        return `<div class="set-prompt-lead" style="margin-top: 3.4px;">Here is your prompt</div>
+        <div class="set-prompt" style="margin: 4.3px 0 6px; background: ${palette.inputBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px;">
+            <div class="set-prompt-text" style="font-size: 10.8px; font-weight: 500; line-height: 1.45; color: ${palette.inputText};">${text}</div>
+            <button class="set-prompt-copy" style="display: block; margin: 6px 0 0 auto; padding: 2.6px 8.5px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 10.8px; font-weight: 600; cursor: pointer;">Copy</button>
         </div>`;
     }
 
@@ -716,8 +716,8 @@ function catalog(container) {
      */
     function staticSection(label, bodyHtml) {
         return `<div class="set-fold">
-            <div class="set-fold-label" style="padding: 9px 0; color: ${palette.title}; font-size: 14.4px; font-weight: 600; line-height: 1.35;">${label}</div>
-            <div class="set-fold-body" style="padding-bottom: 10px;">${bodyHtml}</div>
+            <div class="set-fold-label" style="padding: 7.7px 0; color: ${palette.title}; font-size: 12.3px; font-weight: 600; line-height: 1.35;">${label}</div>
+            <div class="set-fold-body" style="padding-bottom: 8.5px;">${bodyHtml}</div>
         </div>`;
     }
 
@@ -869,9 +869,9 @@ function catalog(container) {
     // read as the same thing lit, the second big enough to read as the thing
     // finished, and neither needs comparing to see, which is the whole job of
     // a bar read at a glance.
-    const STEP_WAIT = 4;
-    const STEP_LIT = 6;
-    const STEP_TALL = 11;
+    const STEP_WAIT = 3.4;
+    const STEP_LIT = 5.1;
+    const STEP_TALL = 9.4;
 
     /*
      * The same colour with the light turned down a notch.
@@ -941,6 +941,10 @@ function catalog(container) {
 
     // How every timeline status is drawn: a symbol from the sprite in <body> and its output size.
     // OK/LATE_OK and FAIL/LATE_FAIL look the same on purpose; MISSED is the same dark dot at half size.
+    // The grid every symbol in the sprite is drawn on — see index.html, where
+    // all four carry viewBox="0 0 10 10".
+    const SPRITE_GRID = 10;
+
     const MARK_ICONS = {
         OK: { id: 'mark-dot-dark', size: 5 },
         FAIL: { id: 'mark-dot-red', size: 5 },
@@ -1085,7 +1089,32 @@ function catalog(container) {
         for (const mark of (marks || [])) {
             const icon = MARK_ICONS[mark];
             if (!icon) continue;
-            dotsHtml += `<svg class="bubble-progress-dot" width="${icon.size}" height="${icon.size}" style="display: block; flex: none;"><use href="#${icon.id}" /></svg>`;
+            /*
+             * The viewBox is not decoration: without one the mark is clipped
+             * the moment the app is shown at anything but its drawn size.
+             *
+             * A <use> of a <symbol> takes its viewport from the width and
+             * height written here, and those are the layout's pixels. The box
+             * the element actually occupies is those pixels through the app's
+             * zoom — smaller — and the symbol, drawn at the unscaled size into
+             * a smaller box, loses whatever hangs over the edge. An svg clips
+             * to its viewport by default, so what you see is a dot with a
+             * slice cut off it.
+             *
+             * With a viewBox the sprite's own ten-unit grid is mapped onto
+             * whatever box the element ends up with, at any zoom.
+             *
+             * And `overflow: visible`, because an svg clips to its viewport by
+             * default and this one is four pixels across sitting at whatever
+             * fraction the row lands on — 207.69, 212.48, 217.28. The box is
+             * clipped on the device's pixel grid while the circle inside is
+             * scaled to the unrounded box, so the two disagree by a fraction
+             * of a pixel and the clip takes that fraction out of the dot. On
+             * a mark this size a fraction is a visible flat edge on something
+             * that is meant to be round. Nothing here needs clipping: the mark
+             * is a circle drawn to fill its box and never anything more.
+             */
+            dotsHtml += `<svg class="bubble-progress-dot" width="${icon.size}" height="${icon.size}" viewBox="0 0 ${SPRITE_GRID} ${SPRITE_GRID}" style="display: block; flex: none; overflow: visible;"><use href="#${icon.id}" /></svg>`;
         }
 
         // TEMP (debug): current stage number at the end of the timeline
@@ -1093,16 +1122,16 @@ function catalog(container) {
 
         // Optional timer badge in bottom-right corner
         const timerHtml = timer
-            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 10.8px; font-weight: 800; line-height: 1; padding: 1.5px 4.5px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
+            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px; border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
             : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 14px; padding: 6px 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 48px; max-width: 100%;">
-                <span class="bubble-word-text" style="font-weight: 800; font-size: 15.6px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
-                <div class="bubble-dots-group" style="font-size: 7px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 3px; line-height: 1; min-height: ${MARK_ROW}px;">
+            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
+                <span class="bubble-word-text" style="font-weight: 800; font-size: 13.3px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
+                <div class="bubble-dots-group" style="font-size: 6px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin-top: 2.6px; line-height: 1; min-height: ${MARK_ROW}px;">
                     ${dotsHtml}
                 </div>
-                <span class="bubble-trans-text" style="font-size: 15.6px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
+                <span class="bubble-trans-text" style="font-size: 13.3px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
                 ${timerHtml}
             </div>
         `;
@@ -1168,18 +1197,18 @@ function catalog(container) {
         // holding that form open rather than offering to open another.
         const addBg = addingSet ? palette.cardBg : 'transparent';
 
-        const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 9px; color: ${palette.heading};">
+        const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 13.7px;">
+            <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
                 ${logoSvg(palette.logo, LOGO_SIZE)}
                 <span class="dict-wordmark" style="display: block; line-height: 1.06;">
-                    <span class="dict-wordmark-top" style="display: block; font-size: 18px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
-                    <span class="dict-wordmark-bottom" style="display: block; font-size: 14.5px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
+                    <span class="dict-wordmark-top" style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
+                    <span class="dict-wordmark-bottom" style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
                 </span>
             </h1>
-            <div class="dict-header-actions" style="display: flex; gap: 8px;">
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 6px 14px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; font-weight: 600; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
-                <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${GEAR}</button>
-                <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
+            <div class="dict-header-actions" style="display: flex; gap: 6.8px;">
+                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 5.1px 12px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-weight: 600; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
+                <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${GEAR}</button>
+                <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
             </div>
         </div>`);
 
@@ -1251,8 +1280,8 @@ function catalog(container) {
         // from leaving for a game and throwing the typing away.
         const resumable = (session && !addingSet) ? GAMES.find(g => g.id === session.game) : null;
         if (resumable) {
-            const label = `${resumable.icon(20)} ${resumable.title}`;
-            const banner = $(container, `<div class="continue-banner" style="background: ${palette.cardBg}; color: ${palette.title}; padding: 16px; border-radius: 18px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15.6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            const label = `${resumable.icon(17.1)} ${resumable.title}`;
+            const banner = $(container, `<div class="continue-banner" style="background: ${palette.cardBg}; color: ${palette.title}; padding: 13.7px; border-radius: 15.4px; margin-bottom: 10.2px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13.3px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.1);">
                 <span class="continue-banner-text">Continue: ${label}</span>
                 <span class="continue-banner-arrow">▶</span>
             </div>`);
@@ -1261,7 +1290,7 @@ function catalog(container) {
             });
         }
 
-        const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 14px;"></div>`);
+        const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
 
         sets.forEach((set, index) => {
             renderSetCard(setsList, set, index, intro);
@@ -1292,7 +1321,7 @@ function catalog(container) {
      * pin() below is for.
      *
      * Padding goes along with it when the card folds to nothing: max-height caps
-     * the content box, so padding alone would hold the card 32px tall with
+     * the content box, so padding alone would hold the card 27.3px tall with
      * nothing in it.
      *
      * Nothing fades. The card is the banner's own colour, and with the fold
@@ -1335,7 +1364,7 @@ function catalog(container) {
      * exactly its own height out of the column and nothing more — which is what
      * lets that height be compared with the banner's directly.
      *
-     * Padding is flattened only when the card folds all the way down: 32px of it
+     * Padding is flattened only when the card folds all the way down: 27.3px of it
      * cannot fit inside a card of no height. Against the banner's height it fits
      * easily, and flattening it there would shove the form's own heading about
      * for no reason.
@@ -1347,7 +1376,7 @@ function catalog(container) {
 
         // max-height caps the content box, and the card's padding and border sit
         // outside it. Asking for the banner's height directly would leave a card
-        // that tall plus 34px of frame — which is exactly the jump this is meant
+        // that tall plus 29px of frame — which is exactly the jump this is meant
         // to remove.
         const inner = floor - frame - pads;
 
@@ -1449,8 +1478,8 @@ function catalog(container) {
 
     // How far the panel is from the button it hangs under, and how close it may
     // come to the edge of the screen before it stops following.
-    const ANCHOR_GAP = 8;
-    const SCREEN_EDGE = 12;
+    const ANCHOR_GAP = 6.8;
+    const SCREEN_EDGE = 10.2;
 
     /*
      * Hangs the panel under the button that opened it, right edges together.
@@ -1602,7 +1631,7 @@ function catalog(container) {
      *
      * Coral marks the button by its border and not by its label. Coral text on
      * this card is 3.7:1 in the dark theme and 3.0:1 in the light one — under
-     * what a 15px label needs — while the border carries the same warning at a
+     * what a 12.8px label needs — while the border carries the same warning at a
      * size where that contrast is enough.
      */
     /*
@@ -1616,7 +1645,7 @@ function catalog(container) {
      *
      * Three columns because there are fifteen of them: in one column the
      * ladder is taller than the panel, and a list you have to scroll to see the
-     * ends of is a list you cannot compare the ends of. Three fit across 300px
+     * ends of is a list you cannot compare the ends of. Three fit across 256.1px
      * once the cells are cut to what they hold — a two-digit stage and "14d",
      * which is the longest interval anyone is going to type.
      *
@@ -1639,24 +1668,24 @@ function catalog(container) {
             const ink = stage === 1 ? FAIL_INK : c.ink;
 
             const field = stage === 0
-                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 26px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 8px; font-size: 13.2px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
-                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 26px; box-sizing: border-box; padding: 0 3px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 8px; font-family: inherit; font-size: 13.2px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
+                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 6.8px; font-size: 11.3px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
+                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; padding: 0 2.6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6.8px; font-family: inherit; font-size: 11.3px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
 
             // min-width on the cell as well as on the field inside it: a grid
             // item is auto-sized to its content, and a text input's content is
             // whatever twenty characters come to — which pushed the first
             // column wide enough to squeeze the second out of the panel.
-            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 4px; min-width: 0;">
-                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 26px; border-radius: 8px; background: ${fill}; color: ${ink}; font-size: 12px; font-weight: 700; line-height: 1;">${stage}</span>
+            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 3.4px; min-width: 0;">
+                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20.5px; height: 22.2px; border-radius: 6.8px; background: ${fill}; color: ${ink}; font-size: 10.2px; font-weight: 700; line-height: 1;">${stage}</span>
                 ${field}
             </div>`;
         }).join('');
 
-        return `<div style="padding-top: 8px;">
-            <div class="dict-intervals-hint" style="margin-bottom: 8px; font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">How long a word waits on each stage before it comes up again. Minutes unless the number carries <b>h</b> or <b>d</b>.</div>
-            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${cells}</div>
-            <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                <button class="dict-intervals-reset" style="padding: 5px 10px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; font-family: inherit; font-size: 13.2px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">Defaults</button>
+        return `<div style="padding-top: 6.8px;">
+            <div class="dict-intervals-hint" style="margin-bottom: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">How long a word waits on each stage before it comes up again. Minutes unless the number carries <b>h</b> or <b>d</b>.</div>
+            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5.1px;">${cells}</div>
+            <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 6.8px;">
+                <button class="dict-intervals-reset" style="padding: 4.3px 8.5px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; font-family: inherit; font-size: 11.3px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">Defaults</button>
             </div>
         </div>`;
     }
@@ -1738,57 +1767,57 @@ function catalog(container) {
             { icon: HANDSET, name: 'Mobile', note: 'In progress' }
         ];
 
-        const cells = spots.map(spot => `<div class="dict-where-cell" style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; min-width: 0; box-sizing: border-box; padding: 9px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 12px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};">
+        const cells = spots.map(spot => `<div class="dict-where-cell" style="display: flex; flex-direction: column; align-items: center; gap: 4.3px; flex: 1; min-width: 0; box-sizing: border-box; padding: 7.7px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 10.2px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};">
                 ${spot.icon}
-                <span style="font-size: 12px; font-weight: 700; line-height: 1;">${spot.name}</span>
-                <span style="font-size: 11.4px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};">${spot.note}</span>
+                <span style="font-size: 10.2px; font-weight: 700; line-height: 1;">${spot.name}</span>
+                <span style="font-size: 9.7px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};">${spot.note}</span>
             </div>`).join('');
 
-        return `<div class="dict-where" style="display: flex; gap: 6px; margin-bottom: 10px;">${cells}</div>`;
+        return `<div class="dict-where" style="display: flex; gap: 5.1px; margin-bottom: 8.5px;">${cells}</div>`;
     }
 
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
         const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
-            <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 300px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 18px; padding: 16px; overflow-y: auto; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);">
-                <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px;">
-                    <div class="dict-settings-title" style="font-size: 16.8px; font-weight: 700; color: ${palette.heading};">Settings</div>
-                    <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 10px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
+            <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 256.1px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+                <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
+                    <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">Settings</div>
+                    <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
                 </div>
                 ${platformStrip()}
-                <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 8px;">
+                <button class="dict-theme-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; width: 100%; box-sizing: border-box; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer; margin-bottom: 6.8px;">
                     <span>Theme</span>
-                    <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 7px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
+                    <span class="dict-theme-state" style="display: inline-flex; align-items: center; gap: 6px;">${theme.isDark() ? 'Dark' : 'Light'}${palette.themeIcon}</span>
                 </button>
-                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 2px; background: transparent; border: none; font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
+                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 5.1px; width: 100%; box-sizing: border-box; margin-top: 3.4px; padding: 5.1px 2px; background: transparent; border: none; font-family: inherit; font-size: 10.2px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
                     <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON_SMALL}</span>
                     <span>Advanced</span>
                     <span class="dict-advanced-rule" style="flex: 1; height: 1px; background: ${palette.softBorder};"></span>
                 </button>
                 <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
-                <div class="dict-advanced-body" style="padding-top: 8px;">
-                <div class="dict-split-line" style="display: flex; align-items: center; gap: 8px;">
-                    <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: 1; min-width: 0; box-sizing: border-box; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                <div class="dict-advanced-body" style="padding-top: 6.8px;">
+                <div class="dict-split-line" style="display: flex; align-items: center; gap: 6.8px;">
+                    <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; flex: 1; min-width: 0; box-sizing: border-box; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
                         <span>Split words</span>
                         <span class="dict-split-state">${speech.splitsByLanguage() ? 'By language' : 'By spaces'}</span>
                     </button>
-                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="What this does" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 14.4px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
+                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="What this does" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
                 </div>
                 <div class="dict-split-hint" style="overflow: hidden;"${splitHintOpen ? '' : ' hidden'}>
-                    <div style="padding-top: 8px; font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
+                    <div style="padding-top: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
                         <div>Where a word ends, when you tap one on a card.</div>
-                        <div style="margin-top: 6px;"><b>By spaces</b> — letters between spaces and punctuation. A line written without spaces, as Japanese and Chinese are, comes out as one word.</div>
-                        <div style="margin-top: 6px;"><b>By language</b> — worth trying for Japanese, Chinese and Thai, which are written in characters with no spaces between the words: the browser's own rules can find where one word ends inside such a line. Not every browser knows how, phones least of all — where that is missing, every character becomes a word of its own.</div>
-                        <div style="margin-top: 8px;"><b>If this browser cannot</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
+                        <div style="margin-top: 5.1px;"><b>By spaces</b> — letters between spaces and punctuation. A line written without spaces, as Japanese and Chinese are, comes out as one word.</div>
+                        <div style="margin-top: 5.1px;"><b>By language</b> — worth trying for Japanese, Chinese and Thai, which are written in characters with no spaces between the words: the browser's own rules can find where one word ends inside such a line. Not every browser knows how, phones least of all — where that is missing, every character becomes a word of its own.</div>
+                        <div style="margin-top: 6.8px;"><b>If this browser cannot</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
                     </div>
                 </div>
-                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 6.8px; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
                     <span class="dict-intervals-chevron" style="display: block; flex: none; transform: rotate(${intervalsOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                     <span style="flex: 1; text-align: left;">Repetition intervals</span>
                 </button>
                 <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
-                <div class="dict-settings-body" style="margin-top: 14px;"></div>
+                <div class="dict-settings-body" style="margin-top: 12px;"></div>
                 </div>
                 </div>
             </div>
@@ -1947,18 +1976,18 @@ function catalog(container) {
 
         function offer() {
             body.innerHTML = `
-                <button class="dict-wipe-btn" style="padding: 7px 12px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Clear data</button>
-                <p class="dict-wipe-note" style="margin: 8px 0 0; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set, all progress and the offline copy of the app kept on this device.</p>`;
+                <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Clear data</button>
+                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set, all progress and the offline copy of the app kept on this device.</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
         }
 
         function confirm() {
             body.innerHTML = `
-                <p class="dict-wipe-note" style="margin: 0 0 10px; font-size: 13.2px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone, and there is no undo. The starting sets come back.</p>
-                <div class="dict-wipe-actions" style="display: flex; gap: 8px;">
-                    <button class="dict-wipe-confirm" style="padding: 7px 12px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Erase</button>
-                    <button class="dict-wipe-cancel" style="padding: 7px 12px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-family: inherit; font-weight: 600; font-size: 15px; cursor: pointer;">Cancel</button>
+                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone, and there is no undo. The starting sets come back.</p>
+                <div class="dict-wipe-actions" style="display: flex; gap: 6.8px;">
+                    <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Erase</button>
+                    <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">Cancel</button>
                 </div>`;
 
             body.querySelector('.dict-wipe-cancel').addEventListener('click', offer);
@@ -2078,7 +2107,7 @@ function catalog(container) {
     }
 
     function renderSetCard(parent, set, index, intro) {
-        const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 18px; padding: 16px;"></div>`);
+        const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 15.4px; padding: 13.7px;"></div>`);
 
         if (editing.has(set.id)) {
             /*
@@ -2094,7 +2123,7 @@ function catalog(container) {
              * language when every word is in it, all of them named in a row when
              * they differ. refreshPlates keeps both in step with the box.
              */
-            const SELECT_STYLE = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 7px 10px; font-family: inherit; font-size: 13.8px; font-weight: 600; cursor: pointer; outline: none;`;
+            const SELECT_STYLE = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6px 8.5px; font-family: inherit; font-size: 11.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
             // A caption over a dropdown, cut to the width it has. Both of them
             // are one line high whatever they hold, so the two columns stay
@@ -2113,7 +2142,7 @@ function catalog(container) {
             // them turns out taller, both dropdowns begin where that row ends.
             // Matching two boxes by eye is what was tried first, and a phone
             // found a script where the numbers did not agree.
-            const caption = (text, strong, indent) => `<div style="font-size: 12.6px; line-height: 20px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+            const caption = (text, strong, indent) => `<div style="font-size: 10.8px; line-height: 17.1px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
             const langPlate = (side) => `<select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>`;
 
@@ -2122,21 +2151,21 @@ function catalog(container) {
                 textLines.push(`${w.original} -- ${w.translation}`);
             });
 
-            const box = `<label class="set-edit-hint" style="display: block; font-size: 13.2px; font-weight: 600; color: ${palette.hint}; margin-bottom: 6px;">
+            const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
                     First line - Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 115px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 12px; padding: 8px; font-family: inherit; font-size: 15.6px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
-                <div class="set-lang-area" style="margin-top: 8px;" hidden>
-                    <div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
+                    <div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6.8px;">
                         ${langPlate('originalLang')}
                         ${langPlate('translationLang')}
                     </div>
-                    <div class="set-lang-fold">${foldingSection('Advanced', `<div style="font-size: 11.4px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
+                    <div class="set-lang-fold">${foldingSection('Advanced', `<div style="font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
                             <div>${OWN_VOICE} voice installed</div>
                             <div>${BORROWED_VOICE} read by a related voice</div>
                             <div>${NO_VOICE} no voice at all</div>
                         </div>
-                        <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 6px; margin-top: 14px;"></div>`, false)}</div>
+                        <div class="set-word-langs" style="display: flex; flex-direction: column; gap: 5.1px; margin-top: 12px;"></div>`, false)}</div>
                 </div>`;
 
             // A set being written from scratch gets the box as the first section,
@@ -2148,14 +2177,14 @@ function catalog(container) {
             // here, and the only reason the form is open is to change them.
             const guided = createdEmpty.has(set.id);
 
-            const steps = r => `<ol class="set-fold-steps" style="margin: 0; padding-left: 42px; font-size: 13.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};">`
-                + r.steps.map(s => `<li style="margin-bottom: 3px;">${stepBody(s)}</li>`).join('')
+            const steps = r => `<ol class="set-fold-steps" style="margin: 0; padding-left: 35.9px; font-size: 11.3px; font-weight: 600; line-height: 1.45; color: ${palette.hint};">`
+                + r.steps.map(s => `<li style="margin-bottom: 2.6px;">${stepBody(s)}</li>`).join('')
                 + `</ol>`;
 
             // The routes are nested one level in: the folds are plain hidden
             // bodies, so a section inside a section needs nothing but the
             // indent that says which is which.
-            const routes = `<div class="set-fold-nest" style="padding-left: 12px;">`
+            const routes = `<div class="set-fold-nest" style="padding-left: 10.2px;">`
                 + ROUTES.map(r => foldingSection(r.question, steps(r), false)).join('')
                 + `</div>`;
 
@@ -2169,11 +2198,11 @@ function catalog(container) {
             // This form is the exception: the prompts are here to be carried out
             // to another app, and the hint explains a format worth copying.
             const editForm = $(card, `<div class="set-edit-form" style="user-select: text; -webkit-user-select: text;">
-                <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="set-edit-title" style="font-size: 15.6px; font-weight: 700; color: ${palette.heading};">${guided ? 'New Set' : 'Edit Set'}</span>
-                    <div class="set-edit-actions" style="display: flex; gap: 6px;">
-                        <button class="set-save-btn" style="padding: 4px 10px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Save</button>
-                        <button class="set-cancel-btn" style="padding: 4px 10px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 600; font-size: 14.4px; cursor: pointer;">Cancel</button>
+                <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+                    <span class="set-edit-title" style="font-size: 13.3px; font-weight: 700; color: ${palette.heading};">${guided ? 'New Set' : 'Edit Set'}</span>
+                    <div class="set-edit-actions" style="display: flex; gap: 5.1px;">
+                        <button class="set-save-btn" style="padding: 3.4px 8.5px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">Save</button>
+                        <button class="set-cancel-btn" style="padding: 3.4px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">Cancel</button>
                     </div>
                 </div>
                 ${formBody}
@@ -2305,12 +2334,12 @@ function catalog(container) {
                 // pair: with one line for the two of them there was nothing to
                 // say which dropdown answered for which half of it.
                 const options = languageOptions();
-                const rowSelect = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10px; padding: 4px 8px; font-family: inherit; font-size: 12.6px; font-weight: 600; cursor: pointer; outline: none;`;
+                const rowSelect = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; padding: 3.4px 6.8px; font-family: inherit; font-size: 10.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
                 // Four cells in two columns: the two captions share the first grid
                 // row, the two dropdowns the second. Whatever either caption is
                 // written in, the dropdowns under them start together.
-                wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; align-items: start;">
+                wordList.innerHTML = words.map(w => `<div class="set-word-lang" data-key="${escapeText(keyOf(w))}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 5.1px; align-items: start;">
                         ${caption(escapeText(w.original), false, 9)}
                         ${caption(w.translation ? escapeText(w.translation) : '–', false, 9)}
                         <select class="set-word-lang-select" data-field="originalLang" style="${rowSelect}">${options}</select>
@@ -2511,44 +2540,44 @@ function catalog(container) {
             const grows = intro;
 
             $(card, `
-                <div class="set-card-header" style="display: flex; gap:5px; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div class="set-title-group" style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-                        <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 18px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
-                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 12.6px; font-weight: 800; padding: 3px 8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
+                <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+                    <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
+                        <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
                     </div>
-                    <div class="set-btn-group" style="display: flex; align-items: center; gap: 8px;">
-                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
-                            <svg class="set-edit-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    <div class="set-btn-group" style="display: flex; align-items: center; gap: 6.8px;">
+                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
-                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 12px; cursor: pointer; transition: color 0.2s;">
-                            <svg class="set-flip-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 4 4 4-4 4M20 8H4M8 20l-4-4 4-4M4 16h16"></path></svg>
+                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg class="set-flip-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 4 4 4-4 4M20 8H4M8 20l-4-4 4-4M4 16h16"></path></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 4px; height: ${STEP_TALL}px; margin-bottom: 14px;">
+                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_TALL}px; margin-bottom: 12px;">
                     ${Array.from({ length: SEGMENTS }, (_, i) => `<div class="set-progress-step"
                         style="${stepStyle(grows ? waiting : stepLook(i))}"></div>`).join('')}
                 </div>
 
-                <div class="set-words-bubbles" style="-padding-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;"></div>
+                <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
-                <!-- The label under each icon is 13.2px because of the
-                     longest of them: "Flashcards" at 15px is 79 wide and the
+                <!-- The label under each icon is 11.3px because of the
+                     longest of them: "Flashcards" at 12.8px is 79 wide and the
                      button has 78 to give, and it is one word, so it cannot
                      wrap out of trouble — it just spills over the corner. At
                      13.2 it is 70, which leaves room for the system font on a
                      phone being wider than the one this was measured in. -->
-                <div class="set-actions-group" style="display: flex; gap: 8px; height: 58px; margin-top: 18px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 12px; font-weight: 700; font-size: 13.2px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${g.icon(24)}<span>${g.title}</span></button>`).join('')}
-                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 6px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 13.2px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">${DOTS}<span class="set-more-label">More...</span></button>
+                <div class="set-actions-group" style="display: flex; gap: 6.8px; height: 49.5px; margin-top: 15.4px;">
+                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 5.1px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 10.2px; font-weight: 700; font-size: 11.3px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6px;">${g.icon(20.5)}<span>${g.title}</span></button>`).join('')}
+                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 5.1px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 11.3px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6px;">${DOTS}<span class="set-more-label">More...</span></button>
                 </div>
             `);
 
             // Render bubbles into the container
             const bubblesContainer = card.querySelector('.set-words-bubbles');
             if (totalWords === 0) {
-                $(bubblesContainer, `<p class="set-empty-msg" style="margin: 4px 0; color: #94a3b8; font-size: 15.6px; font-style: italic;">Set is empty</p>`);
+                $(bubblesContainer, `<p class="set-empty-msg" style="margin: 3.4px 0; color: #94a3b8; font-size: 13.3px; font-style: italic;">Set is empty</p>`);
             } else {
                 set.words.forEach((w, order) => {
                     const bubbleData = buildBubbleData(w);
@@ -2714,7 +2743,7 @@ function catalog(container) {
 
             // The timer badge is the same colour family as the bar, taken deep
             // enough to carry white text: the bar has nothing written on it and
-            // can stay light, a 10px badge cannot.
+            // can stay light, a 8.5px badge cannot.
             timerFill: t.progressFill,
             onTimer: '#ffffff',
             // The percent beside the title is a quiet readout, and mint text on
@@ -2769,14 +2798,14 @@ function catalog(container) {
      * catalog that the catalog goes back to being once it is read.
      */
     function moreSoon() {
-        const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;">
-            <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 20px; padding: 20px; max-width: 320px; width: 100%;">
-                <div class="more-dialog-title" style="font-size: 16.8px; font-weight: 700; margin-bottom: 8px;">Forever free for early adopters</div>
-                <div class="more-dialog-text" style="font-size: 15px; line-height: 1.4; color: ${palette.dialogBody};">
-                    <p style="margin: 0 0 10px;">Congratulations — you are one of the first to install it, so it stays free for you whatever this app charges later.</p>
-                    <p style="margin: 0 0 14px;">More games to help you remember words are coming soon.</p>
+        const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+            <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
+                <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
+                <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
+                    <p style="margin: 0 0 8.5px;">Congratulations — you are one of the first to install it, so it stays free for you whatever this app charges later.</p>
+                    <p style="margin: 0 0 12px;">More games to help you remember words are coming soon.</p>
                 </div>
-                <button class="more-dialog-ok" style="width: 100%; padding: 9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">Got it</button>
+                <button class="more-dialog-ok" style="width: 100%; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Got it</button>
             </div>
         </div>`);
 
@@ -2788,13 +2817,13 @@ function catalog(container) {
 
     // Modal shown when every word of the selection is still waiting for its timer
     function confirmEarly(onPlayAnyway) {
-        const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;">
-            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 20px; padding: 20px; max-width: 320px; width: 100%;">
-                <div class="early-dialog-title" style="font-size: 16.8px; font-weight: 700; margin-bottom: 6px;">⏳ Nothing to repeat yet</div>
-                <div class="early-dialog-text" style="font-size: 15px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 14px;">All words in this selection are still waiting for their timers. An early repetition will not raise the progress, but a mistake will still set the word back.</div>
-                <div class="early-dialog-actions" style="display: flex; gap: 8px;">
-                    <button class="early-dialog-cancel" style="flex: 1; padding: 9px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer;">Cancel</button>
-                    <button class="early-dialog-play" style="flex: 1; padding: 9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer;">Play anyway</button>
+        const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
+                <div class="early-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">⏳ Nothing to repeat yet</div>
+                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">All words in this selection are still waiting for their timers. An early repetition will not raise the progress, but a mistake will still set the word back.</div>
+                <div class="early-dialog-actions" style="display: flex; gap: 6.8px;">
+                    <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Cancel</button>
+                    <button class="early-dialog-play" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Play anyway</button>
                 </div>
             </div>
         </div>`);

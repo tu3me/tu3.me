@@ -55,7 +55,7 @@ function quiz(container) {
 
     // Shown on the option the cursor is on: the key you press to send it.
     // Drawn on the same 24-unit grid and 2-unit stroke as every other icon here.
-    const SUBMIT_ARROW = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    const SUBMIT_ARROW = `<svg width="13.7" height="13.7" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" aria-hidden="true" style="display: block;">
         <path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
@@ -92,7 +92,7 @@ function quiz(container) {
                 .map(ch => `<span class="say-letter">${escapeText(ch)}</span>`)
                 .join('');
 
-            return `<span class="say-word" style="border-radius: 4px;">${letters}</span>`;
+            return `<span class="say-word" style="border-radius: 3.4px;">${letters}</span>`;
         }).join('');
     }
 
@@ -255,7 +255,7 @@ function quiz(container) {
      * changed. Nothing shrinks it either, because nothing has to — this card
      * has no height of its own to fit inside, it grows down the page.
      */
-    const WORD_SIZE = 35.2;
+    const WORD_SIZE = 30;
 
     let taps = 0;
     let tapped = null;
@@ -398,7 +398,7 @@ function quiz(container) {
             const isCurrent = idx === state.currentIndex;
             const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
-            return `<div class="quiz-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return `<div class="quiz-dot" style="width: 8.5px; height: 8.5px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
         // The dots are redrawn as soon as the answer is scored, not only on the next word
@@ -407,11 +407,11 @@ function quiz(container) {
             if (group) group.innerHTML = dotsHtml();
         }
 
-        const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+        const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10.2px;">
+            <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;">
+            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5.1px;">
                 ${dotsHtml()}
             </div>
         </div>`);
@@ -422,8 +422,8 @@ function quiz(container) {
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-        const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 24px 16px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 18px; text-align: center; margin-bottom: 16px; box-sizing: border-box; cursor: pointer;">
-            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 6px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
+        const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
+            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
         </div>`);
 
         /*
@@ -491,7 +491,7 @@ function quiz(container) {
         const selectedOptions = [correctTranslation, ...distractors.slice(0, countToTake)];
         selectedOptions.sort(() => Math.random() - 0.5);
 
-        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 8px;"></div>`);
+        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 6.8px;"></div>`);
 
         const optionButtons = [];
         let selectedIndex = 0;
@@ -546,13 +546,13 @@ function quiz(container) {
         }
 
         selectedOptions.forEach((opt, optIndex) => {
-            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 14px 16px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 14px; font-weight: 600; font-size: 16.8px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                <span class="quiz-option-left" style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-                    ${speech.speakerHtml(opt, langOf.get(opt), palette.sayIcon, 'margin-top: 0; font-size: 18px; flex: none;')}
+            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px 13.7px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 12px; font-weight: 600; font-size: 14.3px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8.5px;">
+                <span class="quiz-option-left" style="display: flex; align-items: center; gap: 8.5px; min-width: 0;">
+                    ${speech.speakerHtml(opt, langOf.get(opt), palette.sayIcon, 'margin-top: 0; font-size: 15.4px; flex: none;')}
                     <span class="quiz-option-label">${escapeText(opt)}</span>
                 </span>
                 <span class="quiz-option-right" style="display: flex; align-items: center; flex: none;">
-                    <span class="quiz-option-icon status-icon" style="font-size: 16.8px;"></span>
+                    <span class="quiz-option-icon status-icon" style="font-size: 14.3px;"></span>
                     <span class="quiz-option-arrow" style="display: none; color: ${palette.cursor};">${SUBMIT_ARROW}</span>
                 </span>
             </button>`);

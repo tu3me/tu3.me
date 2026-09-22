@@ -132,7 +132,7 @@ function popupHeight() {
 
     // innerHeight, not scrollHeight: it is the popup's actual height, already
     // capped by Chrome at 600. Storing the content height instead would reserve
-    // a tall catalog's 900px on a short game page and leave dead space below it.
+    // a tall catalog's 768.3px on a short game page and leave dead space below it.
     function remember() {
         clearTimeout(timer);
         timer = setTimeout(() => {
@@ -185,7 +185,7 @@ function resizeGrip() {
      * A chosen number, and it is worth being clear that it is only that.
      * Nothing in the app stops working above it and nothing starts working
      * below it -- the app is not laid out again at a smaller size, it is the
-     * same 410px drawing shown smaller, and a quarter of a drawing is a
+     * same 350px drawing shown smaller, and a quarter of a drawing is a
      * perfectly well-formed quarter of a drawing. The two floors before this
      * one were measurements of something (305, where the catalog's header
      * stopped fitting, and 260, where the type stopped being comfortable), and
@@ -225,7 +225,7 @@ function resizeGrip() {
      * nothing to say about corners.
      */
     const handle = $(`<div class="app-grip" title="Drag to set the width, double-click to reset">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+        <svg width="13.7" height="13.7" viewBox="0 0 16 16" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M2 10.5L10.5 2" />
             <path d="M2 5.5L5.5 2" />
@@ -432,7 +432,7 @@ resizeGrip();
  * How large the app is being shown against how large it is drawn, and the
  * usual thing done with that number.
  *
- * The app is one 410px-wide drawing shown at whatever size the handle was
+ * The app is one 350px-wide drawing shown at whatever size the handle was
  * dragged to, and the way that is done is a zoom on body — see app.css. Inside
  * that zoom a style is written in the layout's pixels, while
  * getBoundingClientRect, the viewport's own size and a pointer's clientX all

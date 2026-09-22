@@ -42,12 +42,12 @@ function cards(container) {
      * phone at arm's length, so the word should be the thing in the room rather
      * than something sitting politely in the middle of a card with space all
      * round it. It was half again bigger for a while, which was too far: a card
-     * is 170px and the room inside it is 136, so at that size a phrase of any
+     * is 145.1px and the room inside it is 136, so at that size a phrase of any
      * length was landing on the fitting below — four of the seeded seventy-four
      * came out at a size this number had no say in. At this one none of them do.
      *
      * Not every word fits even here, and the card is not allowed to grow: it is
-     * 170px whatever is on it, because the deck has to look like a deck and not
+     * 145.1px whatever is on it, because the deck has to look like a deck and not
      * like a column of boxes of different heights. So the size is where the
      * fitting starts rather than where it ends.
      *
@@ -55,8 +55,8 @@ function cards(container) {
      * that cannot fit even there is a line that was never going to fit — it
      * overflows, and overflowing is a better answer than a size nobody can read.
      */
-    const WORD_SIZE = 35.2;
-    const WORD_MIN = 15;
+    const WORD_SIZE = 30;
+    const WORD_MIN = 12.8;
 
     /*
      * The speaker leads the line, as though it were its first letter.
@@ -159,7 +159,7 @@ function cards(container) {
      * there would hand back half a letter to say out loud.
      */
     function lineHtml(text) {
-        const tinted = 'border-radius: 4px;';
+        const tinted = 'border-radius: 3.4px;';
 
         return speech.words(text).map(part => {
             if (part.isWord) {
@@ -464,7 +464,7 @@ function cards(container) {
             const isCurrent = idx === state.currentIndex;
             const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
 
-            return `<div class="cards-dot" style="width: 10px; height: 10px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return `<div class="cards-dot" style="width: 8.5px; height: 8.5px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
         // The dots are redrawn mid-card now, not only when the next card is rendered
@@ -473,11 +473,11 @@ function cards(container) {
             if (group) group.innerHTML = dotsHtml();
         }
 
-        const header = $(container, `<div class="cards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="cards-header-info" style="display: flex; flex: 1; align-items: center; gap: 8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 12px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+        const header = $(container, `<div class="cards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10.2px;">
+            <div class="cards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="cards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 6px;">
+            <div class="cards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5.1px;">
                 ${dotsHtml()}
             </div>
         </div>`);
@@ -488,14 +488,14 @@ function cards(container) {
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-        const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 170px; cursor: pointer; margin-bottom: 16px; perspective: 1000px;">
+        const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
-                <div class="card-face-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+                <div class="card-face-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
                 </div>
 
-                <div class="card-face-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+                <div class="card-face-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.word.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
                 </div>
 
@@ -558,9 +558,9 @@ function cards(container) {
         function renderActionButtons() {
             actionsContainer.innerHTML = '';
 
-            const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 8px;">
-                <button class="cards-btn-flip" id="btn-flip" style="flex: 1; padding: 11px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">← Flip</button>
-                <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 11px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 14px; font-weight: 700; font-size: 15.6px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
+            const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 6.8px;">
+                <button class="cards-btn-flip" id="btn-flip" style="flex: 1; padding: 9.4px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">← Flip</button>
+                <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 9.4px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
             </div>`);
 
             // The card is turned by hand rather than by a redraw: the flip is a

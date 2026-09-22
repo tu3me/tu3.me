@@ -32,7 +32,7 @@ function page() {
      * one would tie the two headers together for the sake of eight lines of
      * path data.
      */
-    const SOUND_ICON = (body) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+    const SOUND_ICON = (body) => `<svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
 
@@ -78,7 +78,7 @@ function page() {
         const end = header.querySelector('.game-header-end')
             || $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
 
-        const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 12px; color: ${colour}; cursor: pointer;"></button>`);
+        const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 10.2px; color: ${colour}; cursor: pointer;"></button>`);
 
         drawMute(btn);
 
