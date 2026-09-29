@@ -429,6 +429,104 @@ function resizeGrip() {
 resizeGrip();
 
 /**
+ * The browser's own right-click menu, off.
+ *
+ * This is an app and not a page. What the menu offers — Back, Reload, View
+ * source, Save as, Translate — is either meaningless here or a way out of the
+ * app by accident, and in the popup it opens a list taller than the window it
+ * is opened in, over the thing that was right-clicked.
+ *
+ * Anything editable keeps it, and that is not a nicety. A set of words gets
+ * into this app by being pasted into the new-set form, and on a phone the only
+ * way to paste is the menu a long press raises: a long press fires contextmenu
+ * like a right click does, so refusing it there would leave the box with no way
+ * to fill it and no keyboard shortcut to fall back on.
+ *
+ * The test is what the element is rather than where it sits, so nothing in
+ * core has to know which screen grew a text box.
+ */
+/**
+ * The hand that shows someone where to press.
+ *
+ * Yellow, and the same yellow in both themes. A colour that changes with the
+ * theme is two colours — the rule the game colours in registry.js are kept by —
+ * and this one's whole job is to be the brightest thing on a screen nobody has
+ * learned yet. The dark outline is what makes that work on the light theme,
+ * where a flat yellow on a white card is 1.9 against it and would read as a
+ * smudge rather than a hand.
+ *
+ * It hangs inside the thing it points at rather than being placed against it.
+ * A floating element would have to be positioned in the screen's pixels while
+ * the app is laid out in its own — see appScale — and moved again every time
+ * the handle resizes the app or the list under it grows. A child moves with its
+ * parent for nothing.
+ *
+ * Nothing about it takes a press. It overhangs the button it is pointing at,
+ * and a press that landed on the hint instead of the button would be a hint
+ * that blocked the very thing it was asking for.
+ */
+function pointingHand() {
+    const HAND = `<svg width="52" height="52" viewBox="0 0 24 24" aria-hidden="true" style="display: block;">
+        <path d="M11 21.5a6 6 0 0 1-6-6v-2.1a1.6 1.6 0 0 1 3.2 0v1.1V5.4a1.8 1.8 0 0 1 3.6 0v5.8a1.5 1.5 0 0 1 3 0v.7a1.5 1.5 0 0 1 3 0v.8a1.5 1.5 0 0 1 3 0v2.8a6 6 0 0 1-6 6z" fill="#eab308" stroke="#7c4a03" stroke-width="1.1" stroke-linejoin="round" />
+    </svg>`;
+
+    let shown = null;
+
+    // Standing in the target, not under it. The hand is 52 tall against a button
+    // of 49.5, so hanging it below would put most of it past the bottom of the
+    // app — the catalog's last card is the last thing on the page, and what is
+    // under that is nothing. Raised by just enough to clear that: it hangs 25
+    // below the button and the page ends 25 below the button, so the fingernail
+    // and the last row of the page are the same line. The label goes under the
+    // finger, which is the price and a small one: the word is what the hand is
+    // pointing at, not what it is telling you.
+    //
+    // The press it is asking for is what takes it down, and the hand arranges
+    // that itself: it is hung inside the thing it points at, so that thing is
+    // exactly what has to be pressed. Whoever puts a hand up is then spared
+    // knowing how it comes down, and nothing else on the screen can answer for
+    // the button — a hint dismissed by an unrelated tap is a hint gone before it
+    // was understood.
+    pointingHand.at = (target) => {
+        pointingHand.clear();
+        if (!target) return null;
+
+        if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
+
+        shown = $(target, `<span class="pointing-hand" style="position: absolute; left: 50%; top: 100%; margin: -27.1px 0 0 -26px; pointer-events: none; z-index: 5;">${HAND}</span>`);
+        target.addEventListener('pointerdown', pointingHand.clear, { once: true });
+
+        return shown;
+    };
+
+    // Asked before a new hand is scheduled. `isConnected` rather than the
+    // variable alone: a screen that redraws itself takes the hand with it without
+    // going through clear(), and the reference left behind points at a node
+    // hanging off nothing.
+    pointingHand.showing = () => !!(shown && shown.isConnected);
+
+    pointingHand.clear = () => {
+        if (shown) shown.remove();
+        shown = null;
+    };
+}
+pointingHand();
+
+function noContextMenu() {
+    document.addEventListener('contextmenu', (event) => {
+        const el = event.target;
+
+        if (el instanceof Element
+            && el.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')) {
+            return;
+        }
+
+        event.preventDefault();
+    });
+}
+noContextMenu();
+
+/**
  * How large the app is being shown against how large it is drawn, and the
  * usual thing done with that number.
  *
@@ -460,4 +558,43 @@ function appRect(el) {
         top: box.top / scale, bottom: box.bottom / scale,
         width: box.width / scale, height: box.height / scale
     };
+}
+
+// How far the panel is from the button it hangs under, and how close it may
+// come to the edge of the screen before it stops following.
+const ANCHOR_GAP = 6.8;
+const SCREEN_EDGE = 10.2;
+
+/*
+ * Hangs the panel under the button that opened it, right edges together.
+ *
+ * Right rather than left because the button is the last thing in the header:
+ * lined up by its left edge the panel would hang off the screen. Clamped all
+ * the same — the header is laid out by the browser, and a measurement is
+ * worth less than the check that it landed somewhere visible.
+ *
+ * The height it is allowed is whatever is left below it, so a panel that
+ * outgrows the screen scrolls inside itself instead of running off the
+ * bottom. Read off the viewport, which is safe to read and unsafe to decide:
+ * a fixed element takes no part in how wide the popup ends up, so measuring
+ * it here closes no loop — see app.css on why no CSS rule may.
+ *
+ * Returns where the button is, in the panel's own coordinates, for the
+ * transform to grow from.
+ */
+function hangUnder(panel, anchor) {
+    // Both in the layout's pixels rather than the screen's: the panel is
+    // positioned from inside the app's zoom, and a rect and the viewport
+    // are measured outside it. See appScale.
+    const a = appRect(anchor);
+    const room = document.documentElement.clientHeight / appScale();
+
+    const left = Math.max(SCREEN_EDGE, a.right - panel.offsetWidth);
+    const top = a.bottom + ANCHOR_GAP;
+
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.maxHeight = `${Math.max(120, room - top - SCREEN_EDGE)}px`;
+
+    return `${a.left + a.width / 2 - left}px ${a.top + a.height / 2 - top}px`;
 }

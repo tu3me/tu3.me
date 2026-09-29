@@ -396,9 +396,9 @@ function quiz(container) {
             if (res === 'wrong') bg = palette.errText;
 
             const isCurrent = idx === state.currentIndex;
-            const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
+            const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
 
-            return `<div class="quiz-dot" style="width: 8.5px; height: 8.5px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return `<div class="quiz-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
         // The dots are redrawn as soon as the answer is scored, not only on the next word
@@ -409,9 +409,9 @@ function quiz(container) {
 
         const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10.2px;">
             <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5.1px;">
+            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">
                 ${dotsHtml()}
             </div>
         </div>`);

@@ -101,7 +101,7 @@ function page() {
         const btn = document.querySelector('#mute-btn');
         if (!btn) return;
 
-        btn.style.animation = 'mute-pulse 420ms ease-out';
+        btn.style.animation = 'mute-pulse 420ms ease-out 2';
         btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
     };
 

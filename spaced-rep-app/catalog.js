@@ -15,7 +15,20 @@ function catalog(container) {
     // Screen state, deliberately not stored on the set objects: word_sets carries
     // domain data only, and an edit form has no business surviving a reload.
     const editing = new Set();
-    const createdEmpty = new Set();
+
+    /*
+     * The set the New Set form is writing, and null when no such form is open.
+     *
+     * Outside the store, and that is the whole point of it. It used to be added
+     * to the list on the press and taken back out by Cancel, which left every
+     * other way off this screen leaking it: store.save() writes the list whole,
+     * so tapping a game on another card — nav.game saves before it navigates —
+     * wrote an untitled empty set into the database. It came back at the top of
+     * the catalog with its own "Set is empty" and its own row of games, and the
+     * only way to be rid of it was to open it and save it empty. Kept out of the
+     * list, there is no save anywhere that can see it.
+     */
+    let draft = null;
 
     // Whether the next draw should grow the bars out of nothing. Armed by
     // catalog.render(), which is the entry the page itself calls — opening the
@@ -1038,7 +1051,7 @@ function catalog(container) {
         const btn = container.querySelector('#mute-btn');
         if (!btn) return;
 
-        btn.style.animation = 'mute-pulse 420ms ease-out';
+        btn.style.animation = 'mute-pulse 420ms ease-out 2';
         btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
     }
 
@@ -1170,11 +1183,11 @@ function catalog(container) {
         // the New Set button reads it twice: for its own look, and to know that a
         // press means close rather than open.
         //
-        // createdEmpty rather than editing: it holds exactly the sets the New Set
-        // button made, and empties again on save or cancel. Editing an existing
-        // set opens the same form further down the list, and has nothing to do
-        // with this button.
-        const addingSet = createdEmpty.size > 0;
+        // The draft rather than `editing`: it is exactly what the New Set button
+        // made, and is gone again on save or cancel. Editing an existing set
+        // opens the same form further down the list, and has nothing to do with
+        // this button.
+        const addingSet = !!draft;
 
         // Open, the button takes the form's own surface. The form is what the
         // press produced, and one surface across both is what says the button is
@@ -1246,15 +1259,14 @@ function catalog(container) {
                 : 0;
 
             const id = Date.now().toString();
-            store.addSet({
+            draft = {
                 id: id,
                 // Nameless on purpose: an empty box is what lets the placeholder example
                 // show, and saving without a name falls back to NEW SET NAME
                 title: '',
                 words: []
-            });
+            };
             editing.add(id);
-            createdEmpty.add(id);
             unfolding = 'set';
             render();
         });
@@ -1276,8 +1288,12 @@ function catalog(container) {
 
         const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
 
-        sets.forEach((set, index) => {
-            renderSetCard(setsList, set, index, intro);
+        // The draft goes where the store would have put it: addSet unshifts, so
+        // a set saved from this form stays in the place its form stood in.
+        if (draft) renderSetCard(setsList, draft, intro);
+
+        sets.forEach(set => {
+            renderSetCard(setsList, set, intro);
         });
 
         if (unfold === 'set') {
@@ -1290,6 +1306,11 @@ function catalog(container) {
         // panel — and it only rises into place when this pass is the one that
         // opened it.
         if (settingsOpen) renderSettings(container, unfold === 'settings');
+
+        // The redraw emptied the container, and the hand was inside it. Put back
+        // here rather than at the one entry the page calls, so that it comes back
+        // from every way it can be taken away.
+        showHint();
     }
 
     /*
@@ -1425,8 +1446,7 @@ function catalog(container) {
 
     // The card the New Set button opened, or null once it is gone.
     function newSetCard() {
-        const id = createdEmpty.values().next().value;
-        return id ? container.querySelector(`.set-card[data-set-id="${id}"]`) : null;
+        return draft ? container.querySelector(`.set-card[data-set-id="${draft.id}"]`) : null;
     }
 
     // Folds the form shut and then drops what was behind it. Without a card to
@@ -1436,7 +1456,7 @@ function catalog(container) {
         const card = newSetCard();
 
         if (!card) {
-            discardNewSets();
+            discardDraft();
             render();
             return;
         }
@@ -1444,7 +1464,7 @@ function catalog(container) {
         closing = true;
         foldAway(card, () => {
             closing = false;
-            discardNewSets();
+            discardDraft();
             render();
         }, bannerSpace);
     }
@@ -1459,45 +1479,6 @@ function catalog(container) {
      */
     const RISE_IN = 170;
     const RISE_OUT = 130;
-
-    // How far the panel is from the button it hangs under, and how close it may
-    // come to the edge of the screen before it stops following.
-    const ANCHOR_GAP = 6.8;
-    const SCREEN_EDGE = 10.2;
-
-    /*
-     * Hangs the panel under the button that opened it, right edges together.
-     *
-     * Right rather than left because the button is the last thing in the header:
-     * lined up by its left edge the panel would hang off the screen. Clamped all
-     * the same — the header is laid out by the browser, and a measurement is
-     * worth less than the check that it landed somewhere visible.
-     *
-     * The height it is allowed is whatever is left below it, so a panel that
-     * outgrows the screen scrolls inside itself instead of running off the
-     * bottom. Read off the viewport, which is safe to read and unsafe to decide:
-     * a fixed element takes no part in how wide the popup ends up, so measuring
-     * it here closes no loop — see app.css on why no CSS rule may.
-     *
-     * Returns where the button is, in the panel's own coordinates, for the
-     * transform to grow from.
-     */
-    function hangUnder(panel, anchor) {
-        // Both in the layout's pixels rather than the screen's: the panel is
-        // positioned from inside the app's zoom, and a rect and the viewport
-        // are measured outside it. See appScale.
-        const a = appRect(anchor);
-        const room = document.documentElement.clientHeight / appScale();
-
-        const left = Math.max(SCREEN_EDGE, a.right - panel.offsetWidth);
-        const top = a.bottom + ANCHOR_GAP;
-
-        panel.style.left = `${left}px`;
-        panel.style.top = `${top}px`;
-        panel.style.maxHeight = `${Math.max(120, room - top - SCREEN_EDGE)}px`;
-
-        return `${a.left + a.width / 2 - left}px ${a.top + a.height / 2 - top}px`;
-    }
 
     /*
      * Escape while the panel is up, and a window that changed size under it.
@@ -1793,7 +1774,7 @@ function catalog(container) {
                         <div>Where a word ends, when you tap one on a card.</div>
                         <div style="margin-top: 5.1px;"><b>By spaces</b> — letters between spaces and punctuation. A line written without spaces, as Japanese and Chinese are, comes out as one word.</div>
                         <div style="margin-top: 5.1px;"><b>By language</b> — worth trying for Japanese, Chinese and Thai, which are written in characters with no spaces between the words: the browser's own rules can find where one word ends inside such a line. Not every browser knows how, phones least of all — where that is missing, every character becomes a word of its own.</div>
-                        <div style="margin-top: 6.8px;"><b>If this browser cannot</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
+                        <div style="margin-top: 6.8px;"><b>If this browser cannot do it</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
                     </div>
                 </div>
                 <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 6.8px; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
@@ -2044,20 +2025,14 @@ function catalog(container) {
     // exists only because the form needed something to edit, so closing without
     // saving leaves nothing worth keeping.
     //
-    // By id rather than by position: removeAt works on the index in the list,
-    // and reading that index back at the moment of removal is what keeps this
-    // right regardless of where the set sits.
-    function discardNewSets() {
-        createdEmpty.forEach(id => {
-            const index = store.sets().findIndex(s => s.id === id);
-            if (index !== -1) store.removeAt(index);
-            editing.delete(id);
-        });
-        createdEmpty.clear();
-        store.save();
+    // Nothing is written here, because nothing that is written down has changed:
+    // the draft was never in the list.
+    function discardDraft() {
+        if (draft) editing.delete(draft.id);
+        draft = null;
     }
 
-    function renderSetCard(parent, set, index, intro) {
+    function renderSetCard(parent, set, intro) {
         const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 15.4px; padding: 13.7px;"></div>`);
 
         if (editing.has(set.id)) {
@@ -2103,9 +2078,9 @@ function catalog(container) {
             });
 
             const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
-                    First line - Title, then: "word -- translation" (a tab works too; clear text to delete)
+                    First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;example -- пример&#10;two words -- два слова" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;word -- translation&#10;another word -- another translation" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
                 <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
                     <div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6.8px;">
                         ${langPlate('originalLang')}
@@ -2126,7 +2101,7 @@ function catalog(container) {
             //
             // Editing an existing set shows none of it: the words are already
             // here, and the only reason the form is open is to change them.
-            const guided = createdEmpty.has(set.id);
+            const guided = set === draft;
 
             const steps = r => `<ol class="set-fold-steps" style="margin: 0; padding-left: 35.9px; font-size: 11.3px; font-weight: 600; line-height: 1.45; color: ${palette.hint};">`
                 + r.steps.map(s => `<li style="margin-bottom: 2.6px;">${stepBody(s)}</li>`).join('')
@@ -2391,16 +2366,9 @@ function catalog(container) {
 
             editForm.querySelector('.set-save-btn').addEventListener('click', () => {
                 const parsed = readWords(textarea.value, set);
+                const keep = !!(parsed && parsed.words.length);
 
-                /*
-                 * No words, no set. An empty box has always meant delete, and a
-                 * box with nothing but a title means the same: a name with
-                 * nothing under it cannot be played, and the catalog would show
-                 * it only to say that it is empty.
-                 */
-                if (!parsed || !parsed.words.length) {
-                    store.removeAt(index);
-                } else {
+                if (keep) {
                     set.title = parsed.title;
                     set.words = parsed.words;
 
@@ -2408,8 +2376,27 @@ function catalog(container) {
                     nameWords(set.words);
                 }
 
+                /*
+                 * No words, no set. An empty box has always meant delete, and a
+                 * box with nothing but a title means the same: a name with
+                 * nothing under it cannot be played, and the catalog would show
+                 * it only to say that it is empty.
+                 *
+                 * For a draft the same rule is not a deletion but the absence of
+                 * an addition: there is nothing of it in the list to remove.
+                 */
+                if (set === draft) {
+                    if (keep) store.addSet(set);
+                    draft = null;
+                } else if (!keep) {
+                    // The position is read here rather than at render time: this
+                    // press can come long after the card was drawn, and a set
+                    // saved from another form since then sits in front of it.
+                    const index = store.sets().findIndex(s => s.id === set.id);
+                    if (index !== -1) store.removeAt(index);
+                }
+
                 editing.delete(set.id);
-                createdEmpty.delete(set.id);
                 store.save();
                 render();
             });
@@ -2419,7 +2406,7 @@ function catalog(container) {
                 // folds the same way. Cancel on an existing set only puts the
                 // form away: the card stays where it is, so there is nothing to
                 // fold.
-                if (createdEmpty.has(set.id)) {
+                if (set === draft) {
                     closeNewSet();
                     return;
                 }
@@ -2499,9 +2486,6 @@ function catalog(container) {
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 6.8px;">
                         <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                        </button>
-                        <button class="set-flip-btn" title="Flip" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
-                            <svg class="set-flip-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 4 4 4-4 4M20 8H4M8 20l-4-4 4-4M4 16h16"></path></svg>
                         </button>
                     </div>
                 </div>
@@ -2587,21 +2571,45 @@ function catalog(container) {
                 editing.add(set.id);
                 render();
             });
-
-            const flipBtn = card.querySelector('.set-flip-btn');
-            if (flipBtn) {
-                flipBtn.addEventListener('click', () => {
-                    if (!set.words || set.words.length === 0) return;
-                    set.words.forEach(w => {
-                        const temp = w.original;
-                        w.original = w.translation || '';
-                        w.translation = temp || '';
-                    });
-                    store.save();
-                    render();
-                });
-            }
         }
+    }
+
+    /*
+     * The first press, pointed at.
+     *
+     * A set of words and a row of coloured buttons under it is not obviously a
+     * thing to press — the words are what the eye goes to, and they can be
+     * tapped to be heard, which is enough to look like the whole of it. So the
+     * hand stands under the first game, from the moment the screen is drawn and
+     * every time it is drawn again.
+     *
+     * Nothing is held back — not a wait, not a panel being open, not a form
+     * being written. The hand belongs to the screen the way the buttons do, and
+     * a hint that comes and goes by rules of its own is a hint that has to be
+     * caught. It is behind the settings overlay while that is up, which is what
+     * being behind it means, and clear again when it closes.
+     *
+     * What takes it down is the press it is asking for, and only that; the hand
+     * arranges it itself, on whatever it is hung in — see pointingHand.
+     *
+     * What stops it for good is the question it is asked of: has anything ever
+     * been answered. That is put to the words rather than kept as a flag, so it
+     * answers itself — the first repetition ever recorded is the last time this
+     * runs, and clearing the data brings it back, which is right, because the
+     * screen after a reset is the screen a new player sees.
+     */
+    function neverPlayed() {
+        return store.sets().every(set =>
+            (set.words || []).every(w => !w.repetitions || w.repetitions.length === 0));
+    }
+
+    function showHint() {
+        // A session that exists is a game that was started, whether or not it was
+        // answered: someone who opened a game and came straight back has been
+        // where the hand was pointing, and does not need telling again.
+        if (session || !neverPlayed()) return;
+
+        pointingHand.at(container.querySelector('.set-play-btn[data-game="cards"]'));
     }
 
     catalog.render = () => {
@@ -2726,6 +2734,12 @@ function catalog(container) {
     }
 
     async function beginSession(game, setId, allowEarly) {
+        // Any game, not just the one the hand was on: it is asking for a game to
+        // be played, and any of them answers it. The hand over Flashcards comes
+        // down by itself when Flashcards is pressed; this is what takes it down
+        // when the press went to one of the others.
+        pointingHand.clear();
+
         await storage.set('active_session', {
             game: game.id,
             setId: setId,
@@ -2753,7 +2767,7 @@ function catalog(container) {
             <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
                 <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
                 <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
-                    <p style="margin: 0 0 8.5px;">Congratulations — you are one of the first to install it, so it stays free for you whatever this app charges later.</p>
+                    <p style="margin: 0 0 8.5px;">Congratulations — you are one of the first to install this app, so it stays free for you whatever it charges later.</p>
                     <p style="margin: 0 0 12px;">More games to help you remember words are coming soon.</p>
                 </div>
                 <button class="more-dialog-ok" style="width: 100%; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Got it</button>
@@ -2771,7 +2785,7 @@ function catalog(container) {
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
                 <div class="early-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">⏳ Nothing to repeat yet</div>
-                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">All words in this selection are still waiting for their timers. An early repetition will not raise the progress, but a mistake will still set the word back.</div>
+                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">All words in this selection are still waiting for their timers. An early repetition will not move a word forward, but a mistake will still set it back.</div>
                 <div class="early-dialog-actions" style="display: flex; gap: 6.8px;">
                     <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Cancel</button>
                     <button class="early-dialog-play" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Play anyway</button>

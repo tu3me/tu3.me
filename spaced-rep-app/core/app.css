@@ -334,9 +334,34 @@ body {
  * out and back, twice the width of a breath — which points at both the cause
  * and the cure, since the same button is what turns the sound back on.
  *
+ * Twice, and the count is on the two elements that set this running rather than
+ * here, because keyframes cannot hold one. A single pass is 420ms on a 29px
+ * button in the corner, while the eye is on the word that was tapped; by the
+ * time it arrives the movement is over. The second pass is what it arrives to.
+ *
  * Scale rather than colour: the button already means something by its colour,
  * and a size is the one thing about it that nothing else is using.
  */
+/*
+ * What the pointing hand does while it waits to be obeyed.
+ *
+ * A press, and a slow one: the hand rises off the button and comes back down
+ * onto it. Rising rather than growing, because the thing being asked for is a
+ * tap and a tap is a movement towards the screen — and because a hand that
+ * changes size beside a button that does not reads as a picture loading.
+ *
+ * Endless on purpose. It is taken away by the press it asks for, and until then
+ * there is nothing else on the screen saying what to do.
+ */
+@keyframes hand-nudge {
+    0%, 100% { translate: 0 0; }
+    45% { translate: 0 -5px; }
+}
+
+.pointing-hand {
+    animation: hand-nudge 1.5s ease-in-out infinite;
+}
+
 @keyframes mute-pulse {
     0%, 100% { scale: 1; }
     30% { scale: 1.3; }

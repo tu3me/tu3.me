@@ -153,13 +153,14 @@ function snake(container) {
         return lettersOf(upper).length === 1 ? upper : letter;
     }
 
-    // The two header toggles: the label is what the button shows, the index is what is persisted.
+    // The speeds, by the index that is persisted.
     //
-    // Controls used to have a third mode, a thumb stick beside the board. It went
-    // because the d-pad beat it at the one thing either of them is for: a snake
-    // turns four ways, a key per way says which one, and a stick made the player
-    // aim at an angle to pick from four.
-    const CONTROL_MODES = ['Off', 'D-pad'];
+    // The d-pad was listed beside them once, with a third mode that was a thumb
+    // stick. The stick went because the d-pad beat it at the one thing either is
+    // for: a snake turns four ways, a key per way says which one, and a stick
+    // made the player aim at an angle to pick from four. The list went with the
+    // chip that read it — what is left is on or off, and the board itself is
+    // the switch.
     const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
     // Milliseconds between free-running steps per difficulty; null — the player steps by hand
@@ -397,26 +398,6 @@ function snake(container) {
             return `<svg viewBox="0 0 24 24" width="17.1" height="17.1" aria-hidden="true" ${extra || ''}>${body}</svg>`;
         }
 
-        /*
-         * What the chip says it is doing, asked the way renderControls asks it:
-         * off, or the one panel there is.
-         *
-         * Not CONTROL_MODES[controlMode], which assumes the number came from that
-         * list. A session saved while the stick still existed carries a 2, and the
-         * label read "Controls: undefined" over a panel that was showing a d-pad.
-         */
-        function controlLabel() {
-            return CONTROL_MODES[controlMode === 0 ? 0 : 1];
-        }
-
-        // The control chip is a d-pad laid out like the panel it summons: one key on top,
-        // three in a row below. The same face whether the panel is up or down — the panel
-        // itself is the answer to which it is, and the tooltip says so in words.
-        function controlIcon() {
-            const key = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" rx="1.5" fill="currentColor" />`;
-            return chipIcon(key(8.5, 4.5) + key(0.5, 12.5) + key(8.5, 12.5) + key(16.5, 12.5));
-        }
-
         // Speed as three chevrons: one lit on easy, two on medium, all three on hard.
         // Each mark keeps its own colour and only lights up once the level reaches it.
         function difficultyIcon(level) {
@@ -426,6 +407,33 @@ function snake(container) {
                 'fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"'
             );
         }
+
+        /*
+         * The gear and the cross of the settings panel.
+         *
+         * Drawn here rather than taken from the catalog, for the reason the sound
+         * switch gives in game-page.js: the two headers are built apart, and
+         * sharing a path would tie them together for the sake of one line of it.
+         * The gear is the catalog's own outline so that the two screens open the
+         * same-looking thing.
+         */
+        const GEAR_ICON = chipIcon(
+            '<path d="M21.60 12.00 C21.60 12.69 20.40 13.54 19.73 14.07 C19.05 14.60 17.89 14.60 17.54 15.20'
+            + ' C17.20 15.80 17.78 16.80 17.66 17.66 C17.53 18.51 17.40 19.97 16.80 20.31 C16.20 20.66 14.87 20.05 14.07 19.73'
+            + ' C13.27 19.41 12.69 18.40 12.00 18.40 C11.31 18.40 10.73 19.41 9.93 19.73 C9.13 20.05 7.80 20.66 7.20 20.31'
+            + ' C6.60 19.97 6.47 18.51 6.34 17.66 C6.22 16.80 6.80 15.80 6.46 15.20 C6.11 14.60 4.95 14.60 4.27 14.07'
+            + ' C3.60 13.54 2.40 12.69 2.40 12.00 C2.40 11.31 3.60 10.46 4.27 9.93 C4.95 9.40 6.11 9.40 6.46 8.80'
+            + ' C6.80 8.20 6.22 7.20 6.34 6.34 C6.47 5.49 6.60 4.03 7.20 3.69 C7.80 3.34 9.13 3.95 9.93 4.27'
+            + ' C10.73 4.59 11.31 5.60 12.00 5.60 C12.69 5.60 13.27 4.59 14.07 4.27 C14.87 3.95 16.20 3.34 16.80 3.69'
+            + ' C17.40 4.03 17.53 5.49 17.66 6.34 C17.78 7.20 17.20 8.20 17.54 8.80 C17.89 9.40 19.05 9.40 19.73 9.93'
+            + ' C20.40 10.46 21.60 11.31 21.60 12.00 Z" /><circle cx="12" cy="12" r="3" />',
+            'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+        );
+
+        const CROSS_ICON = chipIcon(
+            '<path d="M6 6l12 12M18 6L6 18" />',
+            'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+        );
 
         // One button style for every on-screen control, d-pad and turn row alike. Both
         // panels are 3-column grids filling the whole width — this is thumb territory on
@@ -500,6 +508,88 @@ function snake(container) {
         }
 
 
+        /*
+         * The settings panel, hung under the gear the way the catalog hangs its
+         * own — same width, same surface, same soft-plate row, because it is the
+         * same thing on another screen.
+         *
+         * What is in it is what the header used to carry as two chips: the speed,
+         * and now that the d-pad is summoned by the board itself, the keys that
+         * do the same job without one. A chip is a picture that has to be learned;
+         * a panel can say "Speed" and "Medium" in words, and has room underneath
+         * to say which keys turn and which one stops.
+         */
+        const KEY_ROWS = [
+            ['↑ ↓ ← →', 'Turn. Held down, the snake runs faster.'],
+            ['W A S D', 'The same four, for a hand already there.'],
+            ['Space', 'Stop. Any turn sets it going again.']
+        ];
+
+        function speedRow() {
+            return `<button class="snake-speed-row" id="snake-speed-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; width: 100%; box-sizing: border-box; padding: 6.8px 8.5px; background: ${palette.rowBg}; border: 1px solid ${palette.panelBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.panelMuted}; cursor: pointer;">
+                <span>Speed</span>
+                <span class="snake-speed-state" style="display: inline-flex; align-items: center; gap: 6px;">${DIFFICULTIES[difficulty]}${difficultyIcon(difficulty)}</span>
+            </button>`;
+        }
+
+        function keysBlock() {
+            const rows = KEY_ROWS.map(([keys, what]) => `<div style="display: flex; gap: 8.5px; align-items: baseline; margin-top: 5.1px;">
+                    <span style="flex: none; min-width: 58px; font-size: 11.3px; font-weight: 700; color: ${palette.panelInk};">${keys}</span>
+                    <span style="flex: 1; font-size: 10.8px; font-weight: 600; line-height: 1.35; color: ${palette.panelMuted};">${what}</span>
+                </div>`).join('');
+
+            return `<div style="margin-top: 13.7px;">
+                <div style="font-size: 10.2px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.panelMuted};">Keyboard</div>
+                ${rows}
+            </div>`;
+        }
+
+        let settings = null;
+
+        function openSettings() {
+            if (settings) return closeSettings();
+
+            const gear = header.querySelector('#snake-settings-btn');
+
+            const overlay = $(host, `<div class="snake-settings-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
+                <div class="snake-settings-panel" style="position: absolute; box-sizing: border-box; width: 256.1px; background: ${palette.panelBg}; color: ${palette.panelInk}; border: 1px solid ${palette.panelBorder}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
+                        <div style="font-size: 14.3px; font-weight: 700; color: ${palette.panelInk};">Settings</div>
+                        <button class="snake-settings-close" title="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.panelBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.panelMuted};">${CROSS_ICON}</button>
+                    </div>
+                    ${speedRow()}
+                    ${keysBlock()}
+                </div>
+            </div>`);
+
+            const panel = overlay.querySelector('.snake-settings-panel');
+            hangUnder(panel, gear);
+
+            // Escape on the document rather than on the panel: a div gets no keys
+            // unless it is focused, and the board is what the keyboard is for.
+            // A window that changed size under it moves the gear it hangs from.
+            const key = (e) => { if (e.key === 'Escape') closeSettings(); };
+            const moved = () => hangUnder(panel, gear);
+
+            document.addEventListener('keydown', key);
+            window.addEventListener('resize', moved);
+
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettings(); });
+            overlay.querySelector('.snake-settings-close').addEventListener('click', closeSettings);
+            overlay.querySelector('#snake-speed-row').addEventListener('click', () => cb.onDifficulty());
+
+            settings = { overlay, key, moved };
+        }
+
+        function closeSettings() {
+            if (!settings) return;
+
+            document.removeEventListener('keydown', settings.key);
+            window.removeEventListener('resize', settings.moved);
+            settings.overlay.remove();
+            settings = null;
+        }
+
         view.setTheme = (p) => { palette = p; };
 
         // Builds the screen from scratch and remembers the callbacks
@@ -509,29 +599,30 @@ function snake(container) {
             // A screen built fresh has nothing mid-blink about it, whatever the
             // last one was doing when it went away.
             headRun = null;
+            closeSettings();
             controlMode = opts.controlMode || 0;
             difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
             const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 23.9px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 5.1px; color: ${palette.dpadColor}; cursor: pointer;`;
 
             /*
-             * Three groups of one third each: the way out and the speed, the
-             * dots, the d-pad switch and the sound.
+             * Three groups of one third each: the way out, the dots, the settings
+             * and the sound.
              *
-             * One chip at each end rather than both at one, which puts the same
-             * weight either side of the dots. The two ends have to stay equal for
-             * a second reason as well: ten dots are wider than a third, and what
-             * keeps them in the middle of the header is the two groups beside
-             * them being the same width — not the third they were handed.
+             * The two ends have to stay equal: ten dots are wider than a third,
+             * and what keeps them in the middle of the header is the two groups
+             * beside them being the same width — not the third they were handed.
+             * One button on the left against two on the right is close enough to
+             * hold that; it was a chip either side when the speed and the d-pad
+             * had their own, and both of those now live in the panel.
              */
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
-                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
-                    <button class="snake-difficulty-btn" id="snake-difficulty-toggle" title="Difficulty: ${DIFFICULTIES[difficulty]}" style="${chipStyle}">${difficultyIcon(difficulty)}</button>
+                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
                 </div>
-                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5.1px;"></div>
+                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;"></div>
                 <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6.8px;">
-                    <button class="snake-control-btn" id="snake-control-toggle" title="Controls: ${controlLabel()}" style="${chipStyle}">${controlIcon()}</button>
+                    <button class="snake-settings-btn" id="snake-settings-btn" title="Settings" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer;">${GEAR_ICON}</button>
                 </div>
             </div>`);
 
@@ -541,8 +632,7 @@ function snake(container) {
             });
             page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-            header.querySelector('#snake-control-toggle').addEventListener('click', () => cb.onControlMode());
-            header.querySelector('#snake-difficulty-toggle').addEventListener('click', () => cb.onDifficulty());
+            header.querySelector('#snake-settings-btn').addEventListener('click', openSettings);
 
             hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 8.5px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${opts.translation}</div>
@@ -591,7 +681,7 @@ function snake(container) {
 
             cellSize = side / GRID_COUNT;
 
-            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; margin-bottom: 8.5px;">
+            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px;">
                 <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 68.3px; align-items: center;"></div>
             </div>`);
 
@@ -610,9 +700,9 @@ function snake(container) {
                 if (res === 'wrong') bg = palette.err;
 
                 const isCurrent = idx === currentIndex;
-                const ringStyle = isCurrent ? `outline: 2px solid ${palette.cursor}; outline-offset: 1px; transform: scale(1.15);` : '';
+                const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
 
-                return `<div class="snake-dot" style="width: 8.5px; height: 8.5px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+                return `<div class="snake-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
             }).join('');
         };
 
@@ -723,7 +813,7 @@ function snake(container) {
                 // does not know yet.
                 if (!shown || worthSaying(char)) {
                     box.style.cursor = 'pointer';
-                    box.title = shown ? 'Say it' : 'Click to reveal answer (counts as mistake)';
+                    box.title = shown ? 'Say it' : 'Click to reveal the answer (counts as a mistake)';
 
                     // What the click means depends on how much of the word is
                     // open, and the board is what knows that — the view only
@@ -815,19 +905,17 @@ function snake(container) {
 
         view.setControlMode = (mode) => {
             controlMode = mode;
-            // Only the tooltip moves — the icon is the same in every mode
-            const btn = header.querySelector('#snake-control-toggle');
-            if (btn) btn.title = 'Controls: ' + controlLabel();
             renderControls();
         };
 
         view.setDifficulty = (level) => {
             difficulty = level;
-            const btn = header.querySelector('#snake-difficulty-toggle');
-            if (btn) {
-                btn.innerHTML = difficultyIcon(level);
-                btn.title = 'Difficulty: ' + DIFFICULTIES[level];
-            }
+
+            // Only the row's right-hand half is rewritten. A redraw of the panel
+            // would rebuild the button the press came from, and the press that
+            // changes the speed is the one most likely to be repeated.
+            const state = settings && settings.overlay.querySelector('.snake-speed-state');
+            if (state) state.innerHTML = DIFFICULTIES[level] + difficultyIcon(level);
         };
 
         // Replaces the banner and the letter row with the end-of-session panel
@@ -1680,6 +1768,15 @@ function snake(container) {
             input.detach();
 
             keyDown = (e) => {
+                // Space stops the board. Its default is worse than nothing here:
+                // on a page whose last press was a chip in the header, the key
+                // that pauses would press that chip again instead.
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    opts.onPause();
+                    return;
+                }
+
                 const reqDir = DIRECTIONS[e.code];
                 if (!reqDir) return;
                 // Arrows would scroll the popup otherwise
@@ -2190,15 +2287,13 @@ function snake(container) {
                 sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
             },
 
+            // A tap on the board is how the d-pad is reached without aiming
+            // at a 24px chip, and it stops the snake on the way — a panel that
+            // arrives while the board is running is a panel that arrives too
+            // late to be used.
             onBoardClick: () => {
-                clock.pause();
-                board.persistTo(state);
-            },
-
-            onControlMode: () => {
-                state.controlMode = (state.controlMode + 1) % CONTROL_MODES.length;
-                view.setControlMode(state.controlMode);
-                page.save();
+                halt();
+                toggleControls();
             },
 
             onDifficulty: () => {
@@ -2317,11 +2412,46 @@ function snake(container) {
         clock.setDifficulty(state.difficulty);
         input.attach({
             onDirection: (reqDir, isNewPress) => handleInput(reqDir, isNewPress),
+            onPause: () => halt(),
             onRelease: () => {
                 clock.cancelAccel();
                 clock.setAcceleration(false);
             }
         });
+
+        /*
+         * Stopping the board, and the two ways of asking for it: the space bar
+         * and a tap on the board itself.
+         *
+         * Only stopping. Starting again is what a direction does — that rule
+         * was here before either of these and is what makes a pause safe to
+         * ask for: whatever wakes the snake also says which way it goes, so it
+         * never wakes into a heading the player has forgotten.
+         *
+         * The position is written down because a pause is where a session is
+         * most likely to be left: the popup is closed with the board standing
+         * still far more often than mid-run.
+         */
+        function halt() {
+            clock.pause();
+            board.persistTo(state);
+        }
+
+        /*
+         * The d-pad, shown and hidden.
+         *
+         * Two ways in: the chip in the header, which is only this, and the
+         * board, which is this and a pause together. Kept in one place so the
+         * two cannot drift into showing different things.
+         */
+        function toggleControls() {
+            // A flip rather than a step through a list: a session saved while the
+            // thumb stick still existed carries a 2, and anything that is not 0
+            // is the one panel there is.
+            state.controlMode = state.controlMode ? 0 : 1;
+            view.setControlMode(state.controlMode);
+            page.save();
+        }
 
         // Thaws the board and starts the clock on the first press of a round
         function unfreezeAndResume(reqDirX, reqDirY) {
@@ -2399,6 +2529,22 @@ function snake(container) {
          * player presses something.
          */
         const HEAD_RUN_MS = 45;
+
+        /*
+         * The whole of a crash on the path that has nothing to turn round — the
+         * spark on the edge the head ran into, and then the round starts over.
+         *
+         * It was 500, and the note beside it said "a beat long enough to see
+         * the spark and no more". No more turned out to be not enough: a crash
+         * happens where the head is, and the head is where the eye is not — it
+         * is on the letter being aimed at, or on the word above the board, and
+         * half a second was over before the eye arrived.
+         *
+         * Only this path. The other one ends with the snake being turned round,
+         * and the flash that runs down the body is itself the beat that says a
+         * crash happened.
+         */
+        const CRASH_RESTART_MS = 1000;
 
         function runHeadToTail(whenDone) {
             const total = board.snapshot().snakeBody.length;
@@ -2625,12 +2771,12 @@ function snake(container) {
                 return;
             }
 
-            // Nothing to turn round: the round starts over, so the crash is a
-            // beat long enough to see the spark and no more.
+            // Nothing to turn round: the round starts over once the spark has
+            // been up long enough to be found by an eye that was elsewhere.
             if (event === 'crashRestart') {
                 board.persistTo(state);
                 paint();
-                clock.after(500, () => afterCrash(event));
+                clock.after(CRASH_RESTART_MS, () => afterCrash(event));
                 return;
             }
 
@@ -2774,6 +2920,15 @@ function snake(container) {
             // The way out and the sound stand on the page, like dict's header
             // buttons, and are outlined the same — see tokens.chrome.
             chromeBorder: t.chrome,
+
+            // The settings panel, painted the way the catalog paints its own: the
+            // same surface under it, the same soft plate for a row. The two are
+            // one thing seen on two screens and should not be two things.
+            panelBg: t.surface,
+            panelBorder: t.border,
+            panelInk: t.ink,
+            panelMuted: t.muted,
+            rowBg: t.soft,
             ring: t.accent,
             // Marks where you are right now — the dot you are on, and in quiz
             // the option under the keyboard cursor. Its own token rather than
