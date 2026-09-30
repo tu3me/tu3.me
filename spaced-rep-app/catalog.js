@@ -12,6 +12,18 @@ function catalog(container) {
     // The unfinished session, or null. Handed in at boot.
     let session = null;
 
+    /*
+     * Whether the colours have been explained to this person already. Handed in
+     * at boot beside the session, and written down when the dialog is closed.
+     *
+     * A flag and not a thing derived from the words, which is the exception here
+     * and has to be: reading an explanation leaves no mark on anything else. The
+     * place it is kept is the settings record, so "Clear data" takes it with
+     * everything else — and that is right, because the shelf after a reset is a
+     * shelf nobody has had explained to them.
+     */
+    let coloursRead = false;
+
     // Screen state, deliberately not stored on the set objects: word_sets carries
     // domain data only, and an edit form has no business surviving a reload.
     const editing = new Set();
@@ -1311,6 +1323,7 @@ function catalog(container) {
         // here rather than at the one entry the page calls, so that it comes back
         // from every way it can be taken away.
         showHint();
+        offerColours(sets);
     }
 
     /*
@@ -2603,6 +2616,38 @@ function catalog(container) {
             (set.words || []).every(w => !w.repetitions || w.repetitions.length === 0));
     }
 
+    /*
+     * The hand that offers to explain the colours, on the first set that has any
+     * to explain.
+     *
+     * Once a word has been answered its bubble is a colour, and a colour with no
+     * legend is a decoration. Before that there is nothing to explain — every
+     * bubble is the same stone — so the hand waits for the first repetition
+     * rather than greeting anyone with a lesson about a screen they have not
+     * used.
+     *
+     * The first such set and no more. One hand is an offer; one per card is a
+     * row of them down the side of the screen, all saying the same thing.
+     *
+     * Once, too. It goes when the dialog it opens has been closed, and does not
+     * come back: an offer that is still being made after it has been taken is
+     * not an offer, and this one would otherwise stand at the edge of the shelf
+     * for as long as the app is used, sliding in again on every redraw.
+     *
+     * Never on a card that is being edited: that card is a form, the bubbles are
+     * not on it, and the hand would be pointing at nothing while the player types.
+     */
+    function offerColours(sets) {
+        if (coloursRead) return askingHand.clear();
+
+        const shelf = sets.find(set => !editing.has(set.id)
+            && (set.words || []).some(w => w.repetitions && w.repetitions.length > 0));
+
+        if (!shelf) return askingHand.clear();
+
+        askingHand.at(container.querySelector(`.set-card[data-set-id="${shelf.id}"]`), explainColours);
+    }
+
     function showHint() {
         // A session that exists is a game that was started, whether or not it was
         // answered: someone who opened a game and came straight back has been
@@ -2719,6 +2764,7 @@ function catalog(container) {
     };
 
     catalog.setSession = (value) => { session = value; };
+    catalog.setColoursRead = (value) => { coloursRead = value; };
 
     // Starting a session. Whether anything is due is a property of the set and of
     // the algorithm, not of any game, so the catalog answers it itself — and asking
@@ -2777,6 +2823,128 @@ function catalog(container) {
         const close = () => overlay.remove();
 
         overlay.querySelector('.more-dialog-ok').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    }
+
+    /*
+     * What the colours on the bubbles mean, asked for by the hand that comes in
+     * from the edge once a set has any.
+     *
+     * Shown rather than described. The colour of a bubble is a thing to look at,
+     * and a paragraph saying so is a paragraph standing between the reader and
+     * the answer — so what is here is three bubbles, two arrows and the four
+     * words it takes to say which way they go.
+     *
+     * Bubbles at the size they are on the shelf, not miniatures of them. The
+     * whole point is recognising the thing outside the dialog, and a swatch
+     * shrunk to fit a sentence is a swatch that has to be matched up rather than
+     * simply seen.
+     *
+     * Four of them fit the width every other dialog here uses, and they fit
+     * because the arrows between them are drawn rather than typed: four bubbles
+     * and three arrows come to 243 of the 273.2 there is, which leaves five
+     * clear pixels at each join. The arrows gave up the room rather than the
+     * bubbles — an arrow is a direction and reads at any size, while a bubble
+     * that has shrunk is no longer the thing it is standing in for.
+     *
+     * The rungs are not evenly spaced, and the second is why. Stage 2 is what a
+     * word wears after one right answer — the first change anybody ever sees —
+     * so it earns a place beside the stone it came from rather than being
+     * averaged away into the middle of the arc. The rest is ends and a middle.
+     *
+     * The mistake is kept apart and after. It is not a rung of the same ladder:
+     * every other colour here is somewhere a word climbed to, and this is the
+     * one it was dropped to — see DAMAGED_FILL.
+     *
+     * Under it the two rows about time, in the order a word lives them: the badge
+     * counting down, then the hop that follows it. Neither is about colour at
+     * all, and a legend of colours alone would explain the quiet half of the
+     * screen and none of the part that waves.
+     *
+     * The hop uses the same keyframes and the same 650 the bubbles do, because a
+     * demonstration at a tempo of its own is a demonstration of something else.
+     *
+     * All three wear a colour from the middle of the ladder rather than one of
+     * their own, so that what is different about a row is the only thing that
+     * row is about.
+     */
+    const COLOUR_STEPS = [0, 2, 8, 14];
+
+    function explainColours() {
+        const chip = (fill, ink, extra, inner) => `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px 8.5px; font-size: 13.3px; font-weight: 800; line-height: 1.15; ${extra || ''}">word${inner || ''}</span>`;
+
+        // The badge a bubble wears while it waits, copied off createBubble down to
+        // the four pixels it hangs over the corner by. Two hours because it has to
+        // say something, and a round number reads as an example rather than as
+        // whatever this particular word happens to be waiting.
+        const timerBadge = `<span style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px; border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); white-space: nowrap; letter-spacing: -0.2px;">2h</span>`;
+
+        /*
+         * Drawn rather than typed. The arrow in a font is set on its own
+         * sidebearings — space to its left and right that belongs to it and
+         * cannot be taken back — and three of those are most of what was making
+         * this row too wide. A path is exactly as wide as the mark.
+         *
+         * It leans and the shaft bends, because the row it joins is bubbles with
+         * rounded corners and a hand-drawn line belongs among them better than a
+         * ruled one. The head is the last two strokes of the same gesture rather
+         * than a filled triangle, for the same reason.
+         */
+        const arrow = `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"
+            stroke="${palette.dialogBody}" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true" style="flex: none; display: block;">
+            <path d="M1.1 6.1c2.3-1 4.8-1.3 7.6-.9" />
+            <path d="M6.3 2.9 9.2 5.1 6.1 7.4" />
+        </svg>`;
+
+        const note = (text) => `<span style="font-size: 11.3px; font-weight: 600; line-height: 1.3; color: ${palette.dialogBody};">${text}</span>`;
+
+        const ladder = COLOUR_STEPS
+            .map(s => chip(stageRamp[s].fill, stageRamp[s].ink))
+            .join(arrow);
+
+        const overlay = $(`<div class="colours-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+            <div class="colours-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
+                <div class="colours-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 12px;">Words ripen with every repetition</div>
+
+                <div class="colours-dialog-ladder" style="display: flex; align-items: center; justify-content: space-between; gap: 3.4px;">${ladder}</div>
+                <div style="display: flex; justify-content: space-between; margin-top: 5.1px;">${note('new')}${note('learned')}</div>
+
+                <div style="height: 1px; margin: 13.7px 0; background: ${palette.dialogBorder};"></div>
+
+                <div style="display: flex; align-items: center; gap: 10.2px;">
+                    ${chip(DAMAGED_FILL, FAIL_INK)}
+                    ${note('a mistake — three steps back')}
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10.2px; margin-top: 10.2px;">
+                    ${chip(stageRamp[8].fill, stageRamp[8].ink, 'position: relative;', timerBadge)}
+                    ${note('a timer — repeat it later')}
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10.2px; margin-top: 10.2px;">
+                    ${chip(stageRamp[8].fill, stageRamp[8].ink, `animation: bounce ${BOUNCE_MS}ms ease-in-out infinite;`)}
+                    ${note('a hop — ready to repeat')}
+                </div>
+
+                <button class="colours-dialog-ok" style="width: 100%; margin-top: 13.7px; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Got it</button>
+            </div>
+        </div>`);
+
+        // Closing it is the reading. Either way out counts — the button and the
+        // press beside the panel are the same answer, and a hand still waiting
+        // after one of them would be waiting for nothing.
+        const close = () => {
+            overlay.remove();
+
+            if (coloursRead) return;
+
+            coloursRead = true;
+            saveSetting('coloursRead', true);
+            render();
+        };
+
+        overlay.querySelector('.colours-dialog-ok').addEventListener('click', close);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
@@ -2841,6 +3009,7 @@ async function bootCatalog() {
     // Words are split by spaces unless the player asked for the other way.
     speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
 
+
     // Silent unless the player has turned the sound on. An absent setting is a
     // first run, and a first run is silent.
     speech.mute(settings ? settings.muted !== false : true);
@@ -2853,6 +3022,10 @@ async function bootCatalog() {
 
     theme.apply(isDark);
     catalog.setTheme(isDark);
+
+    // After catalog(container), which is what defines this. Absent means the
+    // explanation has not been read, which is what a first run is.
+    catalog.setColoursRead(!!(settings && settings.coloursRead));
 
     await refreshCatalog();
     popupHeight.release();

@@ -343,23 +343,96 @@ body {
  * and a size is the one thing about it that nothing else is using.
  */
 /*
- * What the pointing hand does while it waits to be obeyed.
+ * What a hand does while it waits to be obeyed — both of them: the one that
+ * points at a button and the one that offers to explain the colours.
  *
  * A press, and a slow one: the hand rises off the button and comes back down
  * onto it. Rising rather than growing, because the thing being asked for is a
  * tap and a tap is a movement towards the screen — and because a hand that
  * changes size beside a button that does not reads as a picture loading.
  *
+ * At the bottom of that press it thins to a third, and that is what the bottom
+ * is for. The hand stands over the word on the button it is pointing at — it
+ * has to, or it would hang off the end of the page — so the thing it is naming
+ * is the thing it is covering. Thinning as it lands gives that word back once
+ * every cycle, at the moment the hand is closest to the button, which is the
+ * moment the press is being mimed rather than explained.
+ *
+ * A third rather than nothing at all. Gone entirely, the hand would blink out
+ * of existence once a second and read as something failing to load; left at a
+ * third it is plainly still there, and the word underneath is plainly legible
+ * through it.
+ *
  * Endless on purpose. It is taken away by the press it asks for, and until then
  * there is nothing else on the screen saying what to do.
  */
+/*
+ * The asking hand coming in from the edge.
+ *
+ * `both`, so the hand stands at zero before the first frame and stays at zero
+ * after the last: without it the element is at its resting place for one paint
+ * before the animation takes it away, which is a hand that appears and then
+ * slides in from where it already was.
+ *
+ * Out and done. This one is not a loop — it has arrived, and something that
+ * goes on moving beside a list of words is something to look away from.
+ */
+@keyframes hand-arrive {
+    from { translate: 120% 0; }
+    to { translate: 0 0; }
+}
+
+/*
+ * The arrival is on the inner span and the waiting on the button around it,
+ * because both of them move the element sideways and the last rule to name a
+ * property is the one that gets it. A parent and a child each carrying half the
+ * movement compose instead of overwriting: the hand slides out from under the
+ * edge while the whole of it is already breathing.
+ */
+.asking-hand-slide {
+    animation: hand-arrive 420ms ease-out both;
+}
+
 @keyframes hand-nudge {
-    0%, 100% { translate: 0 0; }
-    45% { translate: 0 -5px; }
+    0%, 100% { translate: 0 0; opacity: 0.3; }
+    45% { translate: 0 -5px; opacity: 1; }
 }
 
 .pointing-hand {
     animation: hand-nudge 1.5s ease-in-out infinite;
+}
+
+/*
+ * The asking hand does the same two things as the pointing one, but not with
+ * the same element: the fist is holding a card, and a card that rocks with the
+ * hand reads as the whole picture wobbling rather than as somebody waving it.
+ *
+ * So the fading stays on the button — the card fades with the hand, because
+ * they are one object and one of them going faint alone would be a hole in it —
+ * and the rocking moves inside, onto the group the fist is drawn in.
+ *
+ * Its distance is in user units, not pixels: a length on an element inside an
+ * svg is measured in that svg's own grid. 2.75 of those is the 5 screen pixels
+ * the other hand moves, at the 1.818 pixels per unit this icon is drawn at.
+ *
+ * Same duration and same easing as the fade, so the two stay in step.
+ */
+@keyframes hand-bob {
+    0%, 100% { translate: 0 0; }
+    45% { translate: 0 -2.75px; }
+}
+
+@keyframes hand-breathe {
+    0%, 100% { opacity: 0.3; }
+    45% { opacity: 1; }
+}
+
+.asking-hand {
+    animation: hand-breathe 1.5s ease-in-out infinite;
+}
+
+.asking-hand-grip {
+    animation: hand-bob 1.5s ease-in-out infinite;
 }
 
 @keyframes mute-pulse {

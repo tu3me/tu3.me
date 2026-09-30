@@ -717,8 +717,34 @@ function snake(container) {
         // Takes the letters already segmented and cased, not the word: the bar
         // and the board have to agree on what counts as one letter, and the one
         // way to be sure of that is to be given the same list.
+        // The first still-closed box of the line, remembered while the bar is
+        // built. Found here rather than searched for afterwards, because what
+        // makes a box closed is a decision taken in this loop and nowhere else —
+        // read back off the finished bar it would have to be guessed from a
+        // colour or a tooltip.
+        let firstClosed = null;
+
+        /*
+         * Puts the hand under that box — over the page rather than inside the
+         * box, and smaller than the one the catalog puts on its buttons.
+         *
+         * A letter box is about twelve pixels across and sits on a bar of fixed
+         * height, so a hand standing in one is a hand the bar cuts off at both
+         * ends. Hung on the screen instead and placed over the box.
+         *
+         * Cleared first, so a bar rebuilt while a hand was on it does not leave
+         * one behind on a node that has stopped existing.
+         */
+        const HINT_HAND = 34;
+
+        view.pointAtClosed = () => {
+            pointingHand.clear();
+            if (firstClosed) pointingHand.at(firstClosed, { into: host, size: HINT_HAND });
+        };
+
         view.gathered = (targetLetters, collected, showHint) => {
             gatheredBar.innerHTML = '';
+            firstClosed = null;
 
             // The bar runs the way the word does, so the letter to go for next
             // is where its reader expects the next letter to be.
@@ -820,6 +846,8 @@ function snake(container) {
                     // says where the click landed.
                     box.addEventListener('click', () => cb.onLetterClick(i));
                 }
+
+                if (!shown && !firstClosed) firstClosed = box;
 
                 gatheredBar.appendChild(box);
             }
@@ -1707,7 +1735,22 @@ function snake(container) {
             return true;
         };
 
+        /*
+         * Whether the last crash was into the wrong letter, as opposed to into
+         * the snake's own body.
+         *
+         * The two are the same event to everything downstream — a crash is a
+         * crash — and they are not the same mistake. Running into yourself is
+         * being bad at snake; taking the wrong letter is not knowing the word,
+         * which is the only one worth offering help for.
+         */
+        let wrongLetter = false;
+
+        board.crashedOnLetter = () => wrongLetter;
+
         board.step = () => {
+            wrongLetter = false;
+
             if (inputQueue.length > 0) {
                 dir = inputQueue.shift();
             }
@@ -1733,7 +1776,10 @@ function snake(container) {
             const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
 
             if (touched) {
-                if (touched.char !== targetLetters[nextLetterIndex]) return crash(prev);
+                if (touched.char !== targetLetters[nextLetterIndex]) {
+                    wrongLetter = true;
+                    return crash(prev);
+                }
 
                 touched.isEaten = true;
                 nextLetterIndex++;
@@ -1803,7 +1849,7 @@ function snake(container) {
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, allowEarly: false,
-            hadErrorThisRound: false, showHint: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
+            hadErrorThisRound: false, showHint: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
             savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
@@ -2321,6 +2367,56 @@ function snake(container) {
             view.dots(pool, state.sessionResults, state.currentIndex);
         }
 
+    /*
+     * The hand that says a "?" can be pressed, for someone who has not worked
+     * that out for themselves.
+     *
+     * It answers the wrong letter and nothing else. Taking the wrong one is not
+     * knowing which letter comes next, and the box is the way out of exactly
+     * that, so the offer is made the moment the mistake is: there is no reason
+     * to let somebody flounder twice to earn it.
+     *
+     * And it is withdrawn by the right letter. Someone who has just collected
+     * one is not lost any more — they are playing — and a hand still hanging
+     * there would be advice about a difficulty that has passed. If they lose the
+     * thread again the next wrong letter puts it back.
+     *
+     * And never again once a word has been opened this way. That is the whole
+     * of what the hand knows, and somebody who has done it once knows it too —
+     * going on pointing at the boxes afterwards is repeating an instruction to
+     * a person already following it.
+     *
+     * Only in the first game ever played. The board asks for the same thing
+     * every round, so an offer that came back on the tenth game would be a
+     * permanent feature of the screen rather than an explanation, and anybody
+     * who has played twice has either found the box or decided against it.
+     *
+     * Answered "ever" by the words rather than by a flag: a repetition carries
+     * the game that wrote it, so a snake repetition anywhere is a snake game
+     * already played. Asked once, when the session is built — every word this
+     * session finishes writes one of those, and the question is about the games
+     * before this one.
+     */
+    let missedLetter = false;
+
+    const firstSnakeGame = !store.sets().some(set =>
+        (set.words || []).some(w => (w.repetitions || []).some(r => r.game === 'snake')));
+
+    /*
+     * Called on everything that could change the answer, and it takes the hand
+     * down as readily as it puts one up.
+     *
+     * Clearing is not something the screen does for us any more. The hand used
+     * to live inside the box it pointed at and went with every rebuild of the
+     * bar; now it lies over the page, and a hand nobody removes is a hand that
+     * stays through the next word, the next round and the end of the game.
+     */
+    function offerReveal() {
+        if (!firstSnakeGame || !missedLetter || state.usedReveal) return pointingHand.clear();
+
+        view.pointAtClosed();
+    }
+
         function refreshGathered() {
             // The boxes that were tapped are gone with the redraw, and a tap on
             // one of them counts towards nothing on the boxes that replace them.
@@ -2329,6 +2425,7 @@ function snake(container) {
             forgetTaps();
             dropMark();
             view.gathered(board.letters(), board.progress(), state.showHint);
+            offerReveal();
         }
 
         /*
@@ -2355,6 +2452,35 @@ function snake(container) {
             return total ? Math.floor(known / total * 100) / 100 : 0;
         }
 
+        /*
+         * The verdict on a round, written once and not again.
+         *
+         * Both endings come through here -- the word spelled out, or the word
+         * opened -- and a second call for the same word does nothing at all.
+         *
+         * It has to be said once, because a word can be finished more than
+         * once. The repetition goes in when the last letter lands, but the word
+         * is only left behind when the heart is caught, and a crash in between
+         * starts the same word again with the round still clean. Every lap
+         * through that wrote another repetition: three of them inside two
+         * minutes carried one word several stages up a ladder whose rungs are
+         * days. The dot meanwhile was overwritten in place and went on saying
+         * one word, one answer -- so the screen and the shelf disagreed about
+         * the same round, and the shelf is the one still there tomorrow.
+         *
+         * "Written already" is asked of the dot rather than of a flag of its
+         * own. The dot is set by both endings, the next word gets a slot of its
+         * own, and it is part of the saved state -- so it answers the question
+         * through a reload, which a new flag would have had to be taught to do.
+         */
+        function scoreRound(result, dot) {
+            if (state.sessionResults[state.currentIndex]) return;
+
+            store.recordRepetition(currentItem, result, 'snake');
+            state.sessionResults[state.currentIndex] = dot;
+            store.save();
+        }
+
         // Showing the answer, which is only ever asked for by clicking a letter
         // that is still hidden
         function revealHint() {
@@ -2363,39 +2489,34 @@ function snake(container) {
             state.showHint = true;
             state.hadErrorThisRound = true;
 
+            // The one thing the hand was there to say has now been done, and it
+            // was done by the player. Kept on the session rather than in a
+            // variable so that closing the popup mid-game and coming back does
+            // not make it something to be taught again.
+            state.usedReveal = true;
+
             /*
-             * The repetition is written here, and not when the word is
-             * finally spelled out.
+             * The round is decided here, and not when the word is finally
+             * spelled out.
              *
-             * This is the moment the round is decided: everything after it is
-             * the player copying letters off a bar that already shows them.
-             * Written at the end instead, the verdict lived only in the dot —
-             * open the word, walk out of the game, and dict showed a word
-             * nothing had ever happened to. The dot said one thing and the
-             * shelf said another, and the shelf is the one that is still
-             * there tomorrow.
+             * Everything after this is the player copying letters off a bar
+             * that already shows them. Written at the end instead, the verdict
+             * lived only in the dot — open the word, walk out of the game, and
+             * dict showed a word nothing had ever happened to. The dot said one
+             * thing and the shelf said another, and the shelf is the one that
+             * is still there tomorrow.
              *
              * The share is measured before the bar is redrawn below: a moment
              * later it shows the whole word, and by the end of the round every
              * box of it is filled in either way.
              *
-             * wordDone writes nothing for a round that came through here —
-             * see `clean` there. One round is one repetition.
+             * Saved straight away because the verdict now exists: without it,
+             * closing the popup between the reveal and the end of the round
+             * would lose it and the word would come back marked clean.
              */
-            store.recordRepetition(currentItem, recalledShare(), 'snake');
-            store.save();
+            scoreRound(recalledShare(), 'wrong');
 
             refreshGathered();
-
-            // The round is lost the moment the answer is shown, so the dot says
-            // so now rather than when the word is finally spelled out. wordDone
-            // writes the same 'wrong' again from hadErrorThisRound; this only
-            // moves the telling earlier, not the verdict.
-            //
-            // Saved straight away because the verdict now exists: without this,
-            // closing the popup between the reveal and the end of the round
-            // would lose it and the word would come back marked clean.
-            state.sessionResults[state.currentIndex] = 'wrong';
             refreshDots();
             page.save();
         }
@@ -2665,6 +2786,11 @@ function snake(container) {
                 board.persistTo(state);
                 clock.after(500, () => board.releaseInput());
                 blinkLostHeart();
+
+                // The line is untouched on this path — the snake is turned round
+                // and the letters it had stay collected — so nothing redraws the
+                // bar and the offer has to be made by hand.
+                offerReveal();
                 return;
             }
 
@@ -2672,7 +2798,11 @@ function snake(container) {
             clock.cancelAccel();
             board.restartRound();
             view.banner(currentItem.word.translation);
+
+            // After restartRound, so the bar it reads is the one with everything
+            // closed again and the hand goes under the first letter.
             refreshGathered();
+
             board.persistTo(state);
             paint();
         }
@@ -2764,6 +2894,28 @@ function snake(container) {
             const wasHeartPhase = board.phase() === 'HEART';
             const event = board.step();
 
+            /*
+             * The crash only writes the flag down; the offer itself waits for
+             * afterCrash.
+             *
+             * A crash with no heart to spend starts the round over, and until it
+             * does the bar still shows the letters that had been collected. Offer
+             * here and the hand goes up under whichever box was next, then jumps
+             * to the first one a second later when the round resets — in the
+             * first game, which is the only game this runs in, every crash is
+             * that kind.
+             *
+             * A letter collected is answered on the spot: nothing is about to
+             * change under it, and the hand should be gone by the time the player
+             * looks up from the board.
+             */
+            if (board.crashedOnLetter()) {
+                missedLetter = true;
+            } else if (event === 'letter' || event === 'wordDone') {
+                missedLetter = false;
+                offerReveal();
+            }
+
             if (event === 'crashHeart') {
                 board.persistTo(state);
                 paint();
@@ -2825,18 +2977,16 @@ function snake(container) {
                 /*
                  * A whole word, spelled out without ever asking to see it.
                  *
-                 * The other kind of round wrote its repetition the moment the
+                 * The other kind of round was written down the moment the
                  * player asked -- see revealHint, which also explains why the
-                 * result there is a fraction and not a 0. Both are one
-                 * repetition each; this is the half of that rule that lives
-                 * here.
+                 * result there is a fraction and not a 0. Nothing is left for
+                 * this end to say about a round that went that way: it was
+                 * scored, dot and all, before the first of these letters was
+                 * collected.
                  */
                 const clean = !state.hadErrorThisRound;
 
-                if (clean) store.recordRepetition(currentItem, 1, 'snake');
-
-                state.sessionResults[state.currentIndex] = clean ? 'correct' : 'wrong';
-                store.save();
+                if (clean) scoreRound(1, 'correct');
 
                 /*
                  * And the dot says so now, with the last letter, rather than
@@ -3054,6 +3204,7 @@ function snake(container) {
         difficulty: state.difficulty,
         hadErrorThisRound: state.hadErrorThisRound,
         showHint: state.showHint,
+        usedReveal: state.usedReveal,
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,
         savedInputQueue: state.savedInputQueue,

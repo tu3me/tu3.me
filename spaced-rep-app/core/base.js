@@ -465,35 +465,71 @@ resizeGrip();
  * and a press that landed on the hint instead of the button would be a hint
  * that blocked the very thing it was asking for.
  */
+// The one hand, drawn once. Two things are made of it — the finger that points
+// at a button and the fist that holds up a card — and they have to be the same
+// hand, or the second one reads as a different character arriving to explain
+// what the first one meant.
+const HAND_PATH = 'M11 21.5a6 6 0 0 1-6-6v-2.1a1.6 1.6 0 0 1 3.2 0v1.1V5.4a1.8 1.8 0 0 1 3.6 0v5.8a1.5 1.5 0 0 1 3 0v.7a1.5 1.5 0 0 1 3 0v.8a1.5 1.5 0 0 1 3 0v2.8a6 6 0 0 1-6 6z';
+
 function pointingHand() {
-    const HAND = `<svg width="52" height="52" viewBox="0 0 24 24" aria-hidden="true" style="display: block;">
-        <path d="M11 21.5a6 6 0 0 1-6-6v-2.1a1.6 1.6 0 0 1 3.2 0v1.1V5.4a1.8 1.8 0 0 1 3.6 0v5.8a1.5 1.5 0 0 1 3 0v.7a1.5 1.5 0 0 1 3 0v.8a1.5 1.5 0 0 1 3 0v2.8a6 6 0 0 1-6 6z" fill="#eab308" stroke="#7c4a03" stroke-width="1.1" stroke-linejoin="round" />
+    const HAND = (size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="display: block;">
+        <path d="${HAND_PATH}" fill="#eab308" stroke="#7c4a03" stroke-width="1.1" stroke-linejoin="round" />
     </svg>`;
 
     let shown = null;
 
-    // Standing in the target, not under it. The hand is 52 tall against a button
-    // of 49.5, so hanging it below would put most of it past the bottom of the
-    // app — the catalog's last card is the last thing on the page, and what is
-    // under that is nothing. Raised by just enough to clear that: it hangs 25
-    // below the button and the page ends 25 below the button, so the fingernail
-    // and the last row of the page are the same line. The label goes under the
-    // finger, which is the price and a small one: the word is what the hand is
-    // pointing at, not what it is telling you.
-    //
-    // The press it is asking for is what takes it down, and the hand arranges
-    // that itself: it is hung inside the thing it points at, so that thing is
-    // exactly what has to be pressed. Whoever puts a hand up is then spared
-    // knowing how it comes down, and nothing else on the screen can answer for
-    // the button — a hint dismissed by an unrelated tap is a hint gone before it
-    // was understood.
-    pointingHand.at = (target) => {
+    function place(el) {
+        if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+        return el;
+    }
+
+    /*
+     * Two ways to hang it, and the second exists because of what the first asks
+     * of the target.
+     *
+     * By default the hand goes inside the thing it points at, which is the cheap
+     * one: a child moves with its parent through every redraw and every drag of
+     * the size handle, and nothing has to be measured. It needs a target big
+     * enough to have a hand standing in it and willing not to clip what hangs
+     * out — a button on a card is both.
+     *
+     * `into` is for targets that are neither. A letter box on the snake's word
+     * bar is twelve pixels wide inside a bar of fixed height, so a hand put in
+     * one is a hand mostly cut off. Given somewhere else to live, the hand is
+     * placed over the target instead — measured in the layout's own pixels
+     * rather than the screen's, see appRect, because that is what a left and a
+     * top are read as from inside the app's zoom.
+     *
+     * Standing in the target it sits 25 of its 52 below it, which puts the
+     * fingernail on the last line of the page: the catalog's last card is the
+     * last thing there is. Placed over one it overlaps by six — what is under it
+     * there is a board, not the end of the world.
+     *
+     * The press it is asking for is what takes it down either way, and the hand
+     * arranges that itself on the target: whoever puts a hand up is spared
+     * knowing how it comes down, and nothing else on the screen can answer for
+     * it — a hint dismissed by an unrelated tap is a hint gone before it was
+     * understood.
+     */
+    pointingHand.at = (target, opts) => {
         pointingHand.clear();
         if (!target) return null;
 
-        if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
+        const size = (opts && opts.size) || 52;
+        const host = opts && opts.into;
 
-        shown = $(target, `<span class="pointing-hand" style="position: absolute; left: 50%; top: 100%; margin: -27.1px 0 0 -26px; pointer-events: none; z-index: 5;">${HAND}</span>`);
+        if (host) {
+            place(host);
+
+            const a = appRect(target);
+            const h = appRect(host);
+
+            shown = $(host, `<span class="pointing-hand" style="position: absolute; left: ${a.left - h.left + a.width / 2}px; top: ${a.bottom - h.top}px; margin: -6px 0 0 -${size / 2}px; pointer-events: none; z-index: 5;">${HAND(size)}</span>`);
+        } else {
+            place(target);
+
+            shown = $(target, `<span class="pointing-hand" style="position: absolute; left: 50%; top: 100%; margin: -27.1px 0 0 -${size / 2}px; pointer-events: none; z-index: 5;">${HAND(size)}</span>`);
+        }
         target.addEventListener('pointerdown', pointingHand.clear, { once: true });
 
         return shown;
@@ -511,6 +547,79 @@ function pointingHand() {
     };
 }
 pointingHand();
+
+/**
+ * The same hand, holding up a card with a question on it.
+ *
+ * It comes in from the edge rather than appearing where it will stand, and it
+ * is clipped by its own box while it does: the slide has to start somewhere,
+ * and anywhere outside the app is somewhere a phone would rather scroll to. A
+ * box the size of the hand, with the hand sliding inside it, is an entrance
+ * that cannot reach past the screen because it never leaves the hand's own
+ * square.
+ *
+ * Tilted, and the pointing one is not. The two are the same yellow at the same
+ * size in the same corner of the eye, and the tilt is what says at a glance
+ * that this one is offering something rather than telling you where to press.
+ */
+function askingHand() {
+    /*
+     * The window is not the usual 0 0 24 24, and cannot be. The hand is drawn on
+     * that grid but then pushed down under the card it is holding, and the two
+     * together run from -0.11 to 26.77 — an svg clips to its viewport, so the
+     * bottom of the fist was being cut off by three units of it.
+     *
+     * Widened rather than the drawing shrunk: the numbers in the paths are the
+     * ones the hand was drawn with, and a viewBox is the one place where "show
+     * me this much of it" can be said without touching them. Square, and centred
+     * on what is actually there, so the thing stays in the middle of its button.
+     *
+     * The box grew with it, 44 to 50, which is the same 27.5 units against the
+     * same pixels per unit the drawing had at 24 to 44. A wider window in a box
+     * that stayed put would have shown the whole hand by making it smaller, and
+     * the hand was not the thing that was wrong.
+     */
+    const SIGN = `<svg width="50" height="50" viewBox="-1.8 -0.4 27.5 27.5" aria-hidden="true" style="display: block;">
+        <g class="asking-hand-grip" transform="translate(2.2 12) scale(0.66) rotate(-8 12 12)">
+            <path d="${HAND_PATH}" fill="#eab308" stroke="#7c4a03" stroke-width="1.7" stroke-linejoin="round" />
+        </g>
+        <g transform="rotate(-6 12 7)">
+            <rect x="3" y="0.8" width="18" height="12" rx="2.8" fill="#eab308" stroke="#7c4a03" stroke-width="1.2" />
+            <path d="M9.7 4.5a2.45 2.45 0 0 1 4.75.85c0 1.6-2.05 1.95-2.35 3.4" fill="none" stroke="#7c4a03" stroke-width="1.6" stroke-linecap="round" />
+            <circle cx="11.85" cy="10.8" r="1.05" fill="#7c4a03" />
+        </g>
+    </svg>`;
+
+    let shown = null;
+
+    askingHand.at = (card, onPress) => {
+        askingHand.clear();
+        if (!card) return null;
+
+        if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+
+        // Flush with the edge of the app, which from the card's padding box is its
+        // own border and the page's side padding: 1 + 10.2. Further out and the
+        // hand hangs off the body, which on a screen exactly as wide as the app
+        // is a scrollbar; further in and it stops looking like something that
+        // came from outside.
+        shown = $(card, `<button class="asking-hand" title="What the colours mean" style="position: absolute; right: -11.2px; top: 50%; margin-top: -25px; width: 50px; height: 50px; padding: 0; background: transparent; border: none; cursor: pointer; overflow: hidden; z-index: 5;">
+            <span class="asking-hand-slide" style="display: block;">${SIGN}</span>
+        </button>`);
+
+        shown.addEventListener('click', onPress);
+
+        return shown;
+    };
+
+    askingHand.showing = () => !!(shown && shown.isConnected);
+
+    askingHand.clear = () => {
+        if (shown) shown.remove();
+        shown = null;
+    };
+}
+askingHand();
 
 function noContextMenu() {
     document.addEventListener('contextmenu', (event) => {

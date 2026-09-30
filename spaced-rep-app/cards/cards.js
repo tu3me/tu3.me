@@ -596,7 +596,7 @@ function cards(container) {
         /*
          * Saying the word is all a click on the card does now.
          *
-     * It used to turn the card over as well, and to say the original
+         * It used to turn the card over as well, and to say the original
          * whichever side was up — the translation being in a language the player
          * already has. Both are gone. Turning it over is what Flip is for, and a
          * click now points at a particular word on a particular side, so that
