@@ -222,6 +222,27 @@ function snake(container) {
         // the d-pad on would raise the panel again over the end-of-session screen.
         let controlsRetired = false;
 
+        /*
+         * The line the board puts up when it is tapped, and how long it stays.
+         *
+         * Two seconds, because it costs height. The panel under the board grows
+         * to hold it and the window grows with it -- in a popup that is the
+         * whole window moving -- so a line that stayed would charge rent for a
+         * sentence that has been read. Long enough to read eleven words, and
+         * then the board is the size it was.
+         */
+        const CONTROL_HINT_MS = 2000;
+
+        let hintUp = false;
+        let hintTimer = null;
+
+        function dropHint() {
+            if (hintTimer) clearTimeout(hintTimer);
+
+            hintTimer = null;
+            hintUp = false;
+        }
+
         function translationEl() {
             return hintBanner ? hintBanner.querySelector('#snake-translation') : null;
         }
@@ -476,28 +497,55 @@ function snake(container) {
 
         function renderControls() {
             const wrapper = controlsArea.querySelector('#controls-wrapper');
-            if (!wrapper) return;
+            const hint = controlsArea.querySelector('#control-hint');
+            if (!wrapper || !hint) return;
 
             wrapper.innerHTML = '';
+
+            const pad = controlMode !== 0 && !controlsRetired;
+            const line = hintUp && !controlsRetired;
+
+            // Set before anything returns: a hidden panel is not a reason to
+            // leave the line inside it marked as showing, because the next thing
+            // to open the panel would open it on a sentence whose two seconds
+            // ran out long ago.
+            hint.hidden = !line;
 
             // The panel is what is hidden, not the wrapper inside it. An empty
             // wrapper collapses to nothing, but the panel around it keeps its
             // 8.5px margins top and bottom, so a d-pad switched off still pushed
             // everything below it down by 17.1px of blank space.
-            if (controlMode === 0 || controlsRetired) {
+            if (!pad && !line) {
                 controlsArea.style.display = 'none';
                 return;
             }
 
             controlsArea.style.display = 'flex';
 
-            // Anything that is not "off" is the d-pad, rather than a mode matched
-            // by its number: there is one panel left to show.
+            // And the wrapper is hidden on its own, because it is 68.3px tall
+            // whether or not there is a d-pad in it. With only the line showing,
+            // that height is the difference between a sentence and a sentence
+            // standing on an empty plinth.
+            wrapper.style.display = pad ? 'flex' : 'none';
+
+            if (!pad) return;
+
+            /*
+             * Anything that is not "off" is the d-pad, rather than a mode matched
+             * by its number: there is one panel left to show.
+             *
+             * "hide" goes in the grid's own top-right cell -- the row that holds
+             * the up arrow has its outer two cells free -- rather than floating
+             * over a corner. It is sized to its word and pinned to the cell's top
+             * right, so the thing that answers a press is the word and not the
+             * 47.8px of air a cell would otherwise hand it.
+             */
             const dPad = $(wrapper, `<div class="snake-dpad" style="${PAD_GRID}">
                 ${padBtn('dpad-up', '▲', '1 / 2')}
                 ${padBtn('dpad-left', '◀', '2 / 1')}
                 ${padBtn('dpad-down', '▼', '2 / 2')}
                 ${padBtn('dpad-right', '▶', '2 / 3')}
+                <button class="snake-dpad-hide" id="dpad-hide" style="grid-area: 1 / 3; justify-self: end; align-self: start; padding: 1.7px 0 0; background: none; border: none; font-family: inherit; font-size: 11.1px; font-weight: 600; line-height: 1.2; color: ${palette.panelMuted}; cursor: pointer;">hide</button>
             </div>`);
 
             bindPad(dPad, 'dpad-up', () => cb.onDirection(0, -1));
@@ -505,7 +553,31 @@ function snake(container) {
             bindPad(dPad, 'dpad-left', () => cb.onDirection(-1, 0));
             bindPad(dPad, 'dpad-right', () => cb.onDirection(1, 0));
 
+            dPad.querySelector('#dpad-hide').addEventListener('click', () => cb.onHideControls());
         }
+
+        /*
+         * What a tap on the board answers with: a line saying the board can be
+         * driven from the keyboard, and offering the d-pad to anyone without one.
+         *
+         * The offer rather than the panel itself. A d-pad is four buttons and a
+         * third of the screen, and most of the people who tap the board are on a
+         * keyboard already -- they tapped it to stop the snake, or to see what
+         * tapping does. Handing all of them the panel taught the ones who needed
+         * it and took the board away from the ones who did not.
+         */
+        view.offerControls = () => {
+            dropHint();
+
+            hintUp = true;
+            renderControls();
+
+            hintTimer = setTimeout(() => {
+                hintTimer = null;
+                hintUp = false;
+                renderControls();
+            }, CONTROL_HINT_MS);
+        };
 
 
         /*
@@ -683,9 +755,12 @@ function snake(container) {
 
             controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px;">
                 <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 68.3px; align-items: center;"></div>
+                <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ↑ ↓ ← → W A S D or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
             </div>`);
 
             svg.addEventListener('click', () => cb.onBoardClick());
+
+            controlsArea.querySelector('#dpad-link').addEventListener('click', () => cb.onShowControls());
 
             renderControls();
         };
@@ -933,6 +1008,11 @@ function snake(container) {
 
         view.setControlMode = (mode) => {
             controlMode = mode;
+
+            // The offer has been answered -- taken or declined -- so it stops
+            // being made, rather than sitting under the panel it summoned for
+            // the rest of its two seconds.
+            dropHint();
             renderControls();
         };
 
@@ -1031,6 +1111,7 @@ function snake(container) {
             `;
 
             controlsRetired = true;
+            dropHint();
             if (controlsArea) controlsArea.style.display = 'none';
 
             const goDictBtn = gatheredBar.querySelector('#snake-go-dict');
@@ -2333,14 +2414,18 @@ function snake(container) {
                 sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
             },
 
-            // A tap on the board is how the d-pad is reached without aiming
-            // at a 24px chip, and it stops the snake on the way — a panel that
-            // arrives while the board is running is a panel that arrives too
-            // late to be used.
+            // A tap on the board stops the snake -- a panel that arrives while
+            // the board is running arrives too late to be used -- and then says
+            // what the board can be driven with. Only when there is nothing on
+            // screen already: with the d-pad up, the tap is a pause and the
+            // answer to "how do I drive this" is in front of the player.
             onBoardClick: () => {
                 halt();
-                toggleControls();
+                if (!state.controlMode) view.offerControls();
             },
+
+            onShowControls: () => setControls(1),
+            onHideControls: () => setControls(0),
 
             onDifficulty: () => {
                 state.difficulty = (state.difficulty + 1) % DIFFICULTIES.length;
@@ -2561,15 +2646,18 @@ function snake(container) {
         /*
          * The d-pad, shown and hidden.
          *
-         * Two ways in: the chip in the header, which is only this, and the
-         * board, which is this and a pause together. Kept in one place so the
-         * two cannot drift into showing different things.
+         * Asked for by name at both ends -- the underlined words in the line the
+         * board offers, and "hide" in the panel's own corner -- rather than
+         * flipped by whatever pressed last. A toggle was right while the board
+         * was the only way in and the panel was what it produced; now the thing
+         * that shows it and the thing that hides it are different words in
+         * different places, and each knows which it is.
+         *
+         * Anything that is not 0 is the panel: a session saved while the thumb
+         * stick still existed carries a 2.
          */
-        function toggleControls() {
-            // A flip rather than a step through a list: a session saved while the
-            // thumb stick still existed carries a 2, and anything that is not 0
-            // is the one panel there is.
-            state.controlMode = state.controlMode ? 0 : 1;
+        function setControls(mode) {
+            state.controlMode = mode;
             view.setControlMode(state.controlMode);
             page.save();
         }

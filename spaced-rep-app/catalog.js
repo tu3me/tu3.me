@@ -24,9 +24,28 @@ function catalog(container) {
      */
     let coloursRead = false;
 
-    // Screen state, deliberately not stored on the set objects: word_sets carries
-    // domain data only, and an edit form has no business surviving a reload.
+    /*
+     * Which cards have their form open, and what has been typed into each.
+     *
+     * Not on the set objects: store.save() writes the list whole, so anything
+     * left on a set becomes domain data, and a box holding "banana --" is not a
+     * set. It lives beside them under a key of its own instead -- the same deal
+     * the games get for a session they have not finished.
+     *
+     * It used to live nowhere at all, and a form went with the window. In a
+     * popup that is not a reload, it is a glance: look a word up somewhere else,
+     * come back, and what had been typed was never there.
+     *
+     * The text is what is kept, not the set it would parse to. Half a line is an
+     * ordinary state for a box to be in, and a parser handed "banana --" either
+     * drops the half or invents the rest.
+     */
     const editing = new Set();
+
+    // What an open form holds: the box's text, the language chosen for each side
+    // of the whole set, and the picks made for single words. Keyed by set id,
+    // the draft's own id included.
+    const openForms = new Map();
 
     /*
      * The set the New Set form is writing, and null when no such form is open.
@@ -41,6 +60,56 @@ function catalog(container) {
      * list, there is no save anywhere that can see it.
      */
     let draft = null;
+
+    /*
+     * The open forms as they stand, written after every change rather than when
+     * a form is closed.
+     *
+     * There is no closing to hook. A popup goes when it loses focus, without
+     * warning and without asking, and an unload handler could not finish the
+     * write anyway: it returns, and the commit lands after it, with the page
+     * already gone. So the record is kept current instead of being made correct
+     * at the end, and a badly timed close costs the last keystroke, which the
+     * next one puts back.
+     *
+     * The whole list goes every time. It is a handful of strings, and a write
+     * that carries everything cannot leave half of an older one behind.
+     */
+    function saveForms() {
+        const list = [];
+
+        openForms.forEach((form, id) => list.push({
+            id: id,
+            isDraft: !!draft && draft.id === id,
+            text: form.text,
+            choice: form.choice,
+            words: [...form.words]
+        }));
+
+        return storage.set('open_forms', list);
+    }
+
+    // Opening a form is already worth remembering: a box someone opened and left
+    // empty is still a box they opened.
+    function rememberForm(id, text) {
+        openForms.set(id, {
+            text: text,
+            choice: { originalLang: null, translationLang: null },
+            words: new Map()
+        });
+
+        return saveForms();
+    }
+
+    function forgetForm(id) {
+        openForms.delete(id);
+        return saveForms();
+    }
+
+    // What the box shows for a set nobody has typed into yet.
+    function setAsText(set) {
+        return [set.title].concat(set.words.map(w => `${w.original} -- ${w.translation}`)).join('\n');
+    }
 
     // Whether the next draw should grow the bars out of nothing. Armed by
     // catalog.render(), which is the entry the page itself calls — opening the
@@ -338,10 +407,12 @@ function catalog(container) {
     // Three dots over the slot where the next game goes, so that the fourth
     // button is built like the three beside it — a picture with a word under
     // it — and not a lone label in a row of them.
-    const DOTS = chromeIcon(`
+    const DOTS_BODY = `
         <circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none" />
         <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
-        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`, 24);
+        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`;
+
+    const DOTS = chromeIcon(DOTS_BODY, 24);
 
     const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
 
@@ -1279,6 +1350,7 @@ function catalog(container) {
                 words: []
             };
             editing.add(id);
+            rememberForm(id, '');
             unfolding = 'set';
             render();
         });
@@ -1997,6 +2069,33 @@ function catalog(container) {
      */
     const MORE_FILL = '#4a90d9';
 
+    /*
+     * The games, as a phone draws an app: a coloured tile with nothing in it but
+     * the picture, and the name underneath on the background.
+     *
+     * The name used to be inside the tile with the picture, which is what a
+     * toolbar button looks like -- and it cost the picture most of its room,
+     * because a 49.5px button holding two lines of anything leaves 20 for the
+     * drawing. Out on the background the name costs the tile nothing, and the
+     * drawing is half again bigger than the whole button used to be tall.
+     *
+     * The tile is narrower than the column it sits in, and the name may use the
+     * whole of it. That is the arrangement on a home screen, and it is not
+     * decoration: "Flashcards" is one word and cannot wrap out of trouble, so
+     * what it needs is width the tile does not have to give.
+     *
+     * The corner radius is a third of the side, which is as round as this shape
+     * gets while it is still a shape. A phone icon is a squircle and a
+     * border-radius cannot draw one; what it can do is take the corner far
+     * enough that the eye stops reading a square with its corners filed off, and
+     * a third is where that happens. The next honest stop after it is a circle:
+     * between the two the straight part of each side is too short to be a side
+     * and too long to be an arc, and the tile reads as a circle somebody sat on.
+     */
+    const TILE = 57.6;
+    const TILE_RADIUS = 19.2;
+    const TILE_ICON = 32;
+
 
     /*
      * Empties every store and starts the app over.
@@ -2038,11 +2137,35 @@ function catalog(container) {
     // exists only because the form needed something to edit, so closing without
     // saving leaves nothing worth keeping.
     //
-    // Nothing is written here, because nothing that is written down has changed:
-    // the draft was never in the list.
+    // Nothing is written to word_sets here, because nothing in it has changed:
+    // the draft was never in the list. The form is a different matter -- it was
+    // written down as it was typed, and this is the press that says to forget
+    // it.
     function discardDraft() {
-        if (draft) editing.delete(draft.id);
+        if (!draft) return;
+
+        editing.delete(draft.id);
+        forgetForm(draft.id);
         draft = null;
+    }
+
+    /*
+     * One of those tiles, with its name under it.
+     *
+     * The button is the pair rather than the tile: on a home screen the name is
+     * part of what is pressed, and a name that only looks pressable is a strip
+     * of dead pixels across the middle of a row of targets.
+     *
+     * The name is cut with an ellipsis rather than wrapped. Two lines under one
+     * tile and one under the next would leave the row with tiles at two
+     * different heights -- and a name long enough to need two lines is a name
+     * nobody reads to the end anyway.
+     */
+    function tileBtn(cls, fill, icon, label, attrs) {
+        return `<button class="${cls}" ${attrs} style="flex: 1; min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
+            <span class="set-tile" style="display: flex; align-items: center; justify-content: center; width: ${TILE}px; height: ${TILE}px; flex: none; background: ${fill}; color: #ffffff; border-radius: ${TILE_RADIUS}px; transition: background 0.2s;">${icon}</span>
+            <span class="set-tile-label" style="max-width: 100%; font-size: 11.3px; font-weight: 600; line-height: 1.2; color: ${palette.title}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+        </button>`;
     }
 
     function renderSetCard(parent, set, intro) {
@@ -2085,21 +2208,63 @@ function catalog(container) {
 
             const langPlate = (side) => `<select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>`;
 
-            let textLines = [set.title];
-            set.words.forEach(w => {
-                textLines.push(`${w.original} -- ${w.translation}`);
-            });
+            // The pair's captions say which half of the line each dropdown
+            // answers for, in the same words the box uses for them: a line is a
+            // word and a translation, and these are all of one and all of the
+            // other. Set bold, unlike the captions on the rows below, because
+            // these two speak for the whole set and those speak for one word.
+            //
+            // The indent is this dropdown's border plus its padding, which is
+            // not the rows' -- their boxes are smaller. Written out rather than
+            // typed as a number so the two cannot drift apart.
+            const PLATE_INDENT = 1 + 8.5;
+
+            /*
+             * What the section is called, and what the dropdowns are doing
+             * inside it.
+             *
+             * Standing in the open directly beneath a box of "word --
+             * translation" lines, two language dropdowns read as the languages
+             * of the translation -- something to be set before the words mean
+             * anything. They set no such thing. The words are already in
+             * whatever languages they were pasted in, and all these choose is
+             * the voice that reads them aloud.
+             *
+             * So they went inside the section, and the section stopped being
+             * called "Advanced". A name that only says "there is more here" asks
+             * to be opened and then explains nothing; this one answers the
+             * question the dropdowns were raising before they are even seen.
+             * Everything under it is that one subject -- the legend and the
+             * per-word rows below are the same choice made finer.
+             */
+            const LANG_SECTION = 'Text-to-speech language';
+
+            /*
+             * What goes in the box: what was typed into it, and the set itself
+             * only if nothing was. Every way of opening a form remembers it
+             * first, so the second half answers a case that should not arise --
+             * it is here because a box has to be given something.
+             *
+             * Escaped, unlike the words this used to be built from. The text
+             * came off a keyboard and goes back into markup, so a line with a
+             * "<" in it would close the box and take the rest of the form with
+             * it.
+             */
+            const form = openForms.get(set.id);
+            const boxText = escapeText(form ? form.text : setAsText(set));
 
             const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
-                    First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
+                    It's just plain text, so you can edit it with any AI tool. First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;word -- translation&#10;another word -- another translation" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${textLines.join('\n')}</textarea>
+                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;word -- translation&#10;another word -- another translation" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
                 <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
-                    <div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6.8px;">
-                        ${langPlate('originalLang')}
-                        ${langPlate('translationLang')}
-                    </div>
-                    <div class="set-lang-fold">${foldingSection('Advanced', `<div style="font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
+                    <div class="set-lang-fold">${foldingSection(LANG_SECTION, `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 6.8px; align-items: start;">
+                            ${caption('All words', true, PLATE_INDENT)}
+                            ${caption('All translations', true, PLATE_INDENT)}
+                            ${langPlate('originalLang')}
+                            ${langPlate('translationLang')}
+                        </div>
+                        <div style="font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint}; margin-top: 8.5px;">
                             <div>${OWN_VOICE} voice installed</div>
                             <div>${BORROWED_VOICE} read by a related voice</div>
                             <div>${NO_VOICE} no voice at all</div>
@@ -2190,6 +2355,16 @@ function catalog(container) {
 
             const textarea = editForm.querySelector('.set-edit-textarea');
 
+            // The box is the one thing here that nothing else overhears: the
+            // plates below are redrawn from its text, but the text itself is
+            // only ever in the box.
+            textarea.addEventListener('input', () => {
+                if (!form) return;
+
+                form.text = textarea.value;
+                saveForms();
+            });
+
             /*
              * What the person chose on each plate, until the form is closed:
              *
@@ -2203,7 +2378,7 @@ function catalog(container) {
              * form must not quietly re-guess what was already known, while
              * asking for Auto is exactly the request to re-guess it.
              */
-            const choice = { originalLang: null, translationLang: null };
+            const choice = form ? form.choice : { originalLang: null, translationLang: null };
 
             /*
              * The same three states, one word at a time, kept by the word's own
@@ -2212,7 +2387,7 @@ function catalog(container) {
              * word and its pick is gone with the name — the same deal its
              * history and its languages get in readWords.
              */
-            const wordChoice = new Map();
+            const wordChoice = form ? form.words : new Map();
             const keyOf = (word) => word.original.toLowerCase();
 
             function nameWords(words) {
@@ -2292,6 +2467,7 @@ function catalog(container) {
                         own[select.dataset.field] = select.value;
                         wordChoice.set(key, own);
                         refreshPlates();
+                        saveForms();
                     });
                 });
 
@@ -2367,6 +2543,7 @@ function catalog(container) {
                     wordChoice.forEach(own => { delete own[side]; });
 
                     refreshPlates();
+                    saveForms();
                 }));
             }
 
@@ -2410,6 +2587,7 @@ function catalog(container) {
                 }
 
                 editing.delete(set.id);
+                forgetForm(set.id);
                 store.save();
                 render();
             });
@@ -2425,6 +2603,7 @@ function catalog(container) {
                 }
 
                 editing.delete(set.id);
+                forgetForm(set.id);
                 store.save();
                 render();
             });
@@ -2510,15 +2689,9 @@ function catalog(container) {
 
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
-                <!-- The label under each icon is 11.3px because of the
-                     longest of them: "Flashcards" at 12.8px is 79 wide and the
-                     button has 78 to give, and it is one word, so it cannot
-                     wrap out of trouble — it just spills over the corner. At
-                     13.2 it is 70, which leaves room for the system font on a
-                     phone being wider than the one this was measured in. -->
-                <div class="set-actions-group" style="display: flex; gap: 6.8px; height: 49.5px; margin-top: 15.4px;">
-                    ${GAMES.map(g => `<button class="set-play-btn" data-game="${g.id}" style="flex: 1; min-width: 0; padding: 5.1px 2px; background: ${g.color}; color: #ffffff; border: none; border-radius: 10.2px; font-weight: 700; font-size: 11.3px; line-height: 1.1; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6px;">${g.icon(20.5)}<span>${g.title}</span></button>`).join('')}
-                    <button class="set-more-btn" style="flex: 1; min-width: 0; padding: 5.1px 2px; background: ${MORE_FILL}; color: #ffffff; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 11.3px; line-height: 1.1; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6px;">${DOTS}<span class="set-more-label">More...</span></button>
+                <div class="set-actions-group" style="display: flex; align-items: flex-start; gap: 6.8px; margin-top: 15.4px;">
+                    ${GAMES.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`)).join('')}
+                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More...', '')}
                 </div>
             `);
 
@@ -2582,6 +2755,7 @@ function catalog(container) {
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
+                rememberForm(set.id, setAsText(set));
                 render();
             });
         }
@@ -2765,6 +2939,38 @@ function catalog(container) {
 
     catalog.setSession = (value) => { session = value; };
     catalog.setColoursRead = (value) => { coloursRead = value; };
+
+    /*
+     * The forms that were open when this screen was last looked at.
+     *
+     * Authoritative, which is why editing and the draft are emptied first: what
+     * is handed in is what is open. It runs again every time the catalog comes
+     * back from a game, and what it reads is the record every change wrote to,
+     * so there is nothing of its own to carry across the call.
+     */
+    catalog.setOpenForms = (list) => {
+        editing.clear();
+        openForms.clear();
+        draft = null;
+
+        (list || []).forEach(entry => {
+            // A form whose set is gone has nothing left to edit: deleted from
+            // another form, or taken by "Clear data" along with everything else.
+            if (!entry.isDraft && !store.sets().some(s => s.id === entry.id)) return;
+
+            // Rebuilt rather than kept: the draft is a set-shaped thing for the
+            // form to write into, and all of it that outlives a window is its id
+            // and the text, which is in the record beside it.
+            if (entry.isDraft) draft = { id: entry.id, title: '', words: [] };
+
+            editing.add(entry.id);
+            openForms.set(entry.id, {
+                text: entry.text || '',
+                choice: entry.choice || { originalLang: null, translationLang: null },
+                words: new Map(entry.words || [])
+            });
+        });
+    };
 
     // Starting a session. Whether anything is due is a property of the set and of
     // the algorithm, not of any game, so the catalog answers it itself — and asking
@@ -2978,6 +3184,11 @@ function catalog(container) {
 async function refreshCatalog() {
     await store.load();
     catalog.setSession(await storage.get('active_session'));
+
+    // After store.load(), which is what decides whether a form still has a set
+    // to edit.
+    catalog.setOpenForms(await storage.get('open_forms'));
+
     catalog.render();
 }
 
