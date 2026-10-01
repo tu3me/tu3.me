@@ -325,6 +325,15 @@ function resizeGrip() {
         // it dragging a selection around instead of a corner.
         event.preventDefault();
 
+        // Asked for, so it stops asking. Before anything else here, because the
+        // press is the answer whatever the drag turns out to be -- a double
+        // click that resets the width comes through here too.
+        if (!tried) {
+            tried = true;
+            handle.classList.remove(CALLING);
+            saveSetting('gripTried', true);
+        }
+
         const twice = Date.now() - lastDown < DOUBLE_GAP;
         lastDown = Date.now();
 
@@ -395,6 +404,43 @@ function resizeGrip() {
         handle.addEventListener('pointerup', stop);
         handle.addEventListener('pointercancel', stop);
     });
+
+    /*
+     * The corner calling attention to itself.
+     *
+     * It is the one thing in the app nobody finds by looking: a 13.7px mark in a
+     * corner, drawn at a third of the ink's strength, that does something no
+     * other corner in a popup does. Everything else here is a button with a word
+     * under it.
+     *
+     * So it says so itself rather than being pointed at. A hand flying in to
+     * drag it was the other way to do this, and it was a second animated thing
+     * on a screen that already has two, for a feature that is worth exactly one
+     * blinking corner.
+     *
+     * It stops the moment somebody takes hold of it -- not when they finish a
+     * drag, and not when the width ends up different. Reaching for it is the
+     * whole of what this is asking for; what they then do with the width is
+     * their business, including letting go at once and leaving it alone.
+     *
+     * Written down because it is a thing that was said to someone, and the same
+     * record keeps it said after the popup closes. Beside coloursRead, which is
+     * the same kind of fact, and taken by "Clear data" with everything else --
+     * which is right, since a shelf that has been reset is one nobody has been
+     * shown anything on.
+     */
+    const CALLING = 'app-grip-calling';
+
+    let tried = false;
+
+    resizeGrip.setTried = (value) => {
+        tried = !!value;
+        if (tried) handle.classList.remove(CALLING);
+    };
+
+    resizeGrip.call = (on) => {
+        handle.classList.toggle(CALLING, !!on && !tried);
+    };
 
     // Capture, because a scroll inside the body does not bubble: in the popup
     // the body is the thing that scrolls, and the corner moves with it.

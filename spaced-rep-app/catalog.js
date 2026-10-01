@@ -156,24 +156,6 @@ function catalog(container) {
     // away each time would be a section you can change one number in.
     let intervalsOpen = false;
 
-    /*
-     * The room the Continue banner was taking when the form was opened, measured
-     * before the redraw that hides it.
-     *
-     * The banner goes the moment the form arrives, so a fold that started at
-     * nothing would drop the whole column by the banner's height and lift it
-     * back at the end. Starting and finishing at exactly that height makes both
-     * ends of the fold a swap of one block for another of the same size, and
-     * nothing below moves.
-     *
-     * Its margin counts as much as its height: it is the space the banner was
-     * occupying that has to be filled, not the box alone.
-     *
-     * Zero when there was no banner — nothing unfinished to continue — and then
-     * the form folds down to nothing as before.
-     */
-    let bannerSpace = 0;
-
     // Set while the form is folding shut. The fold has to finish before the set
     // behind it is dropped, and until then the button still works — a second
     // press would start a second fold on a card that is already half gone.
@@ -1336,11 +1318,6 @@ function catalog(container) {
                 return;
             }
 
-            const banner = container.querySelector('.continue-banner');
-            bannerSpace = banner
-                ? banner.offsetHeight + (parseFloat(getComputedStyle(banner).marginBottom) || 0)
-                : 0;
-
             const id = Date.now().toString();
             draft = {
                 id: id,
@@ -1355,21 +1332,6 @@ function catalog(container) {
             render();
         });
 
-        // The banner is hidden while a new set is being written: it would sit
-        // between the form and the list it belongs to, and it is one click away
-        // from leaving for a game and throwing the typing away.
-        const resumable = (session && !addingSet) ? GAMES.find(g => g.id === session.game) : null;
-        if (resumable) {
-            const label = `${resumable.icon(17.1)} ${resumable.title}`;
-            const banner = $(container, `<div class="continue-banner" style="background: ${palette.cardBg}; color: ${palette.title}; padding: 13.7px; border-radius: 15.4px; margin-bottom: 10.2px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13.3px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.1);">
-                <span class="continue-banner-text">Continue: ${label}</span>
-                <span class="continue-banner-arrow">▶</span>
-            </div>`);
-            banner.addEventListener('click', () => {
-                nav.resume(resumable, session.setId);
-            });
-        }
-
         const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
 
         // The draft goes where the store would have put it: addSet unshifts, so
@@ -1382,7 +1344,7 @@ function catalog(container) {
 
         if (unfold === 'set') {
             const card = newSetCard();
-            if (card) unfoldInto(card, bannerSpace);
+            if (card) unfoldInto(card);
         }
 
         // Last, so it is over everything this pass drew. Redrawn with the rest
@@ -1396,6 +1358,18 @@ function catalog(container) {
         // from every way it can be taken away.
         showHint();
         offerColours(sets);
+
+        /*
+         * And the corner starts asking as soon as the hand over Flashcards stops
+         * -- the first press on a game is what takes one down and sets the other
+         * going.
+         *
+         * Not a third hint competing with the other two, which is why it is in
+         * the corner and not on the shelf: it is the window's own furniture
+         * saying what it does, and it can say that while a card is being
+         * explained. It stops when somebody takes hold of it; see resizeGrip.
+         */
+        resizeGrip.call(!!session || !neverPlayed());
     }
 
     /*
@@ -1414,9 +1388,9 @@ function catalog(container) {
      * the content box, so padding alone would hold the card 27.3px tall with
      * nothing in it.
      *
-     * Nothing fades. The card is the banner's own colour, and with the fold
-     * starting at the banner's height the two read as one block changing shape —
-     * a fade would blank that block for a moment instead.
+     * Nothing fades. The card grows out of nothing and shrinks back into it,
+     * which is one block changing shape — a fade would blank it for a moment
+     * instead, and there is nothing underneath worth a glimpse of.
      *
      * The list spaces its cards with a flex gap, which no card can animate. A
      * negative margin of the same size cancels it, so the cards below slide
@@ -1448,43 +1422,27 @@ function catalog(container) {
     }
 
     /*
-     * The collapsed end of the fold, and what the card has to do to reach it.
+     * The collapsed end of the fold: the card folds all the way down to its own
+     * two border lines.
      *
-     * The negative margin cancels the list's gap, so at that end the card takes
-     * exactly its own height out of the column and nothing more — which is what
-     * lets that height be compared with the banner's directly.
+     * The padding goes with it, because 27.3px of it cannot fit inside a card of
+     * no height. The negative margin cancels the list's gap, so at that end the
+     * card takes exactly its own height out of the column and nothing more.
      *
-     * Padding is flattened only when the card folds all the way down: 27.3px of it
-     * cannot fit inside a card of no height. Against the banner's height it fits
-     * easily, and flattening it there would shove the form's own heading about
-     * for no reason.
+     * It used to fold down to the height of the "Continue" banner instead, which
+     * is what the form grew out of while the banner left. There is no banner now
+     * -- the game that was started is marked on its own tile -- so there is
+     * nothing above the list for a card to be measured against.
      */
-    function collapsed(card, gap, floor) {
-        const cs = getComputedStyle(card);
-        const frame = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-        const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-
-        // max-height caps the content box, and the card's padding and border sit
-        // outside it. Asking for the banner's height directly would leave a card
-        // that tall plus 29px of frame — which is exactly the jump this is meant
-        // to remove.
-        const inner = floor - frame - pads;
-
-        if (inner >= 0) {
-            card.style.maxHeight = `${inner}px`;
-        } else {
-            // Nothing to fit the padding into: flatten it and give the content
-            // whatever the frame leaves. This is also the no-banner case, where
-            // the card folds all the way down to its own two border lines.
-            card.style.paddingTop = '0px';
-            card.style.paddingBottom = '0px';
-            card.style.maxHeight = `${Math.max(floor - frame, 0)}px`;
-        }
+    function collapsed(card, gap) {
+        card.style.paddingTop = '0px';
+        card.style.paddingBottom = '0px';
+        card.style.maxHeight = '0px';
 
         if (gap) card.style.marginBottom = `-${gap}px`;
     }
 
-    function unfoldInto(card, floor) {
+    function unfoldInto(card) {
         const opened = card.scrollHeight;
         const gap = listGap(card);
 
@@ -1496,7 +1454,7 @@ function catalog(container) {
         const padBottom = getComputedStyle(card).paddingBottom;
 
         card.style.overflow = 'hidden';
-        collapsed(card, gap, floor);
+        collapsed(card, gap);
 
         pin(card);
 
@@ -1514,7 +1472,7 @@ function catalog(container) {
         }, FOLD_OPEN + 40);
     }
 
-    function foldAway(card, done, floor) {
+    function foldAway(card, done) {
         const gap = listGap(card);
 
         card.style.overflow = 'hidden';
@@ -1524,7 +1482,7 @@ function catalog(container) {
 
         card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
             + ` padding ${FOLD_SHUT}ms ease-in, margin-bottom ${FOLD_SHUT}ms ease-in`;
-        collapsed(card, gap, floor);
+        collapsed(card, gap);
 
         setTimeout(done, FOLD_SHUT);
     }
@@ -1551,7 +1509,7 @@ function catalog(container) {
             closing = false;
             discardDraft();
             render();
-        }, bannerSpace);
+        });
     }
 
     /*
@@ -2069,6 +2027,12 @@ function catalog(container) {
      */
     const MORE_FILL = '#4a90d9';
 
+    // The play mark's own colour. White, because the mark sits on four different
+    // tiles and has to be one thing on all of them: coral was tried and is the
+    // colour of the Flashcards tile, where it left the triangle showing as a
+    // hole rather than a button.
+    const PLAY_FILL = '#ffffff';
+
     /*
      * The games, as a phone draws an app: a coloured tile with nothing in it but
      * the picture, and the name underneath on the background.
@@ -2092,6 +2056,33 @@ function catalog(container) {
      * between the two the straight part of each side is too short to be a side
      * and too long to be an arc, and the tile reads as a circle somebody sat on.
      */
+    /*
+     * What the tile of an unfinished game shows instead of its own drawing.
+     *
+     * It used to be a banner over the whole list -- "Continue: Snake" with an
+     * arrow -- which said what was unfinished but not where. The set it belonged
+     * to was somewhere below, looking exactly like every other set, and the
+     * banner took a row of the screen to say so. On the tile there is nothing to
+     * look up: the game, the set and the way back in are one thing, in the place
+     * the player would have pressed anyway.
+     *
+     * Then it was a mark laid over the drawing, which hid most of it and had to
+     * pulse to be read as a mark rather than as part of it. Taking the drawing's
+     * place instead costs nothing: the tile keeps its colour, and the two faces
+     * take turns, so neither has to be visible through the other.
+     *
+     * The corners are rounded by the stroke rather than by the path. A polygon
+     * stroked in its own colour with a round join grows by half the stroke and
+     * rounds where it turns, so one set of three points draws both the shape and
+     * its corners -- and the dark rim is the same path again underneath, drawn
+     * fatter. Writing the curves into the path would be nine numbers where there
+     * are three, and every one of them wrong after the first resize.
+     */
+    const PLAY_FACE = () => `<svg viewBox="0 0 24 24" width="41" height="41" aria-hidden="true" style="display: block;">
+            <path d="M8.4 5.6 18.2 12 8.4 18.4z" fill="none" stroke="rgba(15, 23, 42, 0.5)" stroke-width="8.6" stroke-linejoin="round" />
+            <path d="M8.4 5.6 18.2 12 8.4 18.4z" fill="${PLAY_FILL}" stroke="${PLAY_FILL}" stroke-width="5.4" stroke-linejoin="round" />
+        </svg>`;
+
     const TILE = 57.6;
     const TILE_RADIUS = 19.2;
     const TILE_ICON = 32;
@@ -2160,11 +2151,31 @@ function catalog(container) {
      * tile and one under the next would leave the row with tiles at two
      * different heights -- and a name long enough to need two lines is a name
      * nobody reads to the end anyway.
+     *
+     * An unfinished tile says "Continue" in time with its drawing becoming a
+     * triangle: both halves of the tile answer the same question, so they change
+     * together or the tile would be saying two things at once.
+     *
+     * Each face is a cell of the same one-cell grid rather than one box with
+     * something absolute over it. The cell takes the size of the wider face, so
+     * a name that fits and a "Continue" that does not cannot each be measured
+     * against a different box -- and when there is nothing to alternate with,
+     * one face in one cell lays out exactly as the plain span it replaces.
      */
-    function tileBtn(cls, fill, icon, label, attrs) {
+    function tileBtn(cls, fill, icon, label, attrs, resuming) {
+        const swap = resuming ? ' set-tile-swap' : '';
+
+        const CUT = 'max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
         return `<button class="${cls}" ${attrs} style="flex: 1; min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
-            <span class="set-tile" style="display: flex; align-items: center; justify-content: center; width: ${TILE}px; height: ${TILE}px; flex: none; background: ${fill}; color: #ffffff; border-radius: ${TILE_RADIUS}px; transition: background 0.2s;">${icon}</span>
-            <span class="set-tile-label" style="max-width: 100%; font-size: 11.3px; font-weight: 600; line-height: 1.2; color: ${palette.title}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+            <span class="set-tile${swap}" style="display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; flex: none; background: ${fill}; color: #ffffff; border-radius: ${TILE_RADIUS}px; transition: background 0.2s;">
+                <span class="set-tile-face" style="grid-area: 1 / 1; display: flex;">${icon}</span>
+                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; display: flex;">${PLAY_FACE()}</span>` : ''}
+            </span>
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; max-width: 100%; font-size: 11.3px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+                <span class="set-tile-face" style="grid-area: 1 / 1; ${CUT}">${label}</span>
+                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; ${CUT}">Continue</span>` : ''}
+            </span>
         </button>`;
     }
 
@@ -2612,6 +2623,12 @@ function catalog(container) {
             const totalWords = set.words.length;
             const progress = spacedRepetitions.calculateSetProgress(set.words);
 
+            // Whether this tile is the game that was left unfinished, which is a
+            // question about both halves of it: the same game on another set is
+            // a game that was never started.
+            const unfinished = (game) => !!session && session.game === game.id
+                && String(session.setId) === String(set.id);
+
             // Where the bar animates from: the progress this set had when the
             // running session started, kept in active_session rather than on the set.
             // Where the bar starts before it runs to `progress`: at nothing when
@@ -2690,8 +2707,8 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; align-items: flex-start; gap: 6.8px; margin-top: 15.4px;">
-                    ${GAMES.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`)).join('')}
-                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More...', '')}
+                    ${GAMES.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
+                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More games', '', false)}
                 </div>
             `);
 
@@ -2745,7 +2762,15 @@ function catalog(container) {
 
             card.querySelectorAll('.set-play-btn').forEach(btn => {
                 const game = GAMES.find(g => g.id === btn.dataset.game);
-                btn.addEventListener('click', () => launch(game, set.id));
+
+                // The marked tile goes back into the session rather than asking
+                // for a new one: resume keeps the pool, the dots and the place
+                // in it, and starting over would throw away the half that was
+                // played. Everything else on the row is an ordinary start.
+                btn.addEventListener('click', () => {
+                    if (unfinished(game)) nav.resume(game, set.id);
+                    else launch(game, set.id);
+                });
             });
 
             // The fourth button is not a game, it is the place the next one
@@ -3238,6 +3263,10 @@ async function bootCatalog() {
     // explanation has not been read, which is what a first run is.
     catalog.setColoursRead(!!(settings && settings.coloursRead));
 
+    // Absent means the corner has never been taken hold of, so it is still worth
+    // pointing out.
+    resizeGrip.setTried(!!(settings && settings.gripTried));
+
     await refreshCatalog();
     popupHeight.release();
 }
@@ -3245,8 +3274,8 @@ async function bootCatalog() {
 // The browser's own Back button can restore this page from the bfcache: the
 // document comes back alive exactly as it was left, so nothing above re-runs.
 // Without this the catalog would still be showing the state it had before the
-// game started — the old progress, and a "Continue" banner for a session that
-// may well have finished.
+// game started — the old progress, and a play mark on a tile whose session may
+// well have finished.
 //
 // Only the catalog needs it. A game page rewrites its own address to carry
 // resume=1 as soon as its session exists, so every way back into that entry

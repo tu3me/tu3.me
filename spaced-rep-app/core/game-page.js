@@ -105,9 +105,20 @@ function page() {
         btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
     };
 
+    /*
+     * Whether this session has been declared over.
+     *
+     * It exists so that a save arriving after the end cannot undo it. The order
+     * of the two is not hypothetical: boot ends a session with nothing due in it
+     * from inside render, and then goes on to save what it has just rendered.
+     */
+    let ended = false;
+
     // The session blob is private to its game — no other page ever reads this key,
     // so its shape is the game's own business.
     page.save = () => {
+        if (ended) return Promise.resolve(false);
+
         storage.set('session:' + gameId, module.getState());
         return store.save();
     };
@@ -115,6 +126,8 @@ function page() {
     // The session is over: the catalog must not offer to continue it, and the
     // popup must reopen at the catalog rather than back here.
     page.endSession = () => {
+        ended = true;
+
         nav.setEntryPoint('index.html');
         storage.set('session:' + gameId, null);
         storage.set('active_session', null);
@@ -206,13 +219,6 @@ async function bootGame(id, module) {
     if (isResume && saved) module.setState(saved);
     else module.start(setId, allowEarly, saved);
 
-    // Written straight away, before the player has done anything. Until they act
-    // nothing else would write this key, and the popup's entry point carries no
-    // set to fall back on — a game left untouched would come back as a fresh
-    // session over every set. Saved before render() because an empty pool ends
-    // the session from inside render, and that must stay ended.
-    await page.save();
-
     // This history entry now stands for a running session. Every way back into it
     // — Forward, a reload, a restore the bfcache declined to serve — continues
     // that session instead of starting over, which is what a player means by
@@ -235,5 +241,27 @@ async function bootGame(id, module) {
     nav.setEntryPoint(location.pathname.replace(/^\//, ''));
 
     module.render();
+
+    /*
+     * Written straight away, before the player has done anything: until they act
+     * nothing else would write this key, and the popup's entry point carries no
+     * set to fall back on, so a game left untouched would come back as a fresh
+     * session over every set.
+     *
+     * After render() and not before, which is the whole point. The pool is built
+     * inside render -- and so, in snake, is the board -- so a save taken ahead of
+     * it stored a session with no words in it. Nothing was visibly wrong until
+     * someone came back to that session: an empty pool is drawn again from
+     * scratch, which reshuffles it, so a game entered and left untouched came
+     * back as a different word with the letters in different places. Anyone who
+     * had pressed a key was fine, because a tick had saved a real snapshot over
+     * the empty one.
+     *
+     * Safe against the other order too: a render that finds nothing due ends the
+     * session from inside itself, and a save after that does nothing -- see
+     * `ended` above.
+     */
+    await page.save();
+
     popupHeight.release();
 }

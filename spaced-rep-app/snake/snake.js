@@ -460,11 +460,35 @@ function snake(container) {
         // panels are 3-column grids filling the whole width — this is thumb territory on
         // a phone, so the cell places the button and `place` only says which cell.
         function padBtn(id, glyph, place) {
-            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; width: 100%; height: 47.8px; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 20.5px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
+            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 20.5px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
         }
 
-        // Both panels share it: three equal columns, full width
-        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 6.8px; width: 100%;';
+        /*
+         * Three equal columns, two equal rows, and a height the row heights are
+         * taken from rather than added up to.
+         *
+         * The pad is what gives when the window is too short -- see mount, where
+         * the page is capped -- so its own height is whatever is left rather
+         * than 47.8 twice over. The cap keeps it from growing past the size it
+         * was drawn at when there is room to spare.
+         */
+        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6.8px; width: 100%; align-self: stretch; min-height: 0; max-height: 102.4px;';
+
+        /*
+         * The arrow on a pad button, drawn rather than typed.
+         *
+         * A text glyph is sized in points and a button that shrinks does not
+         * take its type with it: at the height this pad reaches in a short
+         * window, ▲ at 20.5px is taller than the button it is in. A path in a
+         * viewBox is a shape, and a shape given a height in per cent of its
+         * button is the right size at every size the button has.
+         *
+         * One triangle turned four ways rather than four characters. They are
+         * the same arrow -- that is what makes a d-pad read as one control --
+         * and a rotation says so where four glyphs leave it to the typeface.
+         */
+        const PAD_ARROW = (turn) => `<svg viewBox="0 0 24 24" aria-hidden="true"
+            style="display: block; height: 38%; width: auto; fill: currentColor; transform: rotate(${turn}deg);"><path d="M12 6.5 19.5 17.5H4.5z" /></svg>`;
 
         // A press asks for a move, a release drops the acceleration the hold built up.
         //
@@ -541,10 +565,10 @@ function snake(container) {
              * 47.8px of air a cell would otherwise hand it.
              */
             const dPad = $(wrapper, `<div class="snake-dpad" style="${PAD_GRID}">
-                ${padBtn('dpad-up', '▲', '1 / 2')}
-                ${padBtn('dpad-left', '◀', '2 / 1')}
-                ${padBtn('dpad-down', '▼', '2 / 2')}
-                ${padBtn('dpad-right', '▶', '2 / 3')}
+                ${padBtn('dpad-up', PAD_ARROW(0), '1 / 2')}
+                ${padBtn('dpad-left', PAD_ARROW(-90), '2 / 1')}
+                ${padBtn('dpad-down', PAD_ARROW(180), '2 / 2')}
+                ${padBtn('dpad-right', PAD_ARROW(90), '2 / 3')}
                 <button class="snake-dpad-hide" id="dpad-hide" style="grid-area: 1 / 3; justify-self: end; align-self: start; padding: 1.7px 0 0; background: none; border: none; font-family: inherit; font-size: 11.1px; font-weight: 600; line-height: 1.2; color: ${palette.panelMuted}; cursor: pointer;">hide</button>
             </div>`);
 
@@ -675,6 +699,49 @@ function snake(container) {
             controlMode = opts.controlMode || 0;
             difficulty = opts.difficulty === undefined ? SPEED_AT_START : opts.difficulty;
 
+            /*
+             * The page is a column that may not grow past the window.
+             *
+             * It has to be told that, because it does not fit. The board is
+             * drawn square at the width it is given, and width plus the band
+             * above it plus the d-pad below comes to more than a popup is
+             * allowed to be: Chrome stops at 600, and at the 400 the app now
+             * opens at, 600 screen pixels are 525 of these. The page wanted 596
+             * and got a scrollbar -- in a window the size of a playing card, on
+             * a game played by watching the whole board at once.
+             *
+             * What gives is the d-pad, which is the only thing here anyone can
+             * do without: the board is the game, and a board shown smaller than
+             * the band above it reads as a mistake. The pad keeps its shape and
+             * loses its height -- see PAD_GRID and the arrow it is drawn with,
+             * which is a path and not a letter for exactly this reason.
+             *
+             * Written in layout pixels, which is what everything else here is in
+             * and what the window is not: 100vh is screen pixels, and inside the
+             * zoom that is a different unit. --app-unscale is the one that
+             * converts -- see app.css, where it exists for exactly this.
+             *
+             * The 600 is why this is not 100vh alone, and the reason is worth
+             * keeping: a popup is as tall as its contents, so 100vh there is
+             * the height the page already has. Capping a page at the height it
+             * has is forbidding it to grow -- press the board and the line that
+             * should appear under it is given nought to stand in, press again
+             * and the d-pad it offers never arrives either. The window cannot
+             * grow because the page will not, and the page will not because the
+             * window has not. 600 is the height a popup is allowed to reach --
+             * Chrome's number, which is a fact about the platform and not about
+             * this app -- so the cap is that, and a window taller than it caps
+             * nothing at all.
+             *
+             * Nothing asks what is running this. A popup, a tab and a phone all
+             * answer the same question the same way, and the answer changes by
+             * itself when the handle on the left edge changes the zoom.
+             */
+            host.style.boxSizing = 'border-box';
+            host.style.display = 'flex';
+            host.style.flexDirection = 'column';
+            host.style.maxHeight = 'calc(max(100vh, 600px) * var(--app-unscale))';
+
             const chipStyle = `display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 23.9px; padding: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 5.1px; color: ${palette.dpadColor}; cursor: pointer;`;
 
             /*
@@ -738,7 +805,7 @@ function snake(container) {
                 grid += `M${at} 0V${side}M0 ${at}H${side}`;
             }
 
-            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 12px; box-shadow: 0 3.4px 10.2px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; cursor: pointer;">
+            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 12px; box-shadow: 0 3.4px 10.2px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; flex: none; cursor: pointer;">
                 <path d="${grid}" stroke="${palette.grid}" stroke-width="1" fill="none" />
                 <g class="snake-svg-scene"></g>
             </svg>`);
@@ -753,8 +820,8 @@ function snake(container) {
 
             cellSize = side / GRID_COUNT;
 
-            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px;">
-                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; min-height: 68.3px; align-items: center;"></div>
+            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: 0 1 auto; min-height: 0; overflow: hidden;">
+                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: 1 1 auto; min-height: 0; align-items: stretch;"></div>
                 <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ↑ ↓ ← → W A S D or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
             </div>`);
 
@@ -2613,6 +2680,14 @@ function snake(container) {
         refreshDots();
 
         if (board.load(state, targetWord)) board.spawnLetters();
+
+        // The board that was just built, written into the state the snapshot is
+        // taken from. Every later board change persists itself from the tick
+        // that made it; this is the one arrangement no tick produced, and
+        // without it a session saved before the first press has a word but no
+        // letters -- and letters drawn again on the way back are letters
+        // somewhere else.
+        board.persistTo(state);
 
         clock.attach({ onTick: onTick, blocked: () => board.isFrozen() });
         clock.setDifficulty(state.difficulty);
