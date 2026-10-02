@@ -1470,8 +1470,25 @@ function catalog(container) {
          * the air added inside it is above and below only: a wider side would
          * push the heading out of that column and leave it standing on nothing
          * in particular.
+         *
+         * Ruled above and below, and only there: a line at each edge is where
+         * the page stops being the page, and a line down the sides would draw a
+         * box -- which is the plate this stopped being.
+         *
+         * Drawn in the colour the button standing in it is outlined in, which is
+         * the colour of everything that stands on the page rather than on a card
+         * -- the header's buttons, and the games' two. The band is one of those
+         * things, and now it says so in the same line.
+         *
+         * It was a fixed navy first, which was one line for both themes: on warm
+         * paper that read 5.19 against the band, harder than anything else on
+         * that screen, where a card's own border is 1.5. Then it was the card's
+         * border, which in the light theme is the very colour the band is filled
+         * with -- a rule at 1.00 against what it is drawn on is not a rule. This
+         * token is the one neutral that is a step darker than the band in both:
+         * 2.11 on the dark theme, 1.58 on the light.
          */
-        const mine = $(container, `<div class="dict-section dict-section-my" style="margin: 0 -6.8px 6.8px; padding: 10.2px 6.8px; background: ${palette.bandBg};">
+        const mine = $(container, `<div class="dict-section dict-section-my" style="margin: 0 -6.8px 6.8px; padding: 10.2px 6.8px; background: ${palette.bandBg}; border-top: 1px solid ${palette.chromeBorder}; border-bottom: 1px solid ${palette.chromeBorder};">
             ${sectionHead('My stuff', addBtn)}
         </div>`);
 
@@ -1540,14 +1557,27 @@ function catalog(container) {
 
         const catalogList = $(all, `<div class="dict-sets-list dict-sets-catalog" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
 
-        sets.forEach(set => {
+        const shelf = catalogShelf(sets);
+
+        shelf.forEach(set => {
             renderSetCard(catalogList, set, intro);
         });
+
+        // An empty shelf is said out loud, and said as a gap rather than as a
+        // refusal: the pair is one nothing has been written for, which is a fact
+        // about this app today and not about the two languages.
+        if (!shelf.length) {
+            $(all, `<p class="dict-catalog-empty" style="margin: 13.7px 0 0; font-size: 12.8px; font-weight: 600; line-height: 1.4; text-align: center; color: ${palette.hint};">No ready-made sets for this pair yet.</p>`);
+        }
 
         all.querySelectorAll('.dict-lang-select').forEach(select => {
             select.addEventListener('change', () => {
                 catalogLangs = { ...catalogLangs, [select.dataset.side]: select.value };
                 saveSetting('catalogLangs', catalogLangs);
+
+                // The shelf is drawn from the pair, so the pair changing is the
+                // shelf changing: nothing here is filtered in place.
+                render();
             });
         });
 
@@ -1561,7 +1591,7 @@ function catalog(container) {
         // here rather than at the one entry the page calls, so that it comes back
         // from every way it can be taken away.
         showHint();
-        offerColours(sets);
+        offerColours(shelf);
 
         /*
          * And the corner starts asking as soon as the hand over Flashcards stops
@@ -2971,7 +3001,9 @@ function catalog(container) {
                 // for a new one: resume keeps the pool, the dots and the place
                 // in it, and starting over would throw away the half that was
                 // played. Everything else on the row is an ordinary start.
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
+                    await adopt(set);
+
                     if (unfinished(game)) nav.resume(game, set.id);
                     else launch(game, set.id);
                 });
@@ -2982,7 +3014,11 @@ function catalog(container) {
             // says when pressed.
             card.querySelector('.set-more-btn').addEventListener('click', moreSoon);
 
-            card.querySelector('.set-edit-btn').addEventListener('click', () => {
+            card.querySelector('.set-edit-btn').addEventListener('click', async () => {
+                // Editing is keeping it too: what is typed has to be saved into
+                // something, and until this runs there is nothing to save into.
+                await adopt(set);
+
                 editing.add(set.id);
                 rememberForm(set.id, setAsText(set));
                 render();
@@ -3224,6 +3260,65 @@ function catalog(container) {
             });
         });
     };
+
+    /*
+     * What the catalogue is a list of, which is what the two dropdowns say.
+     *
+     * Nothing chosen on the left is nothing to filter by: a shelf cannot guess
+     * which language somebody came to learn. So what stands there is what the app
+     * already has -- the many-tongued starting set, and whatever has been kept
+     * since it.
+     *
+     * An unset right-hand side is read as English rather than as nothing. Every
+     * word of this app is in English, so somebody who has said what they are
+     * learning and left the other alone has said enough to be given a set; asking
+     * them to answer a question whose answer is on the screen around them is a
+     * filter that filters the person.
+     *
+     * A pair the table does not cover gives an empty list, which the caller says
+     * out loud. Twelve languages is a hundred and thirty-two pairs out of some
+     * seventeen thousand the dropdowns can name between them, and most of what
+     * can be picked here has nothing behind it yet.
+     */
+    function catalogShelf(sets) {
+        if (catalogLangs.learn === 'any') return sets;
+
+        const learn = catalogLangs.learn;
+        const translation = catalogLangs.translation === 'any' ? 'en' : catalogLangs.translation;
+
+        return vocab.sets(learn, translation).map(made => {
+            const id = `vocab-${learn}-${translation}-${made.level.toLowerCase()}`;
+
+            // A set that has been played is in the store with its answers on it,
+            // and that copy is the one to show. The table would hand back the same
+            // eight words with every repetition forgotten, and a shelf that forgets
+            // what was done on it is a shelf nobody trusts twice.
+            return sets.find(set => set.id === id) || {
+                id: id,
+                title: `${languageName(learn)} · ${made.level}`,
+                words: made.words
+            };
+        });
+    }
+
+    /*
+     * A ready-made set becomes one of yours the moment it is used.
+     *
+     * The games are given an id and look the set up in the store; the catalogue's
+     * own copy exists only on the screen, and a game sent after it would find
+     * nothing. So the press that starts a set is also what keeps it -- which is
+     * what starting one means anyway, since the answers have to be written
+     * somewhere and the store is where answers live.
+     *
+     * Once. A set already kept is left exactly as it is: adopting it again would
+     * put a second copy on the shelf and throw the first one's history away.
+     */
+    async function adopt(set) {
+        if (store.sets().some(kept => kept.id === set.id)) return;
+
+        store.addSet(set);
+        await store.save();
+    }
 
     // Starting a session. Whether anything is due is a property of the set and of
     // the algorithm, not of any game, so the catalog answers it itself — and asking
