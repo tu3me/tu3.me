@@ -18,9 +18,17 @@ function seed() {
         return [
             {
                 /*
-                 * One set, ten languages, and every line a phrase whose
+                 * One set, eight languages, and every line a phrase whose
                  * meaning the reader already knows before they have read a
                  * word of it.
+                 *
+                 * Eight and not ten because the card has to fit the window. Ten
+                 * lines are five rows of bubbles and the catalogue below them
+                 * starts past the bottom of a popup, which stops at 600. The two
+                 * that went were Italian, a fourth Latin line next to Spanish,
+                 * French and German, and Thai, a third no-space line next to
+                 * Japanese and Chinese: of everything here they were the two
+                 * whose job was already being done twice.
                  *
                  * A country and the thing it is known for: Turkish coffee, a
                  * Swiss watch, a Japanese garden. Somebody opening this app
@@ -34,15 +42,15 @@ function seed() {
                  * months; what it says is worth choosing.
                  *
                  * The scripts are mixed on purpose — Latin, Greek,
-                 * Devanagari, Han, Kana, Hangul, Thai. Snake
+                 * Devanagari, Han, Kana, Hangul. Snake
                  * lays a word out one letter to a cell and cards splits a line
                  * into words, and both have to agree with the reader about
                  * what a letter is; a starting set that exercises that on the
                  * first run is worth more than one that does not.
                  *
-                 * The three lines written in scripts that use no spaces have
-                 * had them put in: 日本 庭園, 中国 丝绸, นวด แผนไทย. That is not
-                 * how any of the three is written, and it is deliberate — it
+                 * The two lines written in scripts that use no spaces have
+                 * had them put in: 日本 庭園, 中国 丝绸. That is not
+                 * how either of them is written, and it is deliberate — it
                  * is the same advice the Split words hint in the settings
                  * gives, taken here. A learner needs to see where one word
                  * ends, tapping a line should say one word rather than all of
@@ -52,13 +60,12 @@ function seed() {
                  * The capitals are uneven on purpose, and it is the
                  * languages that are uneven rather than the typing. German
                  * capitalises an adjective made from a country's name —
-                 * Schweizer Uhr — and Spanish, French, Italian and Greek do
-                 * not: guitarra española, parfum français, moda italiana,
-                 * ελληνική φιλοξενία. The rest of the scripts here have no
-                 * letters to capitalise. None of these is the first word of a
-                 * sentence, so nothing gets a capital for standing first.
-                 * Squaring them up would put a spelling mistake on four
-                 * cards.
+                 * Schweizer Uhr — and Spanish, French and Greek do not:
+                 * guitarra española, parfum français, ελληνική φιλοξενία. The
+                 * rest of the scripts here have no letters to capitalise. None
+                 * of these is the first word of a sentence, so nothing gets a
+                 * capital for standing first. Squaring them up would put a
+                 * spelling mistake on three cards.
                  *
                  * The English side is level because English is: the nationality
                  * takes the capital, the thing it names does not.
@@ -91,9 +98,7 @@ function seed() {
                     { original: 'Schweizer Uhr', originalLang: 'de', translation: 'Swiss watch', translationLang: 'en', repetitions: [] },
                     { original: 'भारतीय चाय', originalLang: 'hi', translation: 'Indian tea', translationLang: 'en', repetitions: [] },
                     { original: 'ελληνική φιλοξενία', originalLang: 'el', translation: 'Greek hospitality', translationLang: 'en', repetitions: [] },
-                    { original: 'moda italiana', originalLang: 'it', translation: 'Italian fashion', translationLang: 'en', repetitions: [] },
-                    { original: '한국 김치', originalLang: 'ko', translation: 'Korean kimchi', translationLang: 'en', repetitions: [] },
-                    { original: 'นวด แผนไทย', originalLang: 'th', translation: 'Thai massage', translationLang: 'en', repetitions: [] }
+                    { original: '한국 김치', originalLang: 'ko', translation: 'Korean kimchi', translationLang: 'en', repetitions: [] }
                 ]
             }
         ];

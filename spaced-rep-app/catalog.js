@@ -25,6 +25,21 @@ function catalog(container) {
     let coloursRead = false;
 
     /*
+     * The pair of languages the catalogue is being looked at through: what is
+     * being learned, and what it is being read in.
+     *
+     * A property of the person and not of a set, which is why it sits in the
+     * section header and not on a card: somebody learning Spanish is learning it
+     * in every set they open, and being asked again per set is being asked the
+     * same question all day.
+     *
+     * "any" is the absence of a choice rather than a language, and it is where
+     * both start: nothing is filtered by it yet, and a first run that guessed
+     * would be a first run that guessed wrong for everyone but one person.
+     */
+    let catalogLangs = { learn: 'any', translation: 'any' };
+
+    /*
      * Which cards have their form open, and what has been typed into each.
      *
      * Not on the set objects: store.save() writes the list whole, so anything
@@ -187,6 +202,12 @@ function catalog(container) {
      * Drawn at LOGO_SIZE, which is a few pixels taller than the two-line
      * wordmark beside it. Matching that height exactly makes the mark look like
      * a third line of the text rather than the thing the text is next to.
+     *
+     * It was cut to 29 for a while, to make this header exactly as tall as the
+     * games' row of 29px buttons. The two screens are still one app, but the
+     * catalogue's header is the only place the app says its own name, and a mark
+     * sized to a row of buttons on another screen is a mark sized by something
+     * that is not on this one.
      */
     const LOGO_SIZE = 34.1;
 
@@ -747,6 +768,39 @@ function catalog(container) {
      */
     const STATE_VALUE = '__state';
 
+    /*
+     * One dropdown, drawn the same wherever it stands. The set form has a pair
+     * of them per word and the catalogue has two in its header, and a select
+     * that looked different in the two places would read as two controls.
+     *
+     * A function and not a constant because it is built out of the palette,
+     * which changes under the app when the theme does.
+     */
+    function selectStyle() {
+        return `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6px 8.5px;`
+            + ` font-family: inherit; font-size: 11.8px; font-weight: 600; cursor: pointer; outline: none;`;
+    }
+
+    /*
+     * The same languages the set form offers, without the speaker marks.
+     *
+     * Those marks answer "will this be read aloud", which is a question about a
+     * voice on this device. Here the question is which language is being learned,
+     * and the answer does not change because a voice is missing.
+     */
+    function filterOptions(chosen, label) {
+        const pick = (value, name) => `<option value="${value}"${value === chosen ? ' selected' : ''}>${name}</option>`;
+
+        // The unchosen state is labelled with the question it answers, so the
+        // dropdown carries its own caption until there is something else to
+        // show. A caption of its own would be a second line in a header that is
+        // one line, and two unlabelled dropdowns side by side are two dropdowns
+        // nobody can tell apart.
+        return pick('any', label)
+            + LANGUAGE_CHOICES.map(c => pick(c.tag, c.name)).join('');
+    }
+
     function languageOptions() {
         return `<option value="${STATE_VALUE}" hidden></option><option value="auto">Auto</option>`
             + LANGUAGE_CHOICES.map(c => `<option value="${c.tag}">${markedName(c.tag)}</option>`).join('');
@@ -1259,7 +1313,23 @@ function catalog(container) {
         // holding that form open rather than offering to open another.
         const addBg = addingSet ? palette.cardBg : 'transparent';
 
-        const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 13.7px;">
+        /*
+         * The header keeps no air of its own above it and the page's own measure
+         * under it.
+         *
+         * It is the tallest thing on the screen -- the mark is 34.1 -- and air
+         * on both sides of something that tall is a lot of nothing before the
+         * first word of content. So nothing is added above: what stands there is
+         * the page's 6.8, the same as on every game screen.
+         *
+         * And the same 6.8 below, because the row of buttons is what the eye
+         * measures this band by. Inside the header they are centred -- 2.55 of
+         * slack over and under them, the mark being taller than they are -- so
+         * whatever stands outside the header is what decides whether they look
+         * centred. At 10.2 below they had 9.35 of air above and 12.75 under,
+         * which is a row of buttons sitting high in its own strip.
+         */
+        const header = $(container, `<div class="dict-header" style="display: flex; justify-content: space-between; align-items: center; margin: 0 0 6.8px;">
             <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
                 ${logoSvg(palette.logo, LOGO_SIZE)}
                 <span class="dict-wordmark" style="display: block; line-height: 1.06;">
@@ -1268,7 +1338,6 @@ function catalog(container) {
                 </span>
             </h1>
             <div class="dict-header-actions" style="display: flex; gap: 6.8px;">
-                <button class="dict-add-set-btn" id="add-set-btn" style="padding: 5.1px 12px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-weight: 600; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">+ New Set</button>
                 <button class="dict-settings-btn" id="settings-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="Settings">${GEAR}</button>
                 <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s;" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
             </div>
@@ -1310,7 +1379,11 @@ function catalog(container) {
         // A toggle, not a repeat action: pressed again, the button takes the form
         // back down. Left as a plain action it would mint another empty set on
         // every press, and the catalog would stack blank forms nobody asked for.
-        header.querySelector('#add-set-btn').addEventListener('click', () => {
+        //
+        // Written here and attached further down, where the button it belongs to
+        // is drawn: the button moved into the "My" section, and this is about the
+        // header the app has rather than the one a section does.
+        function toggleNewSet() {
             if (closing) return;
 
             if (addingSet) {
@@ -1330,22 +1403,153 @@ function catalog(container) {
             rememberForm(id, '');
             unfolding = 'set';
             render();
-        });
+        }
 
-        const setsList = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
+        /*
+         * The shelf in two parts: what is already yours, and everything there is.
+         *
+         * Stacked rather than tabbed, and scrolled rather than switched. Two
+         * tabs in a window this narrow cost a row of the screen to say what two
+         * headings say for nothing, and they hide half the app behind a press
+         * that has to be guessed at.
+         *
+         * The heading is set small and spaced, the way the key list in snake's
+         * settings is: it marks where one thing ends and another begins without
+         * competing with the titles of the cards underneath, which are the
+         * things worth reading.
+         */
+        const sectionHead = (title, right) => `<div class="dict-section-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px;">
+                <span class="dict-section-title" style="flex: none; font-size: 12.8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${palette.hint};">${title}</span>
+                ${right || ''}
+            </div>`;
 
-        // The draft goes where the store would have put it: addSet unshifts, so
-        // a set saved from this form stays in the place its form stood in.
-        if (draft) renderSetCard(setsList, draft, intro);
+        /*
+         * New Set lives here now rather than in the window's header.
+         *
+         * It makes a set, and a set made is a set of yours: it belongs over the
+         * list of those and not beside the logo, among the buttons that act on
+         * the whole app. It also leaves the header with room for what the app
+         * itself needs there.
+         *
+         * In the section's own header and not under the list, because under the
+         * list is wherever the list happens to end -- which is off the bottom of
+         * the window as soon as there are a few sets.
+         */
+        const addBtn = `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">+ New Card Set</button>`;
 
-        sets.forEach(set => {
-            renderSetCard(setsList, set, intro);
-        });
+        /*
+         * My stuff is a band across the window rather than a plate on it.
+         *
+         * It needed to be something: unmarked, it ran straight on from the
+         * window's header, and a line of small grey type under the logo reads as
+         * part of the logo's furniture rather than as the top of a section.
+         *
+         * A band and not a card because the things it will hold are cards. A
+         * rounded plate with rounded plates inside it is a box in a box, and the
+         * nesting is read before anything in it is; a strip that runs out past
+         * both edges reads as the page changing colour, which is what a section
+         * boundary is.
+         *
+         * Darker than the page rather than lighter. Everything that rises off
+         * this background -- cards, chips, inputs -- is lifted toward the light,
+         * so another lifted surface would be one more of those. Sunk instead, it
+         * is the only thing on the screen that goes the other way, and it reads
+         * as the page's own floor rather than as something lying on it.
+         *
+         * Each theme darkens the page its own way -- see palette.bandBg, where
+         * the two colours and the reason they are two live. The one number that
+         * suffers is this section's heading: muted was set to clear 4.5 on the
+         * card and on the page, and on the light band it reads 4.44. Taking the
+         * band up to the chips' step to buy back that hundredth would leave it 2
+         * of L* under the page instead of 4.5, and a floor nobody sees is not a
+         * floor.
+         *
+         * It bleeds by exactly the page's own padding and puts the same number
+         * back inside, so the band reaches both edges while everything in it
+         * still stands in the column the rest of the app stands in. Which is why
+         * the air added inside it is above and below only: a wider side would
+         * push the heading out of that column and leave it standing on nothing
+         * in particular.
+         */
+        const mine = $(container, `<div class="dict-section dict-section-my" style="margin: 0 -6.8px 6.8px; padding: 10.2px 6.8px; background: ${palette.bandBg};">
+            ${sectionHead('My stuff', addBtn)}
+        </div>`);
+
+        mine.querySelector('#add-set-btn').addEventListener('click', toggleNewSet);
+
+        const mineList = $(mine, `<div class="dict-sets-list dict-sets-mine" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
+
+        // The form opens where the button that opened it stands. What happens to
+        // the set it makes is a question for the model, which cannot yet tell a
+        // set somebody wrote from one that came with the app -- so for now a
+        // saved set joins the rest below.
+        if (draft) renderSetCard(mineList, draft, intro);
 
         if (unfold === 'set') {
             const card = newSetCard();
             if (card) unfoldInto(card);
         }
+
+        /*
+         * Everything there is, and the pair of languages it is read through, on
+         * the one line.
+         *
+         * The dropdowns are the section's header rather than a row under it:
+         * they say what the whole of it is a list of, and a filter that scrolls
+         * away from the thing it filters is a filter nobody finds again. Beside
+         * the word rather than beneath it, because together they are one
+         * sentence -- this catalogue, in these languages -- and a sentence set
+         * on two lines is read as two.
+         *
+         * The pair shares what the title leaves, half each. Which is not much:
+         * at 350 the title takes about seventy and each dropdown is left with
+         * something like a hundred and fifteen, so a long language name is cut.
+         * That is the trade for one line, and the name is cut at its end, where
+         * languages differ least.
+         */
+        const filterSelect = (side, grow, label, full) => `<select class="dict-lang-select" data-side="${side}" title="${full}" style="flex: ${grow}; min-width: 0; ${selectStyle()}">${filterOptions(catalogLangs[side], label)}</select>`;
+
+        /*
+         * The two share the line in the ratio of what they have to say.
+         *
+         * There are 248.7 pixels here once the word CATALOG and the gaps have
+         * taken theirs, and the two labels want 135.8 and 97.1 -- a select clips
+         * rather than ellipsizes, so a label that does not fit is a word cut off
+         * mid-letter. Equal halves gave each 124.4 and cut the left one into
+         * "Language to lea"; 1.4 against 1 gives 145 and 103.6, and both stand
+         * whole.
+         *
+         * The right one keeps the short word. Both in full would want 286.3,
+         * which this line does not have, and of the two it is the left that has
+         * to be read: it says what the catalogue is a catalogue of. The long
+         * form of each is on hover either way.
+         *
+         * What it costs is on the right, where a long language name -- the
+         * longest in the list wants 140.4 -- is cut. That is the side holding
+         * the language somebody already reads, which is the one they can name
+         * from three letters.
+         */
+        const filters = `<div class="dict-lang-filter" style="display: flex; flex: 1; min-width: 0; gap: 6.8px;">
+                ${filterSelect('learn', '1.4', 'Language to learn', 'Language to learn')}
+                ${filterSelect('translation', '1', 'Translation', 'Translation language')}
+            </div>`;
+
+        const all = $(container, `<div class="dict-section dict-section-catalog">
+            ${sectionHead('Catalog', filters)}
+        </div>`);
+
+        const catalogList = $(all, `<div class="dict-sets-list dict-sets-catalog" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
+
+        sets.forEach(set => {
+            renderSetCard(catalogList, set, intro);
+        });
+
+        all.querySelectorAll('.dict-lang-select').forEach(select => {
+            select.addEventListener('change', () => {
+                catalogLangs = { ...catalogLangs, [select.dataset.side]: select.value };
+                saveSetting('catalogLangs', catalogLangs);
+            });
+        });
 
         // Last, so it is over everything this pass drew. Redrawn with the rest
         // of the screen — the theme button repaints the catalog under an open
@@ -2196,7 +2400,7 @@ function catalog(container) {
              * language when every word is in it, all of them named in a row when
              * they differ. refreshPlates keeps both in step with the box.
              */
-            const SELECT_STYLE = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6px 8.5px; font-family: inherit; font-size: 11.8px; font-weight: 600; cursor: pointer; outline: none;`;
+            const SELECT_STYLE = selectStyle();
 
             // A caption over a dropdown, cut to the width it has. Both of them
             // are one line high whatever they hold, so the two columns stay
@@ -2885,6 +3089,23 @@ function catalog(container) {
             softColor: t.muted,
             softBorder: t.border,
 
+            /*
+             * The floor the My stuff band is painted in -- see the band itself,
+             * where what it is for and why it is sunk rather than lifted live.
+             *
+             * The two themes answer differently because black does. Three tenths
+             * of it over the navy page is a deeper navy; over warm paper the same
+             * veil is a grey-brown, which is both the wrong colour and twice the
+             * weight -- 2.06 against the page where the dark band is 1.16.
+             *
+             * The light theme takes the fourth step of its own cream ladder
+             * instead, the one the borders are drawn in. Card, page, chips,
+             * borders: the band is the step below the page, which puts it 4.5 of
+             * L* under it against the dark band's 5.9 -- the nearest thing to the
+             * same depth that is already a colour here.
+             */
+            bandBg: isDark ? 'rgba(0, 0, 0, 0.3)' : t.border,
+
             // The outline of the three header buttons, which stand on the page
             // and not on a card — see tokens, where the colour and the reason
             // for it live, and the games, which outline their own two the same.
@@ -2964,6 +3185,13 @@ function catalog(container) {
 
     catalog.setSession = (value) => { session = value; };
     catalog.setColoursRead = (value) => { coloursRead = value; };
+
+    catalog.setCatalogLangs = (value) => {
+        catalogLangs = {
+            learn: (value && value.learn) || 'any',
+            translation: (value && value.translation) || 'any'
+        };
+    };
 
     /*
      * The forms that were open when this screen was last looked at.
@@ -3262,6 +3490,7 @@ async function bootCatalog() {
     // After catalog(container), which is what defines this. Absent means the
     // explanation has not been read, which is what a first run is.
     catalog.setColoursRead(!!(settings && settings.coloursRead));
+    catalog.setCatalogLangs(settings && settings.catalogLangs);
 
     // Absent means the corner has never been taken hold of, so it is still worth
     // pointing out.

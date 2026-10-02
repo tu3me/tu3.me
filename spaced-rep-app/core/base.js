@@ -645,11 +645,16 @@ function askingHand() {
         if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
 
         // Flush with the edge of the app, which from the card's padding box is its
-        // own border and the page's side padding: 1 + 10.2. Further out and the
+        // own border and the page's side padding: 1 + 6.8. Further out and the
         // hand hangs off the body, which on a screen exactly as wide as the app
         // is a scrollbar; further in and it stops looking like something that
         // came from outside.
-        shown = $(card, `<button class="asking-hand" title="What the colours mean" style="position: absolute; right: -11.2px; top: 50%; margin-top: -25px; width: 50px; height: 50px; padding: 0; background: transparent; border: none; cursor: pointer; overflow: hidden; z-index: 5;">
+        //
+        // Which is why it is the page's own padding and not a number of its own.
+        // It stayed at 11.2 for a while after the page went from 10.2 to 6.8,
+        // and the 3.4 left over was exactly that scrollbar: in the popup the
+        // window is the app's width and nothing has anywhere to hang off to.
+        shown = $(card, `<button class="asking-hand" title="What the colours mean" style="position: absolute; right: -7.8px; top: 50%; margin-top: -25px; width: 50px; height: 50px; padding: 0; background: transparent; border: none; cursor: pointer; overflow: hidden; z-index: 5;">
             <span class="asking-hand-slide" style="display: block;">${SIGN}</span>
         </button>`);
 

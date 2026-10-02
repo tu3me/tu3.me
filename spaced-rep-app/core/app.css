@@ -260,8 +260,17 @@ body {
     font-size: 14.3px;
 }
 
+/*
+ * The margin the whole app stands in, on every page.
+ *
+ * Small on purpose. What it holds is already inset -- cards have their own
+ * padding, the games' header is a row of buttons with air built into them -- so
+ * this one is the gap between that and the window, and a window this size has
+ * none to spare. At 10.2 the games' header, 29 tall, sat with eleven pixels of
+ * nothing above it, which read as the app starting late rather than as a margin.
+ */
 .app-main-content {
-    padding: 10.2px;
+    padding: 6.8px;
 }
 
 /*
@@ -450,6 +459,49 @@ body {
     0%, 100% { scale: 1; }
     30% { scale: 1.3; }
     65% { scale: 0.94; }
+}
+
+/*
+ * "+ New Card Set", centred on its letters rather than on its line box.
+ *
+ * The paddings were equal and the label still sat low: 12 above the letters
+ * against 10.16 below. A font reserves room over the capitals for accents and
+ * under the baseline for descenders, and "+ New Card Set" has neither — so
+ * both reserves show as empty space, and the one above is the larger of the
+ * two.
+ *
+ * Trimmed to the cap height and the baseline, the box holds the letters and
+ * nothing else, and equal padding is then equal space. The padding is larger
+ * here than the number it replaces because it now pays for the whole gap rather
+ * than for what the font left over, and it is chosen to leave the button the
+ * height it had.
+ *
+ * Behind @supports, and the plain rule above it is the old one exactly: where
+ * the trim is not understood the button is what it has always been, rather than
+ * a button grown by nine pixels of padding meant for a box that was never
+ * trimmed.
+ */
+.dict-add-set-btn {
+    padding: 5.1px 12px;
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+    .dict-add-set-btn {
+        text-box: trim-both cap alphabetic;
+        padding: 9.7px 12px;
+    }
+}
+
+/*
+ * The gap under a section's heading, and only when something stands there.
+ *
+ * An empty "My stuff" is a heading, a button and a border, and every pixel
+ * between them is one the catalogue below does not get: the window stops at 600
+ * and the first card of the catalogue is what the screen is for. A margin
+ * written into the heading would be paid whether or not anything followed it.
+ */
+.dict-sets-list:not(:empty) {
+    margin-top: 8.5px;
 }
 
 /*

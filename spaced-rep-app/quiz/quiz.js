@@ -407,7 +407,7 @@ function quiz(container) {
             if (group) group.innerHTML = dotsHtml();
         }
 
-        const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10.2px;">
+        const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
             <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
@@ -498,14 +498,20 @@ function quiz(container) {
         let isAnswered = false;
         let wasWrong = false;
 
-        // The keyboard cursor is an outline drawn outside the border, so it never
-        // covers the border itself, plus an arrow in the option's right gutter
-        // saying which key sends it. Both are dropped the moment an answer is
-        // given: from then on the fill carries the result, and a cursor sitting
-        // on top of it only makes that harder to read.
+        // The keyboard cursor is an outline against the button's own edge, plus
+        // an arrow in the option's right gutter saying which key sends it. Both
+        // are dropped the moment an answer is given: from then on the fill
+        // carries the result, and a cursor sitting on top of it only makes that
+        // harder to read.
+        //
+        // No offset. Standing two pixels clear of the border, the cursor read as
+        // the option growing when it was pointed at -- an outline is painted
+        // outside the box and takes no room in the layout, so nothing moved, but
+        // one option four pixels wider than the rest is an option that looks
+        // wider than the rest.
         function showCursor(button, on) {
             button.style.outline = on ? `2px solid ${palette.cursor}` : 'none';
-            button.style.outlineOffset = '2px';
+            button.style.outlineOffset = '0';
             const arrow = button.querySelector('.quiz-option-arrow');
             if (arrow) arrow.style.display = on ? 'block' : 'none';
         }
