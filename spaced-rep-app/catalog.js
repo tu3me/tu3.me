@@ -1477,8 +1477,23 @@ function catalog(container) {
          * with. The order along this screen is cards, then the hands over them,
          * then these strips, then the dialogs at 100, then the resize corner at
          * 200, which is the window's own furniture and is over everything.
+         *
+         * The shadow is two pixels of the same colour laid above the strip, and
+         * it is there for a hairline seen on a phone: a hairline of the page
+         * between the top of the window and the top of the strip, with the cards
+         * sliding through it. A stuck box is painted on whole device pixels while
+         * what passes under it is moved by the compositor without rounding, and
+         * on a screen that is already carrying two fractions -- the app's zoom,
+         * and the scale the phone fits 350 points into -- the two land a part of
+         * a pixel apart.
+         *
+         * A shadow rather than a pixel of padding or a nudge upwards: it paints
+         * outside the box without being in the layout, so the strip is the same
+         * height it was and nothing under it moves. In its unstuck place it is
+         * painted over whatever the heading is already standing on, in that same
+         * thing's colour, so there is nothing to see.
          */
-        const sectionHead = (title, right, back) => `<div class="dict-section-head" style="position: sticky; top: 0; z-index: 6; margin: -6.8px; padding: 6.8px; background: ${back}; display: flex; justify-content: space-between; align-items: center; gap: 10.2px;">
+        const sectionHead = (title, right, back) => `<div class="dict-section-head" style="position: sticky; top: 0; z-index: 6; margin: -6.8px; padding: 6.8px; background: ${back}; box-shadow: 0 -2px 0 ${back}; display: flex; justify-content: space-between; align-items: center; gap: 10.2px;">
                 <span class="dict-section-title" style="flex: none; font-size: 12.8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${palette.hint};">${title}</span>
                 ${right || ''}
             </div>`;
