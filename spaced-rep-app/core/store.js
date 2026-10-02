@@ -12,21 +12,26 @@ function store() {
     let sets = seed.sets();
 
     /*
-     * Writes onto every word which language each of its two sides is in:
-     * `originalLang` and `translationLang`. A word is what gets read aloud, so a
-     * word is what carries the answer — whoever has the word has the language,
-     * without a set to look up.
+     * Writes onto the set which language each of its two sides is in:
+     * `originalLang` and `translationLang`.
+     *
+     * On the set and not on each word, which is the whole of the model now. A
+     * set is a pair of languages and a list of pairs of words, which is what
+     * anybody writing one means by it; the alternative -- a language per word --
+     * could hold a set in eight languages at once, and the price was that every
+     * screen, every game and every form had to ask each word separately what it
+     * was, for an answer that was the same on all of them.
      *
      * The answer is worked out from the whole column at once, because that is
      * where the evidence is. Most words are ordinary letters that any of a dozen
      * languages could have written; the column is named by the one word in it
      * that happens to carry a local letter, and reading all of them is the only
-     * way to meet that letter at all. What the column decides is then written to
-     * every word in it, the plain ones included.
+     * way to meet that letter at all.
      *
-     * Only when the column really does hold several languages does each word
-     * answer for itself — and then the same field holds a different answer per
-     * word, which is exactly what it is for.
+     * A column that really does hold several languages is now answered with the
+     * commonest of them rather than word by word. It is a set somebody typed
+     * wrong, and one language is a better answer to that than a set which is
+     * quietly half one thing and half another.
      *
      * A word that already names its language is left alone. The detector is a
      * guess and the field may hold something better than a guess — what seed.js
@@ -39,17 +44,14 @@ function store() {
         const words = set.words || [];
 
         [['originalLang', 'original'], ['translationLang', 'translation']].forEach(([field, side]) => {
-            if (words.every(w => w[field])) return;
+            if (set[field]) return;
 
             const guess = speech.languageOfAll(words.map(w => w[side]));
-            words.forEach((w, i) => {
-                if (w[field]) return;
 
-                // Nothing recognised — digits, an empty translation — leaves the
-                // field absent rather than putting a null in the saved data.
-                const found = guess.perText ? guess.perText[i] : guess.lang;
-                if (found) w[field] = found;
-            });
+            // Nothing recognised — digits, an empty column — leaves the field
+            // absent rather than putting a null in the saved data.
+            const found = guess.lang || commonest(guess.perText);
+            if (found) set[field] = found;
         });
 
         return set;
@@ -64,16 +66,51 @@ function store() {
         return storage.set('word_sets', sets);
     }
 
+    /*
+     * The language most of a mixed column is in.
+     *
+     * Only reached when the detector refused to name the column outright, which
+     * means it saw more than one language in it. Ties go to whichever was met
+     * first, and that is as good an answer as any: the question has no right
+     * answer by then, only a least surprising one.
+     */
+    function commonest(perText) {
+        if (!perText) return null;
+
+        const count = new Map();
+        let best = null;
+
+        perText.forEach(tag => {
+            if (!tag) return;
+
+            const n = (count.get(tag) || 0) + 1;
+            count.set(tag, n);
+
+            if (!best || n > count.get(best)) best = tag;
+        });
+
+        return best;
+    }
+
     store.label = label;
 
     // Live references into `sets` — the games build their own session pools from these
     function wordsOf(setId) {
         const activeSets = setId !== 'all' ? sets.filter(s => s.id === setId) : sets;
 
+        // The set's two languages travel with every word taken out of it. A
+        // game is handed a flat list and has no set to look up, and this is the
+        // one thing on a word that is not on the word.
         const items = [];
         activeSets.forEach(s => {
             s.words.forEach(w => {
-                items.push({ setId: s.id, setName: s.title, word: w });
+                items.push({
+                    setId: s.id,
+                    setName: s.title,
+                    originalLang: s.originalLang,
+                    translationLang: s.translationLang,
+                    word: w
+                });
             });
         });
         return items;

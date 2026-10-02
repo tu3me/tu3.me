@@ -423,7 +423,7 @@ function quiz(container) {
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
         const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
-            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.word.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
+            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
         </div>`);
 
         /*
@@ -435,7 +435,7 @@ function quiz(container) {
          * answering would take the round away from the player. They are also the
          * translations, which is the language the player already has.
          */
-        listen(questionCard, currentItem.word.original, currentItem.word.originalLang);
+        listen(questionCard, currentItem.word.original, currentItem.originalLang);
 
         // Drawn before the voices were known, so the speakers — on the question
         // and on every option — were drawn on trust. One redraw when the list
@@ -473,14 +473,17 @@ function quiz(container) {
          * in the wrong one. Absent where the word never got a language, and then
          * speech.say guesses from the text, which is all a lone word can offer.
          */
+        // Every option on the screen comes out of one set, so every option is
+        // in that set's translation language -- there is nothing left to look up
+        // per option.
+        const optionLang = currentItem.translationLang;
+
         const allTranslations = [];
-        const langOf = new Map();
 
         store.wordsOf(currentItem.setId).forEach(({ word }) => {
             if (!word.translation || allTranslations.includes(word.translation)) return;
 
             allTranslations.push(word.translation);
-            langOf.set(word.translation, word.translationLang);
         });
 
         const correctTranslation = currentItem.word.translation;
@@ -554,7 +557,7 @@ function quiz(container) {
         selectedOptions.forEach((opt, optIndex) => {
             const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px 13.7px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 12px; font-weight: 600; font-size: 14.3px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8.5px;">
                 <span class="quiz-option-left" style="display: flex; align-items: center; gap: 8.5px; min-width: 0;">
-                    ${speech.speakerHtml(opt, langOf.get(opt), palette.sayIcon, 'margin-top: 0; font-size: 15.4px; flex: none;')}
+                    ${speech.speakerHtml(opt, optionLang, palette.sayIcon, 'margin-top: 0; font-size: 15.4px; flex: none;')}
                     <span class="quiz-option-label">${escapeText(opt)}</span>
                 </span>
                 <span class="quiz-option-right" style="display: flex; align-items: center; flex: none;">
@@ -584,7 +587,7 @@ function quiz(container) {
 
                 // Nothing heard, and the switch in the header is the reason:
                 // the switch answers, the same as it does for the question.
-                if (speech.say(opt, langOf.get(opt))) return;
+                if (speech.say(opt, optionLang)) return;
                 if (speech.muted()) page.pulseMute();
             });
 

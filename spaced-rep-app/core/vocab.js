@@ -365,7 +365,7 @@ function vocab() {
      * given: languages onto words, repetitions as they are answered. One shared
      * array would hand the next reader somebody else's progress.
      *
-     * Both languages are written on every entry. The pair is known here, and a
+     * Both languages are written on the set. The pair is known here, and a
      * ready-made set has no business leaving it to a detector to work out that
      * these ten lines are Greek.
      *
@@ -381,11 +381,11 @@ function vocab() {
 
         return LEVELS.map((level, i) => ({
             level: level,
+            originalLang: learn,
+            translationLang: translation,
             words: WORDS[from].slice(i * PER_LEVEL, (i + 1) * PER_LEVEL).map((word, j) => ({
                 original: word,
-                originalLang: learn,
                 translation: WORDS[into][i * PER_LEVEL + j],
-                translationLang: translation,
                 repetitions: []
             }))
         }));

@@ -2381,7 +2381,7 @@ function snake(container) {
 
         let currentItem = pool[state.currentIndex];
         let targetWord = currentItem.word.original.toLowerCase();
-        sayLang = currentItem.word.originalLang;
+        sayLang = currentItem.originalLang;
 
         view.mount({
             translation: currentItem.word.translation,
@@ -2990,7 +2990,7 @@ function snake(container) {
 
             currentItem = pool[state.currentIndex];
             targetWord = currentItem.word.original.toLowerCase();
-            sayLang = currentItem.word.originalLang;
+            sayLang = currentItem.originalLang;
             state.hadErrorThisRound = false;
             state.showHint = false;
             board.setWord(targetWord);

@@ -259,6 +259,15 @@ function resizeGrip() {
      * of the page and starts reading as furniture of the browser. It belongs to
      * the top of the document, so it leaves with the top of the document and
      * comes back with it.
+     *
+     * Which of the two is scrolling differs between the popup and the web, and
+     * this has to work in both. On the web the document scrolls and the body's
+     * box moves up with it. In the popup the document is capped at 600 and the
+     * scrolling is moved inside the body -- see .in-popup in app.css -- so the
+     * body's box never moves at all and its content slides under it, which is
+     * exactly how the handle came to sit in the corner of a popup that was being
+     * scrolled. Subtracting the body's own scroll answers both: on the web it is
+     * nought, in the popup it is the whole of the movement.
      */
     function place() {
         const box = document.body.getBoundingClientRect();
@@ -284,7 +293,7 @@ function resizeGrip() {
         const origin = document.documentElement.getBoundingClientRect().left + window.scrollX;
 
         handle.style.left = edge - origin + 'px';
-        handle.style.top = box.top + 'px';
+        handle.style.top = box.top - document.body.scrollTop + 'px';
     }
 
     // Written behind a pause, like the popup's own height a few lines up: a

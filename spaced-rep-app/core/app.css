@@ -47,6 +47,27 @@
 }
 
 /*
+ * Which palette the browser's own parts are drawn from.
+ *
+ * Everything the app paints follows the theme already; everything it does not
+ * paint — the list a <select> drops down, the scrollbars, the caret, a focus
+ * ring — is drawn by the browser, and without this it draws them light. On the
+ * dark theme that is a white menu with grey type over a navy app, which looks
+ * like a bug in the app and is a declaration the app never made.
+ *
+ * Keyed off the attribute the theme already sets rather than the media query:
+ * the app has its own switch, and a phone set to dark with the app set to light
+ * would otherwise get dark menus over a cream page.
+ */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+/*
  * The grey box a phone paints over whatever was tapped.
  *
  * It is the platform saying "I saw that" — drawn before the page can answer, in
