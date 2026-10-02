@@ -3,58 +3,67 @@
  *
  * Composed rather than written out. The dropdowns list every language the
  * browser can name — 183 of them — and a file holding three sets for every
- * ordered pair would be some 33,000 pairs and 800,000 words: not a file anybody
- * could write, and not one a popup could load. One column of 24 words per
- * language gives the same pairs for 24 × N words, because a pair is two columns
- * read side by side.
+ * ordered pair would be some 33,000 pairs and a million words: not a file
+ * anybody could write, and not one a popup could load. One column of 30 entries
+ * per language gives the same pairs for 30 × N entries, because a pair is two
+ * columns read side by side.
  *
- * So what is kept here is a table and not a catalogue: twenty-four things, named
- * once in each language. Forty-nine columns is 1,176 lines and 2,352 pairs, and
- * each language added is one more column — 24 lines for 96 more pairs.
+ * So what is kept here is a table and not a catalogue: thirty things, named once
+ * in each language. Forty-nine columns is 1,470 lines and 2,352 pairs, and each
+ * language added is one more column — 30 lines for 96 more pairs.
  *
  * Which forty-nine: the ones the extension itself is translated into, which is
- * what `_locales` holds. The store's listing languages are the languages the app
- * can be read in, so they are the languages somebody is likely to be reading a
- * translation in. Regional pairs there are one column here — es and es_419, the
- * two Portuguese, the two Chinese — because none of these twenty-four words is
- * one of the words those variants disagree about, and `fil` is `tl` because that
- * is the tag the dropdowns offer.
+ * what `_locales` holds. Those are the languages the app can be read in, so they
+ * are the languages somebody is likely to be reading a translation in. Regional
+ * pairs there are one column here — es and es_419, the two Portuguese, the two
+ * Chinese — written in the more widely used of the two, which for Portuguese is
+ * the Brazilian wording (trem, ônibus, cardápio) and for Chinese is simplified
+ * characters. A traveller reading the other variant will be understood.
  *
- * The rows are the same twenty-four in every column, in the same order, and that
- * is what makes a pair possible: row seven is "morning" whichever two columns
- * are being read. The words are concrete and have one obvious translation each —
- * no "time" that is also "weather", no "dream" that is both the sleep and the
- * hope — because a row that means two things in one language means the wrong one
- * in the other.
+ * The rows are the same thirty in every column, in the same order, and that is
+ * what makes a pair possible: row seven is "water" whichever two columns are
+ * being read.
  */
 function vocab() {
     /*
-     * Three sets of eight, in one run of twenty-four.
+     * Three sets of ten, in one run of thirty, and all of it for travelling.
      *
-     * Eight because that is what the first card set holds and what the window
-     * fits: a set of eight is four rows of bubbles, and the games below it stay
-     * on the screen.
+     * A set is what somebody can be handed before a trip and work through on the
+     * plane, so the three are the order the words are needed in rather than three
+     * grades of difficulty: what is said on arrival, what gets you across a city,
+     * and what is said when something has gone wrong.
      *
-     * The levels are what the words are, not what they are labelled. Beginner is
-     * what is on a table in front of you; intermediate is the rest of a street
-     * and a day; advanced is what cannot be pointed at — freedom, patience,
-     * silence. A learner who knows the first eight can read a menu, and a
-     * learner who knows the last eight can read a page.
+     * Half of the entries are two or three words rather than one. "Train station"
+     * and "how much" are what a traveller actually needs, and neither of them is
+     * a word; a table of bare nouns teaches somebody to name things they cannot
+     * ask for. Nothing here is longer than a phrase that fits on a card, and
+     * nothing is a sentence with a verb to conjugate -- except the one everybody
+     * needs, "I do not understand", which is a fixed phrase in every language
+     * here and is learned as one.
      */
     const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-    const PER_LEVEL = 8;
+    const PER_LEVEL = 10;
 
     /*
-     * The table. Every column is the same twenty-four rows in the same order:
+     * The table. Every column is the same thirty rows in the same order:
      *
-     *   water bread house friend book city morning thank-you
-     *   window kitchen journey language neighbour market question river
-     *   freedom patience knowledge shadow promise silence courage truth
+     *   Beginner, the first hour:
+     *     hello thank-you please excuse-me good-morning good-evening
+     *     water bread how-much where-is
+     *
+     *   Intermediate, getting across a city:
+     *     airport train-station bus-stop ticket luggage
+     *     room-key the-bill menu pharmacy city-centre
+     *
+     *   Advanced, when it goes wrong:
+     *     help doctor hospital police passport
+     *     emergency-exit too-expensive I-do-not-understand lost-luggage customs
      *
      * German keeps its capitals and nothing else takes one. A noun is capitalised
      * in German wherever it stands, and the other forty-eight capitalise none of
      * these — squaring them up would put a spelling mistake on nearly every card.
-     * "danke" is not a noun, so it stays lower case among them.
+     * "danke", "bitte" and "zu teuer" are not nouns, so they stay lower case
+     * among them.
      *
      * The columns are in tag order rather than in any order of importance: a
      * table where one language comes first is a table somebody has to justify,
@@ -62,249 +71,249 @@ function vocab() {
      */
     const WORDS = {
         am: [
-            'ውሃ', 'ዳቦ', 'ቤት', 'ጓደኛ', 'መጽሐፍ', 'ከተማ', 'ጠዋት', 'አመሰግናለሁ',
-            'መስኮት', 'ኩሽና', 'ጉዞ', 'ቋንቋ', 'ጎረቤት', 'ገበያ', 'ጥያቄ', 'ወንዝ',
-            'ነፃነት', 'ትዕግሥት', 'እውቀት', 'ጥላ', 'ቃል ኪዳን', 'ዝምታ', 'ድፍረት', 'እውነት'
+            'ሰላም', 'አመሰግናለሁ', 'እባክህ', 'ይቅርታ', 'እንደምን አደርክ', 'እንደምን አመሸህ', 'ውሃ', 'ዳቦ', 'ስንት ነው', 'የት ነው',
+            'አውሮፕላን ማረፊያ', 'ባቡር ጣቢያ', 'አውቶቡስ ፌርማታ', 'ትኬት', 'ሻንጣ', 'የክፍል ቁልፍ', 'ሂሳብ', 'ምናሌ', 'ፋርማሲ', 'የከተማ መሃል',
+            'እርዳታ', 'ሐኪም', 'ሆስፒታል', 'ፖሊስ', 'ፓስፖርት', 'የአደጋ መውጫ', 'በጣም ውድ', 'አልገባኝም', 'የጠፋ ሻንጣ', 'ጉምሩክ'
         ],
         ar: [
-            'ماء', 'خبز', 'بيت', 'صديق', 'كتاب', 'مدينة', 'صباح', 'شكرا',
-            'نافذة', 'مطبخ', 'رحلة', 'لغة', 'جار', 'سوق', 'سؤال', 'نهر',
-            'حرية', 'صبر', 'معرفة', 'ظل', 'وعد', 'صمت', 'شجاعة', 'حقيقة'
+            'مرحبا', 'شكرا', 'من فضلك', 'عفوا', 'صباح الخير', 'مساء الخير', 'ماء', 'خبز', 'كم الثمن', 'أين يوجد',
+            'مطار', 'محطة القطار', 'موقف الحافلات', 'تذكرة', 'حقيبة', 'مفتاح الغرفة', 'الحساب', 'قائمة الطعام', 'صيدلية', 'وسط المدينة',
+            'مساعدة', 'طبيب', 'مستشفى', 'شرطة', 'جواز سفر', 'مخرج الطوارئ', 'غالي جدا', 'لا أفهم', 'حقيبة مفقودة', 'الجمارك'
         ],
         bg: [
-            'вода', 'хляб', 'къща', 'приятел', 'книга', 'град', 'утро', 'благодаря',
-            'прозорец', 'кухня', 'пътуване', 'език', 'съсед', 'пазар', 'въпрос', 'река',
-            'свобода', 'търпение', 'знание', 'сянка', 'обещание', 'тишина', 'смелост', 'истина'
+            'здравей', 'благодаря', 'моля', 'извинете', 'добро утро', 'добър вечер', 'вода', 'хляб', 'колко струва', 'къде е',
+            'летище', 'гара', 'автобусна спирка', 'билет', 'багаж', 'ключ от стаята', 'сметката', 'меню', 'аптека', 'центъра на града',
+            'помощ', 'лекар', 'болница', 'полиция', 'паспорт', 'авариен изход', 'твърде скъпо', 'не разбирам', 'изгубен багаж', 'митница'
         ],
         bn: [
-            'পানি', 'রুটি', 'বাড়ি', 'বন্ধু', 'বই', 'শহর', 'সকাল', 'ধন্যবাদ',
-            'জানালা', 'রান্নাঘর', 'ভ্রমণ', 'ভাষা', 'প্রতিবেশী', 'বাজার', 'প্রশ্ন', 'নদী',
-            'স্বাধীনতা', 'ধৈর্য', 'জ্ঞান', 'ছায়া', 'প্রতিশ্রুতি', 'নীরবতা', 'সাহস', 'সত্য'
+            'নমস্কার', 'ধন্যবাদ', 'দয়া করে', 'মাফ করবেন', 'সুপ্রভাত', 'শুভ সন্ধ্যা', 'পানি', 'রুটি', 'কত দাম', 'কোথায় আছে',
+            'বিমানবন্দর', 'রেল স্টেশন', 'বাস স্টপ', 'টিকিট', 'লাগেজ', 'ঘরের চাবি', 'বিল', 'মেনু', 'ওষুধের দোকান', 'শহরের কেন্দ্র',
+            'সাহায্য', 'ডাক্তার', 'হাসপাতাল', 'পুলিশ', 'পাসপোর্ট', 'জরুরি নির্গমন', 'খুব দামি', 'আমি বুঝতে পারছি না', 'হারানো লাগেজ', 'শুল্ক'
         ],
         ca: [
-            'aigua', 'pa', 'casa', 'amic', 'llibre', 'ciutat', 'matí', 'gràcies',
-            'finestra', 'cuina', 'viatge', 'llengua', 'veí', 'mercat', 'pregunta', 'riu',
-            'llibertat', 'paciència', 'coneixement', 'ombra', 'promesa', 'silenci', 'coratge', 'veritat'
+            'hola', 'gràcies', 'si us plau', 'perdoni', 'bon dia', 'bona nit', 'aigua', 'pa', 'quant costa', 'on és',
+            'aeroport', 'estació de tren', "parada d'autobús", 'bitllet', 'equipatge', "clau de l'habitació", 'el compte', 'carta', 'farmàcia', 'centre de la ciutat',
+            'ajuda', 'metge', 'hospital', 'policia', 'passaport', "sortida d'emergència", 'massa car', 'no ho entenc', 'equipatge perdut', 'duana'
         ],
         cs: [
-            'voda', 'chléb', 'dům', 'přítel', 'kniha', 'město', 'ráno', 'děkuji',
-            'okno', 'kuchyně', 'cesta', 'jazyk', 'soused', 'trh', 'otázka', 'řeka',
-            'svoboda', 'trpělivost', 'znalost', 'stín', 'slib', 'ticho', 'odvaha', 'pravda'
+            'ahoj', 'děkuji', 'prosím', 'promiňte', 'dobré ráno', 'dobrý večer', 'voda', 'chléb', 'kolik to stojí', 'kde je',
+            'letiště', 'nádraží', 'autobusová zastávka', 'jízdenka', 'zavazadlo', 'klíč od pokoje', 'účet', 'jídelní lístek', 'lékárna', 'centrum města',
+            'pomoc', 'lékař', 'nemocnice', 'policie', 'pas', 'nouzový východ', 'příliš drahé', 'nerozumím', 'ztracené zavazadlo', 'celnice'
         ],
         da: [
-            'vand', 'brød', 'hus', 'ven', 'bog', 'by', 'morgen', 'tak',
-            'vindue', 'køkken', 'rejse', 'sprog', 'nabo', 'marked', 'spørgsmål', 'flod',
-            'frihed', 'tålmodighed', 'viden', 'skygge', 'løfte', 'stilhed', 'mod', 'sandhed'
+            'hej', 'tak', 'venligst', 'undskyld', 'godmorgen', 'godaften', 'vand', 'brød', 'hvad koster det', 'hvor er',
+            'lufthavn', 'togstation', 'busstoppested', 'billet', 'bagage', 'værelsesnøgle', 'regningen', 'menu', 'apotek', 'centrum',
+            'hjælp', 'læge', 'hospital', 'politi', 'pas', 'nødudgang', 'for dyrt', 'jeg forstår ikke', 'forsvundet bagage', 'told'
         ],
         de: [
-            'Wasser', 'Brot', 'Haus', 'Freund', 'Buch', 'Stadt', 'Morgen', 'danke',
-            'Fenster', 'Küche', 'Reise', 'Sprache', 'Nachbar', 'Markt', 'Frage', 'Fluss',
-            'Freiheit', 'Geduld', 'Wissen', 'Schatten', 'Versprechen', 'Stille', 'Mut', 'Wahrheit'
+            'hallo', 'danke', 'bitte', 'Entschuldigung', 'guten Morgen', 'guten Abend', 'Wasser', 'Brot', 'wie viel kostet das', 'wo ist',
+            'Flughafen', 'Bahnhof', 'Bushaltestelle', 'Fahrkarte', 'Gepäck', 'Zimmerschlüssel', 'die Rechnung', 'Speisekarte', 'Apotheke', 'Stadtzentrum',
+            'Hilfe', 'Arzt', 'Krankenhaus', 'Polizei', 'Reisepass', 'Notausgang', 'zu teuer', 'ich verstehe nicht', 'verlorenes Gepäck', 'Zoll'
         ],
         el: [
-            'νερό', 'ψωμί', 'σπίτι', 'φίλος', 'βιβλίο', 'πόλη', 'πρωί', 'ευχαριστώ',
-            'παράθυρο', 'κουζίνα', 'ταξίδι', 'γλώσσα', 'γείτονας', 'αγορά', 'ερώτηση', 'ποτάμι',
-            'ελευθερία', 'υπομονή', 'γνώση', 'σκιά', 'υπόσχεση', 'σιωπή', 'θάρρος', 'αλήθεια'
+            'γεια σου', 'ευχαριστώ', 'παρακαλώ', 'συγγνώμη', 'καλημέρα', 'καλησπέρα', 'νερό', 'ψωμί', 'πόσο κάνει', 'πού είναι',
+            'αεροδρόμιο', 'σιδηροδρομικός σταθμός', 'στάση λεωφορείου', 'εισιτήριο', 'αποσκευές', 'κλειδί δωματίου', 'ο λογαριασμός', 'κατάλογος', 'φαρμακείο', 'κέντρο της πόλης',
+            'βοήθεια', 'γιατρός', 'νοσοκομείο', 'αστυνομία', 'διαβατήριο', 'έξοδος κινδύνου', 'πολύ ακριβό', 'δεν καταλαβαίνω', 'χαμένες αποσκευές', 'τελωνείο'
         ],
         en: [
-            'water', 'bread', 'house', 'friend', 'book', 'city', 'morning', 'thank you',
-            'window', 'kitchen', 'journey', 'language', 'neighbour', 'market', 'question', 'river',
-            'freedom', 'patience', 'knowledge', 'shadow', 'promise', 'silence', 'courage', 'truth'
+            'hello', 'thank you', 'please', 'excuse me', 'good morning', 'good evening', 'water', 'bread', 'how much', 'where is',
+            'airport', 'train station', 'bus stop', 'ticket', 'luggage', 'room key', 'the bill', 'menu', 'pharmacy', 'city centre',
+            'help', 'doctor', 'hospital', 'police', 'passport', 'emergency exit', 'too expensive', 'I do not understand', 'lost luggage', 'customs'
         ],
         es: [
-            'agua', 'pan', 'casa', 'amigo', 'libro', 'ciudad', 'mañana', 'gracias',
-            'ventana', 'cocina', 'viaje', 'idioma', 'vecino', 'mercado', 'pregunta', 'río',
-            'libertad', 'paciencia', 'conocimiento', 'sombra', 'promesa', 'silencio', 'coraje', 'verdad'
+            'hola', 'gracias', 'por favor', 'perdone', 'buenos días', 'buenas tardes', 'agua', 'pan', 'cuánto cuesta', 'dónde está',
+            'aeropuerto', 'estación de tren', 'parada de autobús', 'billete', 'equipaje', 'llave de la habitación', 'la cuenta', 'carta', 'farmacia', 'centro de la ciudad',
+            'ayuda', 'médico', 'hospital', 'policía', 'pasaporte', 'salida de emergencia', 'demasiado caro', 'no entiendo', 'equipaje perdido', 'aduana'
         ],
         et: [
-            'vesi', 'leib', 'maja', 'sõber', 'raamat', 'linn', 'hommik', 'aitäh',
-            'aken', 'köök', 'reis', 'keel', 'naaber', 'turg', 'küsimus', 'jõgi',
-            'vabadus', 'kannatlikkus', 'teadmine', 'vari', 'lubadus', 'vaikus', 'julgus', 'tõde'
+            'tere', 'aitäh', 'palun', 'vabandust', 'tere hommikust', 'tere õhtust', 'vesi', 'leib', 'kui palju maksab', 'kus on',
+            'lennujaam', 'raudteejaam', 'bussipeatus', 'pilet', 'pagas', 'toa võti', 'arve', 'menüü', 'apteek', 'kesklinn',
+            'appi', 'arst', 'haigla', 'politsei', 'pass', 'hädaväljapääs', 'liiga kallis', 'ma ei saa aru', 'kadunud pagas', 'toll'
         ],
         fa: [
-            'آب', 'نان', 'خانه', 'دوست', 'کتاب', 'شهر', 'صبح', 'متشکرم',
-            'پنجره', 'آشپزخانه', 'سفر', 'زبان', 'همسایه', 'بازار', 'سؤال', 'رودخانه',
-            'آزادی', 'صبر', 'دانش', 'سایه', 'قول', 'سکوت', 'شجاعت', 'حقیقت'
+            'سلام', 'متشکرم', 'لطفا', 'ببخشید', 'صبح بخیر', 'عصر بخیر', 'آب', 'نان', 'چند است', 'کجاست',
+            'فرودگاه', 'ایستگاه قطار', 'ایستگاه اتوبوس', 'بلیط', 'چمدان', 'کلید اتاق', 'صورتحساب', 'منو', 'داروخانه', 'مرکز شهر',
+            'کمک', 'پزشک', 'بیمارستان', 'پلیس', 'گذرنامه', 'خروج اضطراری', 'خیلی گران', 'نمی‌فهمم', 'چمدان گمشده', 'گمرک'
         ],
         fi: [
-            'vesi', 'leipä', 'talo', 'ystävä', 'kirja', 'kaupunki', 'aamu', 'kiitos',
-            'ikkuna', 'keittiö', 'matka', 'kieli', 'naapuri', 'tori', 'kysymys', 'joki',
-            'vapaus', 'kärsivällisyys', 'tieto', 'varjo', 'lupaus', 'hiljaisuus', 'rohkeus', 'totuus'
+            'hei', 'kiitos', 'ole hyvä', 'anteeksi', 'hyvää huomenta', 'hyvää iltaa', 'vesi', 'leipä', 'paljonko maksaa', 'missä on',
+            'lentokenttä', 'rautatieasema', 'bussipysäkki', 'lippu', 'matkatavarat', 'huoneen avain', 'lasku', 'ruokalista', 'apteekki', 'keskusta',
+            'apua', 'lääkäri', 'sairaala', 'poliisi', 'passi', 'hätäuloskäynti', 'liian kallis', 'en ymmärrä', 'kadonnut matkatavara', 'tulli'
         ],
         fr: [
-            'eau', 'pain', 'maison', 'ami', 'livre', 'ville', 'matin', 'merci',
-            'fenêtre', 'cuisine', 'voyage', 'langue', 'voisin', 'marché', 'question', 'rivière',
-            'liberté', 'patience', 'connaissance', 'ombre', 'promesse', 'silence', 'courage', 'vérité'
+            'salut', 'merci', "s'il vous plaît", 'excusez-moi', 'bonjour', 'bonsoir', 'eau', 'pain', 'combien ça coûte', 'où est',
+            'aéroport', 'gare', 'arrêt de bus', 'billet', 'bagages', 'clé de la chambre', "l'addition", 'carte', 'pharmacie', 'centre-ville',
+            'au secours', 'médecin', 'hôpital', 'police', 'passeport', 'sortie de secours', 'trop cher', 'je ne comprends pas', 'bagage perdu', 'douane'
         ],
         gu: [
-            'પાણી', 'રોટલી', 'ઘર', 'મિત્ર', 'પુસ્તક', 'શહેર', 'સવાર', 'આભાર',
-            'બારી', 'રસોડું', 'મુસાફરી', 'ભાષા', 'પડોશી', 'બજાર', 'પ્રશ્ન', 'નદી',
-            'સ્વતંત્રતા', 'ધીરજ', 'જ્ઞાન', 'પડછાયો', 'વચન', 'મૌન', 'હિંમત', 'સત્ય'
+            'નમસ્તે', 'આભાર', 'કૃપા કરીને', 'માફ કરશો', 'સુપ્રભાત', 'શુભ સાંજ', 'પાણી', 'રોટલી', 'કેટલું છે', 'ક્યાં છે',
+            'એરપોર્ટ', 'રેલવે સ્ટેશન', 'બસ સ્ટોપ', 'ટિકિટ', 'સામાન', 'રૂમની ચાવી', 'બિલ', 'મેનુ', 'દવાની દુકાન', 'શહેરનું કેન્દ્ર',
+            'મદદ', 'ડૉક્ટર', 'હોસ્પિટલ', 'પોલીસ', 'પાસપોર્ટ', 'કટોકટી બહાર નીકળો', 'બહુ મોંઘું', 'મને સમજાતું નથી', 'ખોવાયેલો સામાન', 'કસ્ટમ્સ'
         ],
         he: [
-            'מים', 'לחם', 'בית', 'חבר', 'ספר', 'עיר', 'בוקר', 'תודה',
-            'חלון', 'מטבח', 'מסע', 'שפה', 'שכן', 'שוק', 'שאלה', 'נהר',
-            'חופש', 'סבלנות', 'ידע', 'צל', 'הבטחה', 'שתיקה', 'אומץ', 'אמת'
+            'שלום', 'תודה', 'בבקשה', 'סליחה', 'בוקר טוב', 'ערב טוב', 'מים', 'לחם', 'כמה זה עולה', 'איפה נמצא',
+            'שדה תעופה', 'תחנת רכבת', 'תחנת אוטובוס', 'כרטיס', 'מזוודה', 'מפתח החדר', 'החשבון', 'תפריט', 'בית מרקחת', 'מרכז העיר',
+            'עזרה', 'רופא', 'בית חולים', 'משטרה', 'דרכון', 'יציאת חירום', 'יקר מדי', 'אני לא מבין', 'מזוודה אבודה', 'מכס'
         ],
         hi: [
-            'पानी', 'रोटी', 'घर', 'दोस्त', 'किताब', 'शहर', 'सुबह', 'धन्यवाद',
-            'खिड़की', 'रसोई', 'यात्रा', 'भाषा', 'पड़ोसी', 'बाज़ार', 'सवाल', 'नदी',
-            'स्वतंत्रता', 'धैर्य', 'ज्ञान', 'छाया', 'वादा', 'मौन', 'साहस', 'सत्य'
+            'नमस्ते', 'धन्यवाद', 'कृपया', 'माफ़ कीजिए', 'सुप्रभात', 'शुभ संध्या', 'पानी', 'रोटी', 'कितने का है', 'कहाँ है',
+            'हवाई अड्डा', 'रेलवे स्टेशन', 'बस स्टॉप', 'टिकट', 'सामान', 'कमरे की चाबी', 'बिल', 'मेन्यू', 'दवा की दुकान', 'शहर का केंद्र',
+            'मदद', 'डॉक्टर', 'अस्पताल', 'पुलिस', 'पासपोर्ट', 'आपातकालीन निकास', 'बहुत महंगा', 'मुझे समझ नहीं आया', 'खोया हुआ सामान', 'सीमा शुल्क'
         ],
         hr: [
-            'voda', 'kruh', 'kuća', 'prijatelj', 'knjiga', 'grad', 'jutro', 'hvala',
-            'prozor', 'kuhinja', 'putovanje', 'jezik', 'susjed', 'tržnica', 'pitanje', 'rijeka',
-            'sloboda', 'strpljenje', 'znanje', 'sjena', 'obećanje', 'tišina', 'hrabrost', 'istina'
+            'bok', 'hvala', 'molim', 'oprostite', 'dobro jutro', 'dobra večer', 'voda', 'kruh', 'koliko košta', 'gdje je',
+            'zračna luka', 'željeznički kolodvor', 'autobusna stanica', 'karta', 'prtljaga', 'ključ sobe', 'račun', 'jelovnik', 'ljekarna', 'centar grada',
+            'pomoć', 'liječnik', 'bolnica', 'policija', 'putovnica', 'izlaz u nuždi', 'preskupo', 'ne razumijem', 'izgubljena prtljaga', 'carina'
         ],
         hu: [
-            'víz', 'kenyér', 'ház', 'barát', 'könyv', 'város', 'reggel', 'köszönöm',
-            'ablak', 'konyha', 'utazás', 'nyelv', 'szomszéd', 'piac', 'kérdés', 'folyó',
-            'szabadság', 'türelem', 'tudás', 'árnyék', 'ígéret', 'csend', 'bátorság', 'igazság'
+            'szia', 'köszönöm', 'kérem', 'elnézést', 'jó reggelt', 'jó estét', 'víz', 'kenyér', 'mennyibe kerül', 'hol van',
+            'repülőtér', 'vasútállomás', 'buszmegálló', 'jegy', 'poggyász', 'szobakulcs', 'a számla', 'étlap', 'gyógyszertár', 'városközpont',
+            'segítség', 'orvos', 'kórház', 'rendőrség', 'útlevél', 'vészkijárat', 'túl drága', 'nem értem', 'elveszett poggyász', 'vám'
         ],
         id: [
-            'air', 'roti', 'rumah', 'teman', 'buku', 'kota', 'pagi', 'terima kasih',
-            'jendela', 'dapur', 'perjalanan', 'bahasa', 'tetangga', 'pasar', 'pertanyaan', 'sungai',
-            'kebebasan', 'kesabaran', 'pengetahuan', 'bayangan', 'janji', 'keheningan', 'keberanian', 'kebenaran'
+            'halo', 'terima kasih', 'tolong', 'permisi', 'selamat pagi', 'selamat malam', 'air', 'roti', 'berapa harganya', 'di mana',
+            'bandara', 'stasiun kereta', 'halte bus', 'tiket', 'bagasi', 'kunci kamar', 'tagihan', 'menu', 'apotek', 'pusat kota',
+            'bantuan', 'dokter', 'rumah sakit', 'polisi', 'paspor', 'pintu darurat', 'terlalu mahal', 'saya tidak mengerti', 'bagasi hilang', 'bea cukai'
         ],
         it: [
-            'acqua', 'pane', 'casa', 'amico', 'libro', 'città', 'mattina', 'grazie',
-            'finestra', 'cucina', 'viaggio', 'lingua', 'vicino', 'mercato', 'domanda', 'fiume',
-            'libertà', 'pazienza', 'conoscenza', 'ombra', 'promessa', 'silenzio', 'coraggio', 'verità'
+            'ciao', 'grazie', 'per favore', 'scusi', 'buongiorno', 'buonasera', 'acqua', 'pane', 'quanto costa', "dov'è",
+            'aeroporto', 'stazione ferroviaria', "fermata dell'autobus", 'biglietto', 'bagaglio', 'chiave della camera', 'il conto', 'menù', 'farmacia', 'centro città',
+            'aiuto', 'medico', 'ospedale', 'polizia', 'passaporto', 'uscita di emergenza', 'troppo caro', 'non capisco', 'bagaglio smarrito', 'dogana'
         ],
         ja: [
-            '水', 'パン', '家', '友達', '本', '街', '朝', 'ありがとう',
-            '窓', '台所', '旅行', '言語', '隣人', '市場', '質問', '川',
-            '自由', '忍耐', '知識', '影', '約束', '沈黙', '勇気', '真実'
+            'こんにちは', 'ありがとう', 'お願いします', 'すみません', 'おはよう', 'こんばんは', '水', 'パン', 'いくらですか', 'どこですか',
+            '空港', '駅', 'バス停', '切符', '荷物', '部屋の鍵', 'お会計', 'メニュー', '薬局', '市内中心部',
+            '助けて', '医者', '病院', '警察', 'パスポート', '非常口', '高すぎる', 'わかりません', '紛失した荷物', '税関'
         ],
         kn: [
-            'ನೀರು', 'ರೊಟ್ಟಿ', 'ಮನೆ', 'ಸ್ನೇಹಿತ', 'ಪುಸ್ತಕ', 'ನಗರ', 'ಬೆಳಿಗ್ಗೆ', 'ಧನ್ಯವಾದ',
-            'ಕಿಟಕಿ', 'ಅಡುಗೆಮನೆ', 'ಪ್ರಯಾಣ', 'ಭಾಷೆ', 'ನೆರೆಹೊರೆಯವರು', 'ಮಾರುಕಟ್ಟೆ', 'ಪ್ರಶ್ನೆ', 'ನದಿ',
-            'ಸ್ವಾತಂತ್ರ್ಯ', 'ತಾಳ್ಮೆ', 'ಜ್ಞಾನ', 'ನೆರಳು', 'ಭರವಸೆ', 'ಮೌನ', 'ಧೈರ್ಯ', 'ಸತ್ಯ'
+            'ನಮಸ್ಕಾರ', 'ಧನ್ಯವಾದ', 'ದಯವಿಟ್ಟು', 'ಕ್ಷಮಿಸಿ', 'ಶುಭೋದಯ', 'ಶುಭ ಸಂಜೆ', 'ನೀರು', 'ರೊಟ್ಟಿ', 'ಎಷ್ಟು ಬೆಲೆ', 'ಎಲ್ಲಿದೆ',
+            'ವಿಮಾನ ನಿಲ್ದಾಣ', 'ರೈಲು ನಿಲ್ದಾಣ', 'ಬಸ್ ನಿಲ್ದಾಣ', 'ಟಿಕೆಟ್', 'ಸಾಮಾನು', 'ಕೋಣೆಯ ಕೀಲಿ', 'ಬಿಲ್', 'ಮೆನು', 'ಔಷಧ ಅಂಗಡಿ', 'ನಗರ ಕೇಂದ್ರ',
+            'ಸಹಾಯ', 'ವೈದ್ಯ', 'ಆಸ್ಪತ್ರೆ', 'ಪೊಲೀಸ್', 'ಪಾಸ್‌ಪೋರ್ಟ್', 'ತುರ್ತು ನಿರ್ಗಮನ', 'ತುಂಬಾ ದುಬಾರಿ', 'ನನಗೆ ಅರ್ಥವಾಗಲಿಲ್ಲ', 'ಕಳೆದುಹೋದ ಸಾಮಾನು', 'ಕಸ್ಟಮ್ಸ್'
         ],
         ko: [
-            '물', '빵', '집', '친구', '책', '도시', '아침', '감사합니다',
-            '창문', '부엌', '여행', '언어', '이웃', '시장', '질문', '강',
-            '자유', '인내', '지식', '그림자', '약속', '침묵', '용기', '진실'
+            '안녕하세요', '감사합니다', '부탁합니다', '실례합니다', '좋은 아침', '좋은 저녁', '물', '빵', '얼마예요', '어디예요',
+            '공항', '기차역', '버스 정류장', '표', '짐', '방 열쇠', '계산서', '메뉴', '약국', '시내 중심',
+            '도와주세요', '의사', '병원', '경찰', '여권', '비상구', '너무 비싸요', '이해하지 못해요', '분실한 짐', '세관'
         ],
         lt: [
-            'vanduo', 'duona', 'namas', 'draugas', 'knyga', 'miestas', 'rytas', 'ačiū',
-            'langas', 'virtuvė', 'kelionė', 'kalba', 'kaimynas', 'turgus', 'klausimas', 'upė',
-            'laisvė', 'kantrybė', 'žinios', 'šešėlis', 'pažadas', 'tyla', 'drąsa', 'tiesa'
+            'labas', 'ačiū', 'prašau', 'atsiprašau', 'labas rytas', 'labas vakaras', 'vanduo', 'duona', 'kiek kainuoja', 'kur yra',
+            'oro uostas', 'geležinkelio stotis', 'autobusų stotelė', 'bilietas', 'bagažas', 'kambario raktas', 'sąskaita', 'meniu', 'vaistinė', 'miesto centras',
+            'pagalba', 'gydytojas', 'ligoninė', 'policija', 'pasas', 'avarinis išėjimas', 'per brangu', 'nesuprantu', 'dingęs bagažas', 'muitinė'
         ],
         lv: [
-            'ūdens', 'maize', 'māja', 'draugs', 'grāmata', 'pilsēta', 'rīts', 'paldies',
-            'logs', 'virtuve', 'ceļojums', 'valoda', 'kaimiņš', 'tirgus', 'jautājums', 'upe',
-            'brīvība', 'pacietība', 'zināšanas', 'ēna', 'solījums', 'klusums', 'drosme', 'patiesība'
+            'sveiki', 'paldies', 'lūdzu', 'atvainojiet', 'labrīt', 'labvakar', 'ūdens', 'maize', 'cik maksā', 'kur ir',
+            'lidosta', 'dzelzceļa stacija', 'autobusa pietura', 'biļete', 'bagāža', 'istabas atslēga', 'rēķins', 'ēdienkarte', 'aptieka', 'pilsētas centrs',
+            'palīgā', 'ārsts', 'slimnīca', 'policija', 'pase', 'avārijas izeja', 'pārāk dārgs', 'es nesaprotu', 'pazudusi bagāža', 'muita'
         ],
         ml: [
-            'വെള്ളം', 'അപ്പം', 'വീട്', 'സുഹൃത്ത്', 'പുസ്തകം', 'നഗരം', 'രാവിലെ', 'നന്ദി',
-            'ജനൽ', 'അടുക്കള', 'യാത്ര', 'ഭാഷ', 'അയൽക്കാരൻ', 'ചന്ത', 'ചോദ്യം', 'നദി',
-            'സ്വാതന്ത്ര്യം', 'ക്ഷമ', 'അറിവ്', 'നിഴൽ', 'വാഗ്ദാനം', 'നിശ്ശബ്ദത', 'ധൈര്യം', 'സത്യം'
+            'നമസ്കാരം', 'നന്ദി', 'ദയവായി', 'ക്ഷമിക്കണം', 'സുപ്രഭാതം', 'ശുഭ സായാഹ്നം', 'വെള്ളം', 'അപ്പം', 'എത്ര വില', 'എവിടെയാണ്',
+            'വിമാനത്താവളം', 'റെയിൽവേ സ്റ്റേഷൻ', 'ബസ് സ്റ്റോപ്പ്', 'ടിക്കറ്റ്', 'ലഗേജ്', 'മുറിയുടെ താക്കോൽ', 'ബിൽ', 'മെനു', 'മരുന്നുകട', 'നഗരമധ്യം',
+            'സഹായം', 'ഡോക്ടർ', 'ആശുപത്രി', 'പോലീസ്', 'പാസ്‌പോർട്ട്', 'അടിയന്തര വാതിൽ', 'വളരെ വില കൂടുതൽ', 'എനിക്ക് മനസ്സിലായില്ല', 'നഷ്ടപ്പെട്ട ലഗേജ്', 'കസ്റ്റംസ്'
         ],
         mr: [
-            'पाणी', 'भाकरी', 'घर', 'मित्र', 'पुस्तक', 'शहर', 'सकाळ', 'धन्यवाद',
-            'खिडकी', 'स्वयंपाकघर', 'प्रवास', 'भाषा', 'शेजारी', 'बाजार', 'प्रश्न', 'नदी',
-            'स्वातंत्र्य', 'संयम', 'ज्ञान', 'सावली', 'वचन', 'मौन', 'धैर्य', 'सत्य'
+            'नमस्कार', 'धन्यवाद', 'कृपया', 'माफ करा', 'शुभ प्रभात', 'शुभ संध्याकाळ', 'पाणी', 'भाकरी', 'किती किंमत', 'कुठे आहे',
+            'विमानतळ', 'रेल्वे स्टेशन', 'बस थांबा', 'तिकीट', 'सामान', 'खोलीची किल्ली', 'बिल', 'मेनू', 'औषधाचे दुकान', 'शहराचे केंद्र',
+            'मदत', 'डॉक्टर', 'रुग्णालय', 'पोलीस', 'पासपोर्ट', 'आपत्कालीन निर्गमन', 'खूप महाग', 'मला समजत नाही', 'हरवलेले सामान', 'सीमाशुल्क'
         ],
         ms: [
-            'air', 'roti', 'rumah', 'kawan', 'buku', 'bandar', 'pagi', 'terima kasih',
-            'tingkap', 'dapur', 'perjalanan', 'bahasa', 'jiran', 'pasar', 'soalan', 'sungai',
-            'kebebasan', 'kesabaran', 'pengetahuan', 'bayang', 'janji', 'kesunyian', 'keberanian', 'kebenaran'
+            'helo', 'terima kasih', 'sila', 'maaf', 'selamat pagi', 'selamat petang', 'air', 'roti', 'berapa harganya', 'di mana',
+            'lapangan terbang', 'stesen kereta api', 'perhentian bas', 'tiket', 'bagasi', 'kunci bilik', 'bil', 'menu', 'farmasi', 'pusat bandar',
+            'tolong', 'doktor', 'hospital', 'polis', 'pasport', 'pintu kecemasan', 'terlalu mahal', 'saya tidak faham', 'bagasi hilang', 'kastam'
         ],
         nl: [
-            'water', 'brood', 'huis', 'vriend', 'boek', 'stad', 'ochtend', 'dank je',
-            'raam', 'keuken', 'reis', 'taal', 'buur', 'markt', 'vraag', 'rivier',
-            'vrijheid', 'geduld', 'kennis', 'schaduw', 'belofte', 'stilte', 'moed', 'waarheid'
+            'hallo', 'dank je', 'alsjeblieft', 'pardon', 'goedemorgen', 'goedenavond', 'water', 'brood', 'hoeveel kost het', 'waar is',
+            'luchthaven', 'treinstation', 'bushalte', 'kaartje', 'bagage', 'kamersleutel', 'de rekening', 'menukaart', 'apotheek', 'centrum',
+            'help', 'dokter', 'ziekenhuis', 'politie', 'paspoort', 'nooduitgang', 'te duur', 'ik begrijp het niet', 'verloren bagage', 'douane'
         ],
         no: [
-            'vann', 'brød', 'hus', 'venn', 'bok', 'by', 'morgen', 'takk',
-            'vindu', 'kjøkken', 'reise', 'språk', 'nabo', 'marked', 'spørsmål', 'elv',
-            'frihet', 'tålmodighet', 'kunnskap', 'skygge', 'løfte', 'stillhet', 'mot', 'sannhet'
+            'hei', 'takk', 'vær så snill', 'unnskyld', 'god morgen', 'god kveld', 'vann', 'brød', 'hva koster det', 'hvor er',
+            'flyplass', 'jernbanestasjon', 'bussholdeplass', 'billett', 'bagasje', 'romnøkkel', 'regningen', 'meny', 'apotek', 'sentrum',
+            'hjelp', 'lege', 'sykehus', 'politi', 'pass', 'nødutgang', 'for dyrt', 'jeg forstår ikke', 'mistet bagasje', 'toll'
         ],
         pl: [
-            'woda', 'chleb', 'dom', 'przyjaciel', 'książka', 'miasto', 'poranek', 'dziękuję',
-            'okno', 'kuchnia', 'podróż', 'język', 'sąsiad', 'rynek', 'pytanie', 'rzeka',
-            'wolność', 'cierpliwość', 'wiedza', 'cień', 'obietnica', 'cisza', 'odwaga', 'prawda'
+            'cześć', 'dziękuję', 'proszę', 'przepraszam', 'dzień dobry', 'dobry wieczór', 'woda', 'chleb', 'ile kosztuje', 'gdzie jest',
+            'lotnisko', 'dworzec kolejowy', 'przystanek autobusowy', 'bilet', 'bagaż', 'klucz do pokoju', 'rachunek', 'menu', 'apteka', 'centrum miasta',
+            'pomocy', 'lekarz', 'szpital', 'policja', 'paszport', 'wyjście awaryjne', 'za drogo', 'nie rozumiem', 'zgubiony bagaż', 'odprawa celna'
         ],
         pt: [
-            'água', 'pão', 'casa', 'amigo', 'livro', 'cidade', 'manhã', 'obrigado',
-            'janela', 'cozinha', 'viagem', 'língua', 'vizinho', 'mercado', 'pergunta', 'rio',
-            'liberdade', 'paciência', 'conhecimento', 'sombra', 'promessa', 'silêncio', 'coragem', 'verdade'
+            'olá', 'obrigado', 'por favor', 'desculpe', 'bom dia', 'boa noite', 'água', 'pão', 'quanto custa', 'onde fica',
+            'aeroporto', 'estação de trem', 'ponto de ônibus', 'bilhete', 'bagagem', 'chave do quarto', 'a conta', 'cardápio', 'farmácia', 'centro da cidade',
+            'socorro', 'médico', 'hospital', 'polícia', 'passaporte', 'saída de emergência', 'caro demais', 'não entendo', 'bagagem perdida', 'alfândega'
         ],
         ro: [
-            'apă', 'pâine', 'casă', 'prieten', 'carte', 'oraș', 'dimineață', 'mulțumesc',
-            'fereastră', 'bucătărie', 'călătorie', 'limbă', 'vecin', 'piață', 'întrebare', 'râu',
-            'libertate', 'răbdare', 'cunoaștere', 'umbră', 'promisiune', 'tăcere', 'curaj', 'adevăr'
+            'salut', 'mulțumesc', 'vă rog', 'scuzați-mă', 'bună dimineața', 'bună seara', 'apă', 'pâine', 'cât costă', 'unde este',
+            'aeroport', 'gară', 'stație de autobuz', 'bilet', 'bagaj', 'cheia camerei', 'nota de plată', 'meniu', 'farmacie', 'centrul orașului',
+            'ajutor', 'medic', 'spital', 'poliție', 'pașaport', 'ieșire de urgență', 'prea scump', 'nu înțeleg', 'bagaj pierdut', 'vamă'
         ],
         ru: [
-            'вода', 'хлеб', 'дом', 'друг', 'книга', 'город', 'утро', 'спасибо',
-            'окно', 'кухня', 'путешествие', 'язык', 'сосед', 'рынок', 'вопрос', 'река',
-            'свобода', 'терпение', 'знание', 'тень', 'обещание', 'тишина', 'смелость', 'правда'
+            'привет', 'спасибо', 'пожалуйста', 'извините', 'доброе утро', 'добрый вечер', 'вода', 'хлеб', 'сколько стоит', 'где находится',
+            'аэропорт', 'вокзал', 'автобусная остановка', 'билет', 'багаж', 'ключ от номера', 'счёт', 'меню', 'аптека', 'центр города',
+            'помогите', 'врач', 'больница', 'полиция', 'паспорт', 'запасной выход', 'слишком дорого', 'не понимаю', 'потерянный багаж', 'таможня'
         ],
         sk: [
-            'voda', 'chlieb', 'dom', 'priateľ', 'kniha', 'mesto', 'ráno', 'ďakujem',
-            'okno', 'kuchyňa', 'cesta', 'jazyk', 'sused', 'trh', 'otázka', 'rieka',
-            'sloboda', 'trpezlivosť', 'vedomosť', 'tieň', 'sľub', 'ticho', 'odvaha', 'pravda'
+            'ahoj', 'ďakujem', 'prosím', 'prepáčte', 'dobré ráno', 'dobrý večer', 'voda', 'chlieb', 'koľko to stojí', 'kde je',
+            'letisko', 'železničná stanica', 'autobusová zastávka', 'lístok', 'batožina', 'kľúč od izby', 'účet', 'jedálny lístok', 'lekáreň', 'centrum mesta',
+            'pomoc', 'lekár', 'nemocnica', 'polícia', 'pas', 'núdzový východ', 'príliš drahé', 'nerozumiem', 'stratená batožina', 'colnica'
         ],
         sl: [
-            'voda', 'kruh', 'hiša', 'prijatelj', 'knjiga', 'mesto', 'jutro', 'hvala',
-            'okno', 'kuhinja', 'potovanje', 'jezik', 'sosed', 'tržnica', 'vprašanje', 'reka',
-            'svoboda', 'potrpežljivost', 'znanje', 'senca', 'obljuba', 'tišina', 'pogum', 'resnica'
+            'živjo', 'hvala', 'prosim', 'oprostite', 'dobro jutro', 'dober večer', 'voda', 'kruh', 'koliko stane', 'kje je',
+            'letališče', 'železniška postaja', 'avtobusna postaja', 'vozovnica', 'prtljaga', 'ključ sobe', 'račun', 'jedilni list', 'lekarna', 'center mesta',
+            'pomoč', 'zdravnik', 'bolnišnica', 'policija', 'potni list', 'zasilni izhod', 'predrago', 'ne razumem', 'izgubljena prtljaga', 'carina'
         ],
         sr: [
-            'вода', 'хлеб', 'кућа', 'пријатељ', 'књига', 'град', 'јутро', 'хвала',
-            'прозор', 'кухиња', 'путовање', 'језик', 'комшија', 'пијаца', 'питање', 'река',
-            'слобода', 'стрпљење', 'знање', 'сенка', 'обећање', 'тишина', 'храброст', 'истина'
+            'здраво', 'хвала', 'молим', 'извините', 'добро јутро', 'добро вече', 'вода', 'хлеб', 'колико кошта', 'где је',
+            'аеродром', 'железничка станица', 'аутобуска станица', 'карта', 'пртљаг', 'кључ собе', 'рачун', 'јеловник', 'апотека', 'центар града',
+            'помоћ', 'лекар', 'болница', 'полиција', 'пасош', 'излаз за случај опасности', 'превише скупо', 'не разумем', 'изгубљен пртљаг', 'царина'
         ],
         sv: [
-            'vatten', 'bröd', 'hus', 'vän', 'bok', 'stad', 'morgon', 'tack',
-            'fönster', 'kök', 'resa', 'språk', 'granne', 'marknad', 'fråga', 'flod',
-            'frihet', 'tålamod', 'kunskap', 'skugga', 'löfte', 'tystnad', 'mod', 'sanning'
+            'hej', 'tack', 'snälla', 'ursäkta', 'god morgon', 'god kväll', 'vatten', 'bröd', 'vad kostar det', 'var är',
+            'flygplats', 'järnvägsstation', 'busshållplats', 'biljett', 'bagage', 'rumsnyckel', 'notan', 'meny', 'apotek', 'centrum',
+            'hjälp', 'läkare', 'sjukhus', 'polis', 'pass', 'nödutgång', 'för dyrt', 'jag förstår inte', 'försvunnet bagage', 'tull'
         ],
         sw: [
-            'maji', 'mkate', 'nyumba', 'rafiki', 'kitabu', 'jiji', 'asubuhi', 'asante',
-            'dirisha', 'jikoni', 'safari', 'lugha', 'jirani', 'soko', 'swali', 'mto',
-            'uhuru', 'subira', 'maarifa', 'kivuli', 'ahadi', 'ukimya', 'ujasiri', 'ukweli'
+            'jambo', 'asante', 'tafadhali', 'samahani', 'habari ya asubuhi', 'habari ya jioni', 'maji', 'mkate', 'bei gani', 'iko wapi',
+            'uwanja wa ndege', 'stesheni ya treni', 'kituo cha basi', 'tikiti', 'mizigo', 'ufunguo wa chumba', 'bili', 'menyu', 'duka la dawa', 'katikati ya jiji',
+            'msaada', 'daktari', 'hospitali', 'polisi', 'pasipoti', 'njia ya dharura', 'ghali sana', 'sielewi', 'mizigo iliyopotea', 'forodha'
         ],
         ta: [
-            'தண்ணீர்', 'ரொட்டி', 'வீடு', 'நண்பன்', 'புத்தகம்', 'நகரம்', 'காலை', 'நன்றி',
-            'ஜன்னல்', 'சமையலறை', 'பயணம்', 'மொழி', 'அண்டை வீட்டார்', 'சந்தை', 'கேள்வி', 'ஆறு',
-            'சுதந்திரம்', 'பொறுமை', 'அறிவு', 'நிழல்', 'வாக்குறுதி', 'மௌனம்', 'தைரியம்', 'உண்மை'
+            'வணக்கம்', 'நன்றி', 'தயவுசெய்து', 'மன்னிக்கவும்', 'காலை வணக்கம்', 'மாலை வணக்கம்', 'தண்ணீர்', 'ரொட்டி', 'எவ்வளவு விலை', 'எங்கே இருக்கிறது',
+            'விமான நிலையம்', 'ரயில் நிலையம்', 'பேருந்து நிறுத்தம்', 'டிக்கெட்', 'சாமான்', 'அறையின் சாவி', 'பில்', 'மெனு', 'மருந்தகம்', 'நகர மையம்',
+            'உதவி', 'மருத்துவர்', 'மருத்துவமனை', 'காவல்துறை', 'கடவுச்சீட்டு', 'அவசர வெளியேறு', 'மிகவும் விலை அதிகம்', 'எனக்குப் புரியவில்லை', 'தொலைந்த சாமான்', 'சுங்கம்'
         ],
         te: [
-            'నీరు', 'రొట్టె', 'ఇల్లు', 'స్నేహితుడు', 'పుస్తకం', 'నగరం', 'ఉదయం', 'ధన్యవాదాలు',
-            'కిటికీ', 'వంటగది', 'ప్రయాణం', 'భాష', 'పొరుగువాడు', 'సంత', 'ప్రశ్న', 'నది',
-            'స్వాతంత్ర్యం', 'ఓర్పు', 'జ్ఞానం', 'నీడ', 'వాగ్దానం', 'నిశ్శబ్దం', 'ధైర్యం', 'సత్యం'
+            'నమస్కారం', 'ధన్యవాదాలు', 'దయచేసి', 'క్షమించండి', 'శుభోదయం', 'శుభ సాయంత్రం', 'నీరు', 'రొట్టె', 'ఎంత ధర', 'ఎక్కడ ఉంది',
+            'విమానాశ్రయం', 'రైల్వే స్టేషన్', 'బస్ స్టాప్', 'టికెట్', 'సామాను', 'గది తాళం', 'బిల్లు', 'మెనూ', 'మందుల దుకాణం', 'నగర కేంద్రం',
+            'సహాయం', 'వైద్యుడు', 'ఆసుపత్రి', 'పోలీసు', 'పాస్‌పోర్ట్', 'అత్యవసర నిష్క్రమణ', 'చాలా ఖరీదు', 'నాకు అర్థం కావడం లేదు', 'పోయిన సామాను', 'కస్టమ్స్'
         ],
         th: [
-            'น้ำ', 'ขนมปัง', 'บ้าน', 'เพื่อน', 'หนังสือ', 'เมือง', 'เช้า', 'ขอบคุณ',
-            'หน้าต่าง', 'ครัว', 'การเดินทาง', 'ภาษา', 'เพื่อนบ้าน', 'ตลาด', 'คำถาม', 'แม่น้ำ',
-            'เสรีภาพ', 'ความอดทน', 'ความรู้', 'เงา', 'สัญญา', 'ความเงียบ', 'ความกล้าหาญ', 'ความจริง'
+            'สวัสดี', 'ขอบคุณ', 'กรุณา', 'ขอโทษ', 'อรุณสวัสดิ์', 'สวัสดีตอนเย็น', 'น้ำ', 'ขนมปัง', 'ราคาเท่าไร', 'อยู่ที่ไหน',
+            'สนามบิน', 'สถานีรถไฟ', 'ป้ายรถเมล์', 'ตั๋ว', 'กระเป๋าเดินทาง', 'กุญแจห้อง', 'บิล', 'เมนู', 'ร้านขายยา', 'ใจกลางเมือง',
+            'ช่วยด้วย', 'หมอ', 'โรงพยาบาล', 'ตำรวจ', 'หนังสือเดินทาง', 'ทางออกฉุกเฉิน', 'แพงเกินไป', 'ไม่เข้าใจ', 'กระเป๋าหาย', 'ศุลกากร'
         ],
         tl: [
-            'tubig', 'tinapay', 'bahay', 'kaibigan', 'aklat', 'lungsod', 'umaga', 'salamat',
-            'bintana', 'kusina', 'paglalakbay', 'wika', 'kapitbahay', 'palengke', 'tanong', 'ilog',
-            'kalayaan', 'pasensya', 'kaalaman', 'anino', 'pangako', 'katahimikan', 'tapang', 'katotohanan'
+            'kumusta', 'salamat', 'pakiusap', 'paumanhin', 'magandang umaga', 'magandang gabi', 'tubig', 'tinapay', 'magkano', 'nasaan',
+            'paliparan', 'istasyon ng tren', 'hintuan ng bus', 'tiket', 'bagahe', 'susi ng kwarto', 'ang bayarin', 'menu', 'parmasya', 'sentro ng lungsod',
+            'tulong', 'doktor', 'ospital', 'pulis', 'pasaporte', 'labasan sa emerhensiya', 'masyadong mahal', 'hindi ko maintindihan', 'nawalang bagahe', 'adwana'
         ],
         tr: [
-            'su', 'ekmek', 'ev', 'arkadaş', 'kitap', 'şehir', 'sabah', 'teşekkürler',
-            'pencere', 'mutfak', 'yolculuk', 'dil', 'komşu', 'pazar', 'soru', 'nehir',
-            'özgürlük', 'sabır', 'bilgi', 'gölge', 'söz', 'sessizlik', 'cesaret', 'gerçek'
+            'merhaba', 'teşekkürler', 'lütfen', 'affedersiniz', 'günaydın', 'iyi akşamlar', 'su', 'ekmek', 'ne kadar', 'nerede',
+            'havalimanı', 'tren istasyonu', 'otobüs durağı', 'bilet', 'bagaj', 'oda anahtarı', 'hesap', 'menü', 'eczane', 'şehir merkezi',
+            'yardım', 'doktor', 'hastane', 'polis', 'pasaport', 'acil çıkış', 'çok pahalı', 'anlamıyorum', 'kayıp bagaj', 'gümrük'
         ],
         uk: [
-            'вода', 'хліб', 'дім', 'друг', 'книга', 'місто', 'ранок', 'дякую',
-            'вікно', 'кухня', 'подорож', 'мова', 'сусід', 'ринок', 'питання', 'річка',
-            'свобода', 'терпіння', 'знання', 'тінь', 'обіцянка', 'тиша', 'сміливість', 'правда'
+            'привіт', 'дякую', 'будь ласка', 'вибачте', 'доброго ранку', 'добрий вечір', 'вода', 'хліб', 'скільки коштує', 'де знаходиться',
+            'аеропорт', 'залізничний вокзал', 'автобусна зупинка', 'квиток', 'багаж', 'ключ від номера', 'рахунок', 'меню', 'аптека', 'центр міста',
+            'допоможіть', 'лікар', 'лікарня', 'поліція', 'паспорт', 'запасний вихід', 'занадто дорого', 'не розумію', 'загублений багаж', 'митниця'
         ],
         vi: [
-            'nước', 'bánh mì', 'nhà', 'bạn', 'sách', 'thành phố', 'buổi sáng', 'cảm ơn',
-            'cửa sổ', 'nhà bếp', 'chuyến đi', 'ngôn ngữ', 'hàng xóm', 'chợ', 'câu hỏi', 'sông',
-            'tự do', 'kiên nhẫn', 'kiến thức', 'bóng', 'lời hứa', 'im lặng', 'can đảm', 'sự thật'
+            'xin chào', 'cảm ơn', 'làm ơn', 'xin lỗi', 'chào buổi sáng', 'chào buổi tối', 'nước', 'bánh mì', 'bao nhiêu tiền', 'ở đâu',
+            'sân bay', 'ga tàu', 'trạm xe buýt', 'vé', 'hành lý', 'chìa khóa phòng', 'hóa đơn', 'thực đơn', 'nhà thuốc', 'trung tâm thành phố',
+            'cứu với', 'bác sĩ', 'bệnh viện', 'cảnh sát', 'hộ chiếu', 'lối thoát hiểm', 'quá đắt', 'tôi không hiểu', 'hành lý thất lạc', 'hải quan'
         ],
         zh: [
-            '水', '面包', '房子', '朋友', '书', '城市', '早上', '谢谢',
-            '窗户', '厨房', '旅行', '语言', '邻居', '市场', '问题', '河',
-            '自由', '耐心', '知识', '影子', '承诺', '沉默', '勇气', '真相'
+            '你好', '谢谢', '请', '请问', '早上好', '晚上好', '水', '面包', '多少钱', '在哪里',
+            '机场', '火车站', '公交车站', '车票', '行李', '房间钥匙', '账单', '菜单', '药店', '市中心',
+            '救命', '医生', '医院', '警察', '护照', '紧急出口', '太贵了', '我不明白', '丢失的行李', '海关'
         ]
     };
 
@@ -313,8 +322,8 @@ function vocab() {
      *
      * The dropdowns list whatever tags the browser knows, and some of those are
      * two ways of saying the same thing: Norwegian is offered as both `no` and
-     * `nb`, and the twenty-four words below are the same under either. Somebody
-     * who picked the one spelled differently should not be told there is nothing
+     * `nb`, and the thirty entries below are the same under either. Somebody who
+     * picked the one spelled differently should not be told there is nothing
      * written for their language.
      *
      * Only for tags that read the same. Nynorsk is not here, because it is not
@@ -338,9 +347,9 @@ function vocab() {
      * given: languages onto words, repetitions as they are answered. One shared
      * array would hand the next reader somebody else's progress.
      *
-     * Both languages are written on every word. The pair is known here, and a
+     * Both languages are written on every entry. The pair is known here, and a
      * ready-made set has no business leaving it to a detector to work out that
-     * these eight words are Greek.
+     * these ten lines are Greek.
      *
      * An unknown language, or the same one twice, gives nothing rather than an
      * empty set: there is no set to show, and a card with no words in it says
