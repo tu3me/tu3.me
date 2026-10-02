@@ -17,8 +17,8 @@
  * are the languages somebody is likely to be reading a translation in. Regional
  * pairs there are one column here — es and es_419, the two Portuguese, the two
  * Chinese — written in the more widely used of the two, which for Portuguese is
- * the Brazilian wording (trem, ônibus, cardápio) and for Chinese is simplified
- * characters. A traveller reading the other variant will be understood.
+ * the Brazilian wording and for Chinese is simplified characters. A traveller
+ * reading the other variant will be understood.
  *
  * The rows are the same thirty in every column, in the same order, and that is
  * what makes a pair possible: row seven is "water" whichever two columns are
@@ -33,13 +33,15 @@ function vocab() {
      * grades of difficulty: what is said on arrival, what gets you across a city,
      * and what is said when something has gone wrong.
      *
-     * Half of the entries are two or three words rather than one. "Train station"
-     * and "how much" are what a traveller actually needs, and neither of them is
-     * a word; a table of bare nouns teaches somebody to name things they cannot
-     * ask for. Nothing here is longer than a phrase that fits on a card, and
-     * nothing is a sentence with a verb to conjugate -- except the one everybody
-     * needs, "I do not understand", which is a fixed phrase in every language
-     * here and is learned as one.
+     * Most of the entries are two or three words rather than one. "Straight
+     * ahead" and "how much" are what a traveller actually needs, and neither of
+     * them is a word; a table of bare nouns teaches somebody to name things they
+     * cannot ask for.
+     *
+     * The last ten are whole phrases with verbs in them, which the first twenty
+     * avoid. They are the ones nobody has time to assemble -- "I am lost" is said
+     * while lost -- so they are learned the way a native speaker says them rather
+     * than built out of a dictionary at the moment they are needed.
      */
     const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
     const PER_LEVEL = 10;
@@ -52,18 +54,34 @@ function vocab() {
      *     water bread how-much where-is
      *
      *   Intermediate, getting across a city:
-     *     airport train-station bus-stop ticket luggage
-     *     room-key the-bill menu pharmacy city-centre
+     *     to-the-left to-the-right straight-ahead street open closed
+     *     entrance exit key the-bill
      *
      *   Advanced, when it goes wrong:
-     *     help doctor hospital police passport
-     *     emergency-exit too-expensive I-do-not-understand lost-luggage customs
+     *     help I-am-lost I-do-not-understand I-am-ill it-hurts too-expensive
+     *     I-need-a-doctor more-slowly do-you-speak-English where-is-the-toilet
+     *
+     * Chosen so that the two sides of a card differ. A set of travel nouns walks
+     * straight into the international ones, and "passport → passport" is a card
+     * that teaches nothing and reads as a bug: a first pass of this table had
+     * passport, hotel, menu, pharmacy, police, hospital, ticket and airport in
+     * it, and those eight rows alone put 182 identical cards into the catalogue.
+     * What replaced them is either native-rooted in most languages -- a street, a
+     * key, a way out -- or a whole phrase, which almost never matches end to end
+     * even when one word inside it is borrowed.
+     *
+     * What is left are the sibling languages: Czech and Slovak, Danish and
+     * Norwegian, Indonesian and Malay, Spanish and Catalan. Those two columns
+     * agree on a word because the languages do, and no choice of travel
+     * vocabulary changes that -- a Czech asking a Slovak for water says the same
+     * thing he would say at home. Only a word nobody packs would avoid it.
      *
      * German keeps its capitals and nothing else takes one. A noun is capitalised
      * in German wherever it stands, and the other forty-eight capitalise none of
      * these — squaring them up would put a spelling mistake on nearly every card.
-     * "danke", "bitte" and "zu teuer" are not nouns, so they stay lower case
-     * among them.
+     * The rows that are phrases rather than nouns stay lower case in German too,
+     * except where a proper noun lands inside one: Englisch is a language, and a
+     * language is a name.
      *
      * The columns are in tag order rather than in any order of importance: a
      * table where one language comes first is a table somebody has to justify,
@@ -72,248 +90,248 @@ function vocab() {
     const WORDS = {
         am: [
             'ሰላም', 'አመሰግናለሁ', 'እባክህ', 'ይቅርታ', 'እንደምን አደርክ', 'እንደምን አመሸህ', 'ውሃ', 'ዳቦ', 'ስንት ነው', 'የት ነው',
-            'አውሮፕላን ማረፊያ', 'ባቡር ጣቢያ', 'አውቶቡስ ፌርማታ', 'ትኬት', 'ሻንጣ', 'የክፍል ቁልፍ', 'ሂሳብ', 'ምናሌ', 'ፋርማሲ', 'የከተማ መሃል',
-            'እርዳታ', 'ሐኪም', 'ሆስፒታል', 'ፖሊስ', 'ፓስፖርት', 'የአደጋ መውጫ', 'በጣም ውድ', 'አልገባኝም', 'የጠፋ ሻንጣ', 'ጉምሩክ'
+            'ወደ ግራ', 'ወደ ቀኝ', 'በቀጥታ', 'መንገድ', 'ክፍት', 'ዝግ', 'መግቢያ', 'መውጫ', 'ቁልፍ', 'ሂሳብ',
+            'እርዳታ', 'ጠፍቻለሁ', 'አልገባኝም', 'ታምሜያለሁ', 'ያማል', 'በጣም ውድ', 'ሐኪም እፈልጋለሁ', 'ቀስ ብለህ', 'እንግሊዝኛ ትችላለህ', 'መጸዳጃ ቤት የት ነው'
         ],
         ar: [
             'مرحبا', 'شكرا', 'من فضلك', 'عفوا', 'صباح الخير', 'مساء الخير', 'ماء', 'خبز', 'كم الثمن', 'أين يوجد',
-            'مطار', 'محطة القطار', 'موقف الحافلات', 'تذكرة', 'حقيبة', 'مفتاح الغرفة', 'الحساب', 'قائمة الطعام', 'صيدلية', 'وسط المدينة',
-            'مساعدة', 'طبيب', 'مستشفى', 'شرطة', 'جواز سفر', 'مخرج الطوارئ', 'غالي جدا', 'لا أفهم', 'حقيبة مفقودة', 'الجمارك'
+            'إلى اليسار', 'إلى اليمين', 'إلى الأمام', 'شارع', 'مفتوح', 'مغلق', 'مدخل', 'مخرج', 'مفتاح', 'الحساب',
+            'مساعدة', 'أنا تائه', 'لا أفهم', 'أنا مريض', 'يؤلمني', 'غالي جدا', 'أحتاج طبيبا', 'ببطء', 'هل تتكلم الإنجليزية', 'أين الحمام'
         ],
         bg: [
             'здравей', 'благодаря', 'моля', 'извинете', 'добро утро', 'добър вечер', 'вода', 'хляб', 'колко струва', 'къде е',
-            'летище', 'гара', 'автобусна спирка', 'билет', 'багаж', 'ключ от стаята', 'сметката', 'меню', 'аптека', 'центъра на града',
-            'помощ', 'лекар', 'болница', 'полиция', 'паспорт', 'авариен изход', 'твърде скъпо', 'не разбирам', 'изгубен багаж', 'митница'
+            'наляво', 'надясно', 'направо', 'улица', 'отворено', 'затворено', 'вход', 'изход', 'ключ', 'сметката',
+            'помощ', 'изгубих се', 'не разбирам', 'болен съм', 'боли', 'твърде скъпо', 'трябва ми лекар', 'по-бавно', 'говорите ли английски', 'къде е тоалетната'
         ],
         bn: [
             'নমস্কার', 'ধন্যবাদ', 'দয়া করে', 'মাফ করবেন', 'সুপ্রভাত', 'শুভ সন্ধ্যা', 'পানি', 'রুটি', 'কত দাম', 'কোথায় আছে',
-            'বিমানবন্দর', 'রেল স্টেশন', 'বাস স্টপ', 'টিকিট', 'লাগেজ', 'ঘরের চাবি', 'বিল', 'মেনু', 'ওষুধের দোকান', 'শহরের কেন্দ্র',
-            'সাহায্য', 'ডাক্তার', 'হাসপাতাল', 'পুলিশ', 'পাসপোর্ট', 'জরুরি নির্গমন', 'খুব দামি', 'আমি বুঝতে পারছি না', 'হারানো লাগেজ', 'শুল্ক'
+            'বাঁ দিকে', 'ডান দিকে', 'সোজা', 'রাস্তা', 'খোলা', 'বন্ধ', 'প্রবেশপথ', 'প্রস্থান', 'চাবি', 'বিল',
+            'সাহায্য', 'আমি হারিয়ে গেছি', 'আমি বুঝতে পারছি না', 'আমি অসুস্থ', 'ব্যথা করছে', 'খুব দামি', 'আমার ডাক্তার দরকার', 'আরও ধীরে', 'আপনি কি ইংরেজি বলেন', 'বাথরুম কোথায়'
         ],
         ca: [
             'hola', 'gràcies', 'si us plau', 'perdoni', 'bon dia', 'bona nit', 'aigua', 'pa', 'quant costa', 'on és',
-            'aeroport', 'estació de tren', "parada d'autobús", 'bitllet', 'equipatge', "clau de l'habitació", 'el compte', 'carta', 'farmàcia', 'centre de la ciutat',
-            'ajuda', 'metge', 'hospital', 'policia', 'passaport', "sortida d'emergència", 'massa car', 'no ho entenc', 'equipatge perdut', 'duana'
+            "a l'esquerra", 'a la dreta', 'tot recte', 'carrer', 'obert', 'tancat', 'entrada', 'sortida', 'clau', 'el compte',
+            'ajuda', "m'he perdut", 'no ho entenc', 'estic malalt', 'em fa mal', 'massa car', 'necessito un metge', 'més a poc a poc', 'parla anglès', 'on és el lavabo'
         ],
         cs: [
             'ahoj', 'děkuji', 'prosím', 'promiňte', 'dobré ráno', 'dobrý večer', 'voda', 'chléb', 'kolik to stojí', 'kde je',
-            'letiště', 'nádraží', 'autobusová zastávka', 'jízdenka', 'zavazadlo', 'klíč od pokoje', 'účet', 'jídelní lístek', 'lékárna', 'centrum města',
-            'pomoc', 'lékař', 'nemocnice', 'policie', 'pas', 'nouzový východ', 'příliš drahé', 'nerozumím', 'ztracené zavazadlo', 'celnice'
+            'doleva', 'doprava', 'rovně', 'ulice', 'otevřeno', 'zavřeno', 'vchod', 'východ', 'klíč', 'účet',
+            'pomoc', 'ztratil jsem se', 'nerozumím', 'jsem nemocný', 'bolí to', 'příliš drahé', 'potřebuji lékaře', 'pomaleji', 'mluvíte anglicky', 'kde je záchod'
         ],
         da: [
             'hej', 'tak', 'venligst', 'undskyld', 'godmorgen', 'godaften', 'vand', 'brød', 'hvad koster det', 'hvor er',
-            'lufthavn', 'togstation', 'busstoppested', 'billet', 'bagage', 'værelsesnøgle', 'regningen', 'menu', 'apotek', 'centrum',
-            'hjælp', 'læge', 'hospital', 'politi', 'pas', 'nødudgang', 'for dyrt', 'jeg forstår ikke', 'forsvundet bagage', 'told'
+            'til venstre', 'til højre', 'ligeud', 'gade', 'åbent', 'lukket', 'indgang', 'udgang', 'nøgle', 'regningen',
+            'hjælp', 'jeg er faret vild', 'jeg forstår ikke', 'jeg er syg', 'det gør ondt', 'for dyrt', 'jeg har brug for en læge', 'langsommere', 'taler du engelsk', 'hvor er toilettet'
         ],
         de: [
             'hallo', 'danke', 'bitte', 'Entschuldigung', 'guten Morgen', 'guten Abend', 'Wasser', 'Brot', 'wie viel kostet das', 'wo ist',
-            'Flughafen', 'Bahnhof', 'Bushaltestelle', 'Fahrkarte', 'Gepäck', 'Zimmerschlüssel', 'die Rechnung', 'Speisekarte', 'Apotheke', 'Stadtzentrum',
-            'Hilfe', 'Arzt', 'Krankenhaus', 'Polizei', 'Reisepass', 'Notausgang', 'zu teuer', 'ich verstehe nicht', 'verlorenes Gepäck', 'Zoll'
+            'nach links', 'nach rechts', 'geradeaus', 'Straße', 'geöffnet', 'geschlossen', 'Eingang', 'Ausgang', 'Schlüssel', 'die Rechnung',
+            'Hilfe', 'ich habe mich verirrt', 'ich verstehe nicht', 'ich bin krank', 'es tut weh', 'zu teuer', 'ich brauche einen Arzt', 'langsamer', 'sprechen Sie Englisch', 'wo ist die Toilette'
         ],
         el: [
             'γεια σου', 'ευχαριστώ', 'παρακαλώ', 'συγγνώμη', 'καλημέρα', 'καλησπέρα', 'νερό', 'ψωμί', 'πόσο κάνει', 'πού είναι',
-            'αεροδρόμιο', 'σιδηροδρομικός σταθμός', 'στάση λεωφορείου', 'εισιτήριο', 'αποσκευές', 'κλειδί δωματίου', 'ο λογαριασμός', 'κατάλογος', 'φαρμακείο', 'κέντρο της πόλης',
-            'βοήθεια', 'γιατρός', 'νοσοκομείο', 'αστυνομία', 'διαβατήριο', 'έξοδος κινδύνου', 'πολύ ακριβό', 'δεν καταλαβαίνω', 'χαμένες αποσκευές', 'τελωνείο'
+            'αριστερά', 'δεξιά', 'ευθεία', 'δρόμος', 'ανοιχτά', 'κλειστά', 'είσοδος', 'έξοδος', 'κλειδί', 'ο λογαριασμός',
+            'βοήθεια', 'έχω χαθεί', 'δεν καταλαβαίνω', 'είμαι άρρωστος', 'πονάει', 'πολύ ακριβό', 'χρειάζομαι γιατρό', 'πιο αργά', 'μιλάτε αγγλικά', 'πού είναι η τουαλέτα'
         ],
         en: [
             'hello', 'thank you', 'please', 'excuse me', 'good morning', 'good evening', 'water', 'bread', 'how much', 'where is',
-            'airport', 'train station', 'bus stop', 'ticket', 'luggage', 'room key', 'the bill', 'menu', 'pharmacy', 'city centre',
-            'help', 'doctor', 'hospital', 'police', 'passport', 'emergency exit', 'too expensive', 'I do not understand', 'lost luggage', 'customs'
+            'to the left', 'to the right', 'straight ahead', 'street', 'open', 'closed', 'entrance', 'exit', 'key', 'the bill',
+            'help', 'I am lost', 'I do not understand', 'I am ill', 'it hurts', 'too expensive', 'I need a doctor', 'more slowly', 'do you speak English', 'where is the toilet'
         ],
         es: [
             'hola', 'gracias', 'por favor', 'perdone', 'buenos días', 'buenas tardes', 'agua', 'pan', 'cuánto cuesta', 'dónde está',
-            'aeropuerto', 'estación de tren', 'parada de autobús', 'billete', 'equipaje', 'llave de la habitación', 'la cuenta', 'carta', 'farmacia', 'centro de la ciudad',
-            'ayuda', 'médico', 'hospital', 'policía', 'pasaporte', 'salida de emergencia', 'demasiado caro', 'no entiendo', 'equipaje perdido', 'aduana'
+            'a la izquierda', 'a la derecha', 'todo recto', 'calle', 'abierto', 'cerrado', 'entrada', 'salida', 'llave', 'la cuenta',
+            'ayuda', 'estoy perdido', 'no entiendo', 'estoy enfermo', 'me duele', 'demasiado caro', 'necesito un médico', 'más despacio', 'habla inglés', 'dónde está el baño'
         ],
         et: [
             'tere', 'aitäh', 'palun', 'vabandust', 'tere hommikust', 'tere õhtust', 'vesi', 'leib', 'kui palju maksab', 'kus on',
-            'lennujaam', 'raudteejaam', 'bussipeatus', 'pilet', 'pagas', 'toa võti', 'arve', 'menüü', 'apteek', 'kesklinn',
-            'appi', 'arst', 'haigla', 'politsei', 'pass', 'hädaväljapääs', 'liiga kallis', 'ma ei saa aru', 'kadunud pagas', 'toll'
+            'vasakule', 'paremale', 'otse', 'tänav', 'avatud', 'suletud', 'sissepääs', 'väljapääs', 'võti', 'arve',
+            'appi', 'ma olen eksinud', 'ma ei saa aru', 'ma olen haige', 'valutab', 'liiga kallis', 'mul on arsti vaja', 'aeglasemalt', 'kas räägite inglise keelt', 'kus on tualett'
         ],
         fa: [
             'سلام', 'متشکرم', 'لطفا', 'ببخشید', 'صبح بخیر', 'عصر بخیر', 'آب', 'نان', 'چند است', 'کجاست',
-            'فرودگاه', 'ایستگاه قطار', 'ایستگاه اتوبوس', 'بلیط', 'چمدان', 'کلید اتاق', 'صورتحساب', 'منو', 'داروخانه', 'مرکز شهر',
-            'کمک', 'پزشک', 'بیمارستان', 'پلیس', 'گذرنامه', 'خروج اضطراری', 'خیلی گران', 'نمی‌فهمم', 'چمدان گمشده', 'گمرک'
+            'به چپ', 'به راست', 'مستقیم', 'خیابان', 'باز', 'بسته', 'ورودی', 'خروجی', 'کلید', 'صورتحساب',
+            'کمک', 'گم شده‌ام', 'نمی‌فهمم', 'بیمار هستم', 'درد می‌کند', 'خیلی گران', 'به پزشک نیاز دارم', 'آهسته‌تر', 'انگلیسی صحبت می‌کنید', 'دستشویی کجاست'
         ],
         fi: [
             'hei', 'kiitos', 'ole hyvä', 'anteeksi', 'hyvää huomenta', 'hyvää iltaa', 'vesi', 'leipä', 'paljonko maksaa', 'missä on',
-            'lentokenttä', 'rautatieasema', 'bussipysäkki', 'lippu', 'matkatavarat', 'huoneen avain', 'lasku', 'ruokalista', 'apteekki', 'keskusta',
-            'apua', 'lääkäri', 'sairaala', 'poliisi', 'passi', 'hätäuloskäynti', 'liian kallis', 'en ymmärrä', 'kadonnut matkatavara', 'tulli'
+            'vasemmalle', 'oikealle', 'suoraan', 'katu', 'avoinna', 'suljettu', 'sisäänkäynti', 'uloskäynti', 'avain', 'lasku',
+            'apua', 'olen eksynyt', 'en ymmärrä', 'olen sairas', 'sattuu', 'liian kallis', 'tarvitsen lääkärin', 'hitaammin', 'puhutteko englantia', 'missä on vessa'
         ],
         fr: [
             'salut', 'merci', "s'il vous plaît", 'excusez-moi', 'bonjour', 'bonsoir', 'eau', 'pain', 'combien ça coûte', 'où est',
-            'aéroport', 'gare', 'arrêt de bus', 'billet', 'bagages', 'clé de la chambre', "l'addition", 'carte', 'pharmacie', 'centre-ville',
-            'au secours', 'médecin', 'hôpital', 'police', 'passeport', 'sortie de secours', 'trop cher', 'je ne comprends pas', 'bagage perdu', 'douane'
+            'à gauche', 'à droite', 'tout droit', 'rue', 'ouvert', 'fermé', 'entrée', 'sortie', 'clé', "l'addition",
+            'au secours', 'je suis perdu', 'je ne comprends pas', 'je suis malade', "j'ai mal", 'trop cher', "j'ai besoin d'un médecin", 'plus lentement', 'parlez-vous anglais', 'où sont les toilettes'
         ],
         gu: [
             'નમસ્તે', 'આભાર', 'કૃપા કરીને', 'માફ કરશો', 'સુપ્રભાત', 'શુભ સાંજ', 'પાણી', 'રોટલી', 'કેટલું છે', 'ક્યાં છે',
-            'એરપોર્ટ', 'રેલવે સ્ટેશન', 'બસ સ્ટોપ', 'ટિકિટ', 'સામાન', 'રૂમની ચાવી', 'બિલ', 'મેનુ', 'દવાની દુકાન', 'શહેરનું કેન્દ્ર',
-            'મદદ', 'ડૉક્ટર', 'હોસ્પિટલ', 'પોલીસ', 'પાસપોર્ટ', 'કટોકટી બહાર નીકળો', 'બહુ મોંઘું', 'મને સમજાતું નથી', 'ખોવાયેલો સામાન', 'કસ્ટમ્સ'
+            'ડાબી બાજુ', 'જમણી બાજુ', 'સીધા', 'શેરી', 'ખુલ્લું', 'બંધ', 'પ્રવેશ', 'બહાર નીકળો', 'ચાવી', 'બિલ',
+            'મદદ', 'હું ખોવાઈ ગયો છું', 'મને સમજાતું નથી', 'હું બીમાર છું', 'દુખે છે', 'બહુ મોંઘું', 'મને ડૉક્ટરની જરૂર છે', 'વધુ ધીમે', 'શું તમે અંગ્રેજી બોલો છો', 'શૌચાલય ક્યાં છે'
         ],
         he: [
             'שלום', 'תודה', 'בבקשה', 'סליחה', 'בוקר טוב', 'ערב טוב', 'מים', 'לחם', 'כמה זה עולה', 'איפה נמצא',
-            'שדה תעופה', 'תחנת רכבת', 'תחנת אוטובוס', 'כרטיס', 'מזוודה', 'מפתח החדר', 'החשבון', 'תפריט', 'בית מרקחת', 'מרכז העיר',
-            'עזרה', 'רופא', 'בית חולים', 'משטרה', 'דרכון', 'יציאת חירום', 'יקר מדי', 'אני לא מבין', 'מזוודה אבודה', 'מכס'
+            'שמאלה', 'ימינה', 'ישר', 'רחוב', 'פתוח', 'סגור', 'כניסה', 'יציאה', 'מפתח', 'החשבון',
+            'עזרה', 'הלכתי לאיבוד', 'אני לא מבין', 'אני חולה', 'כואב לי', 'יקר מדי', 'אני צריך רופא', 'לאט יותר', 'אתה מדבר אנגלית', 'איפה השירותים'
         ],
         hi: [
             'नमस्ते', 'धन्यवाद', 'कृपया', 'माफ़ कीजिए', 'सुप्रभात', 'शुभ संध्या', 'पानी', 'रोटी', 'कितने का है', 'कहाँ है',
-            'हवाई अड्डा', 'रेलवे स्टेशन', 'बस स्टॉप', 'टिकट', 'सामान', 'कमरे की चाबी', 'बिल', 'मेन्यू', 'दवा की दुकान', 'शहर का केंद्र',
-            'मदद', 'डॉक्टर', 'अस्पताल', 'पुलिस', 'पासपोर्ट', 'आपातकालीन निकास', 'बहुत महंगा', 'मुझे समझ नहीं आया', 'खोया हुआ सामान', 'सीमा शुल्क'
+            'बाईं ओर', 'दाईं ओर', 'सीधे', 'सड़क', 'खुला', 'बंद', 'प्रवेश', 'निकास', 'चाबी', 'बिल',
+            'मदद', 'मैं खो गया हूँ', 'मुझे समझ नहीं आया', 'मैं बीमार हूँ', 'दर्द हो रहा है', 'बहुत महंगा', 'मुझे डॉक्टर चाहिए', 'धीरे बोलिए', 'क्या आप अंग्रेज़ी बोलते हैं', 'शौचालय कहाँ है'
         ],
         hr: [
             'bok', 'hvala', 'molim', 'oprostite', 'dobro jutro', 'dobra večer', 'voda', 'kruh', 'koliko košta', 'gdje je',
-            'zračna luka', 'željeznički kolodvor', 'autobusna stanica', 'karta', 'prtljaga', 'ključ sobe', 'račun', 'jelovnik', 'ljekarna', 'centar grada',
-            'pomoć', 'liječnik', 'bolnica', 'policija', 'putovnica', 'izlaz u nuždi', 'preskupo', 'ne razumijem', 'izgubljena prtljaga', 'carina'
+            'lijevo', 'desno', 'ravno', 'ulica', 'otvoreno', 'zatvoreno', 'ulaz', 'izlaz', 'ključ', 'račun',
+            'pomoć', 'izgubio sam se', 'ne razumijem', 'bolestan sam', 'boli me', 'preskupo', 'trebam liječnika', 'sporije', 'govorite li engleski', 'gdje je zahod'
         ],
         hu: [
             'szia', 'köszönöm', 'kérem', 'elnézést', 'jó reggelt', 'jó estét', 'víz', 'kenyér', 'mennyibe kerül', 'hol van',
-            'repülőtér', 'vasútállomás', 'buszmegálló', 'jegy', 'poggyász', 'szobakulcs', 'a számla', 'étlap', 'gyógyszertár', 'városközpont',
-            'segítség', 'orvos', 'kórház', 'rendőrség', 'útlevél', 'vészkijárat', 'túl drága', 'nem értem', 'elveszett poggyász', 'vám'
+            'balra', 'jobbra', 'egyenesen', 'utca', 'nyitva', 'zárva', 'bejárat', 'kijárat', 'kulcs', 'a számla',
+            'segítség', 'eltévedtem', 'nem értem', 'beteg vagyok', 'fáj', 'túl drága', 'orvosra van szükségem', 'lassabban', 'beszél angolul', 'hol van a mosdó'
         ],
         id: [
             'halo', 'terima kasih', 'tolong', 'permisi', 'selamat pagi', 'selamat malam', 'air', 'roti', 'berapa harganya', 'di mana',
-            'bandara', 'stasiun kereta', 'halte bus', 'tiket', 'bagasi', 'kunci kamar', 'tagihan', 'menu', 'apotek', 'pusat kota',
-            'bantuan', 'dokter', 'rumah sakit', 'polisi', 'paspor', 'pintu darurat', 'terlalu mahal', 'saya tidak mengerti', 'bagasi hilang', 'bea cukai'
+            'ke kiri', 'ke kanan', 'lurus', 'jalan', 'buka', 'tutup', 'pintu masuk', 'pintu keluar', 'kunci', 'tagihan',
+            'bantuan', 'saya tersesat', 'saya tidak mengerti', 'saya sakit', 'ini sakit', 'terlalu mahal', 'saya butuh dokter', 'lebih pelan', 'apakah anda bisa bahasa inggris', 'di mana toilet'
         ],
         it: [
             'ciao', 'grazie', 'per favore', 'scusi', 'buongiorno', 'buonasera', 'acqua', 'pane', 'quanto costa', "dov'è",
-            'aeroporto', 'stazione ferroviaria', "fermata dell'autobus", 'biglietto', 'bagaglio', 'chiave della camera', 'il conto', 'menù', 'farmacia', 'centro città',
-            'aiuto', 'medico', 'ospedale', 'polizia', 'passaporto', 'uscita di emergenza', 'troppo caro', 'non capisco', 'bagaglio smarrito', 'dogana'
+            'a sinistra', 'a destra', 'sempre dritto', 'strada', 'aperto', 'chiuso', 'ingresso', 'uscita', 'chiave', 'il conto',
+            'aiuto', 'mi sono perso', 'non capisco', 'sono malato', 'mi fa male', 'troppo caro', 'ho bisogno di un medico', 'più lentamente', 'parla inglese', "dov'è il bagno"
         ],
         ja: [
             'こんにちは', 'ありがとう', 'お願いします', 'すみません', 'おはよう', 'こんばんは', '水', 'パン', 'いくらですか', 'どこですか',
-            '空港', '駅', 'バス停', '切符', '荷物', '部屋の鍵', 'お会計', 'メニュー', '薬局', '市内中心部',
-            '助けて', '医者', '病院', '警察', 'パスポート', '非常口', '高すぎる', 'わかりません', '紛失した荷物', '税関'
+            '左へ', '右へ', 'まっすぐ', '通り', '営業中', '閉店', '入口', '出口', '鍵', 'お会計',
+            '助けて', '道に迷いました', 'わかりません', '具合が悪いです', '痛いです', '高すぎる', '医者が必要です', 'もっとゆっくり', '英語を話せますか', 'トイレはどこですか'
         ],
         kn: [
             'ನಮಸ್ಕಾರ', 'ಧನ್ಯವಾದ', 'ದಯವಿಟ್ಟು', 'ಕ್ಷಮಿಸಿ', 'ಶುಭೋದಯ', 'ಶುಭ ಸಂಜೆ', 'ನೀರು', 'ರೊಟ್ಟಿ', 'ಎಷ್ಟು ಬೆಲೆ', 'ಎಲ್ಲಿದೆ',
-            'ವಿಮಾನ ನಿಲ್ದಾಣ', 'ರೈಲು ನಿಲ್ದಾಣ', 'ಬಸ್ ನಿಲ್ದಾಣ', 'ಟಿಕೆಟ್', 'ಸಾಮಾನು', 'ಕೋಣೆಯ ಕೀಲಿ', 'ಬಿಲ್', 'ಮೆನು', 'ಔಷಧ ಅಂಗಡಿ', 'ನಗರ ಕೇಂದ್ರ',
-            'ಸಹಾಯ', 'ವೈದ್ಯ', 'ಆಸ್ಪತ್ರೆ', 'ಪೊಲೀಸ್', 'ಪಾಸ್‌ಪೋರ್ಟ್', 'ತುರ್ತು ನಿರ್ಗಮನ', 'ತುಂಬಾ ದುಬಾರಿ', 'ನನಗೆ ಅರ್ಥವಾಗಲಿಲ್ಲ', 'ಕಳೆದುಹೋದ ಸಾಮಾನು', 'ಕಸ್ಟಮ್ಸ್'
+            'ಎಡಕ್ಕೆ', 'ಬಲಕ್ಕೆ', 'ನೇರವಾಗಿ', 'ರಸ್ತೆ', 'ತೆರೆದಿದೆ', 'ಮುಚ್ಚಿದೆ', 'ಪ್ರವೇಶ', 'ನಿರ್ಗಮನ', 'ಕೀಲಿ', 'ಬಿಲ್',
+            'ಸಹಾಯ', 'ನಾನು ದಾರಿ ತಪ್ಪಿದ್ದೇನೆ', 'ನನಗೆ ಅರ್ಥವಾಗಲಿಲ್ಲ', 'ನನಗೆ ಹುಷಾರಿಲ್ಲ', 'ನೋವಾಗುತ್ತಿದೆ', 'ತುಂಬಾ ದುಬಾರಿ', 'ನನಗೆ ವೈದ್ಯರ ಅಗತ್ಯವಿದೆ', 'ನಿಧಾನವಾಗಿ', 'ನೀವು ಇಂಗ್ಲಿಷ್ ಮಾತನಾಡುತ್ತೀರಾ', 'ಶೌಚಾಲಯ ಎಲ್ಲಿದೆ'
         ],
         ko: [
             '안녕하세요', '감사합니다', '부탁합니다', '실례합니다', '좋은 아침', '좋은 저녁', '물', '빵', '얼마예요', '어디예요',
-            '공항', '기차역', '버스 정류장', '표', '짐', '방 열쇠', '계산서', '메뉴', '약국', '시내 중심',
-            '도와주세요', '의사', '병원', '경찰', '여권', '비상구', '너무 비싸요', '이해하지 못해요', '분실한 짐', '세관'
+            '왼쪽으로', '오른쪽으로', '직진', '거리', '영업 중', '닫힘', '입구', '출구', '열쇠', '계산서',
+            '도와주세요', '길을 잃었어요', '이해하지 못해요', '몸이 아파요', '여기가 아파요', '너무 비싸요', '의사가 필요해요', '더 천천히', '영어 하세요', '화장실이 어디예요'
         ],
         lt: [
             'labas', 'ačiū', 'prašau', 'atsiprašau', 'labas rytas', 'labas vakaras', 'vanduo', 'duona', 'kiek kainuoja', 'kur yra',
-            'oro uostas', 'geležinkelio stotis', 'autobusų stotelė', 'bilietas', 'bagažas', 'kambario raktas', 'sąskaita', 'meniu', 'vaistinė', 'miesto centras',
-            'pagalba', 'gydytojas', 'ligoninė', 'policija', 'pasas', 'avarinis išėjimas', 'per brangu', 'nesuprantu', 'dingęs bagažas', 'muitinė'
+            'į kairę', 'į dešinę', 'tiesiai', 'gatvė', 'atidaryta', 'uždaryta', 'įėjimas', 'išėjimas', 'raktas', 'sąskaita',
+            'pagalba', 'aš pasiklydau', 'nesuprantu', 'aš sergu', 'skauda', 'per brangu', 'man reikia gydytojo', 'lėčiau', 'ar kalbate angliškai', 'kur yra tualetas'
         ],
         lv: [
             'sveiki', 'paldies', 'lūdzu', 'atvainojiet', 'labrīt', 'labvakar', 'ūdens', 'maize', 'cik maksā', 'kur ir',
-            'lidosta', 'dzelzceļa stacija', 'autobusa pietura', 'biļete', 'bagāža', 'istabas atslēga', 'rēķins', 'ēdienkarte', 'aptieka', 'pilsētas centrs',
-            'palīgā', 'ārsts', 'slimnīca', 'policija', 'pase', 'avārijas izeja', 'pārāk dārgs', 'es nesaprotu', 'pazudusi bagāža', 'muita'
+            'pa kreisi', 'pa labi', 'taisni', 'iela', 'atvērts', 'slēgts', 'ieeja', 'izeja', 'atslēga', 'rēķins',
+            'palīgā', 'es esmu apmaldījies', 'es nesaprotu', 'es esmu slims', 'sāp', 'pārāk dārgs', 'man vajag ārstu', 'lēnāk', 'vai jūs runājat angliski', 'kur ir tualete'
         ],
         ml: [
             'നമസ്കാരം', 'നന്ദി', 'ദയവായി', 'ക്ഷമിക്കണം', 'സുപ്രഭാതം', 'ശുഭ സായാഹ്നം', 'വെള്ളം', 'അപ്പം', 'എത്ര വില', 'എവിടെയാണ്',
-            'വിമാനത്താവളം', 'റെയിൽവേ സ്റ്റേഷൻ', 'ബസ് സ്റ്റോപ്പ്', 'ടിക്കറ്റ്', 'ലഗേജ്', 'മുറിയുടെ താക്കോൽ', 'ബിൽ', 'മെനു', 'മരുന്നുകട', 'നഗരമധ്യം',
-            'സഹായം', 'ഡോക്ടർ', 'ആശുപത്രി', 'പോലീസ്', 'പാസ്‌പോർട്ട്', 'അടിയന്തര വാതിൽ', 'വളരെ വില കൂടുതൽ', 'എനിക്ക് മനസ്സിലായില്ല', 'നഷ്ടപ്പെട്ട ലഗേജ്', 'കസ്റ്റംസ്'
+            'ഇടത്തേക്ക്', 'വലത്തേക്ക്', 'നേരെ', 'തെരുവ്', 'തുറന്നിരിക്കുന്നു', 'അടച്ചിരിക്കുന്നു', 'പ്രവേശനം', 'പുറത്തേക്ക്', 'താക്കോൽ', 'ബിൽ',
+            'സഹായം', 'എനിക്ക് വഴി തെറ്റി', 'എനിക്ക് മനസ്സിലായില്ല', 'എനിക്ക് സുഖമില്ല', 'വേദനിക്കുന്നു', 'വളരെ വില കൂടുതൽ', 'എനിക്ക് ഡോക്ടറെ വേണം', 'പതുക്കെ', 'നിങ്ങൾ ഇംഗ്ലീഷ് സംസാരിക്കുമോ', 'ശൗചാലയം എവിടെയാണ്'
         ],
         mr: [
             'नमस्कार', 'धन्यवाद', 'कृपया', 'माफ करा', 'शुभ प्रभात', 'शुभ संध्याकाळ', 'पाणी', 'भाकरी', 'किती किंमत', 'कुठे आहे',
-            'विमानतळ', 'रेल्वे स्टेशन', 'बस थांबा', 'तिकीट', 'सामान', 'खोलीची किल्ली', 'बिल', 'मेनू', 'औषधाचे दुकान', 'शहराचे केंद्र',
-            'मदत', 'डॉक्टर', 'रुग्णालय', 'पोलीस', 'पासपोर्ट', 'आपत्कालीन निर्गमन', 'खूप महाग', 'मला समजत नाही', 'हरवलेले सामान', 'सीमाशुल्क'
+            'डावीकडे', 'उजवीकडे', 'सरळ', 'रस्ता', 'उघडे', 'बंद', 'प्रवेश', 'निर्गमन', 'किल्ली', 'बिल',
+            'मदत', 'मी हरवलो आहे', 'मला समजत नाही', 'मी आजारी आहे', 'दुखत आहे', 'खूप महाग', 'मला डॉक्टर हवे आहेत', 'हळू बोला', 'तुम्ही इंग्रजी बोलता का', 'स्वच्छतागृह कुठे आहे'
         ],
         ms: [
             'helo', 'terima kasih', 'sila', 'maaf', 'selamat pagi', 'selamat petang', 'air', 'roti', 'berapa harganya', 'di mana',
-            'lapangan terbang', 'stesen kereta api', 'perhentian bas', 'tiket', 'bagasi', 'kunci bilik', 'bil', 'menu', 'farmasi', 'pusat bandar',
-            'tolong', 'doktor', 'hospital', 'polis', 'pasport', 'pintu kecemasan', 'terlalu mahal', 'saya tidak faham', 'bagasi hilang', 'kastam'
+            'ke kiri', 'ke kanan', 'terus', 'jalan', 'buka', 'tutup', 'pintu masuk', 'pintu keluar', 'kunci', 'bil',
+            'tolong', 'saya sesat', 'saya tidak faham', 'saya sakit', 'ia sakit', 'terlalu mahal', 'saya perlukan doktor', 'lebih perlahan', 'adakah anda bercakap bahasa inggeris', 'di mana tandas'
         ],
         nl: [
             'hallo', 'dank je', 'alsjeblieft', 'pardon', 'goedemorgen', 'goedenavond', 'water', 'brood', 'hoeveel kost het', 'waar is',
-            'luchthaven', 'treinstation', 'bushalte', 'kaartje', 'bagage', 'kamersleutel', 'de rekening', 'menukaart', 'apotheek', 'centrum',
-            'help', 'dokter', 'ziekenhuis', 'politie', 'paspoort', 'nooduitgang', 'te duur', 'ik begrijp het niet', 'verloren bagage', 'douane'
+            'naar links', 'naar rechts', 'rechtdoor', 'straat', 'open', 'gesloten', 'ingang', 'uitgang', 'sleutel', 'de rekening',
+            'help', 'ik ben verdwaald', 'ik begrijp het niet', 'ik ben ziek', 'het doet pijn', 'te duur', 'ik heb een dokter nodig', 'langzamer', 'spreekt u Engels', 'waar is het toilet'
         ],
         no: [
             'hei', 'takk', 'vær så snill', 'unnskyld', 'god morgen', 'god kveld', 'vann', 'brød', 'hva koster det', 'hvor er',
-            'flyplass', 'jernbanestasjon', 'bussholdeplass', 'billett', 'bagasje', 'romnøkkel', 'regningen', 'meny', 'apotek', 'sentrum',
-            'hjelp', 'lege', 'sykehus', 'politi', 'pass', 'nødutgang', 'for dyrt', 'jeg forstår ikke', 'mistet bagasje', 'toll'
+            'til venstre', 'til høyre', 'rett frem', 'gate', 'åpent', 'stengt', 'inngang', 'utgang', 'nøkkel', 'regningen',
+            'hjelp', 'jeg har gått meg vill', 'jeg forstår ikke', 'jeg er syk', 'det gjør vondt', 'for dyrt', 'jeg trenger en lege', 'saktere', 'snakker du engelsk', 'hvor er toalettet'
         ],
         pl: [
             'cześć', 'dziękuję', 'proszę', 'przepraszam', 'dzień dobry', 'dobry wieczór', 'woda', 'chleb', 'ile kosztuje', 'gdzie jest',
-            'lotnisko', 'dworzec kolejowy', 'przystanek autobusowy', 'bilet', 'bagaż', 'klucz do pokoju', 'rachunek', 'menu', 'apteka', 'centrum miasta',
-            'pomocy', 'lekarz', 'szpital', 'policja', 'paszport', 'wyjście awaryjne', 'za drogo', 'nie rozumiem', 'zgubiony bagaż', 'odprawa celna'
+            'w lewo', 'w prawo', 'prosto', 'ulica', 'otwarte', 'zamknięte', 'wejście', 'wyjście', 'klucz', 'rachunek',
+            'pomocy', 'zgubiłem się', 'nie rozumiem', 'jestem chory', 'boli', 'za drogo', 'potrzebuję lekarza', 'wolniej', 'czy mówisz po angielsku', 'gdzie jest toaleta'
         ],
         pt: [
             'olá', 'obrigado', 'por favor', 'desculpe', 'bom dia', 'boa noite', 'água', 'pão', 'quanto custa', 'onde fica',
-            'aeroporto', 'estação de trem', 'ponto de ônibus', 'bilhete', 'bagagem', 'chave do quarto', 'a conta', 'cardápio', 'farmácia', 'centro da cidade',
-            'socorro', 'médico', 'hospital', 'polícia', 'passaporte', 'saída de emergência', 'caro demais', 'não entendo', 'bagagem perdida', 'alfândega'
+            'à esquerda', 'à direita', 'em frente', 'rua', 'aberto', 'fechado', 'entrada', 'saída', 'chave', 'a conta',
+            'socorro', 'estou perdido', 'não entendo', 'estou doente', 'dói', 'caro demais', 'preciso de um médico', 'mais devagar', 'fala inglês', 'onde fica o banheiro'
         ],
         ro: [
             'salut', 'mulțumesc', 'vă rog', 'scuzați-mă', 'bună dimineața', 'bună seara', 'apă', 'pâine', 'cât costă', 'unde este',
-            'aeroport', 'gară', 'stație de autobuz', 'bilet', 'bagaj', 'cheia camerei', 'nota de plată', 'meniu', 'farmacie', 'centrul orașului',
-            'ajutor', 'medic', 'spital', 'poliție', 'pașaport', 'ieșire de urgență', 'prea scump', 'nu înțeleg', 'bagaj pierdut', 'vamă'
+            'la stânga', 'la dreapta', 'drept înainte', 'stradă', 'deschis', 'închis', 'intrare', 'ieșire', 'cheie', 'nota de plată',
+            'ajutor', 'm-am rătăcit', 'nu înțeleg', 'sunt bolnav', 'mă doare', 'prea scump', 'am nevoie de un medic', 'mai rar', 'vorbiți engleză', 'unde este toaleta'
         ],
         ru: [
             'привет', 'спасибо', 'пожалуйста', 'извините', 'доброе утро', 'добрый вечер', 'вода', 'хлеб', 'сколько стоит', 'где находится',
-            'аэропорт', 'вокзал', 'автобусная остановка', 'билет', 'багаж', 'ключ от номера', 'счёт', 'меню', 'аптека', 'центр города',
-            'помогите', 'врач', 'больница', 'полиция', 'паспорт', 'запасной выход', 'слишком дорого', 'не понимаю', 'потерянный багаж', 'таможня'
+            'налево', 'направо', 'прямо', 'улица', 'открыто', 'закрыто', 'вход', 'выход', 'ключ', 'счёт',
+            'помогите', 'я заблудился', 'не понимаю', 'я болен', 'болит', 'слишком дорого', 'мне нужен врач', 'помедленнее', 'вы говорите по-английски', 'где туалет'
         ],
         sk: [
             'ahoj', 'ďakujem', 'prosím', 'prepáčte', 'dobré ráno', 'dobrý večer', 'voda', 'chlieb', 'koľko to stojí', 'kde je',
-            'letisko', 'železničná stanica', 'autobusová zastávka', 'lístok', 'batožina', 'kľúč od izby', 'účet', 'jedálny lístok', 'lekáreň', 'centrum mesta',
-            'pomoc', 'lekár', 'nemocnica', 'polícia', 'pas', 'núdzový východ', 'príliš drahé', 'nerozumiem', 'stratená batožina', 'colnica'
+            'doľava', 'doprava', 'rovno', 'ulica', 'otvorené', 'zatvorené', 'vchod', 'východ', 'kľúč', 'účet',
+            'pomoc', 'stratil som sa', 'nerozumiem', 'som chorý', 'bolí to', 'príliš drahé', 'potrebujem lekára', 'pomalšie', 'hovoríte po anglicky', 'kde je záchod'
         ],
         sl: [
             'živjo', 'hvala', 'prosim', 'oprostite', 'dobro jutro', 'dober večer', 'voda', 'kruh', 'koliko stane', 'kje je',
-            'letališče', 'železniška postaja', 'avtobusna postaja', 'vozovnica', 'prtljaga', 'ključ sobe', 'račun', 'jedilni list', 'lekarna', 'center mesta',
-            'pomoč', 'zdravnik', 'bolnišnica', 'policija', 'potni list', 'zasilni izhod', 'predrago', 'ne razumem', 'izgubljena prtljaga', 'carina'
+            'levo', 'desno', 'naravnost', 'ulica', 'odprto', 'zaprto', 'vhod', 'izhod', 'ključ', 'račun',
+            'pomoč', 'izgubil sem se', 'ne razumem', 'bolan sem', 'boli', 'predrago', 'potrebujem zdravnika', 'počasneje', 'govorite angleško', 'kje je stranišče'
         ],
         sr: [
             'здраво', 'хвала', 'молим', 'извините', 'добро јутро', 'добро вече', 'вода', 'хлеб', 'колико кошта', 'где је',
-            'аеродром', 'железничка станица', 'аутобуска станица', 'карта', 'пртљаг', 'кључ собе', 'рачун', 'јеловник', 'апотека', 'центар града',
-            'помоћ', 'лекар', 'болница', 'полиција', 'пасош', 'излаз за случај опасности', 'превише скупо', 'не разумем', 'изгубљен пртљаг', 'царина'
+            'лево', 'десно', 'право', 'улица', 'отворено', 'затворено', 'улаз', 'излаз', 'кључ', 'рачун',
+            'помоћ', 'изгубио сам се', 'не разумем', 'болестан сам', 'боли', 'превише скупо', 'треба ми лекар', 'спорије', 'говорите ли енглески', 'где је тоалет'
         ],
         sv: [
             'hej', 'tack', 'snälla', 'ursäkta', 'god morgon', 'god kväll', 'vatten', 'bröd', 'vad kostar det', 'var är',
-            'flygplats', 'järnvägsstation', 'busshållplats', 'biljett', 'bagage', 'rumsnyckel', 'notan', 'meny', 'apotek', 'centrum',
-            'hjälp', 'läkare', 'sjukhus', 'polis', 'pass', 'nödutgång', 'för dyrt', 'jag förstår inte', 'försvunnet bagage', 'tull'
+            'till vänster', 'till höger', 'rakt fram', 'gata', 'öppet', 'stängt', 'ingång', 'utgång', 'nyckel', 'notan',
+            'hjälp', 'jag har gått vilse', 'jag förstår inte', 'jag är sjuk', 'det gör ont', 'för dyrt', 'jag behöver en läkare', 'långsammare', 'talar du engelska', 'var är toaletten'
         ],
         sw: [
             'jambo', 'asante', 'tafadhali', 'samahani', 'habari ya asubuhi', 'habari ya jioni', 'maji', 'mkate', 'bei gani', 'iko wapi',
-            'uwanja wa ndege', 'stesheni ya treni', 'kituo cha basi', 'tikiti', 'mizigo', 'ufunguo wa chumba', 'bili', 'menyu', 'duka la dawa', 'katikati ya jiji',
-            'msaada', 'daktari', 'hospitali', 'polisi', 'pasipoti', 'njia ya dharura', 'ghali sana', 'sielewi', 'mizigo iliyopotea', 'forodha'
+            'kushoto', 'kulia', 'moja kwa moja', 'barabara', 'wazi', 'imefungwa', 'mlango wa kuingia', 'njia ya kutoka', 'ufunguo', 'bili',
+            'msaada', 'nimepotea', 'sielewi', 'mimi ni mgonjwa', 'inauma', 'ghali sana', 'nahitaji daktari', 'polepole', 'unazungumza kiingereza', 'choo kiko wapi'
         ],
         ta: [
             'வணக்கம்', 'நன்றி', 'தயவுசெய்து', 'மன்னிக்கவும்', 'காலை வணக்கம்', 'மாலை வணக்கம்', 'தண்ணீர்', 'ரொட்டி', 'எவ்வளவு விலை', 'எங்கே இருக்கிறது',
-            'விமான நிலையம்', 'ரயில் நிலையம்', 'பேருந்து நிறுத்தம்', 'டிக்கெட்', 'சாமான்', 'அறையின் சாவி', 'பில்', 'மெனு', 'மருந்தகம்', 'நகர மையம்',
-            'உதவி', 'மருத்துவர்', 'மருத்துவமனை', 'காவல்துறை', 'கடவுச்சீட்டு', 'அவசர வெளியேறு', 'மிகவும் விலை அதிகம்', 'எனக்குப் புரியவில்லை', 'தொலைந்த சாமான்', 'சுங்கம்'
+            'இடதுபுறம்', 'வலதுபுறம்', 'நேராக', 'தெரு', 'திறந்துள்ளது', 'மூடப்பட்டுள்ளது', 'நுழைவு', 'வெளியேறு', 'சாவி', 'பில்',
+            'உதவி', 'நான் வழி தவறிவிட்டேன்', 'எனக்குப் புரியவில்லை', 'எனக்கு உடல்நிலை சரியில்லை', 'வலிக்கிறது', 'மிகவும் விலை அதிகம்', 'எனக்கு மருத்துவர் வேண்டும்', 'மெதுவாக', 'நீங்கள் ஆங்கிலம் பேசுவீர்களா', 'கழிப்பறை எங்கே'
         ],
         te: [
             'నమస్కారం', 'ధన్యవాదాలు', 'దయచేసి', 'క్షమించండి', 'శుభోదయం', 'శుభ సాయంత్రం', 'నీరు', 'రొట్టె', 'ఎంత ధర', 'ఎక్కడ ఉంది',
-            'విమానాశ్రయం', 'రైల్వే స్టేషన్', 'బస్ స్టాప్', 'టికెట్', 'సామాను', 'గది తాళం', 'బిల్లు', 'మెనూ', 'మందుల దుకాణం', 'నగర కేంద్రం',
-            'సహాయం', 'వైద్యుడు', 'ఆసుపత్రి', 'పోలీసు', 'పాస్‌పోర్ట్', 'అత్యవసర నిష్క్రమణ', 'చాలా ఖరీదు', 'నాకు అర్థం కావడం లేదు', 'పోయిన సామాను', 'కస్టమ్స్'
+            'ఎడమవైపు', 'కుడివైపు', 'నేరుగా', 'వీధి', 'తెరిచి ఉంది', 'మూసి ఉంది', 'ప్రవేశం', 'నిష్క్రమణ', 'తాళం', 'బిల్లు',
+            'సహాయం', 'నేను దారి తప్పాను', 'నాకు అర్థం కావడం లేదు', 'నాకు ఒంట్లో బాగాలేదు', 'నొప్పిగా ఉంది', 'చాలా ఖరీదు', 'నాకు వైద్యుడు కావాలి', 'నెమ్మదిగా', 'మీరు ఇంగ్లీష్ మాట్లాడతారా', 'మరుగుదొడ్డి ఎక్కడ ఉంది'
         ],
         th: [
             'สวัสดี', 'ขอบคุณ', 'กรุณา', 'ขอโทษ', 'อรุณสวัสดิ์', 'สวัสดีตอนเย็น', 'น้ำ', 'ขนมปัง', 'ราคาเท่าไร', 'อยู่ที่ไหน',
-            'สนามบิน', 'สถานีรถไฟ', 'ป้ายรถเมล์', 'ตั๋ว', 'กระเป๋าเดินทาง', 'กุญแจห้อง', 'บิล', 'เมนู', 'ร้านขายยา', 'ใจกลางเมือง',
-            'ช่วยด้วย', 'หมอ', 'โรงพยาบาล', 'ตำรวจ', 'หนังสือเดินทาง', 'ทางออกฉุกเฉิน', 'แพงเกินไป', 'ไม่เข้าใจ', 'กระเป๋าหาย', 'ศุลกากร'
+            'เลี้ยวซ้าย', 'เลี้ยวขวา', 'ตรงไป', 'ถนน', 'เปิด', 'ปิด', 'ทางเข้า', 'ทางออก', 'กุญแจ', 'บิล',
+            'ช่วยด้วย', 'ฉันหลงทาง', 'ไม่เข้าใจ', 'ฉันไม่สบาย', 'เจ็บ', 'แพงเกินไป', 'ฉันต้องการหมอ', 'ช้าลงหน่อย', 'คุณพูดภาษาอังกฤษได้ไหม', 'ห้องน้ำอยู่ที่ไหน'
         ],
         tl: [
             'kumusta', 'salamat', 'pakiusap', 'paumanhin', 'magandang umaga', 'magandang gabi', 'tubig', 'tinapay', 'magkano', 'nasaan',
-            'paliparan', 'istasyon ng tren', 'hintuan ng bus', 'tiket', 'bagahe', 'susi ng kwarto', 'ang bayarin', 'menu', 'parmasya', 'sentro ng lungsod',
-            'tulong', 'doktor', 'ospital', 'pulis', 'pasaporte', 'labasan sa emerhensiya', 'masyadong mahal', 'hindi ko maintindihan', 'nawalang bagahe', 'adwana'
+            'sa kaliwa', 'sa kanan', 'diretso', 'kalye', 'bukas', 'sarado', 'pasukan', 'labasan', 'susi', 'ang bayarin',
+            'tulong', 'naligaw ako', 'hindi ko maintindihan', 'may sakit ako', 'masakit', 'masyadong mahal', 'kailangan ko ng doktor', 'mas mabagal', 'marunong ka ba ng ingles', 'nasaan ang banyo'
         ],
         tr: [
             'merhaba', 'teşekkürler', 'lütfen', 'affedersiniz', 'günaydın', 'iyi akşamlar', 'su', 'ekmek', 'ne kadar', 'nerede',
-            'havalimanı', 'tren istasyonu', 'otobüs durağı', 'bilet', 'bagaj', 'oda anahtarı', 'hesap', 'menü', 'eczane', 'şehir merkezi',
-            'yardım', 'doktor', 'hastane', 'polis', 'pasaport', 'acil çıkış', 'çok pahalı', 'anlamıyorum', 'kayıp bagaj', 'gümrük'
+            'sola', 'sağa', 'düz', 'sokak', 'açık', 'kapalı', 'giriş', 'çıkış', 'anahtar', 'hesap',
+            'yardım', 'kayboldum', 'anlamıyorum', 'hastayım', 'ağrıyor', 'çok pahalı', 'doktora ihtiyacım var', 'daha yavaş', 'İngilizce biliyor musunuz', 'tuvalet nerede'
         ],
         uk: [
             'привіт', 'дякую', 'будь ласка', 'вибачте', 'доброго ранку', 'добрий вечір', 'вода', 'хліб', 'скільки коштує', 'де знаходиться',
-            'аеропорт', 'залізничний вокзал', 'автобусна зупинка', 'квиток', 'багаж', 'ключ від номера', 'рахунок', 'меню', 'аптека', 'центр міста',
-            'допоможіть', 'лікар', 'лікарня', 'поліція', 'паспорт', 'запасний вихід', 'занадто дорого', 'не розумію', 'загублений багаж', 'митниця'
+            'ліворуч', 'праворуч', 'прямо', 'вулиця', 'відчинено', 'зачинено', 'вхід', 'вихід', 'ключ', 'рахунок',
+            'допоможіть', 'я заблукав', 'не розумію', 'я хворий', 'болить', 'занадто дорого', 'мені потрібен лікар', 'повільніше', 'ви розмовляєте англійською', 'де туалет'
         ],
         vi: [
             'xin chào', 'cảm ơn', 'làm ơn', 'xin lỗi', 'chào buổi sáng', 'chào buổi tối', 'nước', 'bánh mì', 'bao nhiêu tiền', 'ở đâu',
-            'sân bay', 'ga tàu', 'trạm xe buýt', 'vé', 'hành lý', 'chìa khóa phòng', 'hóa đơn', 'thực đơn', 'nhà thuốc', 'trung tâm thành phố',
-            'cứu với', 'bác sĩ', 'bệnh viện', 'cảnh sát', 'hộ chiếu', 'lối thoát hiểm', 'quá đắt', 'tôi không hiểu', 'hành lý thất lạc', 'hải quan'
+            'bên trái', 'bên phải', 'đi thẳng', 'đường phố', 'mở cửa', 'đóng cửa', 'lối vào', 'lối ra', 'chìa khóa', 'hóa đơn',
+            'cứu với', 'tôi bị lạc', 'tôi không hiểu', 'tôi bị ốm', 'đau quá', 'quá đắt', 'tôi cần bác sĩ', 'chậm hơn', 'bạn có nói tiếng anh không', 'nhà vệ sinh ở đâu'
         ],
         zh: [
             '你好', '谢谢', '请', '请问', '早上好', '晚上好', '水', '面包', '多少钱', '在哪里',
-            '机场', '火车站', '公交车站', '车票', '行李', '房间钥匙', '账单', '菜单', '药店', '市中心',
-            '救命', '医生', '医院', '警察', '护照', '紧急出口', '太贵了', '我不明白', '丢失的行李', '海关'
+            '向左', '向右', '一直走', '街道', '营业中', '已关门', '入口', '出口', '钥匙', '账单',
+            '救命', '我迷路了', '我不明白', '我生病了', '很疼', '太贵了', '我需要医生', '慢一点', '你会说英语吗', '洗手间在哪里'
         ]
     };
 

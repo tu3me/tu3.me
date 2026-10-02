@@ -248,15 +248,22 @@ function resizeGrip() {
      * same place on every screen of the app, from the first frame, before
      * anything at all has been drawn into it.
      *
-     * Clamped to the window all the same, because the app can be wider than
-     * what is showing it and the page under it can be scrolled: a corner past
-     * the edge is a grip that cannot be reached without first scrolling to it.
+     * Clamped sideways all the same, because the app can be wider than what is
+     * showing it and the page under it can be scrolled across: a corner past the
+     * left edge is a grip that cannot be reached without first scrolling to it,
+     * and scrolling across is not what a reader of a catalogue is doing.
+     *
+     * Not clamped downwards, which it was. Held at the top of the window it
+     * stayed in the corner of the screen through the whole of a scroll, and a
+     * mark that outlives everything it was next to stops reading as the corner
+     * of the page and starts reading as furniture of the browser. It belongs to
+     * the top of the document, so it leaves with the top of the document and
+     * comes back with it.
      */
     function place() {
         const box = document.body.getBoundingClientRect();
 
         const edge = Math.max(0, box.left);
-        const top = Math.max(0, box.top);
 
         /*
          * Everything above is measured on the screen; `left` below is not.
@@ -277,7 +284,7 @@ function resizeGrip() {
         const origin = document.documentElement.getBoundingClientRect().left + window.scrollX;
 
         handle.style.left = edge - origin + 'px';
-        handle.style.top = Math.min(top, window.innerHeight - handle.offsetHeight) + 'px';
+        handle.style.top = box.top + 'px';
     }
 
     // Written behind a pause, like the popup's own height a few lines up: a

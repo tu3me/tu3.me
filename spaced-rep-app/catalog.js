@@ -1496,11 +1496,17 @@ function catalog(container) {
 
         const mineList = $(mine, `<div class="dict-sets-list dict-sets-mine" style="display: flex; flex-direction: column; gap: 12px;"></div>`);
 
-        // The form opens where the button that opened it stands. What happens to
-        // the set it makes is a question for the model, which cannot yet tell a
-        // set somebody wrote from one that came with the app -- so for now a
-        // saved set joins the rest below.
+        // The form opens where the button that opened it stands, above the sets
+        // it is about to join.
         if (draft) renderSetCard(mineList, draft, intro);
+
+        /*
+         * Everything in the store is yours: what was typed here, what the app
+         * started you with, and what was taken off the shelf. Nothing else is,
+         * which is the whole of the rule -- the catalogue below holds what has
+         * not been taken yet, and a set is in one place or the other, never both.
+         */
+        sets.forEach(set => renderSetCard(mineList, set, intro));
 
         if (unfold === 'set') {
             const card = newSetCard();
@@ -1524,31 +1530,77 @@ function catalog(container) {
          * That is the trade for one line, and the name is cut at its end, where
          * languages differ least.
          */
-        const filterSelect = (side, grow, label, full) => `<select class="dict-lang-select" data-side="${side}" title="${full}" style="flex: ${grow}; min-width: 0; ${selectStyle()}">${filterOptions(catalogLangs[side], label)}</select>`;
+        /*
+         * The pair is one plate with a seam down it rather than two controls
+         * side by side.
+         *
+         * They answer one question between them -- which language into which --
+         * and a gap between them says they are two questions. Joined, the eye
+         * reads the line once: a bar, divided where the answer changes hands.
+         *
+         * Each half is still its own select, which is the whole reason this can
+         * be done at all: the plate is only a border and a background moved out
+         * to the box around them, so a press anywhere in a half opens that half's
+         * own list, by the browser's own rules and with the keyboard still
+         * working. Nothing here intercepts a click to open anything.
+         *
+         * The seam is the left border of the second one, so it cannot drift from
+         * the edge it divides. The outer corners belong to the plate and the
+         * halves have none of their own -- `overflow: hidden` on the plate is
+         * what keeps a square corner from poking out of a round one.
+         *
+         * Drawn a step darker than the plate's own outline, in the colour of
+         * everything that stands on the page. The outline is read against the
+         * page and the seam against the plate's fill, which are not the same
+         * distance: the same cream that gives 1.13 on the page gives 1.06 on the
+         * plate, and a divider nobody can see turns the pair back into one
+         * control with two arrows. On the dark theme the two colours are one
+         * value, so nothing there changes.
+         */
+        const filterSelect = (side, grow, label, full, seam) => `<select class="dict-lang-select" data-side="${side}" title="${full}" style="flex: none; width: ${grow}px; min-width: 0; box-sizing: border-box; background: transparent; color: ${palette.softColor}; border: none;${seam ? ` border-left: 1px solid ${palette.chromeBorder};` : ''} border-radius: 0; padding: 6px 5.1px; font-family: inherit; font-size: 11.8px; font-weight: 600; cursor: pointer; outline: none;">${filterOptions(catalogLangs[side], label)}</select>`;
 
         /*
-         * The two share the line in the ratio of what they have to say.
+         * Each half is as wide as what stands in it, and both are that same
+         * width.
          *
-         * There are 248.7 pixels here once the word CATALOG and the gaps have
-         * taken theirs, and the two labels want 135.8 and 97.1 -- a select clips
-         * rather than ellipsizes, so a label that does not fit is a word cut off
-         * mid-letter. Equal halves gave each 124.4 and cut the left one into
-         * "Language to lea"; 1.4 against 1 gives 145 and 103.6, and both stand
-         * whole.
+         * Written as a number rather than left to flex, which is not a style
+         * choice: a select's own width is the width of its widest option, and
+         * the widest of these is a list of 134 language names. Stretched to the
+         * line it had 41 spare pixels on the left and 35 on the right -- a word,
+         * a long emptiness, then an arrow at the far edge, which reads as a
+         * control waiting for something longer that never comes.
          *
-         * The right one keeps the short word. Both in full would want 286.3,
-         * which this line does not have, and of the two it is the left that has
-         * to be read: it says what the catalogue is a catalogue of. The long
-         * form of each is on hover either way.
+         * 95 is the wider caption and a margin. At the 5.1 of side padding these
+         * carry -- the narrowest step the app uses anywhere -- "Translation"
+         * wants 88.5 and "Language" 82. The margin is not slack: the same string
+         * is measured by whatever font the machine has, and a hair wider
+         * somewhere else is a word cut off mid-letter, since a select clips
+         * rather than ellipsizes.
          *
-         * What it costs is on the right, where a long language name -- the
-         * longest in the list wants 140.4 -- is cut. That is the side holding
-         * the language somebody already reads, which is the one they can name
-         * from three letters.
+         * The padding came down with the width rather than after it. Taking 3.4
+         * off each side is 6.8 off what the caption needs, which is most of what
+         * the plate gave back -- a narrower box with the old padding would have
+         * been the same emptiness in a smaller frame.
+         *
+         * The air the plate gives back goes between the heading and the plate,
+         * where the line is held apart rather than filled: this row is a name on
+         * the left and a setting on the right, and a setting stretched across
+         * everything between them is a setting pretending to be the content.
+         *
+         * What the caption drops, the pair says instead. "Language" beside
+         * "Translation" reads as the one being learned against the one it is
+         * read in, where "Language" alone would be a question with no second
+         * half. The full phrase is still on hover.
+         *
+         * What it costs is the chosen language name, which is longer than its
+         * caption: the longest in the list wants 138.6 and is cut. That is true
+         * at any width this line can give it, and it is the side holding a
+         * language somebody can name from three letters.
          */
-        const filters = `<div class="dict-lang-filter" style="display: flex; flex: 1; min-width: 0; gap: 6.8px;">
-                ${filterSelect('learn', '1.4', 'Language to learn', 'Language to learn')}
-                ${filterSelect('translation', '1', 'Translation', 'Translation language')}
+        const HALF = 95;
+        const filters = `<div class="dict-lang-filter" style="display: flex; flex: none; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; overflow: hidden;">
+                ${filterSelect('learn', HALF, 'Language', 'Language to learn', false)}
+                ${filterSelect('translation', HALF, 'Translation', 'Translation language', true)}
             </div>`;
 
         const all = $(container, `<div class="dict-section dict-section-catalog">
@@ -1559,15 +1611,17 @@ function catalog(container) {
 
         const shelf = catalogShelf(sets);
 
-        shelf.forEach(set => {
+        shelf.list.forEach(set => {
             renderSetCard(catalogList, set, intro);
         });
 
-        // An empty shelf is said out loud, and said as a gap rather than as a
-        // refusal: the pair is one nothing has been written for, which is a fact
-        // about this app today and not about the two languages.
-        if (!shelf.length) {
-            $(all, `<p class="dict-catalog-empty" style="margin: 13.7px 0 0; font-size: 12.8px; font-weight: 600; line-height: 1.4; text-align: center; color: ${palette.hint};">No ready-made sets for this pair yet.</p>`);
+        // An empty shelf says which emptiness it is -- nothing written for this
+        // pair, or everything here already taken. Two different things, and a
+        // reader told the wrong one goes looking for a fault that is not there.
+        // The third emptiness, before any language is picked, says nothing: see
+        // catalogShelf.
+        if (!shelf.list.length && shelf.note) {
+            $(all, `<p class="dict-catalog-empty" style="margin: 13.7px 0 0; font-size: 12.8px; font-weight: 600; line-height: 1.4; text-align: center; color: ${palette.hint};">${shelf.note}</p>`);
         }
 
         all.querySelectorAll('.dict-lang-select').forEach(select => {
@@ -1591,7 +1645,7 @@ function catalog(container) {
         // here rather than at the one entry the page calls, so that it comes back
         // from every way it can be taken away.
         showHint();
-        offerColours(shelf);
+        offerColours(sets);
 
         /*
          * And the corner starts asking as soon as the hand over Flashcards stops
@@ -1642,6 +1696,32 @@ function catalog(container) {
     }
 
     /*
+     * The air above the first card, which the list pays only while it holds one
+     * -- see .dict-sets-list in app.css.
+     *
+     * It has to fold with the card, because the list stops paying it the instant
+     * the card leaves: a fold that ends with the gap still there ends in a drop
+     * of exactly that much.
+     *
+     * Folded on the list rather than cancelled from the card, which was tried
+     * first and does nothing. A negative margin on the only item of a flex
+     * column takes the item up, but the column's own height stops at nought --
+     * so the list went on reserving its gap with an item of no height inside it.
+     * The space belongs to the list, and the list is what has to give it up.
+     *
+     * Only for a card that is alone there, because only then does the list empty
+     * when it goes. A card with siblings leaves that gap standing: it belongs to
+     * whichever card is first, which after this one folds will be the next one.
+     */
+    function listLead(card) {
+        const list = card.parentElement;
+        if (!list || list.children.length !== 1) return null;
+        if (!parseFloat(getComputedStyle(list).marginTop)) return null;
+
+        return list;
+    }
+
+    /*
      * Puts the starting state into the layout so there is something to move
      * from. Both styles applied in one go would be collapsed into a single
      * pass and the element would simply appear in its end state.
@@ -1656,67 +1736,98 @@ function catalog(container) {
     }
 
     /*
-     * The collapsed end of the fold: the card folds all the way down to its own
-     * two border lines.
+     * The collapsed end of the fold: nothing at all, measured rather than
+     * assumed.
      *
-     * The padding goes with it, because 27.3px of it cannot fit inside a card of
-     * no height. The negative margin cancels the list's gap, so at that end the
-     * card takes exactly its own height out of the column and nothing more.
+     * Everything that takes height has to be taken down, or the fold stops short
+     * of the state the page is in once the card is gone and the difference is
+     * paid in one frame. This card ended 10.3px above that state -- 8.5 of the
+     * list's own gap above its first card, and 1.8 of the card's two border
+     * lines -- and that was the step left at the end of every close and the
+     * start of every open.
+     *
+     * The borders go to nought with the padding: a line is a line whatever the
+     * box behind it measures, and two of them are the one thing a card of no
+     * height still draws. The negative margin cancels the gap the list is
+     * holding under this card, and the list's own gap above it folds with it --
+     * see listLead -- so at that end the card takes nothing out of the column at
+     * all.
      *
      * It used to fold down to the height of the "Continue" banner instead, which
      * is what the form grew out of while the banner left. There is no banner now
      * -- the game that was started is marked on its own tile -- so there is
      * nothing above the list for a card to be measured against.
      */
-    function collapsed(card, gap) {
+    function collapsed(card, gap, lead) {
         card.style.paddingTop = '0px';
         card.style.paddingBottom = '0px';
+        card.style.borderTopWidth = '0px';
+        card.style.borderBottomWidth = '0px';
         card.style.maxHeight = '0px';
 
         if (gap) card.style.marginBottom = `-${gap}px`;
+        if (lead) lead.style.marginTop = '0px';
     }
 
     function unfoldInto(card) {
         const opened = card.scrollHeight;
         const gap = listGap(card);
+        const lead = listLead(card);
 
         // Taken before they are overridden, and put back by value at the end.
-        // The card's padding is written in its own style attribute, so clearing
-        // the override does not uncover it — it uncovers nothing, and the card
-        // would keep the flattened padding it was animated through.
+        // The card's padding and border are written in its own style attribute,
+        // so clearing the override does not uncover them — it uncovers nothing,
+        // and the card would keep the flattened values it was animated through.
+        // A border is worse than padding there: with no longhand and no rule to
+        // fall back on, border-width is `medium`, which is three pixels.
         const padTop = getComputedStyle(card).paddingTop;
         const padBottom = getComputedStyle(card).paddingBottom;
+        const lineTop = card.style.borderTopWidth || getComputedStyle(card).borderTopWidth;
+        const lineBottom = card.style.borderBottomWidth || getComputedStyle(card).borderBottomWidth;
 
         card.style.overflow = 'hidden';
-        collapsed(card, gap);
+        collapsed(card, gap, lead);
 
         pin(card);
 
+        if (lead) lead.style.transition = `margin-top ${FOLD_OPEN}ms ease-out`;
+
         card.style.transition = `max-height ${FOLD_OPEN}ms ease-out,`
-            + ` padding ${FOLD_OPEN}ms ease-out, margin-bottom ${FOLD_OPEN}ms ease-out`;
+            + ` padding ${FOLD_OPEN}ms ease-out, border-width ${FOLD_OPEN}ms ease-out,`
+            + ` margin-bottom ${FOLD_OPEN}ms ease-out`;
         card.style.maxHeight = `${opened}px`;
         card.style.paddingTop = padTop;
         card.style.paddingBottom = padBottom;
+        card.style.borderTopWidth = lineTop;
+        card.style.borderBottomWidth = lineBottom;
         card.style.marginBottom = '';
+
+        if (lead) lead.style.marginTop = '';
 
         setTimeout(() => {
             card.style.maxHeight = '';
             card.style.overflow = '';
             card.style.transition = '';
+
+            if (lead) lead.style.transition = '';
         }, FOLD_OPEN + 40);
     }
 
     function foldAway(card, done) {
         const gap = listGap(card);
+        const lead = listLead(card);
 
         card.style.overflow = 'hidden';
         card.style.maxHeight = `${card.scrollHeight}px`;
 
         pin(card);
 
+        if (lead) lead.style.transition = `margin-top ${FOLD_SHUT}ms ease-in`;
+
         card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
-            + ` padding ${FOLD_SHUT}ms ease-in, margin-bottom ${FOLD_SHUT}ms ease-in`;
-        collapsed(card, gap);
+            + ` padding ${FOLD_SHUT}ms ease-in, border-width ${FOLD_SHUT}ms ease-in,`
+            + ` margin-bottom ${FOLD_SHUT}ms ease-in`;
+        collapsed(card, gap, lead);
 
         setTimeout(done, FOLD_SHUT);
     }
@@ -2499,7 +2610,7 @@ function catalog(container) {
             const boxText = escapeText(form ? form.text : setAsText(set));
 
             const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
-                    It's just plain text, so you can edit it with any AI tool. First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
+                    A card set is just plain text, so you can edit it with any AI tool. First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
                 </label>
                 <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;word -- translation&#10;another word -- another translation" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
                 <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
@@ -2857,6 +2968,33 @@ function catalog(container) {
             const totalWords = set.words.length;
             const progress = spacedRepetitions.calculateSetProgress(set.words);
 
+            /*
+             * What a card can do, which is what it is and where it stands.
+             *
+             * A set on the shelf is read, not written: the words in it are the
+             * ones the app shipped, and a pencil there would offer to edit
+             * something that belongs to everybody. So the shelf gets the flag
+             * and nothing else.
+             *
+             * In My stuff it is yours, so the pencil comes back -- and the flag
+             * stays beside it, filled, because that is the thing that put it
+             * there and the thing that can take it out again.
+             *
+             * A set somebody wrote has no flag at all. It was never on a shelf
+             * to be kept from, and a pressed flag on it would be a switch that
+             * says "yes" and cannot say anything else.
+             */
+            const kept = store.sets().some(saved => saved.id === set.id);
+            const ready = fromCatalog(set);
+
+            const flagBtn = (pressed) => `<button class="set-flag-btn" title="${pressed ? 'In My stuff' : 'Add to My stuff'}" aria-pressed="${pressed}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${pressed ? palette.accent : palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">${FLAG(pressed)}</button>`;
+
+            const editBtn = `<button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>`;
+
+            const buttons = ready ? (kept ? flagBtn(true) + editBtn : flagBtn(false)) : editBtn;
+
             // Whether this tile is the game that was left unfinished, which is a
             // question about both halves of it: the same game on another set is
             // a game that was never started.
@@ -2927,9 +3065,7 @@ function catalog(container) {
                         <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
                     </div>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 6.8px;">
-                        <button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
-                            <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                        </button>
+                        ${buttons}
                     </div>
                 </div>
 
@@ -3014,15 +3150,28 @@ function catalog(container) {
             // says when pressed.
             card.querySelector('.set-more-btn').addEventListener('click', moreSoon);
 
-            card.querySelector('.set-edit-btn').addEventListener('click', async () => {
-                // Editing is keeping it too: what is typed has to be saved into
-                // something, and until this runs there is nothing to save into.
-                await adopt(set);
+            const flag = card.querySelector('.set-flag-btn');
 
-                editing.add(set.id);
-                rememberForm(set.id, setAsText(set));
-                render();
-            });
+            if (flag) {
+                flag.addEventListener('click', async () => {
+                    if (kept) return release(set);
+
+                    await adopt(set);
+                    render();
+                });
+            }
+
+            const pencil = card.querySelector('.set-edit-btn');
+
+            // Only a kept set has one: there is nothing to type into on the
+            // shelf, and nothing to save it into either.
+            if (pencil) {
+                pencil.addEventListener('click', () => {
+                    editing.add(set.id);
+                    rememberForm(set.id, setAsText(set));
+                    render();
+                });
+            }
         }
     }
 
@@ -3281,25 +3430,122 @@ function catalog(container) {
      * can be picked here has nothing behind it yet.
      */
     function catalogShelf(sets) {
-        if (catalogLangs.learn === 'any') return sets;
+        /*
+         * Nothing chosen says nothing. The two dropdowns stand directly under the
+         * heading with nothing between them and this space, so they are the
+         * instruction; a line of type under them repeating it costs 31.6 of a
+         * screen that ends at 600, and the first screen is 5.5 over without it.
+         */
+        if (catalogLangs.learn === 'any') return { list: [], note: '' };
 
         const learn = catalogLangs.learn;
         const translation = catalogLangs.translation === 'any' ? 'en' : catalogLangs.translation;
 
-        return vocab.sets(learn, translation).map(made => {
-            const id = `vocab-${learn}-${translation}-${made.level.toLowerCase()}`;
+        // What is already yours is shown in My stuff and nowhere else. A kept set
+        // left on the shelf as well would be the same title twice on one screen,
+        // one of them with the answers on it and one without.
+        const list = vocab.sets(learn, translation).map(made => ({
+            id: `${CATALOG_ID}${learn}-${translation}-${made.level.toLowerCase()}`,
+            title: `${languageName(learn)} · ${made.level}`,
+            words: made.words
+        })).filter(made => !sets.some(saved => saved.id === made.id));
 
-            // A set that has been played is in the store with its answers on it,
-            // and that copy is the one to show. The table would hand back the same
-            // eight words with every repetition forgotten, and a shelf that forgets
-            // what was done on it is a shelf nobody trusts twice.
-            return sets.find(set => set.id === id) || {
-                id: id,
-                title: `${languageName(learn)} · ${made.level}`,
-                words: made.words
-            };
+        if (list.length) return { list: list, note: '' };
+
+        const written = vocab.has(learn) && vocab.has(translation) && learn !== translation;
+
+        return {
+            list: [],
+            note: written
+                ? 'Every set for this pair is in My stuff.'
+                : 'No ready-made sets for this pair yet.'
+        };
+    }
+
+    /*
+     * Taking a ready-made set back out of My stuff.
+     *
+     * The flag that put it there is what takes it out, because a mark that can
+     * only be set is not a switch -- and the set is not lost by it: it goes back
+     * on the shelf it came from, where the same flag will fetch it again.
+     *
+     * What is lost is the answers, and that is the one thing here worth stopping
+     * for. A set nobody has played is dropped where it stands; one with
+     * repetitions on it asks first, in the same words it would take to put them
+     * back -- which is none, because they cannot be put back.
+     */
+    function release(set) {
+        const drop = () => {
+            const index = store.sets().findIndex(saved => saved.id === set.id);
+
+            if (index < 0) return;
+
+            store.removeAt(index);
+            store.save();
+            render();
+        };
+
+        const played = (set.words || []).some(w => w.repetitions && w.repetitions.length > 0);
+
+        if (!played) return drop();
+
+        confirmRelease(set, drop);
+    }
+
+    function confirmRelease(set, onDrop) {
+        const overlay = $(`<div class="release-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+            <div class="release-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
+                <div class="release-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">Take it out of My stuff?</div>
+                <div class="release-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">${set.title} goes back to the catalogue, and what you have answered in it is forgotten. The set itself can be taken again at any time.</div>
+                <div class="release-dialog-actions" style="display: flex; gap: 6.8px;">
+                    <button class="release-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Keep it</button>
+                    <button class="release-dialog-drop" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Take out</button>
+                </div>
+            </div>
+        </div>`);
+
+        const close = () => overlay.remove();
+
+        overlay.querySelector('.release-dialog-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('.release-dialog-drop').addEventListener('click', () => {
+            close();
+            onDrop();
         });
     }
+
+    /*
+     * Which sets came off the shelf rather than out of somebody's own typing.
+     *
+     * Read off the id, which the catalogue builds out of the pair and the level
+     * -- vocab-es-ru-beginner -- rather than kept as a field on the set. A field
+     * would have to be written when the set is taken, read back when it is
+     * loaded, and defended against every set that was saved before it existed;
+     * the id is already there, already unique, and already says where the thing
+     * came from.
+     */
+    const CATALOG_ID = 'vocab-';
+
+    function fromCatalog(set) {
+        return String(set.id).startsWith(CATALOG_ID);
+    }
+
+    /*
+     * The flag on a ready-made set: outline while it is on the shelf, filled and
+     * in the accent colour once it is yours.
+     *
+     * A flag rather than a plus, because what the press does is not "make a
+     * copy" but "keep this one" -- and the same mark, pressed, is what says it
+     * is kept. One shape in two states is a thing that can be read at a glance
+     * on the first screen and remembered on the tenth.
+     *
+     * Drawn rather than taken from the icon set: the two states differ only in
+     * whether the banner is filled, which is one attribute, and a pair of hand
+     * drawings would have to be kept in step by somebody noticing.
+     */
+    const FLAG = (filled) => `<svg class="set-flag-svg" width="15.4" height="15.4" viewBox="0 0 24 24"
+        fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21.5V3"/><path d="M5.5 3.5h12l-2.6 4.6 2.6 4.6h-12z"/></svg>`;
 
     /*
      * A ready-made set becomes one of yours the moment it is used.
