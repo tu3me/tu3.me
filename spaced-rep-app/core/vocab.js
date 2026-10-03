@@ -89,22 +89,22 @@ function vocab() {
      */
     const WORDS = {
         am: [
-            'ሰላም', 'አመሰግናለሁ', 'እባክህ', 'ይቅርታ', 'እንደምን አደርክ', 'እንደምን አመሸህ', 'ውሃ', 'ዳቦ', 'ስንት ነው', 'የት ነው',
+            'ሰላም', 'አመሰግናለሁ', 'እባክዎ', 'ይቅርታ', 'እንደምን አደሩ', 'እንደምን አመሹ', 'ውሃ', 'ዳቦ', 'ስንት ነው', 'የት ነው',
             'ወደ ግራ', 'ወደ ቀኝ', 'በቀጥታ', 'መንገድ', 'ክፍት', 'ዝግ', 'መግቢያ', 'መውጫ', 'ቁልፍ', 'ሂሳብ',
-            'እርዳታ', 'ጠፍቻለሁ', 'አልገባኝም', 'ታምሜያለሁ', 'ያማል', 'በጣም ውድ', 'ሐኪም እፈልጋለሁ', 'ቀስ ብለህ', 'እንግሊዝኛ ትችላለህ', 'መጸዳጃ ቤት የት ነው'
+            'እርዳታ', 'ጠፍቻለሁ', 'አልገባኝም', 'ታምሜያለሁ', 'ያማል', 'በጣም ውድ', 'ሐኪም እፈልጋለሁ', 'ቀስ ብለው', 'እንግሊዝኛ ይችላሉ', 'መጸዳጃ ቤት የት ነው'
         ],
         ar: [
-            'مرحبا', 'شكرا', 'من فضلك', 'عفوا', 'صباح الخير', 'مساء الخير', 'ماء', 'خبز', 'كم الثمن', 'أين يوجد',
+            'مرحبا', 'شكرا', 'من فضلك', 'لو سمحت', 'صباح الخير', 'مساء الخير', 'ماء', 'خبز', 'بكم هذا', 'أين',
             'إلى اليسار', 'إلى اليمين', 'إلى الأمام', 'شارع', 'مفتوح', 'مغلق', 'مدخل', 'مخرج', 'مفتاح', 'الحساب',
             'مساعدة', 'أنا تائه', 'لا أفهم', 'أنا مريض', 'يؤلمني', 'غالي جدا', 'أحتاج طبيبا', 'ببطء', 'هل تتكلم الإنجليزية', 'أين الحمام'
         ],
         bg: [
-            'здравей', 'благодаря', 'моля', 'извинете', 'добро утро', 'добър вечер', 'вода', 'хляб', 'колко струва', 'къде е',
+            'здравейте', 'благодаря', 'моля', 'извинете', 'добро утро', 'добър вечер', 'вода', 'хляб', 'колко струва', 'къде е',
             'наляво', 'надясно', 'направо', 'улица', 'отворено', 'затворено', 'вход', 'изход', 'ключ', 'сметката',
             'помощ', 'изгубих се', 'не разбирам', 'болен съм', 'боли', 'твърде скъпо', 'трябва ми лекар', 'по-бавно', 'говорите ли английски', 'къде е тоалетната'
         ],
         bn: [
-            'নমস্কার', 'ধন্যবাদ', 'দয়া করে', 'মাফ করবেন', 'সুপ্রভাত', 'শুভ সন্ধ্যা', 'পানি', 'রুটি', 'কত দাম', 'কোথায় আছে',
+            'নমস্কার', 'ধন্যবাদ', 'দয়া করে', 'মাফ করবেন', 'সুপ্রভাত', 'শুভ সন্ধ্যা', 'পানি', 'রুটি', 'কত দাম', 'কোথায়',
             'বাঁ দিকে', 'ডান দিকে', 'সোজা', 'রাস্তা', 'খোলা', 'বন্ধ', 'প্রবেশপথ', 'প্রস্থান', 'চাবি', 'বিল',
             'সাহায্য', 'আমি হারিয়ে গেছি', 'আমি বুঝতে পারছি না', 'আমি অসুস্থ', 'ব্যথা করছে', 'খুব দামি', 'আমার ডাক্তার দরকার', 'আরও ধীরে', 'আপনি কি ইংরেজি বলেন', 'বাথরুম কোথায়'
         ],
@@ -114,9 +114,9 @@ function vocab() {
             'ajuda', "m'he perdut", 'no ho entenc', 'estic malalt', 'em fa mal', 'massa car', 'necessito un metge', 'més a poc a poc', 'parla anglès', 'on és el lavabo'
         ],
         cs: [
-            'ahoj', 'děkuji', 'prosím', 'promiňte', 'dobré ráno', 'dobrý večer', 'voda', 'chléb', 'kolik to stojí', 'kde je',
+            'dobrý den', 'děkuji', 'prosím', 'promiňte', 'dobré ráno', 'dobrý večer', 'voda', 'chléb', 'kolik to stojí', 'kde je',
             'doleva', 'doprava', 'rovně', 'ulice', 'otevřeno', 'zavřeno', 'vchod', 'východ', 'klíč', 'účet',
-            'pomoc', 'ztratil jsem se', 'nerozumím', 'jsem nemocný', 'bolí to', 'příliš drahé', 'potřebuji lékaře', 'pomaleji', 'mluvíte anglicky', 'kde je záchod'
+            'pomoc', 'ztratil jsem se', 'nerozumím', 'jsem nemocný', 'bolí to', 'příliš drahé', 'potřebuji lékaře', 'pomaleji', 'mluvíte anglicky', 'kde je toaleta'
         ],
         da: [
             'hej', 'tak', 'venligst', 'undskyld', 'godmorgen', 'godaften', 'vand', 'brød', 'hvad koster det', 'hvor er',
@@ -129,7 +129,7 @@ function vocab() {
             'Hilfe', 'ich habe mich verirrt', 'ich verstehe nicht', 'ich bin krank', 'es tut weh', 'zu teuer', 'ich brauche einen Arzt', 'langsamer', 'sprechen Sie Englisch', 'wo ist die Toilette'
         ],
         el: [
-            'γεια σου', 'ευχαριστώ', 'παρακαλώ', 'συγγνώμη', 'καλημέρα', 'καλησπέρα', 'νερό', 'ψωμί', 'πόσο κάνει', 'πού είναι',
+            'γεια σας', 'ευχαριστώ', 'παρακαλώ', 'συγγνώμη', 'καλημέρα', 'καλησπέρα', 'νερό', 'ψωμί', 'πόσο κάνει', 'πού είναι',
             'αριστερά', 'δεξιά', 'ευθεία', 'δρόμος', 'ανοιχτά', 'κλειστά', 'είσοδος', 'έξοδος', 'κλειδί', 'ο λογαριασμός',
             'βοήθεια', 'έχω χαθεί', 'δεν καταλαβαίνω', 'είμαι άρρωστος', 'πονάει', 'πολύ ακριβό', 'χρειάζομαι γιατρό', 'πιο αργά', 'μιλάτε αγγλικά', 'πού είναι η τουαλέτα'
         ],
@@ -139,7 +139,7 @@ function vocab() {
             'help', 'I am lost', 'I do not understand', 'I am ill', 'it hurts', 'too expensive', 'I need a doctor', 'more slowly', 'do you speak English', 'where is the toilet'
         ],
         es: [
-            'hola', 'gracias', 'por favor', 'perdone', 'buenos días', 'buenas tardes', 'agua', 'pan', 'cuánto cuesta', 'dónde está',
+            'hola', 'gracias', 'por favor', 'perdone', 'buenos días', 'buenas noches', 'agua', 'pan', 'cuánto cuesta', 'dónde está',
             'a la izquierda', 'a la derecha', 'todo recto', 'calle', 'abierto', 'cerrado', 'entrada', 'salida', 'llave', 'la cuenta',
             'ayuda', 'estoy perdido', 'no entiendo', 'estoy enfermo', 'me duele', 'demasiado caro', 'necesito un médico', 'más despacio', 'habla inglés', 'dónde está el baño'
         ],
@@ -165,11 +165,11 @@ function vocab() {
         ],
         gu: [
             'નમસ્તે', 'આભાર', 'કૃપા કરીને', 'માફ કરશો', 'સુપ્રભાત', 'શુભ સાંજ', 'પાણી', 'રોટલી', 'કેટલું છે', 'ક્યાં છે',
-            'ડાબી બાજુ', 'જમણી બાજુ', 'સીધા', 'શેરી', 'ખુલ્લું', 'બંધ', 'પ્રવેશ', 'બહાર નીકળો', 'ચાવી', 'બિલ',
+            'ડાબી બાજુ', 'જમણી બાજુ', 'સીધા', 'શેરી', 'ખુલ્લું', 'બંધ', 'પ્રવેશ', 'નિર્ગમન', 'ચાવી', 'બિલ',
             'મદદ', 'હું ખોવાઈ ગયો છું', 'મને સમજાતું નથી', 'હું બીમાર છું', 'દુખે છે', 'બહુ મોંઘું', 'મને ડૉક્ટરની જરૂર છે', 'વધુ ધીમે', 'શું તમે અંગ્રેજી બોલો છો', 'શૌચાલય ક્યાં છે'
         ],
         he: [
-            'שלום', 'תודה', 'בבקשה', 'סליחה', 'בוקר טוב', 'ערב טוב', 'מים', 'לחם', 'כמה זה עולה', 'איפה נמצא',
+            'שלום', 'תודה', 'בבקשה', 'סליחה', 'בוקר טוב', 'ערב טוב', 'מים', 'לחם', 'כמה זה עולה', 'איפה',
             'שמאלה', 'ימינה', 'ישר', 'רחוב', 'פתוח', 'סגור', 'כניסה', 'יציאה', 'מפתח', 'החשבון',
             'עזרה', 'הלכתי לאיבוד', 'אני לא מבין', 'אני חולה', 'כואב לי', 'יקר מדי', 'אני צריך רופא', 'לאט יותר', 'אתה מדבר אנגלית', 'איפה השירותים'
         ],
@@ -179,12 +179,12 @@ function vocab() {
             'मदद', 'मैं खो गया हूँ', 'मुझे समझ नहीं आया', 'मैं बीमार हूँ', 'दर्द हो रहा है', 'बहुत महंगा', 'मुझे डॉक्टर चाहिए', 'धीरे बोलिए', 'क्या आप अंग्रेज़ी बोलते हैं', 'शौचालय कहाँ है'
         ],
         hr: [
-            'bok', 'hvala', 'molim', 'oprostite', 'dobro jutro', 'dobra večer', 'voda', 'kruh', 'koliko košta', 'gdje je',
+            'dobar dan', 'hvala', 'molim', 'oprostite', 'dobro jutro', 'dobra večer', 'voda', 'kruh', 'koliko košta', 'gdje je',
             'lijevo', 'desno', 'ravno', 'ulica', 'otvoreno', 'zatvoreno', 'ulaz', 'izlaz', 'ključ', 'račun',
             'pomoć', 'izgubio sam se', 'ne razumijem', 'bolestan sam', 'boli me', 'preskupo', 'trebam liječnika', 'sporije', 'govorite li engleski', 'gdje je zahod'
         ],
         hu: [
-            'szia', 'köszönöm', 'kérem', 'elnézést', 'jó reggelt', 'jó estét', 'víz', 'kenyér', 'mennyibe kerül', 'hol van',
+            'jó napot', 'köszönöm', 'kérem', 'elnézést', 'jó reggelt', 'jó estét', 'víz', 'kenyér', 'mennyibe kerül', 'hol van',
             'balra', 'jobbra', 'egyenesen', 'utca', 'nyitva', 'zárva', 'bejárat', 'kijárat', 'kulcs', 'a számla',
             'segítség', 'eltévedtem', 'nem értem', 'beteg vagyok', 'fáj', 'túl drága', 'orvosra van szükségem', 'lassabban', 'beszél angolul', 'hol van a mosdó'
         ],
@@ -199,9 +199,9 @@ function vocab() {
             'aiuto', 'mi sono perso', 'non capisco', 'sono malato', 'mi fa male', 'troppo caro', 'ho bisogno di un medico', 'più lentamente', 'parla inglese', "dov'è il bagno"
         ],
         ja: [
-            'こんにちは', 'ありがとう', 'お願いします', 'すみません', 'おはよう', 'こんばんは', '水', 'パン', 'いくらですか', 'どこですか',
+            'こんにちは', 'ありがとうございます', 'お願いします', 'すみません', 'おはようございます', 'こんばんは', '水', 'パン', 'いくらですか', 'どこですか',
             '左へ', '右へ', 'まっすぐ', '通り', '営業中', '閉店', '入口', '出口', '鍵', 'お会計',
-            '助けて', '道に迷いました', 'わかりません', '具合が悪いです', '痛いです', '高すぎる', '医者が必要です', 'もっとゆっくり', '英語を話せますか', 'トイレはどこですか'
+            '助けて', '道に迷いました', 'わかりません', '具合が悪いです', '痛いです', '高すぎます', '医者が必要です', 'もっとゆっくり', '英語を話せますか', 'トイレはどこですか'
         ],
         kn: [
             'ನಮಸ್ಕಾರ', 'ಧನ್ಯವಾದ', 'ದಯವಿಟ್ಟು', 'ಕ್ಷಮಿಸಿ', 'ಶುಭೋದಯ', 'ಶುಭ ಸಂಜೆ', 'ನೀರು', 'ರೊಟ್ಟಿ', 'ಎಷ್ಟು ಬೆಲೆ', 'ಎಲ್ಲಿದೆ',
@@ -224,12 +224,12 @@ function vocab() {
             'palīgā', 'es esmu apmaldījies', 'es nesaprotu', 'es esmu slims', 'sāp', 'pārāk dārgs', 'man vajag ārstu', 'lēnāk', 'vai jūs runājat angliski', 'kur ir tualete'
         ],
         ml: [
-            'നമസ്കാരം', 'നന്ദി', 'ദയവായി', 'ക്ഷമിക്കണം', 'സുപ്രഭാതം', 'ശുഭ സായാഹ്നം', 'വെള്ളം', 'അപ്പം', 'എത്ര വില', 'എവിടെയാണ്',
+            'നമസ്കാരം', 'നന്ദി', 'ദയവായി', 'ക്ഷമിക്കണം', 'സുപ്രഭാതം', 'ശുഭ സായാഹ്നം', 'വെള്ളം', 'ബ്രെഡ്', 'എത്ര വില', 'എവിടെയാണ്',
             'ഇടത്തേക്ക്', 'വലത്തേക്ക്', 'നേരെ', 'തെരുവ്', 'തുറന്നിരിക്കുന്നു', 'അടച്ചിരിക്കുന്നു', 'പ്രവേശനം', 'പുറത്തേക്ക്', 'താക്കോൽ', 'ബിൽ',
             'സഹായം', 'എനിക്ക് വഴി തെറ്റി', 'എനിക്ക് മനസ്സിലായില്ല', 'എനിക്ക് സുഖമില്ല', 'വേദനിക്കുന്നു', 'വളരെ വില കൂടുതൽ', 'എനിക്ക് ഡോക്ടറെ വേണം', 'പതുക്കെ', 'നിങ്ങൾ ഇംഗ്ലീഷ് സംസാരിക്കുമോ', 'ശൗചാലയം എവിടെയാണ്'
         ],
         mr: [
-            'नमस्कार', 'धन्यवाद', 'कृपया', 'माफ करा', 'शुभ प्रभात', 'शुभ संध्याकाळ', 'पाणी', 'भाकरी', 'किती किंमत', 'कुठे आहे',
+            'नमस्कार', 'धन्यवाद', 'कृपया', 'माफ करा', 'शुभ प्रभात', 'शुभ संध्याकाळ', 'पाणी', 'पाव', 'किती किंमत', 'कुठे आहे',
             'डावीकडे', 'उजवीकडे', 'सरळ', 'रस्ता', 'उघडे', 'बंद', 'प्रवेश', 'निर्गमन', 'किल्ली', 'बिल',
             'मदत', 'मी हरवलो आहे', 'मला समजत नाही', 'मी आजारी आहे', 'दुखत आहे', 'खूप महाग', 'मला डॉक्टर हवे आहेत', 'हळू बोला', 'तुम्ही इंग्रजी बोलता का', 'स्वच्छतागृह कुठे आहे'
         ],
@@ -239,7 +239,7 @@ function vocab() {
             'tolong', 'saya sesat', 'saya tidak faham', 'saya sakit', 'ia sakit', 'terlalu mahal', 'saya perlukan doktor', 'lebih perlahan', 'adakah anda bercakap bahasa inggeris', 'di mana tandas'
         ],
         nl: [
-            'hallo', 'dank je', 'alsjeblieft', 'pardon', 'goedemorgen', 'goedenavond', 'water', 'brood', 'hoeveel kost het', 'waar is',
+            'hallo', 'dank u', 'alstublieft', 'pardon', 'goedemorgen', 'goedenavond', 'water', 'brood', 'hoeveel kost het', 'waar is',
             'naar links', 'naar rechts', 'rechtdoor', 'straat', 'open', 'gesloten', 'ingang', 'uitgang', 'sleutel', 'de rekening',
             'help', 'ik ben verdwaald', 'ik begrijp het niet', 'ik ben ziek', 'het doet pijn', 'te duur', 'ik heb een dokter nodig', 'langzamer', 'spreekt u Engels', 'waar is het toilet'
         ],
@@ -259,7 +259,7 @@ function vocab() {
             'socorro', 'estou perdido', 'não entendo', 'estou doente', 'dói', 'caro demais', 'preciso de um médico', 'mais devagar', 'fala inglês', 'onde fica o banheiro'
         ],
         ro: [
-            'salut', 'mulțumesc', 'vă rog', 'scuzați-mă', 'bună dimineața', 'bună seara', 'apă', 'pâine', 'cât costă', 'unde este',
+            'bună ziua', 'mulțumesc', 'vă rog', 'scuzați-mă', 'bună dimineața', 'bună seara', 'apă', 'pâine', 'cât costă', 'unde este',
             'la stânga', 'la dreapta', 'drept înainte', 'stradă', 'deschis', 'închis', 'intrare', 'ieșire', 'cheie', 'nota de plată',
             'ajutor', 'm-am rătăcit', 'nu înțeleg', 'sunt bolnav', 'mă doare', 'prea scump', 'am nevoie de un medic', 'mai rar', 'vorbiți engleză', 'unde este toaleta'
         ],
@@ -269,12 +269,12 @@ function vocab() {
             'помогите', 'я заблудился', 'не понимаю', 'я болен', 'болит', 'слишком дорого', 'мне нужен врач', 'помедленнее', 'вы говорите по-английски', 'где туалет'
         ],
         sk: [
-            'ahoj', 'ďakujem', 'prosím', 'prepáčte', 'dobré ráno', 'dobrý večer', 'voda', 'chlieb', 'koľko to stojí', 'kde je',
+            'dobrý deň', 'ďakujem', 'prosím', 'prepáčte', 'dobré ráno', 'dobrý večer', 'voda', 'chlieb', 'koľko to stojí', 'kde je',
             'doľava', 'doprava', 'rovno', 'ulica', 'otvorené', 'zatvorené', 'vchod', 'východ', 'kľúč', 'účet',
-            'pomoc', 'stratil som sa', 'nerozumiem', 'som chorý', 'bolí to', 'príliš drahé', 'potrebujem lekára', 'pomalšie', 'hovoríte po anglicky', 'kde je záchod'
+            'pomoc', 'stratil som sa', 'nerozumiem', 'som chorý', 'bolí to', 'príliš drahé', 'potrebujem lekára', 'pomalšie', 'hovoríte po anglicky', 'kde je toaleta'
         ],
         sl: [
-            'živjo', 'hvala', 'prosim', 'oprostite', 'dobro jutro', 'dober večer', 'voda', 'kruh', 'koliko stane', 'kje je',
+            'dober dan', 'hvala', 'prosim', 'oprostite', 'dobro jutro', 'dober večer', 'voda', 'kruh', 'koliko stane', 'kje je',
             'levo', 'desno', 'naravnost', 'ulica', 'odprto', 'zaprto', 'vhod', 'izhod', 'ključ', 'račun',
             'pomoč', 'izgubil sem se', 'ne razumem', 'bolan sem', 'boli', 'predrago', 'potrebujem zdravnika', 'počasneje', 'govorite angleško', 'kje je stranišče'
         ],
@@ -289,9 +289,9 @@ function vocab() {
             'hjälp', 'jag har gått vilse', 'jag förstår inte', 'jag är sjuk', 'det gör ont', 'för dyrt', 'jag behöver en läkare', 'långsammare', 'talar du engelska', 'var är toaletten'
         ],
         sw: [
-            'jambo', 'asante', 'tafadhali', 'samahani', 'habari ya asubuhi', 'habari ya jioni', 'maji', 'mkate', 'bei gani', 'iko wapi',
+            'habari', 'asante', 'tafadhali', 'samahani', 'habari ya asubuhi', 'habari ya jioni', 'maji', 'mkate', 'bei gani', 'iko wapi',
             'kushoto', 'kulia', 'moja kwa moja', 'barabara', 'wazi', 'imefungwa', 'mlango wa kuingia', 'njia ya kutoka', 'ufunguo', 'bili',
-            'msaada', 'nimepotea', 'sielewi', 'mimi ni mgonjwa', 'inauma', 'ghali sana', 'nahitaji daktari', 'polepole', 'unazungumza kiingereza', 'choo kiko wapi'
+            'msaada', 'nimepotea', 'sielewi', 'ninaumwa', 'inauma', 'ghali sana', 'nahitaji daktari', 'polepole', 'unazungumza kiingereza', 'choo kiko wapi'
         ],
         ta: [
             'வணக்கம்', 'நன்றி', 'தயவுசெய்து', 'மன்னிக்கவும்', 'காலை வணக்கம்', 'மாலை வணக்கம்', 'தண்ணீர்', 'ரொட்டி', 'எவ்வளவு விலை', 'எங்கே இருக்கிறது',

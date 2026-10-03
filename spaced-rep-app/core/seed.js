@@ -43,6 +43,23 @@ function seed() {
                  */
                 id: '1',
                 title: 'Just a test card set',
+
+                /*
+                 * A stand-in, and marked as one.
+                 *
+                 * It is there so that the app is never an empty screen: somebody
+                 * who skipped the question, or whose languages the table has
+                 * nothing for, still has something to press. The moment there is
+                 * anything else to show, this stops being shown -- it is the
+                 * answer to "nothing here yet", and that question is no longer
+                 * being asked.
+                 *
+                 * Editing it takes the mark off: a set somebody has typed into is
+                 * theirs, whatever it started as, and theirs does not disappear
+                 * because something else arrived.
+                 */
+                sample: true,
+
                 originalLang: 'es',
                 translationLang: 'en',
                 words: [
