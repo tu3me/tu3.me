@@ -41,11 +41,9 @@ function seed() {
                  * off, and a demonstration of somebody else's progress is not
                  * what a first screen should be.
                  */
-                id: '1',
-                title: 'Just a test card set',
-
                 /*
-                 * A stand-in, and marked as one.
+                 * A stand-in, and the id is what says so -- catalog.js knows it
+                 * by this number and nothing else.
                  *
                  * It is there so that the app is never an empty screen: somebody
                  * who skipped the question, or whose languages the table has
@@ -54,11 +52,12 @@ function seed() {
                  * answer to "nothing here yet", and that question is no longer
                  * being asked.
                  *
-                 * Editing it takes the mark off: a set somebody has typed into is
-                 * theirs, whatever it started as, and theirs does not disappear
-                 * because something else arrived.
+                 * There was a field here saying the same thing, and it was worse
+                 * at it: a field is absent in every database written before it
+                 * existed, and an absent mark made this set permanent.
                  */
-                sample: true,
+                id: '1',
+                title: 'Your first card set',
 
                 originalLang: 'es',
                 translationLang: 'en',

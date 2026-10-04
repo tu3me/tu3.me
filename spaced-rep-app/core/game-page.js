@@ -159,6 +159,11 @@ async function bootGame(id, module) {
 
     await storage.init();
 
+    // Before the first read of anything saved: a 0.1.2 database has to become a
+    // 0.2.0 one while nobody is looking at it. A no-op on every other database,
+    // and on every run after the first — see migrate.js.
+    await migrate.run();
+
     const settings = await storage.get('settings');
 
     // The ladder the player is on, if they have changed it. Absent means the

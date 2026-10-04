@@ -409,6 +409,30 @@ function catalog(container) {
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
     /*
+     * A dropdown with the arrow drawn here rather than left to the browser.
+     *
+     * Chrome pins its own arrow to the right border and ignores the field's
+     * padding -- 0, 30 and 60 pixels of padding-right put it in exactly the same
+     * place -- so it sits hard against the edge while the text inside has its
+     * padding of air on the left. The only way to give the two sides the same
+     * inset is to switch the native arrow off and lay the app's own chevron over
+     * the field, which is what `inset` is for: it is the field's own border plus
+     * padding, so the arrow stands as far from its edge as the text does from
+     * the other one.
+     *
+     * The same icon the folding rows use, turned a quarter so it points down. It
+     * takes no clicks: the select underneath has to go on being the whole
+     * control, arrow included.
+     *
+     * Every field wrapped in this has to turn the native arrow off itself --
+     * appearance: none -- and leave room for this one in its padding-right.
+     */
+    const withChevron = (select, inset) => `<div style="position: relative;">
+            ${select}
+            <span style="position: absolute; right: ${inset}; top: 50%; translate: 0 -50%; rotate: 90deg; display: block; pointer-events: none; color: ${palette.softColor};">${CHEVRON}</span>
+        </div>`;
+
+    /*
      * The three ways to have this app — see platformStrip. Drawn a size up from
      * the chrome around them: they are the picture in a cell rather than the
      * mark on a button, and at 18 they read as three smudges.
@@ -1459,7 +1483,7 @@ function catalog(container) {
         // The sample set is what the screen says when it has nothing else to
         // say -- see seed.js. Anything of the reader's own takes its place, and
         // it comes back if that is ever all there is again.
-        const own = shown.filter(set => !set.sample);
+        const own = shown.filter(set => !isSample(set));
 
         recent(own.length ? own : shown).forEach(set => renderSetCard(list, set, intro));
 
@@ -1979,14 +2003,22 @@ function catalog(container) {
      * way -- they are nobody's answer to a question.
      */
     function languageRows() {
+        const mine = shownMyLang();
+
+        // The chevron goes a border plus a padding in from the right, the same
+        // as the text on the left, and the padding on that side has to hold it.
+        const edge = '9.5px';
+
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
-            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 8.5px;`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 27.3px 5.1px 8.5px;`
+            + ` appearance: none; -webkit-appearance: none;`
             + ` font-family: inherit; font-size: 12.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
         const caption = (text) => `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
         const options = (label, skip, chosenTag) => `<option value="">${label}</option>`
-            + CATALOG_CHOICES.filter(c => !skip.includes(c.tag))
+            + CATALOG_CHOICES.concat(extra(mine))
+                .filter(c => !skip.includes(c.tag))
                 .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
                 .join('');
 
@@ -2005,11 +2037,11 @@ function catalog(container) {
         // a panel this narrow -- and the chips under the second one grow, which
         // in a row of two pushes its neighbour about.
         return `<div style="margin-top: 8.5px;">${caption('Your language')}</div>
-                <select class="dict-my-lang" style="${field}">${options('Pick one', [], myLang)}</select>
+                ${withChevron(`<select class="dict-my-lang" style="${field}">${options('Pick one', [], mine)}</select>`, edge)}
 
                 <div style="margin-top: 8.5px;">${caption('Languages to learn')}</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 3.4px; margin-bottom: ${learnLangs.length ? '3.4px' : '0'};">${learnLangs.map(chip).join('')}</div>
-                <select class="dict-learn-lang" style="${field}">${options('Add one', [myLang].concat(learnLangs), null)}</select>`;
+                ${withChevron(`<select class="dict-learn-lang" style="${field}">${options('Add one', [mine].concat(learnLangs), null)}</select>`, edge)}`;
     }
 
     function renderSettings(parent, rising) {
@@ -2091,6 +2123,17 @@ function catalog(container) {
 
         overlay.querySelector('.dict-learn-lang').addEventListener('change', async (e) => {
             if (!e.target.value) return;
+
+            // The row above has been showing an inherited answer, and this is the
+            // first moment anything depends on it. Written down now rather than
+            // left standing: makeSets has nothing to read a set in without it,
+            // and a screen that shows a language and then refuses to use it is
+            // worse than one that never showed it.
+            if (!myLang) {
+                myLang = shownMyLang();
+
+                if (myLang) await saveSetting('myLang', myLang);
+            }
 
             learnLangs = learnLangs.concat(e.target.value);
 
@@ -2765,9 +2808,9 @@ function catalog(container) {
                     // Writing a set in a language is saying you are learning it.
                     noteLearnLang(set.originalLang);
 
-                    // And typing into the sample set makes it a set like any
+                    // And typing into the starter set makes it a set like any
                     // other, which is to say one that stays.
-                    delete set.sample;
+                    set.adopted = true;
                 }
 
                 /*
@@ -3058,6 +3101,23 @@ function catalog(container) {
         render();
     };
 
+    /*
+     * The one errand migrate.js leaves behind: build the sets for languages it
+     * guessed.
+     *
+     * Called after store.load() and never before it. makeSets writes what the
+     * store holds in memory back to storage, and before the load that is the
+     * seed -- it would save the starting set over the reader's own.
+     */
+    catalog.fillGuessedLangs = async () => {
+        if (!langsGuessed) return;
+
+        langsGuessed = false;
+
+        await makeSets();
+        await saveSetting('langsGuessed', false);
+    };
+
     catalog.setTheme = (isDark) => {
         const t = tokens.of(isDark);
 
@@ -3214,6 +3274,7 @@ function catalog(container) {
         myLang = chosen(value && value.myLang);
         learnLangs = ((value && value.learnLangs) || []).filter(tag => vocab.has(tag) && tag !== myLang);
         langsAsked = !!(value && value.langsAsked);
+        langsGuessed = !!(value && value.langsGuessed);
 
         // The guess goes in before the screen is drawn, so the dropdown opens
         // with an answer in it rather than filling itself in as it appears.
@@ -3262,6 +3323,24 @@ function catalog(container) {
      * came from.
      */
     const CATALOG_ID = 'vocab-';
+
+    /*
+     * The set the app ships with, told apart the same way: by the id seed.js
+     * gives it.
+     *
+     * It used to carry a field saying so, and that field is exactly the failure
+     * the paragraph above warns about. It was added after there were already
+     * saved databases without it, and in every one of them the starter set
+     * stopped being recognised and stood in the list forever, beside sets in
+     * languages its reader had actually asked for. An id cannot be missing.
+     *
+     * Typing into it makes it a set like any other, and that is written down
+     * rather than taken away -- a mark whose absence means "still the sample" is
+     * a mark that cannot go missing either.
+     */
+    const SAMPLE_ID = '1';
+
+    const isSample = (set) => String(set.id) === SAMPLE_ID && !set.adopted;
 
     /*
      * The order of the list: whatever was played last is on top.
@@ -3388,9 +3467,48 @@ function catalog(container) {
             || null;
     }
 
+    /*
+     * The list of languages, plus the reader's own if the table has never heard
+     * of it.
+     *
+     * A list that cannot name the language somebody actually speaks is a list
+     * that calls them wrong, so it is added and it is chosen. What it cannot do
+     * is make sets: those are built out of two columns of the table, and one of
+     * the two would be missing. Nothing is then written, the app opens on the
+     * set it ships with, and the answer is kept for the day the column exists.
+     */
+    const extra = (tag) => (tag && !vocab.has(tag) && languageName(tag) !== tag)
+        ? [{ tag: tag, name: languageName(tag) }]
+        : [];
+
+    /*
+     * Whether the languages were read off somebody's old sets instead of being
+     * answered -- see migrate.js, which is the only thing that ever sets it.
+     *
+     * It means one job is outstanding: the ready-made sets for those languages
+     * have not been built. Done once, by fillGuessedLangs, which takes the note
+     * down in the same breath. It cannot be done on every draw instead: that
+     * would put back the three sets of anybody who had deleted them.
+     */
+    let langsGuessed = false;
+
     // What the first screen has been told so far, which is not the answer until
     // the button at the bottom is pressed.
     let picking = { mine: null, learn: [] };
+
+    /*
+     * The reader's language as a row has to show it: the saved answer if there
+     * is one, and otherwise whatever the first screen was standing on.
+     *
+     * Inherited rather than guessed a second time. The first screen opens with
+     * the browser's language already in the dropdown and the reader may have
+     * changed it -- somebody who named their language there and pressed Skip
+     * because they had nothing to add to the second question has answered this
+     * half, and a settings row that opens on "Pick one" tells them it was not
+     * heard. Both cases are one expression because picking.mine starts out as
+     * the guess: a reader who cleared it meant to, and gets no guess back.
+     */
+    const shownMyLang = () => myLang || picking.mine;
 
     /*
      * The first screen: two dropdowns on one line, and nothing else to read.
@@ -3413,21 +3531,6 @@ function catalog(container) {
     function askLanguages(parent) {
         const ready = !!picking.mine && picking.learn.length > 0;
 
-        /*
-         * The list of languages, plus the reader's own if the table has never
-         * heard of it.
-         *
-         * A list that cannot name the language somebody actually speaks is a list
-         * that calls them wrong, so it is added and it is chosen. What it cannot
-         * do is make sets: those are built out of two columns of the table, and
-         * one of the two would be missing. Start then writes nothing, the app
-         * opens on the set it ships with, and the answer is kept for the day the
-         * column exists.
-         */
-        const extra = (tag) => (tag && !vocab.has(tag) && languageName(tag) !== tag)
-            ? [{ tag: tag, name: languageName(tag) }]
-            : [];
-
         const options = (label, skip, chosenTag) => `<option value="">${label}</option>`
             + CATALOG_CHOICES.concat(extra(picking.mine))
                 .filter(c => !skip.includes(c.tag))
@@ -3435,7 +3538,8 @@ function catalog(container) {
                 .join('');
 
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
-            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px 10.2px;`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px 27.3px 10.2px 10.2px;`
+            + ` appearance: none; -webkit-appearance: none;`
             + ` font-family: inherit; font-size: 13.3px; font-weight: 600; cursor: pointer; outline: none;`;
 
         /*
@@ -3453,57 +3557,7 @@ function catalog(container) {
          */
         const textEdge = '11.2px';
 
-        /*
-         * Flags drawn here rather than typed as emoji.
-         *
-         * The emoji were two characters each and rendered as flags on a Mac and
-         * as two little letters on Windows -- "PT KR" where Portugal and Korea
-         * were meant -- because Segoe UI Emoji carries no glyph for a pair of
-         * regional indicators. A picture that turns into text on the reader's
-         * machine is not a picture. Eight rectangles and a circle are, on every
-         * machine, and they cost nothing to carry.
-         *
-         * Which flags is deliberately nothing. They do not stand for the
-         * languages in the dropdowns, and they must not be read as a hint about
-         * what to answer: a country is not a language, half of these are spoken
-         * in a dozen places, and a label that points at an answer is worse than
-         * one with no pictures at all. They say "this screen is about
-         * languages", which a line of text would say more slowly.
-         *
-         * The three dots after them are the rest of the list. Five pictures and
-         * then nothing read as five choices, and the dropdown under the label
-         * opens on forty-nine -- the dots are the cheapest way to say that the
-         * row was cut short rather than finished.
-         *
-         * The outline is there for the white ones. Japan and Poland are mostly
-         * white, the panel behind them is not, and without a hairline they lose
-         * their top half to whichever theme is on.
-         */
-        const flag = (body) => `<svg viewBox="0 0 16 10" width="13.7" height="8.5" aria-hidden="true" style="display: block; flex: none;">${body}<rect x="0.25" y="0.25" width="15.5" height="9.5" fill="none" stroke="rgba(128, 128, 128, 0.45)" stroke-width="0.5"></rect></svg>`;
-
-        const bars = (a, b, c) => `<rect width="5.34" height="10" fill="${a}"></rect><rect x="5.34" width="5.33" height="10" fill="${b}"></rect><rect x="10.67" width="5.33" height="10" fill="${c}"></rect>`;
-
-        const rows = (a, b, c) => `<rect width="16" height="10" fill="${a}"></rect><rect y="3.34" width="16" height="3.33" fill="${b}"></rect><rect y="6.67" width="16" height="3.33" fill="${c}"></rect>`;
-
-        const halves = (a, b) => `<rect width="16" height="10" fill="${a}"></rect><rect y="5" width="16" height="5" fill="${b}"></rect>`;
-
-        const FLAGS = {
-            jp: flag('<rect width="16" height="10" fill="#ffffff"></rect><circle cx="8" cy="5" r="2.9" fill="#bc002d"></circle>'),
-            fr: flag(bars('#002395', '#ffffff', '#ed2939')),
-            de: flag(rows('#000000', '#dd0000', '#ffce00')),
-            se: flag('<rect width="16" height="10" fill="#006aa7"></rect><rect x="4.6" width="2" height="10" fill="#fecc00"></rect><rect y="4" width="16" height="2" fill="#fecc00"></rect>'),
-            it: flag(bars('#008c45', '#ffffff', '#cd212a')),
-            es: flag('<rect width="16" height="10" fill="#aa151b"></rect><rect y="2.5" width="16" height="5" fill="#f1bf00"></rect>'),
-            pl: flag(halves('#ffffff', '#dc143c')),
-            ua: flag(halves('#0057b7', '#ffd700')),
-            nl: flag(rows('#ae1c28', '#ffffff', '#21468b')),
-            be: flag(bars('#000000', '#fae042', '#ed2939'))
-        };
-
-        const caption = (text, flags) => `<div style="display: flex; align-items: center; gap: 6.8px; font-size: 11.3px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 6.8px; padding-left: ${textEdge};">
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</span>
-                <span style="display: inline-flex; align-items: center; gap: 3.4px; flex: none;">${flags.map(tag => FLAGS[tag]).join('')}<span style="margin-left: 1.7px;">· · ·</span></span>
-            </div>`;
+        const caption = (text) => `<div style="font-size: 12.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 6.8px; padding-left: ${textEdge}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
         const chip = (tag) => `<span class="dict-start-chip" data-tag="${tag}" style="display: inline-flex; align-items: center; gap: 5.1px; padding: 5.1px 6.8px 5.1px 10.2px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 12.3px; font-weight: 600;">
                 ${languageName(tag)}
@@ -3521,12 +3575,12 @@ function catalog(container) {
          * the same two fields read as a question with room around it.
          */
         const panel = $(parent, `<div class="dict-start" style="margin-top: 27.3px; padding: 0 27.3px 27.3px;">
-            ${caption('Your language', ['jp', 'fr', 'de', 'se', 'it'])}
-            <select class="dict-start-mine" style="${field}">${options('Pick one', [], picking.mine)}</select>
+            ${caption('Your language')}
+            ${withChevron(`<select class="dict-start-mine" style="${field}">${options('Pick one', [], picking.mine)}</select>`, textEdge)}
 
-            <div style="margin-top: 27.3px;">${caption('Languages to learn', ['es', 'pl', 'ua', 'nl', 'be'])}</div>
+            <div style="margin-top: 27.3px;">${caption('Languages to learn')}</div>
             <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
-            <select class="dict-start-learn" style="${field}">${options('Add one', [picking.mine].concat(picking.learn), null)}</select>
+            ${withChevron(`<select class="dict-start-learn" style="${field}">${options('Add one', [picking.mine].concat(picking.learn), null)}</select>`, textEdge)}
 
             <div style="display: flex; align-items: center; gap: 6.8px; margin-top: 34.1px;">
                 <button class="dict-start-skip" style="flex: none; padding: 11.9px ${textEdge}; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12.8px; font-weight: 700; cursor: pointer;">Skip</button>
@@ -3556,14 +3610,21 @@ function catalog(container) {
         /*
          * Skipped, and that is written down as firmly as an answer would be.
          *
-         * Nothing is made and nothing is chosen: what is left is the set the app
-         * ships with, which is enough to see what it does. The questions are in
-         * the settings from now on, where somebody who has seen the thing can
-         * answer them having a reason to.
+         * Nothing is made: there is no second language to make anything out of,
+         * so what is left is the set the app ships with, which is enough to see
+         * what it does. The questions are in the settings from now on, where
+         * somebody who has seen the thing can answer them having a reason to.
+         *
+         * What the first dropdown is standing on is kept, though. Skip answers
+         * "which languages are you learning", and is not an instruction to
+         * forget the one already named: the settings would otherwise open on
+         * "Pick one" and ask it again of somebody who has answered it.
          */
         panel.querySelector('.dict-start-skip').addEventListener('click', async () => {
+            myLang = picking.mine;
             langsAsked = true;
 
+            if (myLang) await saveSetting('myLang', myLang);
             await saveSetting('langsAsked', true);
 
             render();
@@ -3805,6 +3866,11 @@ async function refreshCatalog() {
     // to edit.
     catalog.setOpenForms(await storage.get('open_forms'));
 
+    // Nothing to do unless an update has just guessed somebody's languages off
+    // their old sets. After the load, and before the draw that would otherwise
+    // show them a language with no sets under it.
+    await catalog.fillGuessedLangs();
+
     catalog.render();
 }
 
@@ -3814,6 +3880,11 @@ async function bootCatalog() {
     store();
 
     await storage.init();
+
+    // Before the first read of anything saved: a 0.1.2 database has to become a
+    // 0.2.0 one while nobody is looking at it. A no-op on every other database,
+    // and on every run after the first — see migrate.js.
+    await migrate.run();
 
     const settings = await storage.get('settings');
 
