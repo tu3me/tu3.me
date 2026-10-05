@@ -490,6 +490,17 @@ function snake(container) {
         const PAD_ARROW = (turn) => `<svg viewBox="0 0 24 24" aria-hidden="true"
             style="display: block; height: 38%; width: auto; fill: currentColor; transform: rotate(${turn}deg);"><path d="M12 6.5 19.5 17.5H4.5z" /></svg>`;
 
+        /*
+         * "Put the d-pad away", drawn and not spelled.
+         *
+         * Drawn as a path rather than set as the × glyph: a glyph is a letter
+         * as far as a font is concerned, and fonts disagree across platforms
+         * about its weight and where it sits on the line -- the same reason the
+         * flags on the first screen stopped being emoji.
+         */
+        const PAD_CLOSE = `<svg viewBox="0 0 24 24" aria-hidden="true"
+            style="display: block; height: 15.3px; width: 15.3px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round;"><path d="M5 5 19 19M19 5 5 19" /></svg>`;
+
         // A press asks for a move, a release drops the acceleration the hold built up.
         //
         // touchstart is cancelled too: holding a button to accelerate looks exactly like
@@ -558,18 +569,26 @@ function snake(container) {
              * Anything that is not "off" is the d-pad, rather than a mode matched
              * by its number: there is one panel left to show.
              *
-             * "hide" goes in the grid's own top-right cell -- the row that holds
-             * the up arrow has its outer two cells free -- rather than floating
-             * over a corner. It is sized to its word and pinned to the cell's top
-             * right, so the thing that answers a press is the word and not the
-             * 47.8px of air a cell would otherwise hand it.
+             * The mark goes in the grid's own top-right cell -- the row that
+             * holds the up arrow has its outer two cells free -- rather than
+             * floating over a corner. It is sized to itself and pinned to the
+             * cell's top right, so the thing that answers a press is the mark
+             * and not the 47.8px of air a cell would otherwise hand it. The
+             * padding grows the pressable part inwards, where there is nothing,
+             * rather than moving the mark off the corner.
+             *
+             * A mark and not the word "hide", which it was. The word was the only
+             * English in a panel somebody is holding to play in another language,
+             * and it asked to be read at the one moment nobody is reading: the
+             * snake is moving. A cross is in no language, and it is in the corner
+             * where every panel this player has ever closed had one.
              */
             const dPad = $(wrapper, `<div class="snake-dpad" style="${PAD_GRID}">
                 ${padBtn('dpad-up', PAD_ARROW(0), '1 / 2')}
                 ${padBtn('dpad-left', PAD_ARROW(-90), '2 / 1')}
                 ${padBtn('dpad-down', PAD_ARROW(180), '2 / 2')}
                 ${padBtn('dpad-right', PAD_ARROW(90), '2 / 3')}
-                <button class="snake-dpad-hide" id="dpad-hide" style="grid-area: 1 / 3; justify-self: end; align-self: start; padding: 1.7px 0 0; background: none; border: none; font-family: inherit; font-size: 11.1px; font-weight: 600; line-height: 1.2; color: ${palette.panelMuted}; cursor: pointer;">hide</button>
+                <button class="snake-dpad-hide" id="dpad-hide" title="Hide the controls" aria-label="Hide the controls" style="grid-area: 1 / 3; justify-self: end; align-self: start; display: block; padding: 0 0 3.4px 3.4px; background: none; border: none; color: ${palette.panelMuted}; cursor: pointer;">${PAD_CLOSE}</button>
             </div>`);
 
             bindPad(dPad, 'dpad-up', () => cb.onDirection(0, -1));
@@ -1996,7 +2015,7 @@ function snake(container) {
 
     function getEmptyState() {
         return {
-            selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, allowEarly: false,
+            selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false,
             hadErrorThisRound: false, showHint: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
@@ -2062,15 +2081,13 @@ function snake(container) {
     /*
      * A word asked for by hand, rather than said by the board as the snake eats.
      *
-     * Only these are answered by the sound switch when nothing comes out: the
-     * board narrates every letter it swallows, and a silent session would have
-     * the header twitching from one end of the word to the other.
+     * Here for the language and for the answer. The language is this game's,
+     * held in one place instead of at every call; the answer says whether
+     * anything is going to be heard, which the caller needs -- a mark it has put
+     * up has to come down, and the turn has to be handed on, when nothing is.
      */
     function sayAloud(text, whenDone) {
-        if (speech.say(text, sayLang, whenDone)) return true;
-
-        if (speech.muted()) page.pulseMute();
-        return false;
+        return speech.say(text, sayLang, whenDone);
     }
 
     /*
@@ -2366,6 +2383,12 @@ function snake(container) {
             state.sessionPool = pool;
             state.sessionResults = new Array(pool.length).fill(null);
             state.currentIndex = 0;
+
+            // When this run was dealt its words, which is what every answer in it
+            // will be stamped with -- see store.recordRepetition. Kept in the
+            // saved state so that closing the popup mid-run does not start a
+            // second one in the records.
+            state.sessionAt = Date.now();
         }
 
         let pool = state.sessionPool;
@@ -2628,7 +2651,7 @@ function snake(container) {
         function scoreRound(result, dot) {
             if (state.sessionResults[state.currentIndex]) return;
 
-            store.recordRepetition(currentItem, result, 'snake');
+            store.recordRepetition(currentItem, result, 'snake', { at: state.sessionAt, size: state.sessionPool.length });
             state.sessionResults[state.currentIndex] = dot;
             store.save();
         }
@@ -3362,6 +3385,12 @@ function snake(container) {
         currentIndex: state.currentIndex,
         sessionResults: state.sessionResults,
         sessionPool: state.sessionPool,
+
+        // Goes with the pool it belongs to. Left out, a run that was interrupted
+        // came back nameless, and the answers after the break were recorded
+        // without saying which run they were part of.
+        sessionAt: state.sessionAt,
+
         allowEarly: state.allowEarly,
         controlMode: state.controlMode,
         difficulty: state.difficulty,

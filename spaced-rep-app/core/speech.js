@@ -740,17 +740,25 @@ function speech() {
      * move that caused it.
      */
     /*
-     * The sound, switched off by default.
+     * The sound, on by default.
      *
-     * Where this app is used decides that: a phone taken out in a queue, a
-     * popup opened beside somebody working. An app that speaks the moment it is
-     * touched, before anyone has asked it to, is an app that stops being opened
-     * in public — and every word it would say is on the screen anyway.
+     * It was off, and the argument for off was where this app gets used: a
+     * phone taken out in a queue, a popup opened beside somebody working. What
+     * that argument left out is that a word has a sound as much as it has a
+     * spelling, and half of what this app teaches was in the half nobody was
+     * hearing -- because a switch you have no reason to suspect is off is a
+     * switch nobody turns on.
+     *
+     * The old worry is answered by what speaks and when. Nothing here says
+     * anything of its own accord: the first sound of a session follows a tap on
+     * a word or a game being played, so it arrives after something the player
+     * did rather than before. And the switch is in the header, one tap from
+     * wherever they are.
      *
      * Kept here rather than asked of the caller, because every way a word can
      * be said goes through say(), and one gate is one place to be wrong.
      */
-    let muted = true;
+    let muted = false;
 
     speech.muted = () => muted;
 
@@ -759,9 +767,13 @@ function speech() {
     /*
      * Muted, nothing is said and say() answers false — the same answer it gives
      * when the device has no voice, and for the same reason: the caller is being
-     * told that no sound happened, whatever the cause. What is different is that
-     * this one has a cause the player can undo, and the screen says so by
-     * pulsing the switch that is keeping it quiet.
+     * told that no sound happened, whatever the cause.
+     *
+     * And nothing is drawn about it. The switch used to pulse when a tap landed
+     * here while it was off, which made sense while off was the default and the
+     * player might not know it. Now the quiet is something they asked for and
+     * the switch is already showing its off face: answering a tap by explaining
+     * their own choice back to them is one answer too many.
      */
     speech.say = (text, lang, whenDone) => {
         if (!text || muted || !speech.available()) return false;

@@ -1184,21 +1184,6 @@ function catalog(container) {
     }
 
     /*
-     * The sound switch, saying that it is the reason nothing was said.
-     *
-     * The animation is cleared when it ends so that the next tap can start it
-     * again: an animation already on an element is not restarted by being set
-     * to the same value, and the second tap would move nothing.
-     */
-    function pulseMute() {
-        const btn = container.querySelector('#mute-btn');
-        if (!btn) return;
-
-        btn.style.animation = 'mute-pulse 420ms ease-out 2';
-        btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
-    }
-
-    /*
      * How a bubble moves, which is a single question: is this word asking to be
      * answered right now.
      *
@@ -1292,12 +1277,7 @@ function catalog(container) {
             // settles whatever was in the air, and settling takes the last
             // bubble back down — this one included, when it is the one that was
             // talking. Grown at all only if there was something to hear.
-            if (speech.say(word, lang, shrink)) return grow(bubble);
-
-            // Nothing was heard, and when the reason is the switch in the
-            // header, the switch is what answers: a tap that produces neither
-            // sound nor movement is a tap that looks lost.
-            if (speech.muted()) pulseMute();
+            if (speech.say(word, lang, shrink)) grow(bubble);
         });
 
         return bubble;
@@ -1465,20 +1445,28 @@ function catalog(container) {
 
         /*
          * The answer about languages decides what is on the shelf, so it decides
-         * what is on the screen: a set the app made for a language that is no
-         * longer being learned is not shown.
+         * what is on the screen: a set the app made for a pair that is no longer
+         * the reader's is not shown.
+         *
+         * The pair, both halves of it. Checking only the language being learned
+         * was enough until somebody changed their own language in the settings:
+         * makeSets then built the same three sets against the new one -- the ids
+         * carry both halves, so nothing was in the way -- and the old three went
+         * on standing beside them. Six Spanish sets, three names printed twice,
+         * and no way to tell from the list which was which.
          *
          * Hidden, not deleted. The set stays in the store with everything that
-         * has been answered in it, and naming the language again brings it back
-         * as it was -- makeSets passes over an id that is already there. A list
-         * of languages that could destroy a month of repetitions is a list
-         * nobody could safely touch.
+         * has been answered in it, and naming that pair again brings it back as
+         * it was -- makeSets passes over an id that is already there. An answer
+         * about languages that could destroy a month of repetitions is an answer
+         * nobody could safely change.
          *
          * Only the made ones, told apart by their id -- see CATALOG_ID. A set
          * somebody wrote themselves belongs to them and not to an answer they
          * gave on a first screen, whatever language it turned out to be in.
          */
-        const shown = sets.filter(set => !String(set.id).startsWith(CATALOG_ID) || learnLangs.includes(set.originalLang));
+        const shown = sets.filter(set => !String(set.id).startsWith(CATALOG_ID)
+            || (learnLangs.includes(set.originalLang) && set.translationLang === myLang));
 
         // The sample set is what the screen says when it has nothing else to
         // say -- see seed.js. Anything of the reader's own takes its place, and
@@ -3908,9 +3896,9 @@ async function bootCatalog() {
     speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
 
 
-    // Silent unless the player has turned the sound on. An absent setting is a
-    // first run, and a first run is silent.
-    speech.mute(settings ? settings.muted !== false : true);
+    // Speaking unless the player has turned the sound off. An absent setting
+    // means the default, and the default is on -- see speech.js.
+    speech.mute(!!(settings && settings.muted));
 
     const container = $(`<div class="app-main-content"></div>`);
     catalog(container);

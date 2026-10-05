@@ -171,8 +171,37 @@ function store() {
      * it. Nothing downstream ranks the fractions yet; they are recorded
      * because they are what happened.
      */
-    function recordRepetition(poolItem, result, game) {
+    /*
+     * Which run of a game the answer belongs to, written onto the answer itself.
+     *
+     * `session` is the moment that run was dealt its words, and it is both the
+     * time and the name: two runs cannot start in the same millisecond, so the
+     * number tells them apart as well as any id would. `sessionSize` is how many
+     * words that run was dealt.
+     *
+     * On every repetition rather than in a log of its own. These records are the
+     * only thing this app keeps for good; a log beside them would be a second
+     * account of the same events, free to drift from the first and to be left
+     * half-written when a popup closes. Here the fact arrives with the answer or
+     * not at all.
+     *
+     * The two of them answer the questions nothing can answer today: how many
+     * runs there have been, which were played to the end -- count the distinct
+     * words carrying one `session` and hold it against that run's `sessionSize`
+     * -- and how long a run took, from the first of its answers to the last.
+     * Nothing reads them yet. They are recorded because they are cheap to
+     * record now and impossible to recover later.
+     *
+     * Distinct words, not records: it is one answer per word per run, but that
+     * is three guards in three games rather than something the shape forbids.
+     */
+    function recordRepetition(poolItem, result, game, session) {
         const entry = { timestamp: Date.now(), result: result, game: game };
+
+        if (session) {
+            entry.session = session.at;
+            entry.sessionSize = session.size;
+        }
 
         const set = sets.find(s => s.id === poolItem.setId);
         const liveWord = set ? set.words.find(w => w.original === poolItem.word.original) : null;

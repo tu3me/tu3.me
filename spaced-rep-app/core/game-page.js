@@ -92,20 +92,6 @@ function page() {
     };
 
     /*
-     * The switch saying that it is the reason nothing was said.
-     *
-     * Cleared when it ends so the next tap can start it again: an animation
-     * already on an element is not restarted by being set to the same value.
-     */
-    page.pulseMute = () => {
-        const btn = document.querySelector('#mute-btn');
-        if (!btn) return;
-
-        btn.style.animation = 'mute-pulse 420ms ease-out 2';
-        btn.addEventListener('animationend', () => { btn.style.animation = ''; }, { once: true });
-    };
-
-    /*
      * Whether this session has been declared over.
      *
      * It exists so that a save arriving after the end cannot undo it. The order
@@ -188,7 +174,7 @@ async function bootGame(id, module) {
 
     // And whether anything is said at all. The switch is in the catalog's
     // header; a game only obeys what it was left at.
-    speech.mute(settings ? settings.muted !== false : true);
+    speech.mute(!!(settings && settings.muted));
 
     await store.load();
 

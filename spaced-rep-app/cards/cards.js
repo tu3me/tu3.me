@@ -11,7 +11,7 @@ function cards(container) {
     let palette = {};
 
     function getEmptyState() {
-        return { selectedSetId: 'all', currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, allowEarly: false };
+        return { selectedSetId: 'all', currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
     }
 
     // Keyboard: ← turns the card over, → is done with this word
@@ -399,13 +399,12 @@ function cards(container) {
 
         sayTimer = setTimeout(() => {
             const done = until(mark);
-            if (speech.say(text, lang, done)) return;
 
-            done();
-
-            // Nothing was heard, and when the reason is the switch in the
-            // header, the switch is what answers.
-            if (speech.muted()) page.pulseMute();
+            // Nothing heard -- no voice for this script, or the sound is off --
+            // and then there is nothing to wait behind: the mark stands its
+            // minimum and goes. The silence itself is not answered; see
+            // speech.say.
+            if (!speech.say(text, lang, done)) done();
         }, SAY_DELAY);
     }
 
@@ -441,6 +440,12 @@ function cards(container) {
             state.sessionPool = pool;
             state.sessionResults = new Array(pool.length).fill(null);
             state.currentIndex = 0;
+
+            // When this run was dealt its words, which is what every answer in it
+            // will be stamped with -- see store.recordRepetition. Kept in the
+            // saved state so that closing the popup mid-run does not start a
+            // second one in the records.
+            state.sessionAt = Date.now();
         }
 
         let pool = state.sessionPool;
@@ -515,7 +520,7 @@ function cards(container) {
             if (state.hasBeenFlipped) return;
             state.hasBeenFlipped = true;
 
-            store.recordRepetition(currentItem, 0, 'cards');
+            store.recordRepetition(currentItem, 0, 'cards', { at: state.sessionAt, size: state.sessionPool.length });
             state.sessionResults[state.currentIndex] = 'wrong';
             store.save();
             refreshDots();
@@ -524,7 +529,7 @@ function cards(container) {
         // Moves on to the next word, or ends the session on the last one
         function advance(result, mark) {
             if (result !== undefined) {
-                store.recordRepetition(currentItem, result, 'cards');
+                store.recordRepetition(currentItem, result, 'cards', { at: state.sessionAt, size: state.sessionPool.length });
                 state.sessionResults[state.currentIndex] = mark;
             }
 
@@ -701,6 +706,12 @@ function cards(container) {
         hasBeenFlipped: state.hasBeenFlipped,
         sessionResults: state.sessionResults,
         sessionPool: state.sessionPool,
+
+        // Goes with the pool it belongs to. Left out, a run that was interrupted
+        // came back nameless, and the answers after the break were recorded
+        // without saying which run they were part of.
+        sessionAt: state.sessionAt,
+
         allowEarly: state.allowEarly
     });
 

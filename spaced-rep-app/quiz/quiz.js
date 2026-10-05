@@ -28,7 +28,7 @@ function quiz(container) {
     let palette = {};
 
     function getEmptyState() {
-        return { selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, allowEarly: false };
+        return { selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
     }
 
     // Keyboard: ↑/↓ move the highlight over the options, → answers with the highlighted one
@@ -333,13 +333,12 @@ function quiz(container) {
 
         sayTimer = setTimeout(() => {
             const done = until(mark);
-            if (speech.say(text, lang, done)) return;
 
-            done();
-
-            // Nothing was heard, and when the reason is the switch in the
-            // header, the switch is what answers.
-            if (speech.muted()) page.pulseMute();
+            // Nothing heard -- no voice for this script, or the sound is off --
+            // and then there is nothing to wait behind: the mark stands its
+            // minimum and goes. The silence itself is not answered; see
+            // speech.say.
+            if (!speech.say(text, lang, done)) done();
         }, SAY_DELAY);
     }
 
@@ -375,6 +374,12 @@ function quiz(container) {
             state.sessionPool = pool;
             state.sessionResults = new Array(pool.length).fill(null);
             state.currentIndex = 0;
+
+            // When this run was dealt its words, which is what every answer in it
+            // will be stamped with -- see store.recordRepetition. Kept in the
+            // saved state so that closing the popup mid-run does not start a
+            // second one in the records.
+            state.sessionAt = Date.now();
         }
 
         let pool = state.sessionPool;
@@ -498,8 +503,25 @@ function quiz(container) {
 
         const optionButtons = [];
         let selectedIndex = 0;
-        let isAnswered = false;
-        let wasWrong = false;
+
+        /*
+         * Whether this question has been answered, read from the saved dot rather
+         * than started at false.
+         *
+         * Started at false it was, and the answer was written twice. These two
+         * are born again with every drawing of the question, and a question is
+         * drawn again more often than it looks: after a wrong answer the round
+         * stays on the same word, waiting to be confirmed by a click on the right
+         * one, and the state is saved there -- so closing the popup and coming
+         * back drew the question afresh with nothing remembered, and answering it
+         * again put a second record on the word. The voices arriving mid-round do
+         * the same thing, since they redraw too.
+         *
+         * The dot is in the saved state and survives both. Snake learned this
+         * first, in scoreRound, and for the same reason.
+         */
+        let isAnswered = !!state.sessionResults[state.currentIndex];
+        let wasWrong = state.sessionResults[state.currentIndex] === 'wrong';
 
         // The keyboard cursor is an outline against the button's own edge, plus
         // an arrow in the option's right gutter saying which key sends it. Both
@@ -585,10 +607,7 @@ function quiz(container) {
             if (speaker) speaker.addEventListener('click', (e) => {
                 e.stopPropagation();
 
-                // Nothing heard, and the switch in the header is the reason:
-                // the switch answers, the same as it does for the question.
-                if (speech.say(opt, optionLang)) return;
-                if (speech.muted()) page.pulseMute();
+                speech.say(opt, optionLang);
             });
 
             optBtn.addEventListener('click', () => {
@@ -609,7 +628,7 @@ function quiz(container) {
                         inkOnResult(optBtn);
                         optBtn.querySelector('.status-icon').textContent = '✓';
 
-                        store.recordRepetition(currentItem, 1, 'quiz');
+                        store.recordRepetition(currentItem, 1, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'correct';
 
                         store.save();
@@ -619,7 +638,7 @@ function quiz(container) {
                     } else {
                         wasWrong = true;
 
-                        store.recordRepetition(currentItem, 0, 'quiz');
+                        store.recordRepetition(currentItem, 0, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'wrong';
 
                         store.save();
@@ -737,6 +756,12 @@ function quiz(container) {
         currentIndex: state.currentIndex,
         sessionResults: state.sessionResults,
         sessionPool: state.sessionPool,
+
+        // Goes with the pool it belongs to. Left out, a run that was interrupted
+        // came back nameless, and the answers after the break were recorded
+        // without saying which run they were part of.
+        sessionAt: state.sessionAt,
+
         allowEarly: state.allowEarly
     });
 

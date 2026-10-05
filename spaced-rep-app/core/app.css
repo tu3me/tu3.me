@@ -476,12 +476,6 @@ body {
     animation: hand-bob 1.5s ease-in-out infinite;
 }
 
-@keyframes mute-pulse {
-    0%, 100% { scale: 1; }
-    30% { scale: 1.3; }
-    65% { scale: 0.94; }
-}
-
 /*
  * "+ New Card Set", centred on its letters rather than on its line box.
  *
