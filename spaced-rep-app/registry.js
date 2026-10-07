@@ -1,7 +1,20 @@
 /*
  * The list of game mechanics. This is the only place edited when one is added
- * or removed — the catalog builds its buttons and its "Continue" banner from
- * here, and knows nothing else about any game.
+ * or removed — the catalog builds its tiles from here and knows no game of its
+ * own accord.
+ *
+ * The list is not the row, though. Two words here say where the catalog puts a
+ * game, and neither is a state the game is in:
+ *
+ *   - `away` keeps it off the shelf. The row has four places and the fourth is
+ *     not a game, so the third game was the last one that fitted; a new one
+ *     needed a place, and what moved is reached from the dialog behind that
+ *     fourth tile instead. Nothing about the game itself changed — it is
+ *     finished, it is played, and an unfinished round of it resumes.
+ *   - `soon` is the other way round: on the shelf before it exists. The tile
+ *     has no page to go to, so pressing it opens that same dialog, which is
+ *     where the app says what is coming. Nothing wears it today; it is kept
+ *     because the next game will arrive the same way this one did.
  *
  * Paths are relative to the app root, so they work from any page. The .html
  * suffix is not written here: nav adds it where it is required.
@@ -14,9 +27,10 @@
  * line up with the pencil and shuffle icons already in the catalog, which are
  * cut to the same 24-unit grid and the same 2-unit stroke.
  *
- * `icon` is a function of its size because it is asked for at two sizes — on a
- * game button and in the "Continue" banner — and an SVG scaled by CSS from one
- * fixed size lands its strokes between pixels.
+ * `icon` is a function of its size because a drawing is cut to the size it is
+ * shown at: an SVG scaled by CSS from one fixed size lands its strokes between
+ * pixels. The two places that ask for one — the shelf and the dialog — happen
+ * to want the same 32 today, which is not a promise either makes the other.
  */
 function gameIcon(size, body) {
     return `<svg class="game-icon" width="${size}" height="${size}" viewBox="0 0 24 24"
@@ -76,8 +90,40 @@ const GAMES = [
         page: 'quiz'
     },
     {
+        id: 'speller',
+        title: 'Speller',
+        // The places a word keeps for its letters, filling left to right: two
+        // in and one still to come, which is what the screen behind this tile
+        // shows while it is being played — a word is put back one piece at a
+        // time, in order.
+        //
+        // Slots are filled rather than outlined, and the empty one is the same
+        // block at four tenths. Outlined, a block this size is a hairline frame
+        // round a hole — the lesson the snake's own blocks are drawn from — and
+        // three of those in a row read as a smudge with gaps in it.
+        //
+        // Three of them, not four. The gaps are what make them read as separate
+        // places rather than as one bar, and at three there is room for gaps
+        // wide enough to be seen at the size a tile draws this.
+        icon: (size) => gameIcon(size, `
+            <g fill="currentColor" stroke="none">
+                <rect x="1.4" y="8.1" width="5.6" height="7.8" rx="1.4" />
+                <rect x="9.2" y="8.1" width="5.6" height="7.8" rx="1.4" />
+                <rect x="17" y="8.1" width="5.6" height="7.8" rx="1.4" fill-opacity="0.4" />
+            </g>`),
+        // A violet of its own rather than the mint the shelf had free. The mint
+        // is the snake's, and a colour that moves to another game is a colour
+        // that says the wrong name for as long as anybody remembers the first.
+        color: '#9b72d4',
+        page: 'speller'
+    },
+    {
         id: 'snake',
         title: 'Snake',
+        // Off the shelf since Speller took the place it had. It is the same
+        // game, played from the dialog behind the fourth tile — see `away` in
+        // the header, and moreSoon in catalog.js.
+        away: true,
         // The 8-bit snake: square segments on a grid with a pixel of food ahead
         // of the head. It climbs — three along the bottom, up the middle, then
         // out to the head — turning twice, with a run of three between turns.

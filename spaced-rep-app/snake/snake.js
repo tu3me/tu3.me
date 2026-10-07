@@ -2567,15 +2567,15 @@ function snake(container) {
      * who has played twice has either found the box or decided against it.
      *
      * Answered "ever" by the words rather than by a flag: a repetition carries
-     * the game that wrote it, so a snake repetition anywhere is a snake game
-     * already played. Asked once, when the session is built — every word this
-     * session finishes writes one of those, and the question is about the games
-     * before this one.
+     * the game that wrote it at the head of its run mark, so a snake repetition
+     * anywhere is a snake game already played. Asked once, when the session is
+     * built — every word this session finishes writes one of those, and the
+     * question is about the games before this one.
      */
     let missedLetter = false;
 
     const firstSnakeGame = !store.sets().some(set =>
-        (set.words || []).some(w => (w.repetitions || []).some(r => r.game === 'snake')));
+        (set.words || []).some(w => (w.repetitions || []).some(r => store.gameOf(r) === 'snake')));
 
     /*
      * Called on everything that could change the answer, and it takes the hand

@@ -160,6 +160,30 @@ function store() {
     }
 
     /*
+     * A set joins the list, with the moment it did written on it.
+     *
+     * Written here because this is the one door a new set comes through -- a
+     * form just saved, a shelf just built out of a language just named -- and a
+     * second place to write it is a place to forget it the day a third kind of
+     * set appears.
+     *
+     * What reads the date is the order of the catalog, where a set just made has
+     * to stand above sets with months of answers in them. Nothing else on a set
+     * says when it arrived: the order the store keeps them in says it only
+     * against other sets nobody has played, which put a set typed a minute ago
+     * underneath every set its reader had ever opened.
+     *
+     * Sets made before the field carry no date, and none can be invented for
+     * them -- when they were made was never written down anywhere. Absent reads
+     * as "not known", which leaves them ordered by their answers alone, exactly
+     * as they are ordered now.
+     */
+    function addSet(set) {
+        set.createdAt = Date.now();
+        sets.unshift(set);
+    }
+
+    /*
      * The pool item carries setId + original, so the live word object is resolved in its own
      * set only — the same word placed in two sets keeps independent histories.
      *
@@ -172,12 +196,23 @@ function store() {
      * because they are what happened.
      */
     /*
-     * Which run of a game the answer belongs to, written onto the answer itself.
+     * Which run of which game an answer belongs to, written onto the answer as
+     * one string: "cards|1791234567890|10" -- the game, the moment that run was
+     * dealt its words, and how many words it was dealt.
      *
-     * `session` is the moment that run was dealt its words, and it is both the
-     * time and the name: two runs cannot start in the same millisecond, so the
-     * number tells them apart as well as any id would. `sessionSize` is how many
-     * words that run was dealt.
+     * The moment is both the time and the name: two runs cannot start in the
+     * same millisecond, so the number tells them apart as well as any id would.
+     *
+     * One field and not three, which is what it says written out: `"game":` and
+     * `"session":` and `"sessionSize":` on every record, against `"run":` once.
+     * Nothing else saved here grows without end -- a set is typed once, a
+     * setting is written once -- and these are the one thing kept for good, one
+     * per word per run for as long as the app is used. Thirty-odd characters of
+     * key names on each of them is the whole reason, and the parts are a game
+     * id and two numbers, so a separator can be a character none of them holds.
+     *
+     * Order is fixed and the game comes first, because it is the one part
+     * anything reads today -- see gameOf, which is a split and not a parse.
      *
      * On every repetition rather than in a log of its own. These records are the
      * only thing this app keeps for good; a log beside them would be a second
@@ -185,23 +220,36 @@ function store() {
      * half-written when a popup closes. Here the fact arrives with the answer or
      * not at all.
      *
-     * The two of them answer the questions nothing can answer today: how many
-     * runs there have been, which were played to the end -- count the distinct
-     * words carrying one `session` and hold it against that run's `sessionSize`
-     * -- and how long a run took, from the first of its answers to the last.
+     * The other two parts answer the questions nothing can answer today: how
+     * many runs there have been, which were played to the end -- count the
+     * distinct words carrying one mark and hold that against the size written in
+     * it -- and how long a run took, from the first of its answers to the last.
      * Nothing reads them yet. They are recorded because they are cheap to
      * record now and impossible to recover later.
      *
      * Distinct words, not records: it is one answer per word per run, but that
      * is three guards in three games rather than something the shape forbids.
      */
-    function recordRepetition(poolItem, result, game, session) {
-        const entry = { timestamp: Date.now(), result: result, game: game };
+    const RUN_SEP = '|';
 
-        if (session) {
-            entry.session = session.at;
-            entry.sessionSize = session.size;
-        }
+    const runMark = (game, session) =>
+        (session ? [game, session.at, session.size] : [game]).join(RUN_SEP);
+
+    /*
+     * The game that wrote an answer, which is the only part of the mark that is
+     * read anywhere.
+     *
+     * Here rather than at the one place that asks, because what it knows is the
+     * shape of the mark, and the shape belongs to this file -- the day a fourth
+     * part is appended, nothing outside has to hear about it.
+     *
+     * A record with no mark answers with nothing: 0.1.2 wrote no game at all,
+     * and none could be invented for its answers afterwards -- see migrate.js.
+     */
+    const gameOf = (rep) => String((rep && rep.run) || '').split(RUN_SEP)[0];
+
+    function recordRepetition(poolItem, result, game, session) {
+        const entry = { timestamp: Date.now(), result: result, run: runMark(game, session) };
 
         const set = sets.find(s => s.id === poolItem.setId);
         const liveWord = set ? set.words.find(w => w.original === poolItem.word.original) : null;
@@ -222,7 +270,8 @@ function store() {
     store.sets = () => sets;
     store.wordsOf = wordsOf;
     store.duePool = duePool;
-    store.addSet = (set) => sets.unshift(set);
+    store.addSet = addSet;
+    store.gameOf = gameOf;
     store.removeAt = (index) => sets.splice(index, 1);
     store.recordRepetition = recordRepetition;
 }

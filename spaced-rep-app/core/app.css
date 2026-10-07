@@ -520,6 +520,32 @@ body {
 }
 
 /*
+ * The five stars at the foot of the list, grey until a cursor runs along them.
+ *
+ * Lit up to the cursor, which is the only thing a row of stars can mean: the
+ * fourth one hovered lights four, and the three it lights besides itself stand
+ * to its left. CSS reaches the siblings that follow an element and never the
+ * ones before it, so the row is written backwards -- five first -- and turned
+ * round again with row-reverse. The markup and the screen disagree on purpose.
+ *
+ * Amber is written here rather than taken from the palette, because a star is
+ * amber in either theme -- the same reason the coral and the mint are fixed; see
+ * tokens.js. What does come from the palette is the colour it rests in, through
+ * --star-idle, since a line colour belongs to the theme that is on.
+ */
+.dict-rate-star {
+    color: var(--star-idle);
+    transition: color 0.15s;
+}
+
+.dict-rate-star:hover,
+.dict-rate-star:focus-visible,
+.dict-rate-star:hover ~ .dict-rate-star,
+.dict-rate-star:focus-visible ~ .dict-rate-star {
+    color: #ffb300;
+}
+
+/*
  * The corner asking to be noticed, once there is nothing else to look at.
  *
  * Red and bigger at the same moment, which is the same pair the play mark uses

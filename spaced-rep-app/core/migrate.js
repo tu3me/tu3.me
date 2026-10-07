@@ -1,12 +1,15 @@
 /**
- * Carries a database written by 0.1.2 into the shape 0.2.0 reads.
+ * Every database older than the one this version writes, carried into its shape.
  *
  * This file is the exception CLAUDE.md promised. The rule there — no migrations,
  * a broken format means "Clear data" — held while nobody had anything to lose,
  * and said outright that it would flip on the day somebody did. 0.1.2 went out.
  * What those readers typed and what they played has to arrive here whole.
  *
- * Three things changed under them:
+ * Two translations live here, and run in this order.
+ *
+ * 0.1.2 → 0.2.0, which is what this file was written for. Three things changed
+ * under those readers:
  *
  *   - a language belonged to each word (originalLang and translationLang on
  *     every one); now it belongs to the set, and the words carry none;
@@ -16,12 +19,19 @@
  *     is treated as a stand-in that disappears as soon as there is anything else
  *     — which is exactly the id 0.1.2's starter set has.
  *
+ * 0.2.3 → 0.2.4: the three fields a repetition carried about the run it
+ * belonged to — game, session, sessionSize — are folded into the one string
+ * store.js writes now. Second because the first rewrites every set whole, and
+ * what it hands on is what this one has to read.
+ *
  * Runs on every page, straight after storage.init() and before anything reads
  * what is saved. Depends on storage alone: a game page has no catalog, and the
  * reader may well open one of those first — a popup reopens where it was left.
  *
- * Meant to be deleted whole, one day, when no 0.1.2 database can still be out
- * there. Nothing else refers to anything in here.
+ * Neither is forever. The first is meant to be deleted whole, one day, when no
+ * 0.1.2 database can still be out there, and the second the same — they share a
+ * file and nothing else, so either can go without the other noticing. Nothing
+ * outside refers to anything in here.
  */
 function migrate() {
     // The id 0.1.2's starter set had, which is the id 0.2.0 keeps for its own.
@@ -183,7 +193,7 @@ function migrate() {
         );
     }
 
-    async function run() {
+    async function carry012() {
         const sets = await storage.get('word_sets');
 
         // Nothing saved, nothing to carry. A first run of 0.2.0 leaves here, and
@@ -347,6 +357,85 @@ function migrate() {
         await clearSessions();
 
         return true;
+    }
+
+    /*
+     * One answer, with what it used to say about its run said in one field.
+     *
+     * The three parts keep their order and their meaning; all that goes is three
+     * key names on a record that is kept for good -- see store.js, where the
+     * mark is written and where the reason to bother lives.
+     *
+     * Positional, so an empty part has to stay empty rather than close the gap:
+     * a 0.1.2 answer carries no game, and "|1791...|10" says "run known, game
+     * not" where "1791...|10" would say the game was called 1791...
+     *
+     * Trailing nothing is dropped, which is the common case rather than an edge
+     * one: every answer from before sessions were recorded has a game and no run
+     * at all, and "cards||" would be two separators standing for nothing. An
+     * answer with all three parts empty gets no mark -- absent reads as "not
+     * known", which is what it is.
+     */
+    function fold(rep) {
+        const part = (value) => (value === undefined || value === null ? '' : String(value));
+
+        const mark = [part(rep.game), part(rep.session), part(rep.sessionSize)]
+            .join('|').replace(/\|+$/, '');
+
+        const next = Object.assign({}, rep);
+
+        delete next.game;
+        delete next.session;
+        delete next.sessionSize;
+
+        if (mark) next.run = mark;
+
+        return next;
+    }
+
+    /*
+     * Every answer in the store, folded.
+     *
+     * The check is the data again, as above: a record still carrying any of the
+     * three is a record from before. Self-clearing -- after a run there is not
+     * one left, so the next run stops before it writes.
+     *
+     * Sessions are left alone, where the translation above clears them. A saved
+     * pool holds its own copies of the words, and those copies go on carrying
+     * answers in the old shape until the round is over -- which costs nothing,
+     * because nothing reads the mark off a pool copy. The answers that are kept
+     * are the ones in word_sets, and a game writes into both. Throwing away a
+     * round in progress to tidy a field nobody will look at is a worse trade
+     * than leaving it.
+     */
+    async function foldRuns() {
+        const sets = await storage.get('word_sets');
+
+        if (!Array.isArray(sets) || sets.length === 0) return false;
+
+        const old = (rep) => 'game' in rep || 'session' in rep || 'sessionSize' in rep;
+        const answers = (word) => word.repetitions || [];
+        const words = (set) => set.words || [];
+
+        if (!sets.some(set => words(set).some(w => answers(w).some(old)))) return false;
+
+        sets.forEach(set => words(set).forEach(word => {
+            if (word.repetitions) word.repetitions = word.repetitions.map(fold);
+        }));
+
+        await storage.set('word_sets', sets);
+
+        return true;
+    }
+
+    // Both, in the order the header gives, and the answer is whether anything
+    // was done at all. Nobody reads it yet; the two are kept apart so that the
+    // day one of them is deleted, the other reads the same.
+    async function run() {
+        const carried = await carry012();
+        const folded = await foldRuns();
+
+        return carried || folded;
     }
 
     migrate.run = run;

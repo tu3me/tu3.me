@@ -1480,6 +1480,9 @@ function catalog(container) {
             if (card) unfoldInto(card);
         }
 
+        // Under everything the list drew, which is where an ask belongs: the
+        // screen is for studying, and this is the app wanting something back.
+        rateUs(container);
 
         // Last, so it is over everything this pass drew. Redrawn with the rest
         // of the screen — the theme button repaints the catalog under an open
@@ -2380,6 +2383,25 @@ function catalog(container) {
     const TILE_RADIUS = 19.2;
     const TILE_ICON = 32;
 
+    /*
+     * The games the row shows, and the games it does not.
+     *
+     * The row holds four tiles and the fourth is not a game, so the third game
+     * was the last one that fitted; what the next one displaced is reached from
+     * the dialog behind that fourth tile instead. Which is which is said in
+     * registry.js, under `away`, and read here once — the split is a fact about
+     * the shelf, not about either of the two places that draw a tile.
+     */
+    const SHELF = GAMES.filter(g => !g.away);
+    const AWAY = GAMES.filter(g => g.away);
+
+    // Whether a game was left unfinished on a set, which is a question about
+    // both halves of it: the same game on another set is a game that was never
+    // started. Asked of the tiles on the shelf and of the tiles in the dialog,
+    // which is why it stands outside both.
+    const openOn = (game, setId) => !!session && session.game === game.id
+        && String(session.setId) === String(setId);
+
 
     /*
      * Empties every store and starts the app over.
@@ -2853,11 +2875,8 @@ function catalog(container) {
                             <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>`;
 
-            // Whether this tile is the game that was left unfinished, which is a
-            // question about both halves of it: the same game on another set is
-            // a game that was never started.
-            const unfinished = (game) => !!session && session.game === game.id
-                && String(session.setId) === String(set.id);
+            // Which of the tiles on this card is the one that was left open.
+            const unfinished = (game) => openOn(game, set.id);
 
             // Where the bar animates from: the progress this set had when the
             // running session started, kept in active_session rather than on the set.
@@ -2935,8 +2954,8 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; align-items: flex-start; gap: 6.8px; margin-top: 15.4px;">
-                    ${GAMES.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
-                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More games', '', false)}
+                    ${SHELF.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
+                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More games', '', AWAY.some(unfinished))}
                 </div>
             `);
 
@@ -2989,22 +3008,28 @@ function catalog(container) {
             }
 
             card.querySelectorAll('.set-play-btn').forEach(btn => {
-                const game = GAMES.find(g => g.id === btn.dataset.game);
+                const game = SHELF.find(g => g.id === btn.dataset.game);
 
                 // The marked tile goes back into the session rather than asking
                 // for a new one: resume keeps the pool, the dots and the place
                 // in it, and starting over would throw away the half that was
-                // played. Everything else on the row is an ordinary start.
+                // played. Everything else on the row is an ordinary start —
+                // except a tile whose game is not written yet, which has nowhere
+                // to go and opens the dialog that says so.
                 btn.addEventListener('click', () => {
-                    if (unfinished(game)) nav.resume(game, set.id);
+                    if (game.soon) moreSoon(set.id);
+                    else if (unfinished(game)) nav.resume(game, set.id);
                     else launch(game, set.id);
                 });
             });
 
-            // The fourth button is not a game, it is the place the next one
-            // goes: MORE_FILL says what it is painted in, moreSoon what it
-            // says when pressed.
-            card.querySelector('.set-more-btn').addEventListener('click', moreSoon);
+            // The fourth button is not a game, it is the door to the ones that
+            // are not on the row: MORE_FILL says what it is painted in, moreSoon
+            // what is behind it. It wears the Continue face when one of those
+            // was left unfinished, because the promise that face makes is that
+            // the way back in is where the player would have pressed — and for a
+            // game off the shelf, that is this button.
+            card.querySelector('.set-more-btn').addEventListener('click', () => moreSoon(set.id));
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
@@ -3082,6 +3107,66 @@ function catalog(container) {
         if (session || !neverPlayed()) return;
 
         pointingHand.at(container.querySelector('.set-play-btn[data-game="cards"]'));
+    }
+
+    /*
+     * Where a star leads: the store for four and five, a form of ours for one,
+     * two and three.
+     *
+     * The two kinds of reader do not turn up in the same numbers. Somebody the
+     * app suits has no reason to go anywhere and say so; somebody it has failed
+     * has every reason, and a listing left to itself fills with the second kind
+     * until that is what the app looks like from outside. The stars are the ask
+     * the first kind never gets, and the form is somewhere for the second to be
+     * answered instead of filed under a rating nobody can reply to.
+     *
+     * Nothing is sent from here, down either road. A star is a link: pressing
+     * one opens a page, and whatever is written there is written by hand on
+     * somebody else's site. This app cannot tell that a star was ever pressed,
+     * which is what the store listing says about every other part of it.
+     */
+    const STORE_REVIEWS = 'https://chromewebstore.google.com/detail/spaced-repetition-app/lpklkkakejhmfbckgonadkbcdpdfohfj/reviews';
+
+    const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdMptJ_BiatwliYh3gywHBYcuviZH3s8M-QZZdK4CP9caojVA/viewform';
+
+    /*
+     * The stars themselves, and the one build that gets them.
+     *
+     * Only the extension. It is an extension the page behind the stars rates,
+     * and the other two readers of this same screen -- the site, and this folder
+     * opened from disk -- may never have installed one: for them the stars lead
+     * to a page that has nothing to do with what they are looking at.
+     *
+     * Asked as "is this the extension", which is the opposite of how the rest of
+     * the app asks it. base.js asks "is this the web" on purpose, so that a
+     * folder opened by double-clicking still works; here the extension is
+     * genuinely the one case meant, and a folder on disk is one of the two that
+     * are not.
+     *
+     * The stars run backwards in the markup -- five first -- and the row is
+     * turned round again in the CSS, because lighting them up to the cursor
+     * means lighting the ones to its left and CSS can only reach siblings that
+     * follow. See .dict-rate-star in app.css.
+     */
+    function rateUs(parent) {
+        if (location.protocol !== 'chrome-extension:') return;
+
+        // Drawn filled rather than outlined: at 17px an outlined star is four
+        // hairlines around a hole, and what it reads as is a smudge.
+        const star = `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" style="display: block; fill: currentColor;">
+            <path d="M12 2.4 14.16 9.03 21.13 9.03 15.49 13.13 17.64 19.77 12 15.67 6.36 19.77 8.51 13.13 2.87 9.03 9.84 9.03Z" />
+        </svg>`;
+
+        const starLink = (stars) => `<a class="dict-rate-star" href="${stars > 3 ? STORE_REVIEWS : FEEDBACK_FORM}" target="_blank" rel="noopener noreferrer" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5" style="display: block;">${star}</a>`;
+
+        // Air above it and no rule across the page. A line there is read as the
+        // end of the list -- it is the only full-width line on the screen -- and
+        // what stands under it is two words and five stars, which is not a second
+        // half of anything.
+        $(parent, `<div class="dict-rate" style="--star-idle: ${palette.softBorder}; display: flex; align-items: center; justify-content: center; gap: 8.5px; margin: 20.4px 0 15.3px;">
+            <span style="font-size: 12.8px; font-weight: 600; color: ${palette.hint};">Rate us</span>
+            <div style="display: flex; flex-direction: row-reverse; gap: 2.6px;">${[5, 4, 3, 2, 1].map(starLink).join('')}</div>
+        </div>`);
     }
 
     catalog.render = () => {
@@ -3331,21 +3416,40 @@ function catalog(container) {
     const isSample = (set) => String(set.id) === SAMPLE_ID && !set.adopted;
 
     /*
-     * The order of the list: whatever was played last is on top.
+     * The order of the list: whatever happened last is on top.
      *
-     * Read off the repetitions rather than kept as a field. A set's last play is
-     * the last answer in it, and that is already written on the words -- a date
-     * beside it would be a second copy of the same fact, to be kept in step by
-     * somebody remembering to.
+     * For a set that has been answered in, that is its last answer, read off the
+     * repetitions rather than kept as a field. A set's last play is the last
+     * answer in it, and that is already written on the words -- a date beside it
+     * would be a second copy of the same fact, to be kept in step by somebody
+     * remembering to.
      *
-     * The game that is running counts too, and counts as now: a set opened and
-     * left without an answer is still the one being played, and coming back to
-     * the catalogue to find it third from the top would be the screen arguing
-     * with what just happened.
+     * For a set nobody has answered in yet, it is the moment it was added, which
+     * store.addSet writes on it. It used to be neither, and then a set somebody
+     * had just typed stood below every set they had ever played: nothing had
+     * happened in it, so it sorted with everything else nothing had happened in
+     * -- at the bottom, while the only reason it existed was that they had made
+     * it a minute ago.
      *
-     * Everything never played keeps the order the store has it in, which puts a
-     * new set at the top: addSet unshifts, and a set just written is a set about
-     * to be played.
+     * And a game that is running is a third thing that can have happened to a
+     * set. It happened when that game was started: a set opened and left without
+     * a single answer is still the one being played, and coming back to the
+     * catalogue to find it third from the top would be the screen arguing with
+     * what just happened.
+     *
+     * When it was started, and not "now", which is what it was and what made the
+     * date above useless. Reckoned as now, the set with a game open on it was
+     * dated afresh on every drawing of the screen, so nothing could ever come
+     * above it -- and a session lives until its game is played out, which means
+     * one round abandoned a week ago held the top of the list for a week, and a
+     * set made a minute ago arrived underneath it.
+     *
+     * Sets older than that date have none -- see store.addSet -- and sort by
+     * their answers alone, which is the order their readers already see. The
+     * order the store holds them in is the last tie-breaker, and that is what
+     * keeps the three sets a language brings in the order they were built:
+     * makeSets adds them backwards so that Beginner comes out on top, and two
+     * sets written in the same millisecond have nothing else to tell them apart.
      */
     function recent(sets) {
         const lastAnswer = (set) => (set.words || []).reduce((latest, word) => {
@@ -3361,9 +3465,13 @@ function catalog(container) {
             .map((set, order) => ({
                 set: set,
                 order: order,
-                played: String(set.id) === String(open) ? Date.now() : lastAnswer(set)
+                touched: Math.max(
+                    lastAnswer(set),
+                    set.createdAt || 0,
+                    String(set.id) === String(open) ? session.startedAt : 0
+                )
             }))
-            .sort((a, b) => (b.played - a.played) || (a.order - b.order))
+            .sort((a, b) => (b.touched - a.touched) || (a.order - b.order))
             .map(row => row.set);
     }
 
@@ -3675,25 +3783,65 @@ function catalog(container) {
      * for — an app with three games and no reason to keep it is an app that
      * goes when the phone runs short of room.
      *
-     * Built like the early-play dialog below and dismissed the same two ways,
-     * because it is the same kind of thing: something said in the middle of the
-     * catalog that the catalog goes back to being once it is read.
+     * It is also where a game that is off the shelf is played from. The row ran
+     * out of places, and what moved out of it went in here with the tile it had:
+     * under the heading, on the set the dialog was opened from. The tile of a
+     * game that is not written yet opens the same dialog from the other side —
+     * what it has to say is this same sentence.
+     *
+     * That is what took the "Got it" button out. A dialog with something to
+     * press in it does not need a second thing whose only job is to be pressed,
+     * and of the two it is the wrong one that draws the hand: a button lying
+     * across the bottom in the accent colour is where a press goes. What is left
+     * to dismiss it with is the backdrop, which is what dismissed it already for
+     * anybody who was not reading the button.
+     *
+     * Built like the early-play dialog below, because it is the same kind of
+     * thing: something said in the middle of the catalog that the catalog goes
+     * back to being once it is read.
      */
-    function moreSoon() {
+    function moreSoon(setId) {
+        /*
+         * A game off the shelf, drawn as the row drew it: same tile, same
+         * colour, same two faces when a round of it was left open. A smaller or
+         * plainer picture here would be a second way of saying "Snake", and what
+         * this has to do is hand back the one thing the player knows by sight.
+         *
+         * Boxed to the tile's own width, because tileBtn is written for the
+         * shelf and takes whatever width it is given. Left to fill the dialog it
+         * still draws a tile with a name under it, but the whole line it sits on
+         * becomes a press.
+         */
+        const tile = (game) => `<div style="width: ${TILE}px;">${tileBtn('more-dialog-game', game.color, game.icon(TILE_ICON), game.title, `data-game="${game.id}"`, openOn(game, setId))}</div>`;
+
         const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
                 <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
+                ${AWAY.length ? `<div class="more-dialog-games" style="display: flex; justify-content: center; gap: 13.7px; margin: 10.2px 0 13.7px;">${AWAY.map(tile).join('')}</div>` : ''}
                 <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
                     <p style="margin: 0 0 8.5px;">Congratulations — you are one of the first to install this app, so it stays free for you whatever it charges later.</p>
-                    <p style="margin: 0 0 12px;">More games to help you remember words are coming soon.</p>
+                    <p style="margin: 0;">More games to help you remember words are coming soon.</p>
                 </div>
-                <button class="more-dialog-ok" style="width: 100%; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Got it</button>
             </div>
         </div>`);
 
         const close = () => overlay.remove();
 
-        overlay.querySelector('.more-dialog-ok').addEventListener('click', close);
+        overlay.querySelectorAll('.more-dialog-game').forEach(btn => {
+            const game = AWAY.find(g => g.id === btn.dataset.game);
+
+            // Gone before it starts anything, because starting can put another
+            // dialog on the screen — launch asks first on a set whose timers
+            // have not run out — and a question asked from behind the thing that
+            // asked it is a question with two backdrops to click.
+            btn.addEventListener('click', () => {
+                close();
+
+                if (openOn(game, setId)) nav.resume(game, setId);
+                else launch(game, setId);
+            });
+        });
+
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
