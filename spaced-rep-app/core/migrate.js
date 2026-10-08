@@ -6,7 +6,7 @@
  * and said outright that it would flip on the day somebody did. 0.1.2 went out.
  * What those readers typed and what they played has to arrive here whole.
  *
- * Two translations live here, and run in this order.
+ * Three translations live here, and run in this order.
  *
  * 0.1.2 → 0.2.0, which is what this file was written for. Three things changed
  * under those readers:
@@ -24,14 +24,19 @@
  * store.js writes now. Second because the first rewrites every set whole, and
  * what it hands on is what this one has to read.
  *
+ * 0.2.4 → 0.2.5: the speller's saved round, from the one version that wrote it
+ * in a different shape. Nothing is carried — a half-built word is not something
+ * anybody is keeping — so what there is to do is throw it away before the game
+ * reads it and comes apart on it.
+ *
  * Runs on every page, straight after storage.init() and before anything reads
  * what is saved. Depends on storage alone: a game page has no catalog, and the
  * reader may well open one of those first — a popup reopens where it was left.
  *
- * Neither is forever. The first is meant to be deleted whole, one day, when no
- * 0.1.2 database can still be out there, and the second the same — they share a
- * file and nothing else, so either can go without the other noticing. Nothing
- * outside refers to anything in here.
+ * None of them is forever. The first is meant to be deleted whole, one day,
+ * when no 0.1.2 database can still be out there, and the others the same — they
+ * share a file and nothing else, so any of them can go without the rest
+ * noticing. Nothing outside refers to anything in here.
  */
 function migrate() {
     // The id 0.1.2's starter set had, which is the id 0.2.0 keeps for its own.
@@ -428,14 +433,51 @@ function migrate() {
         return true;
     }
 
-    // Both, in the order the header gives, and the answer is whether anything
-    // was done at all. Nobody reads it yet; the two are kept apart so that the
-    // day one of them is deleted, the other reads the same.
+    /*
+     * The speller's half-built word, from the version before the one that is
+     * reading it.
+     *
+     * The game used to judge each piece as it was pressed, and kept the round as
+     * the cut, the pieces in order and how many of them were down. It judges the
+     * line of letters now, when the last box fills, and keeps what was laid out
+     * in the order it was laid — a shape the old one has nothing to say about.
+     *
+     * Thrown away rather than translated. A round is one word half guessed at,
+     * which is the one thing in this app nobody is keeping; what is kept for
+     * good is in word_sets, and the answers already written there are not
+     * touched by any of this. The word simply comes back round whole.
+     *
+     * The offer to continue goes with it, when it is this game's: left standing,
+     * it would open the speller on a session that is no longer there. Another
+     * game's unfinished round is none of this translation's business.
+     *
+     * Self-clearing like the others, and by the shape again: a round that says
+     * where its Check cut the line — even before there has been one, when the
+     * field is there and empty — is a round this version wrote.
+     */
+    async function dropSpellerRound() {
+        const saved = await storage.get('session:speller');
+
+        if (!saved || !saved.round || 'right' in saved.round) return false;
+
+        await storage.set('session:speller', null);
+
+        const active = await storage.get('active_session');
+
+        if (active && active.game === 'speller') await storage.set('active_session', null);
+
+        return true;
+    }
+
+    // All three, in the order the header gives, and the answer is whether
+    // anything was done at all. Nobody reads it yet; they are kept apart so that
+    // the day one of them is deleted, the others read the same.
     async function run() {
         const carried = await carry012();
         const folded = await foldRuns();
+        const dropped = await dropSpellerRound();
 
-        return carried || folded;
+        return carried || folded || dropped;
     }
 
     migrate.run = run;

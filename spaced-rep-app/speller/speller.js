@@ -1,15 +1,21 @@
 /**
  * "Speller" game. The word is cut into pieces, the pieces are laid out in no
  * order with pieces of other words mixed in among them, and the player puts the
- * word back together by clicking them from the beginning.
+ * word back together by clicking them.
+ *
+ * Nothing is marked as it is pressed. What is judged is the line of letters,
+ * once the last box of it is full: the same word can come out of a different
+ * handful of tiles, and somebody who spelled the word spelled the word. Until
+ * then a piece in the wrong place is only a piece in the wrong place, and Undo
+ * takes it back.
  *
  * Both numbers come off the word's own stage, the way the quiz takes its option
  * count from it: a word seen once is cut in two with nothing standing beside
  * it, and a word that has been up the ladder is cut as fine as its letters go
- * with as many strangers around it.
+ * with strangers around it.
  *
  * The top of the screen is the snake's — the translation to go on, the word as
- * a row of boxes that open as the pieces land, the speaker in front of it and
+ * a row of boxes that fill as the pieces land, the speaker in front of it and
  * the same taps on an open letter. What is under it is the only part that
  * differs, and it is where this game is played.
  */
@@ -26,6 +32,20 @@ function speller(container) {
      * under its options and for the same reason.
      */
     const LEAST_PIECES = 2;
+
+    /*
+     * The stage a word has to reach before strangers turn up beside its pieces;
+     * after it there is one more of them per stage.
+     *
+     * Two, because the stages under it are where the word is still being met —
+     * at stage 0 it has never been answered and at 1 it has been answered once —
+     * and the cut is question enough there: a tray with nothing wrong in it can
+     * be read straight through, which is what learning to spell a word looks
+     * like. Strangers come in where the question would otherwise start getting
+     * easier, since every stage cuts the word finer and finer pieces are a
+     * shorter thing to spell.
+     */
+    const DECOYS_FROM = 2;
 
     let state = getEmptyState();
     let palette = {};
@@ -141,6 +161,17 @@ function speller(container) {
         return out;
     }
 
+    /*
+     * The letters a word or a piece puts in boxes: everything except the blanks.
+     *
+     * The bar draws no box for a space — it draws the gap between two words — so
+     * a space is not a thing to be put back, and a piece carrying one inside it
+     * fills the boxes on either side of it and nothing in between. It is also
+     * what the line is judged on at the end, for the same reason: the spaces are
+     * the app's and not the player's.
+     */
+    const boxesOf = (text) => speech.letters(text).filter(ch => !BLANK.test(ch));
+
     // A run of some other word, starting where a piece of it could start and as
     // long as it can be up to the size asked for.
     function runFrom(word, size) {
@@ -241,13 +272,21 @@ function speller(container) {
         // the word has letters to give: past that there is nothing left to cut.
         const count = Math.min(Math.max(stage + 1, LEAST_PIECES), atoms.length);
 
-        const sizes = cutInto(atoms, count);
-        const pieces = piecesOf(letters, sizes);
+        const pieces = piecesOf(letters, cutInto(atoms, count));
 
-        const tray = shuffled(pieces.concat(decoysFor(item, pieces, stage)))
-            .map(text => ({ text, used: false }));
+        const tray = shuffled(pieces.concat(decoysFor(item, pieces, Math.max(0, stage - DECOYS_FROM))));
 
-        return { at: state.currentIndex, sizes, pieces, tray, placed: 0, shown: false };
+        // What a tile says is all that is kept of it. Which of them came out of
+        // the word and which did not is deliberately not written down: what is
+        // judged at the end is the line of letters, and a tile that spells the
+        // right letters is the right tile whatever it was cut from.
+        //
+        // `laid` is the tiles that are down, in the order they were put down —
+        // an order, because Undo takes the last of them back. `right` is where
+        // the first Check cut the line, in boxes, and null until there has been
+        // one; `locked` is how many of the laid tiles that Check settled, which
+        // is as far back as Undo reaches.
+        return { at: state.currentIndex, tray, laid: [], shown: false, done: false, right: null, locked: 0 };
     }
 
     /*
@@ -462,7 +501,11 @@ function speller(container) {
 
             for (let at = from; at <= to; at++) {
                 const el = boxAt(at);
-                if (!el) continue;
+
+                // What is being said is what the player laid out, so a box they
+                // have not filled is not part of the sound: a "?" lit up with
+                // the rest would be claiming to be read out.
+                if (!el || el.dataset.laid !== '1') continue;
 
                 hold(el);
                 el.style.color = stage.ink;
@@ -607,13 +650,64 @@ function speller(container) {
 
         barEl = banner.querySelector('.speller-bar');
 
-        // How much of the word is on the bar: everything the pieces already put
-        // there, or all of it once it has been given away.
-        const openCount = () => round.sizes.slice(0, round.placed).reduce((sum, n) => sum + n, 0);
+        // The boxes, in order: the word without the spaces between its words.
+        // Everything the player lays out is measured against this and against
+        // nothing else — see checkWord.
+        const slots = boxesOf(currentItem.word.original);
+
+        // Which box each letter of the line has, and none for a blank. The
+        // marks are asked for by letter and the filling is counted in boxes;
+        // this is what joins the two.
+        const slotOf = [];
+
+        letters.reduce((boxes, char, i) => {
+            slotOf[i] = BLANK.test(char) ? -1 : boxes;
+
+            return BLANK.test(char) ? boxes : boxes + 1;
+        }, 0);
+
+        // What is in the boxes so far: the letters of the tiles that are down,
+        // in the order they went down. Always a run from the start, because a
+        // piece can only go on the end of what is already there.
+        const laidOut = () => round.laid.reduce((out, at) => out.concat(boxesOf(round.tray[at])), []);
 
         /*
-         * The word as a row of boxes, "?" where a letter has not been played
-         * yet.
+         * What the player has put together over a stretch of the line, read as
+         * it stands: their letters, the app's spaces where the line has them,
+         * and nothing at all where a box is still empty.
+         *
+         * This is what the taps say out loud, at every depth past the first. It
+         * is the one screen in the app where what is written is not necessarily
+         * the word, and a tap that answered with the word would be giving away
+         * the answer to the question it is asking.
+         */
+        function laidText(from, to) {
+            const laid = laidOut();
+
+            let out = '';
+
+            for (let i = from; i <= to; i++) {
+                const slot = slotOf[i];
+
+                if (slot < 0) out += ' ';
+                else if (slot < laid.length) out += laid[slot];
+            }
+
+            return out.trim();
+        }
+
+        /*
+         * The word as a row of boxes: what the player has laid out so far, and
+         * "?" for what is still missing.
+         *
+         * The letters in them are the player's own, right or wrong, and nothing
+         * is green until Check. A letter that has gone down is in the page's own
+         * ink, which says "this is yours" and not whether it belongs.
+         *
+         * After Check the line is cut at the first letter that did not belong:
+         * green before the cut and coral from it on. The coral stays on those
+         * boxes as they are filled again, so a word put right on the second go
+         * still shows which half of it was known on the first.
          *
          * The speaker is there from the first frame and reads the whole line
          * out loud without opening anything. It costs nothing, and it is not a
@@ -622,7 +716,7 @@ function speller(container) {
          * up the letters is the shortcut, and that one still costs.
          */
         function drawBar() {
-            const open = openCount();
+            const laid = laidOut();
 
             barEl.innerHTML = '';
             barEl.style.direction = isRtl(currentItem.word.original) ? 'rtl' : 'ltr';
@@ -630,9 +724,25 @@ function speller(container) {
             const speakerHtml = speech.speakerHtml(currentItem.word.original, sayLang, palette.sayIcon, SAY_LEAD);
 
             if (speakerHtml) {
-                $(barEl, speakerHtml).addEventListener('click', () => {
+                const speaker = $(barEl, speakerHtml);
+
+                /*
+                 * The speaker says the word, and the only thing it marks while
+                 * it talks is itself.
+                 *
+                 * Not the boxes. It is the one thing on this screen that says
+                 * the word rather than what the player has made of it, and a
+                 * mark running along the line would be pointing at letters it is
+                 * not reading out. Its own colour says which of the two sounds
+                 * is playing, which is all there is to tell apart.
+                 */
+                speaker.addEventListener('click', () => {
                     forgetTaps();
-                    sayNow(currentItem.word.original, () => sayWordsMark(lineWords(letters)));
+
+                    sayNow(currentItem.word.original, () => {
+                        hold(speaker);
+                        speaker.style.color = palette.saying;
+                    });
                 });
             }
 
@@ -652,8 +762,26 @@ function speller(container) {
                     return;
                 }
 
-                const played = i < open;
-                const shown = played || round.shown;
+                const slot = slotOf[i];
+                const mine = slot < laid.length ? laid[slot] : '';
+
+                // Where Check cut the line, for every box on either side of it.
+                // False until there has been one, and then it is the colour this
+                // box keeps for the rest of the round.
+                const judged = round.right !== null && (slot < round.right ? palette.letterPlaced : palette.letterWrong);
+
+                let text = '?';
+                let colour = judged || palette.letterPending;
+
+                if (mine) {
+                    text = mine;
+                    colour = judged || palette.letterLaid;
+                } else if (round.shown) {
+                    text = slots[slot];
+                    colour = judged || palette.letterShown;
+                }
+
+                const open = text !== '?';
 
                 const box = document.createElement('div');
 
@@ -664,18 +792,22 @@ function speller(container) {
                 // drifted apart, and the marks are asked for by letter.
                 box.dataset.at = i;
 
-                const colour = played ? palette.letterPlaced : (round.shown ? palette.letterShown : palette.letterPending);
+                // And whether the player put it there, which is what a mark over
+                // several boxes goes by: what is said out loud is what they laid
+                // out, so a box they have not filled is not part of the sound
+                // and is not lit with it.
+                if (mine) box.dataset.laid = '1';
 
                 // Air only while it is a slot — see SLOT_AIR. A letter that is
-                // open has nothing to be told apart from: it is part of a word.
-                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${BOX_SIZE}px; line-height: ${BOX_LINE}; margin-inline: ${shown ? '0' : SLOT_AIR}; color: ${colour}; border-radius: 0.12em; transition: color 0.2s;`;
-                box.textContent = shown ? char : '?';
+                // there has nothing to be told apart from: it is part of a word.
+                box.style.cssText = `display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${BOX_SIZE}px; line-height: ${BOX_LINE}; margin-inline: ${open ? '0' : SLOT_AIR}; color: ${colour}; border-radius: 0.12em; transition: color 0.2s;`;
+                box.textContent = text;
 
-                if (!shown || worthSaying(char)) {
+                if (!open || worthSaying(text)) {
                     box.style.cursor = 'pointer';
-                    box.title = shown ? 'Say it' : 'Click to give the word away (counts as a mistake)';
+                    box.title = open ? 'Say it' : 'Click to give the word away (counts as a mistake)';
 
-                    box.addEventListener('click', () => onLetterClick(i, shown));
+                    box.addEventListener('click', () => onLetterClick(i, text, open));
                 }
 
                 barEl.appendChild(box);
@@ -688,14 +820,17 @@ function speller(container) {
          * A click on one box.
          *
          * Still "?" and it is "show me the word", which costs the round the way
-         * any other mistake does — see giveAway. Open, and the click goes as
-         * deep as it is repeated: the letter, the word it belongs to, the whole
-         * line. The same three depths a card gives on the same three taps, and
-         * they do not wait for the word to be finished — what a tap asks about
-         * is the thing under the finger, not how the round is going.
+         * a mistake does — see giveAway. Filled, and the click goes as deep as
+         * it is repeated: the letter under the finger, then what the player has
+         * put together of the word it stands in, then what they have put
+         * together of the whole line.
+         *
+         * Each tap acts at once rather than waiting to see whether another is
+         * coming; only the voice waits. A tap answered late reads as a tap that
+         * missed.
          */
-        function onLetterClick(index, shown) {
-            if (!shown) {
+        function onLetterClick(index, char, open) {
+            if (!open) {
                 forgetTaps();
                 giveAway();
                 return;
@@ -703,7 +838,7 @@ function speller(container) {
 
             // A mark between words says nothing on its own — see worthSaying.
             const spoken = wordAt(letters, index);
-            if (!spoken || !worthSaying(letters[index])) return;
+            if (!spoken || !worthSaying(char)) return;
 
             if (spoken.from !== tappedWord) {
                 taps = 0;
@@ -715,14 +850,20 @@ function speller(container) {
             clearTimeout(tapTimer);
             tapTimer = setTimeout(forgetTaps, TAP_GAP);
 
-            if (taps === 1) return sayLater(letters[index], () => sayLetterMark(index));
+            // The letter that is standing there, which until Check is the
+            // player's letter and not the word's.
+            if (taps === 1) return sayLater(char, () => sayLetterMark(index));
 
-            if (taps === 2) {
-                const word = letters.slice(spoken.from, spoken.to + 1).join('');
-                return sayLater(word, () => sayWordsMark([spoken]));
-            }
+            const said = taps === 2
+                ? laidText(spoken.from, spoken.to)
+                : laidText(0, letters.length - 1);
 
-            sayLater(currentItem.word.original, () => sayWordsMark(lineWords(letters)));
+            const marked = taps === 2 ? [spoken] : lineWords(letters);
+
+            // Nothing laid out in there yet, so there is nothing to say and
+            // nothing to light — which is the answer to the tap, not a failure
+            // of it.
+            if (worthSaying(said)) sayLater(said, () => sayWordsMark(marked));
         }
 
         /*
@@ -772,13 +913,6 @@ function speller(container) {
             }
         }
 
-        drawBar();
-
-        // Drawn before the voices were known, so the speaker was drawn on
-        // trust. One redraw when the list lands takes it back where this device
-        // cannot keep it.
-        speech.onVoices(render);
-
         /*
          * The pieces, in no order, with the strangers among them.
          *
@@ -788,79 +922,192 @@ function speller(container) {
          * drops the piece back where it came from. A click cannot miss by a
          * pixel, and it works the same with a finger, a mouse and a trackpad.
          */
-        const tray = $(container, `<div class="speller-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8.5px;"></div>`);
+        const trayEl = $(container, `<div class="speller-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8.5px;"></div>`);
 
-        // The round is over and running out: the pieces stop answering while
-        // the finished word stands for its moment.
-        let closing = false;
+        // Under them the round's buttons: Undo and Check while it is being
+        // played, Next once it has been judged.
+        const actionsEl = $(container, `<div class="speller-actions" style="display: flex; justify-content: center; align-items: center; gap: 8.5px; margin-top: 15.4px;"></div>`);
 
-        function pieceStyle(used) {
+        function pieceStyle(spent) {
             return `padding: 8.5px 13.7px; background: ${palette.pieceBg}; border: 2px solid ${palette.pieceBorder};`
                 + ` border-radius: 12px; font-family: inherit; font-weight: 700; font-size: 20.5px; line-height: 1.2;`
-                + ` color: ${palette.pieceText}; white-space: pre; cursor: ${used ? 'default' : 'pointer'};`
-                + ` opacity: ${used ? '0.35' : '1'}; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;`;
+                + ` color: ${palette.pieceText}; white-space: pre; cursor: ${spent ? 'default' : 'pointer'};`
+                + ` opacity: ${spent ? '0.35' : '1'}; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;`;
         }
 
-        round.tray.forEach((entry, at) => {
-            const tile = $(tray, `<button class="speller-piece" data-at="${at}" style="${pieceStyle(entry.used)}">${escapeText(entry.text)}</button>`);
+        const ACTION = `padding: 7.7px 17.1px; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; line-height: 1.2;`;
 
-            tile.addEventListener('click', () => {
-                if (closing || entry.used) return;
+        function drawTray() {
+            trayEl.innerHTML = '';
 
+            /*
+             * Gone once the word has been spelled out and said so. What is worth
+             * looking at then is the word itself, and a row of tiles under it is
+             * a row of things to press on a screen where there is one thing to
+             * press.
+             */
+            if (round.done) return;
+
+            const room = slots.length - laidOut().length;
+
+            round.tray.forEach((text, at) => {
                 /*
-                 * Right because it says the right thing, not because it is the
-                 * tile the word was cut from. "ba|na|na" lays out two tiles
-                 * reading "na", and either of them spells the word — a player
-                 * who clicked the one the cut did not mean would have been told
-                 * they had made a mistake, with the proof in front of them that
-                 * they had not.
+                 * A piece that is down, and a piece too long for the room that
+                 * is left, are both out of play and are shown the same way —
+                 * the player does not need to be told which of the two it is,
+                 * only that it is not going anywhere now.
+                 *
+                 * Shown rather than left to be pressed and ignored: a tile that
+                 * answers a press by doing nothing reads as the game being
+                 * broken, not as the piece not fitting.
                  */
-                if (entry.text === round.pieces[round.placed]) {
-                    entry.used = true;
-                    round.placed += 1;
+                const spent = round.laid.includes(at) || boxesOf(text).length > room;
 
-                    tile.style.cssText = pieceStyle(true);
+                const tile = $(trayEl, `<button class="speller-piece" data-at="${at}" style="${pieceStyle(spent)}"${spent ? ' disabled' : ''}>${escapeText(text)}</button>`);
+
+                if (spent) return;
+
+                tile.addEventListener('click', () => {
+                    round.laid.push(at);
 
                     drawBar();
-
-                    if (round.placed < round.pieces.length) return page.save();
-
-                    // The word is whole. A round that was given away or got
-                    // wrong has its dot already, and scoreRound leaves it
-                    // standing — this writes the answer only for a round that
-                    // was played clean.
-                    closing = true;
-
-                    scoreRound(1, 'correct');
-                    refreshDots();
+                    drawTray();
+                    drawActions();
                     page.save();
-
-                    setTimeout(advance, 700);
-                    return;
-                }
-
-                /*
-                 * Any mistake marks the word, and it is marked once: the round
-                 * goes on to be finished, because a word half spelled is a word
-                 * the player has not had to spell.
-                 */
-                scoreRound(0, 'wrong');
-                refreshDots();
-                page.save();
-
-                tile.style.background = palette.errFill;
-                tile.style.borderColor = palette.errFill;
-                tile.style.color = palette.onResult;
-
-                setTimeout(() => {
-                    // The screen may have been drawn again under this wait, and
-                    // a tile that is no longer on it has nothing to put back.
-                    if (!tile.isConnected) return;
-
-                    tile.style.cssText = pieceStyle(entry.used);
-                }, 450);
+                });
             });
-        });
+        }
+
+        /*
+         * How much of the line was right, in whole pieces.
+         *
+         * The line is cut at the first letter that does not belong there, and a
+         * piece lying across that cut comes off with the rest: half a tile
+         * cannot stay on the board, and a tile that is part wrong is wrong.
+         */
+        function keptPrefix() {
+            const keep = round.laid.slice();
+            const taken = () => keep.reduce((out, at) => out.concat(boxesOf(round.tray[at])), []);
+
+            while (keep.length > 0 && !taken().every((ch, at) => ch === slots[at])) keep.pop();
+
+            return keep;
+        }
+
+        /*
+         * The verdict, and the player asks for it.
+         *
+         * Nothing is judged until this is pressed. A line is a guess that can be
+         * taken apart and tried again, and a game that marked it the moment the
+         * last box filled would be marking a hand that was still moving.
+         *
+         * What is written down is the share of the word that was right: two
+         * decimals, truncated, which is the number snake records for a word it
+         * was asked to open and for the same reason — truncating is what keeps
+         * an unfinished word from ever recording a 1, the one number that means
+         * it was spelled.
+         *
+         * Written once. The first Check is the one that counts, and a word put
+         * right on the second go is a word that was not known on the first; the
+         * dot keeps the first verdict, and round.right keeps the cut that
+         * verdict was made at, which is what the colours on the line are saying
+         * from then on.
+         *
+         * What was wrong goes back on the table, because the alternative is a
+         * line nobody can finish: the pieces that spell the rest of the word are
+         * exactly the ones standing in the wrong boxes. Read out only when the
+         * whole line is right — a word read aloud with a mistake in it is this
+         * app teaching the mistake.
+         */
+        function checkWord() {
+            const keep = keptPrefix();
+            const right = keep.reduce((sum, at) => sum + boxesOf(round.tray[at]).length, 0);
+
+            const share = slots.length ? Math.floor((right / slots.length) * 100) / 100 : 0;
+            const whole = right === slots.length;
+
+            if (round.right === null) round.right = right;
+
+            scoreRound(whole ? 1 : share, whole ? 'correct' : 'wrong');
+
+            round.laid = keep;
+            round.locked = keep.length;
+            round.done = whole;
+
+            drawBar();
+            drawTray();
+            drawActions();
+            refreshDots();
+
+            forgetTaps();
+
+            if (whole) sayNow(currentItem.word.original, () => sayWordsMark(lineWords(letters)));
+
+            page.save();
+        }
+
+        /*
+         * The buttons, which are whichever of the three the round has earned.
+         *
+         * Undo takes back the last piece, and no further than the last Check:
+         * what a Check kept is settled, and pulling it apart would be undoing a
+         * verdict that is already written down. The last piece only — a piece
+         * out of the middle would leave the letters after it standing in boxes
+         * they no longer belong to, and what a player wants from the middle of a
+         * line is to try again from there, which is this button pressed twice.
+         *
+         * Check arrives when the last box fills and goes again if a piece is
+         * taken back.
+         *
+         * Next arrives with a verdict and stands only while the line still says
+         * what that verdict was about. Put a piece down after a Check and it
+         * goes: what is on the line from then on is unjudged, and a way out
+         * standing beside it would be offering to leave on the strength of a
+         * verdict that no longer describes what the player is looking at —
+         * worse, it would be sitting under the player's hand at the exact moment
+         * they finish the line and are reaching for Check.
+         */
+        function drawActions() {
+            actionsEl.innerHTML = '';
+
+            const next = () => {
+                const btn = $(actionsEl, `<button class="speller-next" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">Next</button>`);
+
+                btn.addEventListener('click', advance);
+            };
+
+            if (round.done) return next();
+
+            const can = round.laid.length > round.locked;
+
+            const undo = $(actionsEl, `<button class="speller-undo" style="${ACTION} background: transparent; color: ${palette.backBtn}; border: 1px solid ${palette.chromeBorder}; cursor: ${can ? 'pointer' : 'default'}; opacity: ${can ? '1' : '0.45'};"${can ? '' : ' disabled'}>Undo</button>`);
+
+            if (can) undo.addEventListener('click', () => {
+                round.laid.pop();
+
+                drawBar();
+                drawTray();
+                drawActions();
+                page.save();
+            });
+
+            if (laidOut().length >= slots.length) {
+                const check = $(actionsEl, `<button class="speller-check" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">Check</button>`);
+
+                check.addEventListener('click', checkWord);
+            }
+
+            if (round.right !== null && round.laid.length === round.locked) next();
+        }
+
+        drawBar();
+        drawTray();
+        drawActions();
+
+        // Drawn before the voices were known, so the speaker was drawn on
+        // trust. One redraw when the list lands takes it back where this device
+        // cannot keep it.
+        speech.onVoices(render);
 
         page.save();
     }
@@ -896,11 +1143,22 @@ function speller(container) {
             // light theme's white panel is 2.1:1.
             hintText: t.ink,
 
-            // A letter that a piece has put there turns mint — the colour
-            // progress and a right answer are painted in everywhere else. The
-            // deep mint on the light theme, where the light one is 1.4 against
+            // A letter the player laid, before anything has been said about
+            // it: the page's own ink. Mint here would be the screen agreeing
+            // with every piece as it landed, which is the one thing it does not
+            // do until Check.
+            letterLaid: t.ink,
+
+            // And after Check: mint for the part that was right — the colour
+            // progress and a right answer are painted in everywhere else, the
+            // deep one on the light theme, where the light mint is 1.4 against
             // its ground and is a letter you have to go looking for.
             letterPlaced: isDark ? t.progress : t.progressFill,
+
+            // Coral from the first wrong letter on, and it stays on those boxes
+            // for the rest of the round: a word put right on the second go
+            // still shows which half of it was known on the first.
+            letterWrong: t.err,
 
             // A letter still to be played, and a letter that was given away:
             // both muted, because neither is something the player did.
@@ -921,11 +1179,11 @@ function speller(container) {
             pieceBorder: t.border,
             pieceText: t.ink,
 
-            // A mistake is filled solid for the moment it is shown, with the
-            // dark ink the quiz uses on its results: white on this coral is
-            // unreadable on the dark theme.
-            errFill: t.err,
-            onResult: '#0f2b3c'
+            // Check and Next are the thing to press, so they are the colour
+            // this app paints the thing to press. Undo is not: it stands in the
+            // chrome's own outline, like the way out and the sound.
+            accent: t.accent,
+            onAccent: t.onAccent
         };
     };
 

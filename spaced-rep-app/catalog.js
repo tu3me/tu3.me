@@ -3990,6 +3990,24 @@ function catalog(container) {
     }
 }
 
+/*
+ * The catalog opens at its top, wherever it was left.
+ *
+ * Coming back from a game, the browser puts the page back where it was: that is
+ * what it does for a reload, for a history move and for a page it serves out of
+ * the bfcache. It made sense while the list stood still. It does not now — the
+ * set just played rises to the top of it, and so does one just made — so the
+ * remembered offset shows whatever has slid into that place halfway down, and
+ * the thing the player came back to look at is above the fold.
+ *
+ * Both scrollers, because which one moves depends on where the app is running:
+ * the document on the web, the body in the popup — see .in-popup in app.css.
+ */
+function showFromTop() {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+}
+
 // Everything the catalog shows comes from storage, and all of it can have moved
 // on while a game was in front: progress, timers, and whether a session is still
 // unfinished. Kept separate from boot so it can be run again without setting the
@@ -4011,6 +4029,10 @@ async function refreshCatalog() {
 }
 
 async function bootCatalog() {
+    // Said before anything is drawn, because the browser restores the offset as
+    // soon as the page is tall enough to carry it — see showFromTop.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
     spacedRepetitions();
     storage();
     store();
@@ -4067,6 +4089,7 @@ async function bootCatalog() {
     resizeGrip.setTried(!!(settings && settings.gripTried));
 
     await refreshCatalog();
+    showFromTop();
     popupHeight.release();
 }
 
@@ -4080,7 +4103,14 @@ async function bootCatalog() {
 // resume=1 as soon as its session exists, so every way back into that entry
 // continues the session whether the bfcache served it or not.
 window.addEventListener('pageshow', (event) => {
-    if (event.persisted) refreshCatalog();
+    if (!event.persisted) return;
+
+    refreshCatalog();
+
+    // A page out of the bfcache comes back scrolled where it was left, and
+    // scrollRestoration has nothing to say about that: the offset is part of the
+    // document that was frozen, not something the browser restores afterwards.
+    showFromTop();
 });
 
 bootCatalog();
