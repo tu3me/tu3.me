@@ -163,8 +163,11 @@ function cards(container) {
 
         return speech.words(text).map(part => {
             if (part.isWord) {
+                // The same corner on the letter as on the word around it: both
+                // are filled while they are being said, and a square mark inside
+                // a rounded one reads as two different kinds of thing.
                 const letters = speech.letters(part.text)
-                    .map(ch => `<span class="say-letter">${escapeText(ch)}</span>`)
+                    .map(ch => `<span class="say-letter" style="${tinted}">${escapeText(ch)}</span>`)
                     .join('');
 
                 return `<span class="say-word" style="${tinted}">${letters}</span>`;
@@ -364,7 +367,7 @@ function cards(container) {
 
             // The letter is the one under the finger; the word is the one the
             // gesture is being counted in.
-            if (taps === 1) return sayLetter(letter, lang);
+            if (taps === 1) return sayLetter(face, letter, lang);
             if (taps === 2) return sayWord(face, word, lang);
 
             sayLine(face, text, lang);
@@ -388,11 +391,18 @@ function cards(container) {
      * off again: better a colour that appears and leaves than a screen that sits
      * still under a finger.
      *
-     * A letter is coloured rather than filled: it is one glyph wide, and a fill
-     * that size reads as a typo rather than as a mark. A word is filled, because
-     * mid-light mint as text is 2.1:1 on the light card — unreadable at the
-     * moment it is being read out — while as a fill it is one value in both
-     * themes with 6.9:1 ink on it.
+     * All three depths are filled now, in one colour: the letter, the word it
+     * stands in, the line. The letter was the exception, written in a colour
+     * instead — one glyph wide, and a fill that size was judged to read as a
+     * typo rather than as a mark. The exception cost more than it saved. A mark
+     * made of ink says nothing wherever the letter already carries a colour,
+     * which on the games' bars is everywhere, and two ways of marking three
+     * depths is two things to learn instead of one.
+     *
+     * One colour because the three are one gesture going deeper: the mark
+     * widens from the letter to its word to the line, and the letter takes that
+     * word's colour off the same ramp — see WORD_FILLS. A colour kept for
+     * single letters would have been saying the next tap marks something else.
      */
     function sayLater(text, lang, mark) {
         clearTimeout(sayTimer);
@@ -408,8 +418,14 @@ function cards(container) {
         }, SAY_DELAY);
     }
 
-    function sayLetter(letter, lang) {
-        sayLater(letter.textContent, lang, light([{ el: letter, ink: palette.sayFill }]));
+    function sayLetter(face, letter, lang) {
+        // Which word it stands in, because that is the colour it is marked in.
+        // A letter outside every word cannot be tapped — only the letters of a
+        // word are drawn as targets, see lineHtml — so there is no such case to
+        // answer for, and indexOf's -1 is kept out of the ramp regardless.
+        const place = wordsIn(face).indexOf(letter.closest('.say-word'));
+
+        sayLater(letter.textContent, lang, light([tint(letter, Math.max(0, place))]));
     }
 
     function sayWord(face, word, lang) {
@@ -656,16 +672,12 @@ function cards(container) {
             cursor: t.progress,
             backBtn: t.muted,
 
+            // Nothing here for what is being said: letter, word and line are
+            // all marked off the bubble ramp — see sayLater.
+            //
             // The speaker beside the word is an offer rather than the thing to
             // press, so it sits in muted until it answers.
             sayIcon: t.muted,
-
-            // A letter being said is written in mint rather than filled with
-            // it: one glyph is too small a thing to fill, and mint as ink on a
-            // dark card is the same colour progress is drawn in everywhere
-            // else. Words and punctuation are filled instead, from the bubble
-            // ramp — see WORD_FILLS.
-            sayFill: t.progress,
 
             frontBg: t.surface,
             frontBorder: t.border,

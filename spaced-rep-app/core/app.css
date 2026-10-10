@@ -384,8 +384,12 @@ body {
  * and a size is the one thing about it that nothing else is using.
  */
 /*
- * What a hand does while it waits to be obeyed — both of them: the one that
- * points at a button and the one that offers to explain the colours.
+ * What the hand does while it waits to be obeyed.
+ *
+ * One hand now. A second one used to slide in from the edge of the shelf
+ * holding up a card with a question on it, and it shared every rule below; what
+ * it offered to explain is a card of the catalog's own these days — see
+ * onboarding.js — so its three animations have gone with it.
  *
  * A press, and a slow one: the hand rises off the button and comes back down
  * onto it. Rising rather than growing, because the thing being asked for is a
@@ -407,33 +411,6 @@ body {
  * Endless on purpose. It is taken away by the press it asks for, and until then
  * there is nothing else on the screen saying what to do.
  */
-/*
- * The asking hand coming in from the edge.
- *
- * `both`, so the hand stands at zero before the first frame and stays at zero
- * after the last: without it the element is at its resting place for one paint
- * before the animation takes it away, which is a hand that appears and then
- * slides in from where it already was.
- *
- * Out and done. This one is not a loop — it has arrived, and something that
- * goes on moving beside a list of words is something to look away from.
- */
-@keyframes hand-arrive {
-    from { translate: 120% 0; }
-    to { translate: 0 0; }
-}
-
-/*
- * The arrival is on the inner span and the waiting on the button around it,
- * because both of them move the element sideways and the last rule to name a
- * property is the one that gets it. A parent and a child each carrying half the
- * movement compose instead of overwriting: the hand slides out from under the
- * edge while the whole of it is already breathing.
- */
-.asking-hand-slide {
-    animation: hand-arrive 420ms ease-out both;
-}
-
 @keyframes hand-nudge {
     0%, 100% { translate: 0 0; opacity: 0.3; }
     45% { translate: 0 -5px; opacity: 1; }
@@ -441,39 +418,6 @@ body {
 
 .pointing-hand {
     animation: hand-nudge 1.5s ease-in-out infinite;
-}
-
-/*
- * The asking hand does the same two things as the pointing one, but not with
- * the same element: the fist is holding a card, and a card that rocks with the
- * hand reads as the whole picture wobbling rather than as somebody waving it.
- *
- * So the fading stays on the button — the card fades with the hand, because
- * they are one object and one of them going faint alone would be a hole in it —
- * and the rocking moves inside, onto the group the fist is drawn in.
- *
- * Its distance is in user units, not pixels: a length on an element inside an
- * svg is measured in that svg's own grid. 2.75 of those is the 5 screen pixels
- * the other hand moves, at the 1.818 pixels per unit this icon is drawn at.
- *
- * Same duration and same easing as the fade, so the two stay in step.
- */
-@keyframes hand-bob {
-    0%, 100% { translate: 0 0; }
-    45% { translate: 0 -2.75px; }
-}
-
-@keyframes hand-breathe {
-    0%, 100% { opacity: 0.3; }
-    45% { opacity: 1; }
-}
-
-.asking-hand {
-    animation: hand-breathe 1.5s ease-in-out infinite;
-}
-
-.asking-hand-grip {
-    animation: hand-bob 1.5s ease-in-out infinite;
 }
 
 /*
@@ -546,27 +490,61 @@ body {
 }
 
 /*
- * The corner asking to be noticed, once there is nothing else to look at.
+ * One card of the onboarding strip replacing another -- see onboarding.js.
  *
- * Red and bigger at the same moment, which is the same pair the play mark uses
- * and for the same reason: on a mark this small -- thirteen pixels of hairline
- * -- a colour alone is a pixel changing shade somewhere at the edge of vision,
- * and a size alone is a hairline getting slightly less fine.
+ * The corner of the window used to pulse here instead, in coral and a third
+ * bigger, until somebody took hold of it. What it was asking for is one of those
+ * cards now, and a strip that says one thing at a time needs the turn of a page
+ * to be visible more than the app needs a second blinking thing on the screen.
  *
- * It goes dim rather than out. This one is furniture, not an answer the app is
- * waiting for: it has to be findable at every moment of the cycle by someone who
- * has just decided to look for it.
+ * It comes in from the side it was pressed from, which is the whole of what the
+ * movement has to say: the arrow on the right brings the next card in from the
+ * right. The distance is handed in by the element, because the two directions
+ * are the same animation and only one of these can be written here.
+ *
+ * Ten pixels and 180ms: a page turn, not a slide. Anything further reads as the
+ * card having arrived from somewhere else on the screen, and the card is not
+ * going anywhere -- it is the same card showing something else.
  */
-@keyframes grip-call {
-    0%, 100% { opacity: 0.32; scale: 1; }
-    50% { opacity: 1; scale: 1.3; }
+/*
+ * The marks on the first card, arriving after what they are about.
+ *
+ * The card is a sentence first: somebody who has just opened the app gets the
+ * two lines of it to themselves, and only then does the hand come over the top
+ * and point at the two things in the room. Drawn at the same instant, the
+ * arrows are competing with the words they are an aside to -- and the eye goes
+ * to the moving thing, which here is the wrong one.
+ *
+ * Half a second is the wait, which is about as long as the sentence takes to
+ * land and shorter than anybody would call a delay.
+ */
+/*
+ * The arrow on the width card, drawing itself from the card up to the corner.
+ *
+ * A stroke that arrives all at once is a picture; a stroke that is drawn is a
+ * hand showing you something, and the thing it is showing is a long way from
+ * where the sentence is. Following the line while it is being made is the whole
+ * of what carries the eye up there.
+ *
+ * Done with the dash: the path is told its own length is 1 -- see pathLength on
+ * the paths themselves -- so one dash of 1 covers it whole, and sliding the
+ * offset from 1 to 0 uncovers it from its first point to its last. Which means
+ * the direction it draws in is the direction the path is written in, and that
+ * is why the shaft is written from the card and not from the corner.
+ */
+@keyframes onb-draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
 }
 
-.app-grip-calling {
-    /* Coral, the app's own red, rather than a red of its own. */
-    color: #ef6f5a;
+@keyframes onb-mark {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 
-    animation: grip-call 1.2s ease-in-out infinite;
+@keyframes onb-turn {
+    from { opacity: 0; translate: var(--onb-from, 10px) 0; }
+    to { opacity: 1; translate: 0 0; }
 }
 
 /*

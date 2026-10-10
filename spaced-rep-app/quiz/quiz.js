@@ -85,14 +85,19 @@ function quiz(container) {
      * speaker beside it is the one thing there that speaks.
      */
     function lineHtml(text) {
+        // The same corner on the letter as on the word around it: both are
+        // filled while they are being said, and a square mark inside a rounded
+        // one reads as two different kinds of thing.
+        const tinted = 'border-radius: 3.4px;';
+
         return speech.words(text).map(part => {
             if (!part.isWord) return escapeText(part.text);
 
             const letters = speech.letters(part.text)
-                .map(ch => `<span class="say-letter">${escapeText(ch)}</span>`)
+                .map(ch => `<span class="say-letter" style="${tinted}">${escapeText(ch)}</span>`)
                 .join('');
 
-            return `<span class="say-word" style="border-radius: 3.4px;">${letters}</span>`;
+            return `<span class="say-word" style="${tinted}">${letters}</span>`;
         }).join('');
     }
 
@@ -301,7 +306,7 @@ function quiz(container) {
 
             // The letter is the one under the finger; the word is the one the
             // gesture is being counted in.
-            if (taps === 1) return sayLetter(letter, lang);
+            if (taps === 1) return sayLetter(root, letter, lang);
             if (taps === 2) return sayWord(root, word, lang);
 
             sayLine(root, text, lang);
@@ -322,11 +327,18 @@ function quiz(container) {
      * for a quarter of a second is a tap that missed, as far as the person
      * tapping can tell.
      *
-     * A letter is coloured rather than filled: it is one glyph wide, and a fill
-     * that size reads as a typo rather than as a mark. A word is filled, because
-     * mid-light mint as text is 2.1:1 on the light theme — unreadable at the
-     * moment it is being read out — while as a fill it is one value in both
-     * themes with dark ink on it.
+     * All three depths are filled now, in one colour: the letter, the word it
+     * stands in, the line. The letter was the exception, written in a colour
+     * instead — one glyph wide, and a fill that size was judged to read as a
+     * typo rather than as a mark. The exception cost more than it saved. A mark
+     * made of ink says nothing wherever the letter already carries a colour,
+     * which on the games' bars is everywhere, and two ways of marking three
+     * depths is two things to learn instead of one.
+     *
+     * One colour because the three are one gesture going deeper: the mark
+     * widens from the letter to its word to the line, and the letter takes that
+     * word's colour off the same ramp — see WORD_FILLS. A colour kept for
+     * single letters would have been saying the next tap marks something else.
      */
     function sayLater(text, lang, mark) {
         clearTimeout(sayTimer);
@@ -342,8 +354,14 @@ function quiz(container) {
         }, SAY_DELAY);
     }
 
-    function sayLetter(letter, lang) {
-        sayLater(letter.textContent, lang, light([{ el: letter, ink: palette.sayFill }]));
+    function sayLetter(root, letter, lang) {
+        // Which word it stands in, because that is the colour it is marked in.
+        // A letter outside every word cannot be tapped — only the letters of a
+        // word are drawn as targets, see lineHtml — so there is no such case to
+        // answer for, and indexOf's -1 is kept out of the ramp regardless.
+        const place = wordsIn(root).indexOf(letter.closest('.say-word'));
+
+        sayLater(letter.textContent, lang, light([tint(letter, Math.max(0, place))]));
     }
 
     function sayWord(root, word, lang) {
@@ -728,14 +746,11 @@ function quiz(container) {
             errFill: t.err,
             onResult: '#0f2b3c',
 
-            // Said out loud: a mint fill and that same dark ink, for the same
-            // reason — a mid-light colour belongs on a fill rather than in
-            // letters. The speaker beside the question is muted until it
-            // answers: it is an offer, not the thing to press.
-            // A letter being said is written in mint rather than filled with it:
-            // one glyph is too small a thing to fill. Words are filled instead,
-            // from the bubble ramp — see WORD_FILLS.
-            sayFill: t.progress,
+            // Nothing here for what is being said: letter, word and line are
+            // all marked off the bubble ramp — see sayLater.
+            //
+            // The speaker beside the question stays muted until it answers: it
+            // is an offer, not the thing to press.
             sayIcon: t.muted,
 
             // Still read by the dots along the top, which are too small to fill.

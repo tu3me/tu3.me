@@ -47,6 +47,22 @@ function speller(container) {
      */
     const DECOYS_FROM = 2;
 
+    /*
+     * What hearing the word takes off the round.
+     *
+     * The speaker reads the whole line out from the first frame, and that used
+     * to be free: what is asked here is how a word is written, and a sound does
+     * not answer it. Except that it very nearly does — told the word, the tray
+     * stops being "which word is this" and becomes "spell the word you have
+     * just been given", and those are not the same round.
+     *
+     * So the smallest price there is. A hundredth is nothing beside the share a
+     * half-spelled word records, and it is enough to miss the only number that
+     * counts as knowing the word: srs.js reads a 1 and nothing else as success,
+     * so 0.99 is a word that comes round again.
+     */
+    const HEARD_COST = 0.01;
+
     let state = getEmptyState();
     let palette = {};
 
@@ -302,8 +318,10 @@ function speller(container) {
         // an order, because Undo takes the last of them back. `right` is where
         // the first Check cut the line, in boxes, and null until there has been
         // one; `locked` is how many of the laid tiles that Check settled, which
-        // is as far back as Undo reaches.
-        return { at: state.currentIndex, tray, laid: [], shown: false, done: false, right: null, locked: 0 };
+        // is as far back as Undo reaches. `heard` is whether the word has been
+        // asked for out loud, which costs the round a hundredth whatever else
+        // becomes of it — see HEARD_COST.
+        return { at: state.currentIndex, tray, laid: [], shown: false, done: false, right: null, locked: 0, heard: false };
     }
 
     /*
@@ -388,7 +406,19 @@ function speller(container) {
      */
     function sayNow(text, paint) {
         const done = until(light(paint));
-        if (!speech.say(text, sayLang, done)) done();
+        const said = speech.say(text, sayLang, done);
+
+        if (!said) done();
+
+        /*
+         * And whether a sound happened at all, which is what the speaker
+         * charges the round on — see hearWord.
+         *
+         * say() answers false with the switch in the header off, and a round
+         * charged for silence is a round charged for somebody's own decision to
+         * keep it quiet.
+         */
+        return said;
     }
 
     /*
@@ -454,22 +484,37 @@ function speller(container) {
 
     const boxAt = (index) => barEl && barEl.querySelector(`.speller-box[data-at="${index}"]`);
 
-    function sayLetterMark(index) {
+    // What a word of the line is filled with while it is being said — see
+    // WORD_FILLS. One place, because the letter is filled from it too.
+    const fillOf = (place) => tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+
+    /*
+     * One letter, filled behind it in the colour of the word it stands in.
+     *
+     * Behind the letter rather than in it. Every box here is already wearing a
+     * colour that means something — green right, ink laid, coral still to come —
+     * and a mark made of ink had to take that away to say anything. On a word
+     * that had been given away it said nothing at all: those letters are written
+     * in coral, and the mark was coral on coral.
+     *
+     * The word's own colour, off the ramp the whole line is marked from, rather
+     * than a colour kept for single letters: what is being said is a letter of
+     * that word, and the screen has nothing else to add about it.
+     */
+    function sayLetterMark(index, place) {
         const el = boxAt(index);
         if (!el) return;
 
-        hold(el);
+        const stage = fillOf(place || 0);
 
-        // Coral, which is what this app paints the thing being acted on. Not
-        // mint: mint is a letter that is already in the word, and a letter that
-        // turned mint because it was being read out would be saying a piece had
-        // just landed.
-        el.style.color = palette.saying;
+        hold(el);
+        el.style.background = stage.fill;
+        el.style.color = stage.ink;
     }
 
     function sayWordsMark(ranges) {
         ranges.forEach(({ from, to, place }) => {
-            const stage = tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+            const stage = fillOf(place);
 
             for (let at = from; at <= to; at++) {
                 const el = boxAt(at);
@@ -583,6 +628,22 @@ function speller(container) {
             if (res === 'correct') bg = palette.ok;
             if (res === 'wrong') bg = palette.err;
 
+            /*
+             * And the word that has been heard, before anything has been
+             * written down about it.
+             *
+             * Hearing it costs the round its 1 — see HEARD_COST — so what the
+             * round can no longer be is already settled, and the dot says so at
+             * once: a dot still sitting idle after the speaker would be the
+             * screen keeping the price to itself.
+             *
+             * The record waits all the same. What will finally be written is
+             * not known yet — the word can still be given away, and that is
+             * worth less again — so this is the dot running ahead of the log by
+             * exactly the one thing that is already certain.
+             */
+            if (!res && idx === state.currentIndex && round.heard) bg = palette.err;
+
             const ring = idx === state.currentIndex ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
 
             return `<div class="speller-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ring} transition: all 0.2s; flex-shrink: 0;"></div>`;
@@ -656,10 +717,10 @@ function speller(container) {
          * given away. Filled again by the player, it goes back to ink.
          *
          * The speaker is there from the first frame and reads the whole line
-         * out loud without opening anything. It costs nothing, and it is not a
-         * way around the round: hearing the word is this game — what is being
-         * asked is how it is written, and the sound does not say that. Giving
-         * up the letters is the shortcut, and that one still costs.
+         * out loud without opening anything. It costs a hundredth of the round
+         * — see HEARD_COST — and the dot says so the moment it is pressed,
+         * while what is finally written down waits for the end: giving the
+         * letters away is still the greater shortcut, and still costs more.
          */
         function drawBar() {
             const laid = laidOut();
@@ -681,12 +742,17 @@ function speller(container) {
                  * mark running along the line would be pointing at letters it is
                  * not reading out. Its own colour says which of the two sounds
                  * is playing, which is all there is to tell apart.
+                 *
+                 * And it books what it costs, once the sound is actually on its
+                 * way — see hearWord.
                  */
                 speaker.addEventListener('click', () => {
-                    sayNow(currentItem.word.original, () => {
+                    const said = sayNow(currentItem.word.original, () => {
                         hold(speaker);
                         speaker.style.color = palette.saying;
                     });
+
+                    if (said) hearWord();
                 });
             }
 
@@ -795,9 +861,14 @@ function speller(container) {
             // A mark between words says nothing on its own — see worthSaying.
             if (!worthSaying(char)) return;
 
+            // Which word of the line this box belongs to, which is the colour
+            // its mark is painted in — see sayLetterMark. A box in no word is
+            // marked in the first word's colour; nothing else would mean more.
+            const word = lineWords(letters).find(w => index >= w.from && index <= w.to);
+
             // The letter that is standing there, which until Check is the
             // player's letter and not the word's.
-            sayNow(char, () => sayLetterMark(index));
+            sayNow(char, () => sayLetterMark(index, word ? word.place : 0));
         }
 
         /*
@@ -810,12 +881,66 @@ function speller(container) {
          * this first, and for the same reason: a word scored twice climbs a
          * ladder whose rungs are days.
          */
-        function scoreRound(result, dot) {
+        function scoreRound(result) {
             if (state.sessionResults[state.currentIndex]) return;
 
-            store.recordRepetition(currentItem, result, 'speller', { at: state.sessionAt, size: state.sessionPool.length });
-            state.sessionResults[state.currentIndex] = dot;
+            /*
+             * What the word cost to hear comes off here and not at the speaker,
+             * because at the speaker there is nothing to take it off yet: the
+             * round can still end as a word spelled out, a word part spelled or
+             * a word given away, and only one number is ever written.
+             *
+             * Taken off in hundredths and put back rather than subtracted
+             * outright: 0.1 - 0.01 is 0.09000000000000001 in binary floating
+             * point, and a repetition is kept for good. Nothing is lost on the
+             * way through, because both numbers have two decimals at most — the
+             * share is truncated to them.
+             *
+             * Never below nothing. A word given away records a 0 already, and
+             * -0.01 is not a worse answer than that — it is not an answer.
+             */
+            const paid = round.heard ? HEARD_COST : 0;
+            const final = Math.max(0, Math.round((result - paid) * 100)) / 100;
+
+            store.recordRepetition(currentItem, final, 'speller', { at: state.sessionAt, size: state.sessionPool.length });
+
+            /*
+             * And the dot is read off the number rather than told apart from it.
+             *
+             * Green is the one number that means the word was written and
+             * nothing was given up to write it. A word spelled out after
+             * hearing it records 0.99, which is a verdict its caller believed
+             * was a clean one — asked to name the dot itself, checkWord would
+             * have painted it green over a record that says otherwise.
+             */
+            state.sessionResults[state.currentIndex] = final === 1 ? 'correct' : 'wrong';
             store.save();
+        }
+
+        /*
+         * The word asked for out loud, which is the speaker and nothing else.
+         *
+         * Charged once. The price is for having been told the word, and being
+         * told it twice is the same thing known once — so it is a mark on the
+         * round rather than a tally.
+         *
+         * The dot goes red now; what is written down waits for the verdict, and
+         * scoreRound takes the cost off whatever that verdict turns out to be.
+         * Saved straight away, because a cost that lived only in this page's
+         * memory would be refunded by closing the popup.
+         *
+         * After a verdict there is nothing left to charge — the number is in
+         * the log and scoreRound will not write a second one — and the dot is
+         * already saying what the round came to. Pressing the speaker then is
+         * what it always was: the word, read out.
+         */
+        function hearWord() {
+            if (round.heard) return;
+
+            round.heard = true;
+
+            refreshDots();
+            page.save();
         }
 
         /*
@@ -841,7 +966,7 @@ function speller(container) {
 
             if (round.right === null) round.right = laidOut().length;
 
-            scoreRound(0, 'wrong');
+            scoreRound(0);
 
             drawBar();
             refreshTray();
@@ -957,7 +1082,9 @@ function speller(container) {
          * decimals, truncated, which is the number snake records for a word it
          * was asked to open and for the same reason — truncating is what keeps
          * an unfinished word from ever recording a 1, the one number that means
-         * it was spelled.
+         * it was spelled. Less a hundredth if the word was heard first, which is
+         * why a whole line can be green on the bar and red on the dots: the
+         * spelling was right, and it was not spelled from memory.
          *
          * Written once. The first Check is the one that counts, and a word put
          * right on the second go is a word that was not known on the first; the
@@ -980,7 +1107,7 @@ function speller(container) {
 
             if (round.right === null) round.right = right;
 
-            scoreRound(whole ? 1 : share, whole ? 'correct' : 'wrong');
+            scoreRound(whole ? 1 : share);
 
             round.laid = keep;
             round.locked = keep.length;
@@ -1134,8 +1261,10 @@ function speller(container) {
             // judged: muted, because nothing has happened to it yet.
             letterPending: t.muted,
 
-            // Said out loud: coral, which is what this app paints the thing
-            // being acted on. Mint is a letter already in the word.
+            // The speaker while it is talking: coral, which is what this app
+            // paints the thing being acted on. It marks itself and nothing else
+            // — the boxes are marked in the colour of the word they belong to,
+            // see sayLetterMark.
             saying: t.accent,
 
             // The speaker is an offer rather than the thing to press, so it

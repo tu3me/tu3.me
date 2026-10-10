@@ -169,6 +169,13 @@ popupHeight();
  * the popup Chrome caps that at 600 anyway -- so there was nothing for a
  * person to decide, only something for them to get wrong.
  *
+ * Nothing here points it out. The corner used to pulse until somebody took
+ * hold of it, and what says it now is one of the cards at the top of the catalog
+ * -- see onboarding.js, where the reason for gathering all of those into one
+ * place is written down. It is still the one thing in the app nobody finds by
+ * looking: a 13.7px mark drawn at a third of the ink's strength, in a corner,
+ * doing something no other corner in a popup does.
+ *
  * The width outlives the page. The popup is rebuilt from scratch on every
  * navigation, and a width that went with it would last until the first game
  * was opened -- so the number goes to localStorage and comes back out in
@@ -341,15 +348,6 @@ function resizeGrip() {
         // it dragging a selection around instead of a corner.
         event.preventDefault();
 
-        // Asked for, so it stops asking. Before anything else here, because the
-        // press is the answer whatever the drag turns out to be -- a double
-        // click that resets the width comes through here too.
-        if (!tried) {
-            tried = true;
-            handle.classList.remove(CALLING);
-            saveSetting('gripTried', true);
-        }
-
         const twice = Date.now() - lastDown < DOUBLE_GAP;
         lastDown = Date.now();
 
@@ -421,43 +419,6 @@ function resizeGrip() {
         handle.addEventListener('pointercancel', stop);
     });
 
-    /*
-     * The corner calling attention to itself.
-     *
-     * It is the one thing in the app nobody finds by looking: a 13.7px mark in a
-     * corner, drawn at a third of the ink's strength, that does something no
-     * other corner in a popup does. Everything else here is a button with a word
-     * under it.
-     *
-     * So it says so itself rather than being pointed at. A hand flying in to
-     * drag it was the other way to do this, and it was a second animated thing
-     * on a screen that already has two, for a feature that is worth exactly one
-     * blinking corner.
-     *
-     * It stops the moment somebody takes hold of it -- not when they finish a
-     * drag, and not when the width ends up different. Reaching for it is the
-     * whole of what this is asking for; what they then do with the width is
-     * their business, including letting go at once and leaving it alone.
-     *
-     * Written down because it is a thing that was said to someone, and the same
-     * record keeps it said after the popup closes. Beside coloursRead, which is
-     * the same kind of fact, and taken by "Clear data" with everything else --
-     * which is right, since a shelf that has been reset is one nobody has been
-     * shown anything on.
-     */
-    const CALLING = 'app-grip-calling';
-
-    let tried = false;
-
-    resizeGrip.setTried = (value) => {
-        tried = !!value;
-        if (tried) handle.classList.remove(CALLING);
-    };
-
-    resizeGrip.call = (on) => {
-        handle.classList.toggle(CALLING, !!on && !tried);
-    };
-
     // Capture, because a scroll inside the body does not bubble: in the popup
     // the body is the thing that scrolls, and the corner moves with it.
     window.addEventListener('scroll', place, true);
@@ -527,10 +488,11 @@ resizeGrip();
  * and a press that landed on the hint instead of the button would be a hint
  * that blocked the very thing it was asking for.
  */
-// The one hand, drawn once. Two things are made of it — the finger that points
-// at a button and the fist that holds up a card — and they have to be the same
-// hand, or the second one reads as a different character arriving to explain
-// what the first one meant.
+// The hand, drawn once, and now the only thing made of it. There was a second —
+// a fist holding up a card with a question on it, which offered to explain the
+// colours on the shelf — and it went when the question moved into a card of the
+// catalog's own; see onboarding.js. The name stays all the same: a path this long
+// reads as a name and not as an argument.
 const HAND_PATH = 'M11 21.5a6 6 0 0 1-6-6v-2.1a1.6 1.6 0 0 1 3.2 0v1.1V5.4a1.8 1.8 0 0 1 3.6 0v5.8a1.5 1.5 0 0 1 3 0v.7a1.5 1.5 0 0 1 3 0v.8a1.5 1.5 0 0 1 3 0v2.8a6 6 0 0 1-6 6z';
 
 function pointingHand() {
@@ -609,84 +571,6 @@ function pointingHand() {
     };
 }
 pointingHand();
-
-/**
- * The same hand, holding up a card with a question on it.
- *
- * It comes in from the edge rather than appearing where it will stand, and it
- * is clipped by its own box while it does: the slide has to start somewhere,
- * and anywhere outside the app is somewhere a phone would rather scroll to. A
- * box the size of the hand, with the hand sliding inside it, is an entrance
- * that cannot reach past the screen because it never leaves the hand's own
- * square.
- *
- * Tilted, and the pointing one is not. The two are the same yellow at the same
- * size in the same corner of the eye, and the tilt is what says at a glance
- * that this one is offering something rather than telling you where to press.
- */
-function askingHand() {
-    /*
-     * The window is not the usual 0 0 24 24, and cannot be. The hand is drawn on
-     * that grid but then pushed down under the card it is holding, and the two
-     * together run from -0.11 to 26.77 — an svg clips to its viewport, so the
-     * bottom of the fist was being cut off by three units of it.
-     *
-     * Widened rather than the drawing shrunk: the numbers in the paths are the
-     * ones the hand was drawn with, and a viewBox is the one place where "show
-     * me this much of it" can be said without touching them. Square, and centred
-     * on what is actually there, so the thing stays in the middle of its button.
-     *
-     * The box grew with it, 44 to 50, which is the same 27.5 units against the
-     * same pixels per unit the drawing had at 24 to 44. A wider window in a box
-     * that stayed put would have shown the whole hand by making it smaller, and
-     * the hand was not the thing that was wrong.
-     */
-    const SIGN = `<svg width="50" height="50" viewBox="-1.8 -0.4 27.5 27.5" aria-hidden="true" style="display: block;">
-        <g class="asking-hand-grip" transform="translate(2.2 12) scale(0.66) rotate(-8 12 12)">
-            <path d="${HAND_PATH}" fill="#eab308" stroke="#7c4a03" stroke-width="1.7" stroke-linejoin="round" />
-        </g>
-        <g transform="rotate(-6 12 7)">
-            <rect x="3" y="0.8" width="18" height="12" rx="2.8" fill="#eab308" stroke="#7c4a03" stroke-width="1.2" />
-            <path d="M9.7 4.5a2.45 2.45 0 0 1 4.75.85c0 1.6-2.05 1.95-2.35 3.4" fill="none" stroke="#7c4a03" stroke-width="1.6" stroke-linecap="round" />
-            <circle cx="11.85" cy="10.8" r="1.05" fill="#7c4a03" />
-        </g>
-    </svg>`;
-
-    let shown = null;
-
-    askingHand.at = (card, onPress) => {
-        askingHand.clear();
-        if (!card) return null;
-
-        if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
-
-        // Flush with the edge of the app, which from the card's padding box is its
-        // own border and the page's side padding: 1 + 6.8. Further out and the
-        // hand hangs off the body, which on a screen exactly as wide as the app
-        // is a scrollbar; further in and it stops looking like something that
-        // came from outside.
-        //
-        // Which is why it is the page's own padding and not a number of its own.
-        // It stayed at 11.2 for a while after the page went from 10.2 to 6.8,
-        // and the 3.4 left over was exactly that scrollbar: in the popup the
-        // window is the app's width and nothing has anywhere to hang off to.
-        shown = $(card, `<button class="asking-hand" title="What the colours mean" style="position: absolute; right: -7.8px; top: 50%; margin-top: -25px; width: 50px; height: 50px; padding: 0; background: transparent; border: none; cursor: pointer; overflow: hidden; z-index: 5;">
-            <span class="asking-hand-slide" style="display: block;">${SIGN}</span>
-        </button>`);
-
-        shown.addEventListener('click', onPress);
-
-        return shown;
-    };
-
-    askingHand.showing = () => !!(shown && shown.isConnected);
-
-    askingHand.clear = () => {
-        if (shown) shown.remove();
-        shown = null;
-    };
-}
-askingHand();
 
 function noContextMenu() {
     document.addEventListener('contextmenu', (event) => {

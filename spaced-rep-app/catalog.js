@@ -13,18 +13,6 @@ function catalog(container) {
     let session = null;
 
     /*
-     * Whether the colours have been explained to this person already. Handed in
-     * at boot beside the session, and written down when the dialog is closed.
-     *
-     * A flag and not a thing derived from the words, which is the exception here
-     * and has to be: reading an explanation leaves no mark on anything else. The
-     * place it is kept is the settings record, so "Clear data" takes it with
-     * everything else — and that is right, because the shelf after a reset is a
-     * shelf nobody has had explained to them.
-     */
-    let coloursRead = false;
-
-    /*
      * The two answers the app is built on: the language the reader has, and the
      * languages they want.
      *
@@ -1428,6 +1416,15 @@ function catalog(container) {
         }
 
         /*
+         * Between the header and the first set: the cards that say what this
+         * screen is for, what the colours on it mean and what the corner of the
+         * window does. Which of them stand there, and whether any of them do, is
+         * decided in onboarding.js -- the catalog's whole part in it is this
+         * line, the switch in the settings and the palette it hands over.
+         */
+        onbStrip = onboarding.at(container);
+
+        /*
          * One list, and the one it is of is yours.
          *
          * There were two sections here: what you had taken, and a shelf of what
@@ -1437,7 +1434,7 @@ function catalog(container) {
          * questions is asked once, the sets it implies are made, and from then on
          * there is a list of sets that are all equally yours.
          */
-        const list = $(container, `<div class="dict-sets-list" style="display: flex; flex-direction: column; gap: 12px; margin-top: 6.8px;"></div>`);
+        const list = $(container, `<div class="dict-sets-list" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; margin-top: 6.8px;"></div>`);
 
         // The form opens where the button that opened it stands -- at the top,
         // under the header -- above the sets it is about to join.
@@ -1475,6 +1472,41 @@ function catalog(container) {
 
         recent(own.length ? own : shown).forEach(set => renderSetCard(list, set, intro));
 
+        /*
+         * The form is open and the strip is in the column again: every draw puts
+         * it back there, and here is where it is taken out. Without animation,
+         * because nothing is moving -- this is a screen arriving in the state it
+         * was already in.
+         *
+         * Every draw with the form open rather than only the ones that follow an
+         * opening, because the form outlives the page: a popup closed over a
+         * half-written set opens again with the form still there, and the strip
+         * has no more business being visible then than it had a moment before
+         * the window went.
+         *
+         * Not on the draw that is about to open the form, though -- that one
+         * belongs to unfoldInto, which covers the strip as the first thing the
+         * growth starts from.
+         *
+         * And nothing at all when there is no strip to cover, which happens when
+         * the reader switches the onboarding off from the settings while the
+         * form is open.
+         */
+        if (!draft || !onbStrip) {
+            // Gone without folding, which is what Save does: the form is not
+            // closed, it becomes a card of the list. The strip has to come back
+            // into a column that is already drawn without it, so it is put back
+            // where it was covered and then let go -- the shelf slides down
+            // rather than being found lower.
+            if (onbCovered && onbStrip) revealStrip();
+
+            onbCovered = false;
+        } else if (unfold !== 'set') {
+            const open = newSetCard();
+
+            if (open) coverStrip(stripRise(appRect(open).height + listGap(open)));
+        }
+
         if (unfold === 'set') {
             const card = newSetCard();
             if (card) unfoldInto(card);
@@ -1494,19 +1526,6 @@ function catalog(container) {
         // here rather than at the one entry the page calls, so that it comes back
         // from every way it can be taken away.
         showHint();
-        offerColours(sets);
-
-        /*
-         * And the corner starts asking as soon as the hand over Flashcards stops
-         * -- the first press on a game is what takes one down and sets the other
-         * going.
-         *
-         * Not a third hint competing with the other two, which is why it is in
-         * the corner and not on the shelf: it is the window's own furniture
-         * saying what it does, and it can say that while a card is being
-         * explained. It stops when somebody takes hold of it; see resizeGrip.
-         */
-        resizeGrip.call(!!session || !neverPlayed());
     }
 
     /*
@@ -1597,31 +1616,167 @@ function catalog(container) {
      *
      * The borders go to nought with the padding: a line is a line whatever the
      * box behind it measures, and two of them are the one thing a card of no
-     * height still draws. The negative margin cancels the gap the list is
-     * holding under this card, and the list's own gap above it folds with it --
-     * see listLead -- so at that end the card takes nothing out of the column at
+     * height still draws. The margin under it cancels the gap the list is
+     * holding there, and the list's own gap above it folds with it -- see
+     * listLead -- so at that end the card takes nothing out of the column at
      * all.
+     *
+     * `under` is that margin, and it is not always the negative of the gap. Over
+     * a covered onboarding strip the collapsed card has to hold the strip's room
+     * open under itself instead, or the shelf would jump up by the height of the
+     * strip at the moment the form starts growing -- see unfoldInto.
      *
      * It used to fold down to the height of the "Continue" banner instead, which
      * is what the form grew out of while the banner left. There is no banner now
      * -- the game that was started is marked on its own tile -- so there is
      * nothing above the list for a card to be measured against.
      */
-    function collapsed(card, gap, lead) {
+    function collapsed(card, gap, lead, under) {
         card.style.paddingTop = '0px';
         card.style.paddingBottom = '0px';
         card.style.borderTopWidth = '0px';
         card.style.borderBottomWidth = '0px';
         card.style.maxHeight = '0px';
 
-        if (gap) card.style.marginBottom = `-${gap}px`;
+        if (under) card.style.marginBottom = `${under}px`;
         if (lead) lead.style.marginTop = '0px';
+    }
+
+    /*
+     * The new-set form opens over the onboarding strip rather than below it.
+     *
+     * The form is as tall as a card and the strip is as tall as a card, and one
+     * arriving under the other pushed the whole shelf down the screen by both of
+     * them at once. What it does instead is start at the top of the column,
+     * where the strip begins, and grow downwards over it: it covers the strip
+     * first and moves the first set only once its lower edge has reached it,
+     * and then only by what is left of its height.
+     *
+     * Two levers do it, and neither of them moves the strip:
+     *
+     * The strip's own bottom margin goes negative by its whole height, at once
+     * and without animation, so that the list starts the growth already at the
+     * top of the column. A margin rather than a transform, which is the whole of
+     * why the strip's resting margin is nought (see onboarding.js): a negative
+     * margin takes the room out of the column for real, so the page ends where
+     * it should and the popup is the height it should be. A transform would have
+     * left the column as tall as it was, with the strip's height of nothing
+     * under everything.
+     *
+     * And the form carries the strip's room under itself, as a margin, giving it
+     * up exactly as fast as it takes it: at every moment the gap under the form
+     * is what is left of the strip once the form has grown into it. That is the
+     * lever that keeps the shelf still -- the first set does not move while
+     * there is strip left under the form, and from the moment there is none it
+     * is pushed, which is what the form has always done.
+     *
+     * Frame by frame rather than by a transition, because what that margin has
+     * to follow is `max(0, left over)` -- a straight line with a corner in it,
+     * and a transition can only draw the line. The corner is the moment the form
+     * reaches the shelf, which is the one moment in the whole movement anybody
+     * is meant to notice. What is read each frame is the form's real height, so
+     * the two cannot drift apart whatever the easing does.
+     *
+     * The strip itself never moves and is never folded. It stands where it
+     * stood, under a list that is given a layer of its own above it -- so what
+     * the eye sees is the form covering the card rather than the card being
+     * squeezed out.
+     */
+    // The hide button on the strip's last card is this switch worded the other
+    // way round -- see the dict-onb-row press in renderSettings -- so it needs
+    // the same redraw after it, and the strip is handed one rather than left to
+    // reach for ours.
+    onboarding.setRedraw(render);
+
+    let onbStrip = null;
+    let onbCovered = false;
+    let onbRise = 0;
+
+    /*
+     * How much column the strip takes: the distance between the two tops, which
+     * is the strip and the air under it, and never more than the form has to
+     * cover it with. Pulled up further than that, the form could not reach the
+     * shelf even at its full height, and the gap under it would never close.
+     *
+     * In the app's own pixels rather than the screen's, because that is what a
+     * margin is written in and the two differ by whatever the corner is set to.
+     */
+    function stripRise(room) {
+        const list = container.querySelector('.dict-sets-list');
+
+        if (!onbStrip || !list) return 0;
+
+        return Math.max(0, Math.min(appRect(list).top - appRect(onbStrip).top, room));
+    }
+
+    // Read back by the fold rather than measured again: by then the strip is
+    // already out of the column, and the distance that is wanted is the one it
+    // used to take.
+    function coverStrip(rise) {
+        if (!onbStrip) return;
+
+        onbStrip.style.marginBottom = `-${rise}px`;
+
+        onbRise = rise;
+        onbCovered = true;
+    }
+
+    function revealStrip() {
+        onbStrip.style.marginBottom = `-${onbRise}px`;
+
+        pin(onbStrip);
+
+        onbStrip.style.transition = `margin-bottom ${FOLD_SHUT}ms ease-out`;
+        onbStrip.style.marginBottom = '0px';
+
+        setTimeout(() => {
+            if (onbStrip) onbStrip.style.transition = '';
+        }, FOLD_SHUT + 40);
+    }
+
+    /*
+     * The shelf held still under a form that is still growing, and let go as
+     * soon as the form reaches it.
+     *
+     * One run at a time -- a close that interrupts an open takes the loop over
+     * -- and it ends by the clock rather than by the last frame, because a frame
+     * is not promised: a tab nobody is looking at is not drawn, and the landing
+     * is the one value that has to be right whether or not anything was ever
+     * painted.
+     */
+    let holdRun = 0;
+
+    function holdShelf(card, rise, gap, ms) {
+        const mine = ++holdRun;
+
+        const land = () => {
+            if (mine !== holdRun || !card.isConnected) return false;
+
+            card.style.marginBottom = `${Math.max(0, rise - gap - appRect(card).height)}px`;
+
+            return true;
+        };
+
+        const ends = performance.now() + ms;
+
+        const step = () => {
+            if (!land()) return;
+            if (performance.now() < ends) requestAnimationFrame(step);
+        };
+
+        step();
+        setTimeout(land, ms + 40);
     }
 
     function unfoldInto(card) {
         const opened = card.scrollHeight;
         const gap = listGap(card);
         const lead = listLead(card);
+
+        // Before the card is flattened and before the lead is folded, so that
+        // what is measured is the column as it stands rather than one in the
+        // middle of being taken apart.
+        const rise = stripRise(opened + gap);
 
         // Taken before they are overridden, and put back by value at the end.
         // The card's padding and border are written in its own style attribute,
@@ -1635,21 +1790,31 @@ function catalog(container) {
         const lineBottom = card.style.borderBottomWidth || getComputedStyle(card).borderBottomWidth;
 
         card.style.overflow = 'hidden';
-        collapsed(card, gap, lead);
+
+        // Before the card is pinned, so that the state the growth starts from is
+        // the covered one: the strip out of the column, the form at the top of
+        // it with no height, and the shelf exactly where it was standing.
+        coverStrip(rise);
+        collapsed(card, gap, lead, rise ? rise - gap : -gap);
 
         pin(card);
 
         if (lead) lead.style.transition = `margin-top ${FOLD_OPEN}ms ease-out`;
 
+        // The margin under the card is left out of the transition when the strip
+        // is covered: it is driven by hand from there on, and a transition on a
+        // property being written every frame is a property that never arrives.
         card.style.transition = `max-height ${FOLD_OPEN}ms ease-out,`
-            + ` padding ${FOLD_OPEN}ms ease-out, border-width ${FOLD_OPEN}ms ease-out,`
-            + ` margin-bottom ${FOLD_OPEN}ms ease-out`;
+            + ` padding ${FOLD_OPEN}ms ease-out, border-width ${FOLD_OPEN}ms ease-out`
+            + (rise ? '' : `, margin-bottom ${FOLD_OPEN}ms ease-out`);
         card.style.maxHeight = `${opened}px`;
         card.style.paddingTop = padTop;
         card.style.paddingBottom = padBottom;
         card.style.borderTopWidth = lineTop;
         card.style.borderBottomWidth = lineBottom;
-        card.style.marginBottom = '';
+
+        if (rise) holdShelf(card, rise, gap, FOLD_OPEN);
+        else card.style.marginBottom = '';
 
         if (lead) lead.style.marginTop = '';
 
@@ -1666,6 +1831,10 @@ function catalog(container) {
         const gap = listGap(card);
         const lead = listLead(card);
 
+        // What the strip took, remembered rather than measured: it is out of the
+        // column already, so there is nothing left to measure.
+        const rise = onbCovered ? onbRise : 0;
+
         card.style.overflow = 'hidden';
         card.style.maxHeight = `${card.scrollHeight}px`;
 
@@ -1674,11 +1843,23 @@ function catalog(container) {
         if (lead) lead.style.transition = `margin-top ${FOLD_SHUT}ms ease-in`;
 
         card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
-            + ` padding ${FOLD_SHUT}ms ease-in, border-width ${FOLD_SHUT}ms ease-in,`
-            + ` margin-bottom ${FOLD_SHUT}ms ease-in`;
-        collapsed(card, gap, lead);
+            + ` padding ${FOLD_SHUT}ms ease-in, border-width ${FOLD_SHUT}ms ease-in`
+            + (rise ? '' : `, margin-bottom ${FOLD_SHUT}ms ease-in`);
+        collapsed(card, gap, lead, rise ? rise - gap : -gap);
 
-        setTimeout(done, FOLD_SHUT);
+        // The same hand on the same margin, running backwards: the shelf stays
+        // where it is until the shrinking form has let go of it, and the strip
+        // comes back out from under the form as the form leaves it.
+        if (rise) holdShelf(card, rise, gap, FOLD_SHUT);
+
+        // The strip's own margin stays where it is for the whole fold and is put
+        // back by the redraw that follows, which draws it afresh -- and by then
+        // the collapsed card is holding exactly the room the strip is about to
+        // take back, so the column does not move.
+        setTimeout(() => {
+            onbCovered = false;
+            done();
+        }, FOLD_SHUT);
     }
 
     // The card the New Set button opened, or null once it is gone.
@@ -2043,6 +2224,7 @@ function catalog(container) {
                 <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
                     <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">Settings</div>
                     <div style="display: flex; align-items: center; gap: 5.1px; flex: none;">
+                        <button class="dict-onb-row" aria-pressed="${onboarding.showing()}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: ${onboarding.showing() ? palette.pageBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${onboarding.showing() ? palette.heading : palette.softColor}; cursor: pointer;" title="${onboarding.showing() ? 'Hide the help cards' : 'Show the help cards'}">?</button>
                         <button class="dict-theme-row" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${theme.isDark() ? 'Dark theme' : 'Light theme'}">${palette.themeIcon}</button>
                         <button class="dict-settings-close" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="Close">${CROSS}</button>
                     </div>
@@ -2142,6 +2324,31 @@ function catalog(container) {
 
                 render();
             });
+        });
+
+        /*
+         * The cards at the top of the list, off and on.
+         *
+         * A round question mark, because that is the mark every one of those
+         * cards carries -- see onboarding.js -- and it is already the app's word
+         * for "explain this": the Split words line uses the same one.
+         *
+         * Left of the theme switch because the two are the same kind of thing, a
+         * small switch for how the screen looks rather than for what is on it.
+         * It redraws the catalog behind the panel and leaves the panel open,
+         * which is also how the theme switch works.
+         *
+         * Switched on it wears the page's own colour and the ink of a heading,
+         * which reads as a hole cut in the panel rather than as another chip
+         * lying on it -- the same trick the percentage plate on a set card uses,
+         * and for the same reason: the panel is already the lifted surface, so a
+         * chip one step below it is four units of colour nobody can see. The
+         * neighbours cannot help here either, since both of them mean something
+         * by their picture rather than by being pressed.
+         */
+        overlay.querySelector('.dict-onb-row').addEventListener('click', () => {
+            onboarding.toggle();
+            render();
         });
 
         overlay.querySelector('.dict-theme-row').addEventListener('click', () => {
@@ -3068,38 +3275,6 @@ function catalog(container) {
             (set.words || []).every(w => !w.repetitions || w.repetitions.length === 0));
     }
 
-    /*
-     * The hand that offers to explain the colours, on the first set that has any
-     * to explain.
-     *
-     * Once a word has been answered its bubble is a colour, and a colour with no
-     * legend is a decoration. Before that there is nothing to explain — every
-     * bubble is the same stone — so the hand waits for the first repetition
-     * rather than greeting anyone with a lesson about a screen they have not
-     * used.
-     *
-     * The first such set and no more. One hand is an offer; one per card is a
-     * row of them down the side of the screen, all saying the same thing.
-     *
-     * Once, too. It goes when the dialog it opens has been closed, and does not
-     * come back: an offer that is still being made after it has been taken is
-     * not an offer, and this one would otherwise stand at the edge of the shelf
-     * for as long as the app is used, sliding in again on every redraw.
-     *
-     * Never on a card that is being edited: that card is a form, the bubbles are
-     * not on it, and the hand would be pointing at nothing while the player types.
-     */
-    function offerColours(sets) {
-        if (coloursRead) return askingHand.clear();
-
-        const shelf = sets.find(set => !editing.has(set.id)
-            && (set.words || []).some(w => w.repetitions && w.repetitions.length > 0));
-
-        if (!shelf) return askingHand.clear();
-
-        askingHand.at(container.querySelector(`.set-card[data-set-id="${shelf.id}"]`), explainColours);
-    }
-
     function showHint() {
         // A session that exists is a game that was started, whether or not it was
         // answered: someone who opened a game and came straight back has been
@@ -3172,23 +3347,6 @@ function catalog(container) {
     catalog.render = () => {
         introduce = true;
         render();
-    };
-
-    /*
-     * The one errand migrate.js leaves behind: build the sets for languages it
-     * guessed.
-     *
-     * Called after store.load() and never before it. makeSets writes what the
-     * store holds in memory back to storage, and before the load that is the
-     * seed -- it would save the starting set over the reader's own.
-     */
-    catalog.fillGuessedLangs = async () => {
-        if (!langsGuessed) return;
-
-        langsGuessed = false;
-
-        await makeSets();
-        await saveSetting('langsGuessed', false);
     };
 
     catalog.setTheme = (isDark) => {
@@ -3311,6 +3469,55 @@ function catalog(container) {
             dialogBorder: t.border,
             dialogBody: t.muted
         };
+
+        /*
+         * And the strip at the top of the list, which is not a card in that list
+         * and must not be read as one.
+         *
+         * It stands where the sets stand, at the width they have and with their
+         * corners, so the one thing left to tell them apart by is colour. In the
+         * surface the sets wear it was a set whose words had not loaded; in blue
+         * it is the app talking, which is what it is.
+         *
+         * Blue because the app already has one: the fourth tile on every card,
+         * the one that is not a game -- see MORE_FILL, where the reason that
+         * corner of the wheel was free is written down. Taken from that constant
+         * rather than written again here, so the two cannot drift apart; the
+         * last card of the strip is the dialog behind that tile, word for word.
+         *
+         * A third of the way to it in the dark theme and a fifth in the light,
+         * which is where each stops being a tinted surface and becomes a colour.
+         * Further in either and the pale bubbles the colours card is made of
+         * start to sit on it as cut-outs rather than as words.
+         *
+         * And the text goes to full ink on both. The muted grey the catalog
+         * writes its asides in is tuned for the surface under it -- on this
+         * ground it drops to 3.3, which is under the floor for an eleven-pixel
+         * line, and the strip is nothing but eleven-pixel lines.
+         *
+         * The rest is handed over rather than worked out there: every value is a
+         * decision this file has already made, the two colours of a word that
+         * went wrong and the tempo of the hop included -- the colours card is a
+         * legend for bubbles, and those are defined beside the bubbles.
+         */
+        const onbBg = blend(t.surface, MORE_FILL, isDark ? 0.34 : 0.2);
+        const onbEdge = blend(t.surface, MORE_FILL, isDark ? 0.62 : 0.46);
+
+        onboarding.setLook({
+            cardBg: onbBg,
+            cardBorder: onbEdge,
+            heading: t.ink,
+            body: t.ink,
+            softBorder: onbEdge,
+            softColor: t.ink,
+            accent: palette.accent,
+            timerFill: palette.timerFill,
+            onTimer: palette.onTimer,
+            damaged: DAMAGED_FILL,
+            failInk: FAIL_INK,
+            ramp: stageRamp,
+            bounce: BOUNCE_MS
+        });
     };
 
     /*
@@ -3331,8 +3538,37 @@ function catalog(container) {
         return `#${part(16)}${part(8)}${part(0)}`;
     }
 
-    catalog.setSession = (value) => { session = value; };
-    catalog.setColoursRead = (value) => { coloursRead = value; };
+    /*
+     * One colour laid over another at the given strength, as an opaque value.
+     *
+     * The same trade sunk() makes and for the same reason: a translucent colour
+     * cannot be the background of something that scrolls under other things, and
+     * it cannot be handed to a file that only knows how to paint. Mixed in the
+     * channels as they are written, which is not how light mixes -- it is how
+     * every colour in this app was chosen by eye, and the eye is what this is
+     * for.
+     */
+    function blend(from, to, strength) {
+        const a = parseInt(from.slice(1), 16);
+        const b = parseInt(to.slice(1), 16);
+
+        const part = (shift) => {
+            const one = (a >> shift) & 255;
+            const two = (b >> shift) & 255;
+
+            return Math.round(one + (two - one) * strength).toString(16).padStart(2, '0');
+        };
+
+        return `#${part(16)}${part(8)}${part(0)}`;
+    }
+
+    // Handed on, because one of the onboarding cards is about the corner of the
+    // window and a game that was opened is somebody who has seen a game drawn at
+    // the width the corner sets -- see onboarding.js.
+    catalog.setSession = (value) => {
+        session = value;
+        onboarding.setSession(value);
+    };
 
     /*
      * A language the app no longer offers is read back as no choice at all.
@@ -3347,7 +3583,6 @@ function catalog(container) {
         myLang = chosen(value && value.myLang);
         learnLangs = ((value && value.learnLangs) || []).filter(tag => vocab.has(tag) && tag !== myLang);
         langsAsked = !!(value && value.langsAsked);
-        langsGuessed = !!(value && value.langsGuessed);
 
         // The guess goes in before the screen is drawn, so the dropdown opens
         // with an answer in it rather than filling itself in as it appears.
@@ -3577,17 +3812,6 @@ function catalog(container) {
         ? [{ tag: tag, name: languageName(tag) }]
         : [];
 
-    /*
-     * Whether the languages were read off somebody's old sets instead of being
-     * answered -- see migrate.js, which is the only thing that ever sets it.
-     *
-     * It means one job is outstanding: the ready-made sets for those languages
-     * have not been built. Done once, by fillGuessedLangs, which takes the note
-     * down in the same breath. It cannot be done on every draw instead: that
-     * would put back the three sets of anybody who had deleted them.
-     */
-    let langsGuessed = false;
-
     // What the first screen has been told so far, which is not the answer until
     // the button at the bottom is pressed.
     let picking = { mine: null, learn: [] };
@@ -3796,6 +4020,10 @@ function catalog(container) {
      * to dismiss it with is the backdrop, which is what dismissed it already for
      * anybody who was not reading the button.
      *
+     * The words of the promise are not written here. The onboarding card makes
+     * the same one, and two copies of a promise is one promise and one mistake
+     * waiting -- so both read it from onboarding.promise().
+     *
      * Built like the early-play dialog below, because it is the same kind of
      * thing: something said in the middle of the catalog that the catalog goes
      * back to being once it is read.
@@ -3819,8 +4047,7 @@ function catalog(container) {
                 <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
                 ${AWAY.length ? `<div class="more-dialog-games" style="display: flex; justify-content: center; gap: 13.7px; margin: 10.2px 0 13.7px;">${AWAY.map(tile).join('')}</div>` : ''}
                 <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
-                    <p style="margin: 0 0 8.5px;">Congratulations — you are one of the first to install this app, so it stays free for you whatever it charges later.</p>
-                    <p style="margin: 0;">More games to help you remember words are coming soon.</p>
+                    ${onboarding.promise().map((line, i) => `<p style="margin: 0 0 ${i ? 0 : 8.5}px;">${line}</p>`).join('')}
                 </div>
             </div>
         </div>`);
@@ -3842,128 +4069,6 @@ function catalog(container) {
             });
         });
 
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    }
-
-    /*
-     * What the colours on the bubbles mean, asked for by the hand that comes in
-     * from the edge once a set has any.
-     *
-     * Shown rather than described. The colour of a bubble is a thing to look at,
-     * and a paragraph saying so is a paragraph standing between the reader and
-     * the answer — so what is here is three bubbles, two arrows and the four
-     * words it takes to say which way they go.
-     *
-     * Bubbles at the size they are on the shelf, not miniatures of them. The
-     * whole point is recognising the thing outside the dialog, and a swatch
-     * shrunk to fit a sentence is a swatch that has to be matched up rather than
-     * simply seen.
-     *
-     * Four of them fit the width every other dialog here uses, and they fit
-     * because the arrows between them are drawn rather than typed: four bubbles
-     * and three arrows come to 243 of the 273.2 there is, which leaves five
-     * clear pixels at each join. The arrows gave up the room rather than the
-     * bubbles — an arrow is a direction and reads at any size, while a bubble
-     * that has shrunk is no longer the thing it is standing in for.
-     *
-     * The rungs are not evenly spaced, and the second is why. Stage 2 is what a
-     * word wears after one right answer — the first change anybody ever sees —
-     * so it earns a place beside the stone it came from rather than being
-     * averaged away into the middle of the arc. The rest is ends and a middle.
-     *
-     * The mistake is kept apart and after. It is not a rung of the same ladder:
-     * every other colour here is somewhere a word climbed to, and this is the
-     * one it was dropped to — see DAMAGED_FILL.
-     *
-     * Under it the two rows about time, in the order a word lives them: the badge
-     * counting down, then the hop that follows it. Neither is about colour at
-     * all, and a legend of colours alone would explain the quiet half of the
-     * screen and none of the part that waves.
-     *
-     * The hop uses the same keyframes and the same 650 the bubbles do, because a
-     * demonstration at a tempo of its own is a demonstration of something else.
-     *
-     * All three wear a colour from the middle of the ladder rather than one of
-     * their own, so that what is different about a row is the only thing that
-     * row is about.
-     */
-    const COLOUR_STEPS = [0, 2, 8, 14];
-
-    function explainColours() {
-        const chip = (fill, ink, extra, inner) => `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px 8.5px; font-size: 13.3px; font-weight: 800; line-height: 1.15; ${extra || ''}">word${inner || ''}</span>`;
-
-        // The badge a bubble wears while it waits, copied off createBubble down to
-        // the four pixels it hangs over the corner by. Two hours because it has to
-        // say something, and a round number reads as an example rather than as
-        // whatever this particular word happens to be waiting.
-        const timerBadge = `<span style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px; border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); white-space: nowrap; letter-spacing: -0.2px;">2h</span>`;
-
-        /*
-         * Drawn rather than typed. The arrow in a font is set on its own
-         * sidebearings — space to its left and right that belongs to it and
-         * cannot be taken back — and three of those are most of what was making
-         * this row too wide. A path is exactly as wide as the mark.
-         *
-         * It leans and the shaft bends, because the row it joins is bubbles with
-         * rounded corners and a hand-drawn line belongs among them better than a
-         * ruled one. The head is the last two strokes of the same gesture rather
-         * than a filled triangle, for the same reason.
-         */
-        const arrow = `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"
-            stroke="${palette.dialogBody}" stroke-width="1.5" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true" style="flex: none; display: block;">
-            <path d="M1.1 6.1c2.3-1 4.8-1.3 7.6-.9" />
-            <path d="M6.3 2.9 9.2 5.1 6.1 7.4" />
-        </svg>`;
-
-        const note = (text) => `<span style="font-size: 11.3px; font-weight: 600; line-height: 1.3; color: ${palette.dialogBody};">${text}</span>`;
-
-        const ladder = COLOUR_STEPS
-            .map(s => chip(stageRamp[s].fill, stageRamp[s].ink))
-            .join(arrow);
-
-        const overlay = $(`<div class="colours-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
-            <div class="colours-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
-                <div class="colours-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 12px;">Words ripen with every repetition</div>
-
-                <div class="colours-dialog-ladder" style="display: flex; align-items: center; justify-content: space-between; gap: 3.4px;">${ladder}</div>
-                <div style="display: flex; justify-content: space-between; margin-top: 5.1px;">${note('new')}${note('learned')}</div>
-
-                <div style="height: 1px; margin: 13.7px 0; background: ${palette.dialogBorder};"></div>
-
-                <div style="display: flex; align-items: center; gap: 10.2px;">
-                    ${chip(DAMAGED_FILL, FAIL_INK)}
-                    ${note('a mistake — three steps back')}
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 10.2px; margin-top: 10.2px;">
-                    ${chip(stageRamp[8].fill, stageRamp[8].ink, 'position: relative;', timerBadge)}
-                    ${note('a timer — repeat it later')}
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 10.2px; margin-top: 10.2px;">
-                    ${chip(stageRamp[8].fill, stageRamp[8].ink, `animation: bounce ${BOUNCE_MS}ms ease-in-out infinite;`)}
-                    ${note('a hop — ready to repeat')}
-                </div>
-
-                <button class="colours-dialog-ok" style="width: 100%; margin-top: 13.7px; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Got it</button>
-            </div>
-        </div>`);
-
-        // Closing it is the reading. Either way out counts — the button and the
-        // press beside the panel are the same answer, and a hand still waiting
-        // after one of them would be waiting for nothing.
-        const close = () => {
-            overlay.remove();
-
-            if (coloursRead) return;
-
-            coloursRead = true;
-            saveSetting('coloursRead', true);
-            render();
-        };
-
-        overlay.querySelector('.colours-dialog-ok').addEventListener('click', close);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
@@ -4020,11 +4125,6 @@ async function refreshCatalog() {
     // to edit.
     catalog.setOpenForms(await storage.get('open_forms'));
 
-    // Nothing to do unless an update has just guessed somebody's languages off
-    // their old sets. After the load, and before the draw that would otherwise
-    // show them a language with no sets under it.
-    await catalog.fillGuessedLangs();
-
     catalog.render();
 }
 
@@ -4039,8 +4139,8 @@ async function bootCatalog() {
 
     await storage.init();
 
-    // Before the first read of anything saved: a 0.1.2 database has to become a
-    // 0.2.0 one while nobody is looking at it. A no-op on every other database,
+    // Before the first read of anything saved: a 0.2.3 database has to become a
+    // 0.2.4 one while nobody is looking at it. A no-op on every other database,
     // and on every run after the first — see migrate.js.
     await migrate.run();
 
@@ -4079,14 +4179,11 @@ async function bootCatalog() {
     theme.apply(isDark);
     catalog.setTheme(isDark);
 
-    // After catalog(container), which is what defines this. Absent means the
-    // explanation has not been read, which is what a first run is.
-    catalog.setColoursRead(!!(settings && settings.coloursRead));
-    catalog.setLangs(settings);
+    // Absent means nothing has been read and nobody has sent the strip away,
+    // which is what a first run is -- see onboarding.js.
+    onboarding.setSaved(settings);
 
-    // Absent means the corner has never been taken hold of, so it is still worth
-    // pointing out.
-    resizeGrip.setTried(!!(settings && settings.gripTried));
+    catalog.setLangs(settings);
 
     await refreshCatalog();
     showFromTop();

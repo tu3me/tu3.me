@@ -25,6 +25,23 @@ function snake(container) {
     // How many words this game takes per session — its own decision
     const POOL_LIMIT = 10;
 
+    /*
+     * What hearing the line takes off the round.
+     *
+     * The speaker reads the whole line out from the first frame — see
+     * view.gathered — and that used to be free: the board is a row of letters
+     * in no order, and what turns it into a word is knowing which word it is.
+     * Except that the sound says which word it is. Told that, the hunt stops
+     * being "what is this" and becomes "find the letters of a word you have
+     * just been given", and those are not the same round.
+     *
+     * So the smallest price there is. A hundredth is nothing beside the share
+     * an opened word records, and it is enough to miss the only number that
+     * counts as knowing the word: srs.js reads a 1 and nothing else as success,
+     * so 0.99 is a word that comes round again.
+     */
+    const HEARD_COST = 0.01;
+
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
 
@@ -851,7 +868,7 @@ function snake(container) {
             renderControls();
         };
 
-        view.dots = (pool, results, currentIndex) => {
+        view.dots = (pool, results, currentIndex, heard) => {
             const dotsEl = header.querySelector('#snake-dots');
             if (!dotsEl) return;
             dotsEl.innerHTML = pool.map((_, idx) => {
@@ -859,6 +876,22 @@ function snake(container) {
                 let bg = palette.dotIdle;
                 if (res === 'correct') bg = palette.ok;
                 if (res === 'wrong') bg = palette.err;
+
+                /*
+                 * And the word that has been heard, before anything has been
+                 * written down about it.
+                 *
+                 * Hearing it costs the round its 1 — see HEARD_COST — so what
+                 * the round can no longer be is already settled, and the dot
+                 * says so at once: a dot still sitting idle after the speaker
+                 * would be the screen keeping the price to itself.
+                 *
+                 * The record waits all the same. What will finally be written
+                 * is not known yet — the word can still be opened, and that is
+                 * worth less again — so this is the dot running ahead of the
+                 * log by exactly the one thing that is already certain.
+                 */
+                if (!res && idx === currentIndex && heard) bg = palette.err;
 
                 const isCurrent = idx === currentIndex;
                 const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
@@ -915,11 +948,10 @@ function snake(container) {
              * The speaker is there from the first frame, with every letter still
              * a "?", and it reads the line out loud without opening any of them.
              *
-             * It costs nothing — no mistake, nothing on the dots. Hearing the
-             * word you are hunting for is the round being played rather than a
-             * way around it: the board is a row of letters in no order, and what
-             * turns it into a word is knowing which word it is. Opening the
-             * letters is the shortcut, and that one still costs.
+             * It costs a hundredth of the round — see HEARD_COST — and the
+             * dot says so the moment it is pressed, while what is finally
+             * written down waits for the end: opening the letters is still the
+             * greater shortcut, and still costs more.
              *
              * It used to wait until the line was whole, on the grounds that half
              * a word said out loud is not the word — true of the letters as they
@@ -1045,22 +1077,37 @@ function snake(container) {
             lit = [];
         };
 
+        // What a word of the line is filled with while it is being said — see
+        // WORD_FILLS. One place, because the letter is filled from it too.
+        const fillOf = (place) => tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+
         /*
-         * One letter, written in a colour rather than filled with one.
+         * One letter, filled behind it in the colour of the word it stands in.
          *
-         * Coral, which is what this app paints the thing you act on — the head
-         * you steer, the button you press. Not mint: mint is what a collected
-         * letter is written in, and a letter that turned mint because it was
-         * being read out would be saying the snake had just eaten it.
+         * Filled rather than written in a colour, which is what this did for a
+         * long time. Every box on this bar already carries a colour that means
+         * something — mint collected, muted still out there, the given-away ones
+         * their own — so a mark made of ink had to take that colour away to say
+         * anything, and on a box that was coral already it said nothing at all.
+         * The fill leaves the letter where it is and puts the mark behind it,
+         * which is how the word and the line have always been marked.
+         *
+         * The word's own colour and not one of its own. A tap says the letter
+         * and then the word it stands in: one gesture going deeper, so the mark
+         * widens from the one box to all of them. A second colour there would
+         * have been saying the second mark is about something else.
          */
-        view.sayLetter = (index) => {
+        view.sayLetter = (index, place) => {
             view.unlight();
 
             const el = boxAt(index);
             if (!el) return;
 
+            const stage = fillOf(place || 0);
+
             hold(el);
-            el.style.color = palette.saying;
+            el.style.background = stage.fill;
+            el.style.color = stage.ink;
         };
 
         /*
@@ -1079,7 +1126,7 @@ function snake(container) {
             view.unlight();
 
             ranges.forEach(({ from, to, place }) => {
-                const stage = tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
+                const stage = fillOf(place);
 
                 for (let at = from; at <= to; at++) {
                     const el = boxAt(at);
@@ -2016,7 +2063,7 @@ function snake(container) {
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false,
-            hadErrorThisRound: false, showHint: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
+            hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
             savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
@@ -2225,7 +2272,19 @@ function snake(container) {
         clearTimeout(sayTimer);
 
         const done = until(light(paint));
-        if (!sayAloud(text, done)) done();
+        const said = sayAloud(text, done);
+
+        if (!said) done();
+
+        /*
+         * And whether a sound happened at all, which is what the speaker
+         * charges the round on — see hearWord.
+         *
+         * say() answers false with the switch in the header off, and a round
+         * charged for silence is a round charged for somebody's own decision to
+         * keep it quiet.
+         */
+        return said;
     }
 
     /*
@@ -2355,10 +2414,12 @@ function snake(container) {
         // for one letter and the wrong one for seven.
         //
         // Each carries what to light while it is being said, and they are the
-        // same three marks a tap puts up: the letter written in coral, the word
-        // filled behind its letters, the line filled a colour to a word.
+        // same marks a tap puts up: the letter filled behind it, the word filled
+        // behind all of its letters, the line filled a colour to a word. A
+        // letter in no word at all is lit in the first of those colours — it is
+        // a mark between words, and there is no word of its own to borrow from.
         if (!alone && worthSaying(letters[index])) {
-            queue.push({ text: letters[index], paint: () => view.sayLetter(index) });
+            queue.push({ text: letters[index], paint: () => view.sayLetter(index, spoken ? spoken.place : 0) });
         }
 
         if (closed && isPhrase && worthSaying(word)) {
@@ -2424,18 +2485,23 @@ function snake(container) {
              * answer", which costs the round. That is the one thing a tap can
              * cost, and it is the only thing that opens a box.
              *
-             * Open, and the tap goes as deep as it is repeated: the letter, then
-             * the word it belongs to, then the whole line. The same three depths
-             * a card gives, on the same three taps, and they do not wait for the
-             * line to be finished — a bar half full of "?" answers the same way
-             * as a full one, because the question a tap asks is about the thing
-             * under the finger and not about how the round is going.
+             * Open, and the tap says what is under the finger: the letter, and
+             * on a second tap the word it stands in — but only a word that is
+             * open to its last letter, collected or shown.
              *
-             * A word with letters still out there is said all the same, and
-             * nothing about it opens: what is hidden is hidden in the boxes, not
-             * in the sound. The speaker at the head of the bar has read the whole
-             * line aloud, for nothing, since the first frame — see view.gathered
-             * — so there is no secret left for a word of it to give away.
+             * A word with boxes still reading "?" is not said at all. Half of it
+             * is on the bar and the rest is a guess, and reading it out would be
+             * the app supplying the missing letters itself, in the one voice the
+             * player has for this language. The letter is answered either way,
+             * however often it is tapped: it is there, it is open, and it is the
+             * thing being pointed at.
+             *
+             * There was a third depth — the whole line, on a third tap — and it
+             * is gone. The line belongs to the speaker at the head of the bar,
+             * and the speaker costs a hundredth of the round now (see hearWord);
+             * a tap on any collected letter was handing the same sound out for
+             * nothing, which made the price something you paid only if you had
+             * not found the way round it.
              *
              * Each tap acts at once rather than waiting to see whether another
              * is coming; only the voice waits, in sayLater. A tap answered late
@@ -2475,17 +2541,19 @@ function snake(container) {
                     tappedWord = from;
                 }
 
-                taps = Math.min(3, taps + 1);
+                taps = Math.min(2, taps + 1);
 
                 clearTimeout(tapTimer);
                 tapTimer = setTimeout(forgetTaps, TAP_GAP);
 
-                if (taps === 1) return sayLater(letter, () => view.sayLetter(index));
-                if (taps === 2) return sayLater(word, () => view.sayWords([spoken]));
+                // Open to its last letter, which answers for all of them: the
+                // letters are collected in order, and a word given away is given
+                // away whole.
+                if (taps === 2 && isShown(to) && worthSaying(word)) {
+                    return sayLater(word, () => view.sayWords([spoken]));
+                }
 
-                // Every word in a colour of its own, so the line reads as the
-                // words it is made of rather than as one long stripe.
-                sayLater(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
+                sayLater(letter, () => view.sayLetter(index, spoken.place));
             },
 
             /*
@@ -2494,14 +2562,19 @@ function snake(container) {
              * be said over the top of it.
              *
              * Nothing here touches showHint or hadErrorThisRound. Listening is
-             * free — see the speaker in view.gathered — and the marks it paints
-             * are over boxes that go on reading "?" until they are found.
+             * not a mistake and opens nothing: the marks it paints are over
+             * boxes that go on reading "?" until they are found, and the word
+             * stays as hidden as it was. What it does cost is a hundredth of
+             * the round, which is hearWord's business — see the speaker in
+             * view.gathered.
              */
             onSayAll: () => {
                 forgetTaps();
 
                 const letters = board.letters();
-                sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
+                const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
+
+                if (said) hearWord();
             },
 
             // A tap on the board stops the snake -- a panel that arrives while
@@ -2539,7 +2612,7 @@ function snake(container) {
         });
 
         function refreshDots() {
-            view.dots(pool, state.sessionResults, state.currentIndex);
+            view.dots(pool, state.sessionResults, state.currentIndex, state.heardThisRound);
         }
 
     /*
@@ -2648,12 +2721,63 @@ function snake(container) {
          * own, and it is part of the saved state -- so it answers the question
          * through a reload, which a new flag would have had to be taught to do.
          */
-        function scoreRound(result, dot) {
+        function scoreRound(result) {
             if (state.sessionResults[state.currentIndex]) return;
 
-            store.recordRepetition(currentItem, result, 'snake', { at: state.sessionAt, size: state.sessionPool.length });
-            state.sessionResults[state.currentIndex] = dot;
+            /*
+             * What the line cost to hear comes off here and not at the speaker,
+             * because at the speaker there is nothing to take it off yet: the
+             * round can still end as a word spelled out or a word opened, and
+             * only one number is ever written.
+             *
+             * Taken off in hundredths and put back rather than subtracted
+             * outright: 0.1 - 0.01 is 0.09000000000000001 in binary floating
+             * point, and a repetition is kept for good. Nothing is lost on the
+             * way through, because both numbers have two decimals at most —
+             * recalledShare truncates to them.
+             *
+             * Never below nothing. A share is already as low as an answer goes,
+             * and -0.01 is not a worse answer than 0 — it is not an answer.
+             */
+            const paid = state.heardThisRound ? HEARD_COST : 0;
+            const final = Math.max(0, Math.round((result - paid) * 100)) / 100;
+
+            store.recordRepetition(currentItem, final, 'snake', { at: state.sessionAt, size: state.sessionPool.length });
+
+            /*
+             * And the dot is read off the number rather than told apart from it.
+             *
+             * Green is the one number that means the word was spelled out and
+             * nothing was asked for to spell it. A word collected after hearing
+             * it records 0.99, which is a verdict its caller believed was a
+             * clean one — asked to name the dot itself, the end of the word
+             * would have painted it green over a record that says otherwise.
+             */
+            state.sessionResults[state.currentIndex] = final === 1 ? 'correct' : 'wrong';
             store.save();
+        }
+
+        /*
+         * The line asked for out loud, which is the speaker and nothing else.
+         *
+         * Charged once. The price is for having been told the word, and being
+         * told it twice is the same thing known once — so it is a mark on the
+         * round rather than a tally. Kept on the session, like the reveal, so
+         * that closing the popup mid-word is not a refund.
+         *
+         * The dot goes red now; what is written down waits for the end of the
+         * round, and scoreRound takes the cost off whatever that end turns out
+         * to be. After a verdict there is nothing left to charge — the number
+         * is in the log and scoreRound will not write a second one — and the
+         * dot is already saying what the round came to.
+         */
+        function hearWord() {
+            if (state.heardThisRound) return;
+
+            state.heardThisRound = true;
+
+            refreshDots();
+            page.save();
         }
 
         // Showing the answer, which is only ever asked for by clicking a letter
@@ -2689,7 +2813,7 @@ function snake(container) {
              * closing the popup between the reveal and the end of the round
              * would lose it and the word would come back marked clean.
              */
-            scoreRound(recalledShare(), 'wrong');
+            scoreRound(recalledShare());
 
             refreshGathered();
             refreshDots();
@@ -3016,6 +3140,7 @@ function snake(container) {
             sayLang = currentItem.originalLang;
             state.hadErrorThisRound = false;
             state.showHint = false;
+            state.heardThisRound = false;
             board.setWord(targetWord);
             view.banner(currentItem.word.translation);
             refreshGathered();
@@ -3169,10 +3294,15 @@ function snake(container) {
                  * this end to say about a round that went that way: it was
                  * scored, dot and all, before the first of these letters was
                  * collected.
+                 *
+                 * Whole here means the letters, not the dot. A line that was
+                 * heard first is still a line the player spelled out, and it
+                 * still comes through here -- scoreRound is where the hearing
+                 * is paid for, and it comes to 0.99 and a red dot.
                  */
                 const clean = !state.hadErrorThisRound;
 
-                if (clean) scoreRound(1, 'correct');
+                if (clean) scoreRound(1);
 
                 /*
                  * And the dot says so now, with the last letter, rather than
@@ -3303,17 +3433,6 @@ function snake(container) {
             // cards and quiz.
             sayIcon: t.muted,
 
-            /*
-             * A letter being read out loud.
-             *
-             * Coral, which is what this app paints the thing being acted on: the
-             * snake's head, the button under the finger. It is the one colour
-             * left that means something here and is not already spoken for —
-             * mint is a letter collected, muted is a letter still out there, and
-             * a mark in either would be answering a question nobody asked.
-             */
-            saying: t.accent,
-
             letterPending: t.muted,
             /*
              * A collected letter turns mint — the colour progress and a right
@@ -3396,6 +3515,11 @@ function snake(container) {
         difficulty: state.difficulty,
         hadErrorThisRound: state.hadErrorThisRound,
         showHint: state.showHint,
+
+        // Paid for this word and no other, like the two above it: a session
+        // that comes back from a reload comes back owing what it owed.
+        heardThisRound: state.heardThisRound,
+
         usedReveal: state.usedReveal,
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,

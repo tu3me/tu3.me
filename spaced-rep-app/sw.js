@@ -11,7 +11,7 @@
  * what makes the app instant offline — and what would serve stale code if the
  * name were left to a person to remember.
  */
-const CACHE = 'spaced-repetition-app-2e3f3d77';
+const CACHE = 'spaced-repetition-app-211f762e';
 
 // Every file the app needs to start with no network. A new game means one more
 // pair of lines here, alongside its line in registry.js.
@@ -20,6 +20,7 @@ const SHELL = [
     'index.html',
     'manifest.json',
     'registry.js',
+    'onboarding.js',
     'catalog.js',
     'web.js',
     'core/app.css',
