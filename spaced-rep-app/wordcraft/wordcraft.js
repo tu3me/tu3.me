@@ -1,5 +1,5 @@
 /**
- * "Speller" game. The word is cut into pieces, the pieces are laid out in no
+ * "Word Craft" game. The word is cut into pieces, the pieces are laid out in no
  * order with pieces of other words mixed in among them, and the player puts the
  * word back together by clicking them.
  *
@@ -19,7 +19,7 @@
  * the same taps on an open letter. What is under it is the only part that
  * differs, and it is where this game is played.
  */
-function speller(container) {
+function wordcraft(container) {
     // How many words a session takes — this game's own decision, and the same
     // ten the other three happen to have made.
     const POOL_LIMIT = 10;
@@ -482,7 +482,7 @@ function speller(container) {
 
     let barEl = null;
 
-    const boxAt = (index) => barEl && barEl.querySelector(`.speller-box[data-at="${index}"]`);
+    const boxAt = (index) => barEl && barEl.querySelector(`.wordcraft-box[data-at="${index}"]`);
 
     // What a word of the line is filled with while it is being said — see
     // WORD_FILLS. One place, because the letter is filled from it too.
@@ -555,7 +555,7 @@ function speller(container) {
     function fitBar() {
         if (!barEl) return;
 
-        const boxes = barEl.querySelectorAll('.speller-box, .speller-space');
+        const boxes = barEl.querySelectorAll('.wordcraft-box, .wordcraft-space');
         if (boxes.length === 0) return;
 
         const say = barEl.querySelector('.say-all');
@@ -646,18 +646,18 @@ function speller(container) {
 
             const ring = idx === state.currentIndex ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
 
-            return `<div class="speller-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ring} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return `<div class="wordcraft-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ring} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
-        const header = $(container, `<div class="speller-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
-            <div class="speller-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
+        const header = $(container, `<div class="wordcraft-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+            <div class="wordcraft-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="speller-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">${dotsHtml()}</div>
+            <div class="wordcraft-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">${dotsHtml()}</div>
         </div>`);
 
         function refreshDots() {
-            const group = header.querySelector('.speller-dots-group');
+            const group = header.querySelector('.wordcraft-dots-group');
             if (group) group.innerHTML = dotsHtml();
         }
 
@@ -671,14 +671,14 @@ function speller(container) {
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-        const banner = $(container, `<div class="speller-hint-banner" style="background: ${palette.hintBg}; border: 1px solid ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 10.2px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
-            <div class="speller-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${escapeText(currentItem.word.translation || '')}</div>
-            <div class="speller-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; width: 100%;"></div>
+        const banner = $(container, `<div class="wordcraft-hint-banner" style="background: ${palette.hintBg}; border: 1px solid ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 10.2px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
+            <div class="wordcraft-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${escapeText(currentItem.word.translation || '')}</div>
+            <div class="wordcraft-bar" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; max-width: 100%; max-height: ${BAR_MAX}px; overflow: hidden; width: 100%;"></div>
         </div>`);
 
-        fitTranslation(banner.querySelector('.speller-translation'));
+        fitTranslation(banner.querySelector('.wordcraft-translation'));
 
-        barEl = banner.querySelector('.speller-bar');
+        barEl = banner.querySelector('.wordcraft-bar');
 
         // The boxes, in order: the word without the spaces between its words.
         // Everything the player lays out is measured against this and against
@@ -766,7 +766,7 @@ function speller(container) {
                 if (BLANK.test(char)) {
                     const gap = document.createElement('div');
 
-                    gap.className = 'speller-space';
+                    gap.className = 'wordcraft-space';
                     gap.style.cssText = `width: ${WORD_SPACE}em; font-size: ${BOX_SIZE}px;`;
                     barEl.appendChild(gap);
                     return;
@@ -817,7 +817,7 @@ function speller(container) {
 
                 const box = document.createElement('div');
 
-                box.className = 'speller-box';
+                box.className = 'wordcraft-box';
 
                 // Which letter of the line this box is: a blank gets a gap and
                 // no box, so by the second word the boxes and the letters have
@@ -902,7 +902,7 @@ function speller(container) {
             const paid = round.heard ? HEARD_COST : 0;
             const final = Math.max(0, Math.round((result - paid) * 100)) / 100;
 
-            store.recordRepetition(currentItem, final, 'speller', { at: state.sessionAt, size: state.sessionPool.length });
+            store.recordRepetition(currentItem, final, 'wordcraft', { at: state.sessionAt, size: state.sessionPool.length });
 
             /*
              * And the dot is read off the number rather than told apart from it.
@@ -1003,11 +1003,11 @@ function speller(container) {
          * height: the buttons under it jumped up to meet it and back down
          * again, under the hand that was reaching for them.
          */
-        const trayEl = $(container, `<div class="speller-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8.5px;"></div>`);
+        const trayEl = $(container, `<div class="wordcraft-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8.5px;"></div>`);
 
         // Under them the round's buttons: Undo and Check while it is being
         // played, Next once it has been judged.
-        const actionsEl = $(container, `<div class="speller-actions" style="display: flex; justify-content: center; align-items: center; gap: 8.5px; margin-top: 15.4px;"></div>`);
+        const actionsEl = $(container, `<div class="wordcraft-actions" style="display: flex; justify-content: center; align-items: center; gap: 8.5px; margin-top: 15.4px;"></div>`);
 
         function pieceStyle(spent) {
             return `padding: 8.5px 13.7px; background: ${palette.pieceBg}; border: 2px solid ${palette.pieceBorder};`
@@ -1019,7 +1019,7 @@ function speller(container) {
         const ACTION = `padding: 7.7px 17.1px; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; line-height: 1.2;`;
 
         const tiles = round.tray.map((text, at) => {
-            const tile = $(trayEl, `<button class="speller-piece" data-at="${at}" style="${pieceStyle(false)}">${escapeText(text)}</button>`);
+            const tile = $(trayEl, `<button class="wordcraft-piece" data-at="${at}" style="${pieceStyle(false)}">${escapeText(text)}</button>`);
 
             tile.addEventListener('click', () => {
                 round.laid.push(at);
@@ -1160,7 +1160,7 @@ function speller(container) {
                 // anybody noticing it has.
                 const last = state.currentIndex >= pool.length - 1;
 
-                const btn = $(actionsEl, `<button class="speller-next" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">${last ? 'Finish!' : 'Next'}</button>`);
+                const btn = $(actionsEl, `<button class="wordcraft-next" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">${last ? 'Finish!' : 'Next'}</button>`);
 
                 btn.addEventListener('click', advance);
             };
@@ -1169,7 +1169,7 @@ function speller(container) {
 
             const can = round.laid.length > round.locked;
 
-            const undo = $(actionsEl, `<button class="speller-undo" style="${ACTION} background: transparent; color: ${palette.backBtn}; border: 1px solid ${palette.chromeBorder}; cursor: ${can ? 'pointer' : 'default'}; opacity: ${can ? '1' : '0.45'};"${can ? '' : ' disabled'}>Undo</button>`);
+            const undo = $(actionsEl, `<button class="wordcraft-undo" style="${ACTION} background: transparent; color: ${palette.backBtn}; border: 1px solid ${palette.chromeBorder}; cursor: ${can ? 'pointer' : 'default'}; opacity: ${can ? '1' : '0.45'};"${can ? '' : ' disabled'}>Undo</button>`);
 
             if (can) undo.addEventListener('click', () => {
                 round.laid.pop();
@@ -1181,7 +1181,7 @@ function speller(container) {
             });
 
             if (laidOut().length >= slots.length) {
-                const check = $(actionsEl, `<button class="speller-check" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">Check</button>`);
+                const check = $(actionsEl, `<button class="wordcraft-check" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">Check</button>`);
 
                 check.addEventListener('click', checkWord);
             }
@@ -1199,9 +1199,9 @@ function speller(container) {
         page.save();
     }
 
-    speller.render = render;
+    wordcraft.render = render;
 
-    speller.setTheme = (isDark) => {
+    wordcraft.setTheme = (isDark) => {
         const t = tokens.of(isDark);
 
         palette = {
@@ -1288,12 +1288,12 @@ function speller(container) {
     // The third argument is the previous session, handed over even on a fresh
     // start so a game can carry its own settings across. This one has none to
     // carry, and progress never rides along.
-    speller.start = (setId, allowEarly) => {
+    wordcraft.start = (setId, allowEarly) => {
         state.selectedSetId = setId;
         state.allowEarly = allowEarly;
     };
 
-    speller.getState = () => ({
+    wordcraft.getState = () => ({
         selectedSetId: state.selectedSetId,
         currentIndex: state.currentIndex,
         sessionResults: state.sessionResults,
@@ -1313,10 +1313,10 @@ function speller(container) {
         allowEarly: state.allowEarly
     });
 
-    speller.setState = (snap) => {
+    wordcraft.setState = (snap) => {
         if (!snap) return;
         state = { ...getEmptyState(), ...snap };
     };
 }
 
-bootGame('speller', speller);
+bootGame('wordcraft', wordcraft);

@@ -16,24 +16,34 @@
  *     all of them, in order, whenever the strip is up;
  *   every card has a moment — see `moment` on each — which is when the strip
  *     opens on that card by itself, and the earliest it can be marked read;
- *   the strip stands on the screen while a card whose moment has come is
- *     unread, and opens on the first such card.
+ *   the strip stands on the screen until the reader sends it away, and where
+ *     it opens is decided by what they have read and where they left it — see
+ *     decide.
  *
  * Which gives the two behaviours the hand and the corner were written for, for
  * free. The colours card is where the strip goes at the moment there is a
  * colour on the screen, which is exactly where the hand used to come in, and
  * the corner card at the moment the corner used to start blinking. For a reader
- * who never presses an arrow the strip advances by itself — the next visit
- * opens on the next card that has something to say — so every card is shown
- * once and then the strip retires, which is what both of the things it replaces
- * did.
+ * who never presses an arrow the strip advances by itself: the next visit opens
+ * on the next card that has something to say.
+ *
+ * Going away is the one thing it does not do by itself, and it used to. Once
+ * every card whose moment had come had been drawn there was nothing left to
+ * say, and the strip retired — which is what the hand and the blinking did, and
+ * why it was written that way. But those two had no way of being sent away and
+ * no way of being brought back; retiring on their own was the only mercy either
+ * of them could offer. This has both, the Hide button on the last card and the
+ * switch in the settings, and from the moment a reader can say "enough", the
+ * app saying it for them is the app taking back a decision it had handed over.
+ * So the strip stands until it is sent away, and what the moments decide is
+ * only which card it stands on.
  *
  * Reading ahead costs nothing, and that is why the moment governs the read-mark
  * as well. Somebody who pages through the whole thing on the first evening has
  * looked at a ladder of colours with no colours on the screen yet; that is
  * theirs to do, and the card still arrives by itself on the day it means
- * something. What the moments decide is only where the strip opens and when it
- * has nothing left to say — never what the reader is allowed to look at.
+ * something. What the moments decide is only where the strip opens — never
+ * what the reader is allowed to look at, and never whether it is there at all.
  *
  * The question mark in a circle is on every card and on the button in the
  * settings that switches the strip off and on. It is the only thing tying a
@@ -65,9 +75,11 @@ function onboarding() {
      * settings.onboarding: true when the button in the settings asked for the
      * strip, false when it sent it away, absent while nobody has touched it.
      *
-     * Three states and not two, because the third is the one that behaves: left
-     * alone, the strip comes and goes by what has been read, and the two written
-     * answers are a reader overruling that in either direction.
+     * Two of the three mean the same thing on the screen -- the strip stands
+     * unless it was sent away -- and they are kept apart anyway, because asking
+     * for it back is not the same as never having said anything: a reader who
+     * presses the switch gets the booklet from its first card, and one who has
+     * never touched it gets the page they were left on. See toggle and decide.
      */
     let want = null;
 
@@ -1045,9 +1057,13 @@ function onboarding() {
 
     /*
      * Whether the strip is on the screen, and where it opens — the question that
-     * is asked once a page. The written answers come first: a reader who
-     * switched it off is not shown it because something new turned up, and one
-     * who switched it on is shown it with everything read.
+     * is asked once a page.
+     *
+     * It is on the screen unless it was sent away. That is the whole of the
+     * first half now: the strip used to take itself off once everything due had
+     * been read, and the reader is the one who decides that -- see the head of
+     * this file, where the two things it replaced are what the old rule was
+     * copied from.
      *
      * Where it opens has three answers, in this order.
      *
@@ -1078,9 +1094,7 @@ function onboarding() {
         const due = cards.findIndex(card => !read.has(card.id) && card.moment());
         const kept = cards.findIndex(card => card.id === at);
 
-        live = want === false ? false
-            : want === true ? cards.length > 0
-                : due >= 0;
+        live = want !== false && cards.length > 0;
 
         place = kept >= 0 && !read.has(cards[kept].id) ? kept
             : due >= 0 ? due

@@ -20,9 +20,9 @@
  * only ever written here, by versions nobody was given. Three other
  * translations stood in this file and went with the databases they were for:
  * 0.1.2 → 0.2.0, which moved a language from the word to the set, split a set
- * per language and dropped the demo; and two about a speller round saved in a
+ * per language and dropped the demo; and two about a Word Craft round saved in a
  * shape the game no longer reads, from versions that never shipped — the
- * speller does not exist in 0.2.3, so no reader has a round of any shape.
+ * game does not exist in 0.2.3, so no reader has a round of any shape.
  *
  * Deleting them is the point rather than the risk. The file is written so that
  * each translation stands alone and can be taken out when the last database it

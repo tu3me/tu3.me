@@ -16,7 +16,7 @@
  *     opens the dialog, which is where the app says what is coming, and in the
  *     dialog it is not a press at all -- an outlined tile and a line of what the
  *     game will be for. It is the one word here that is temporary by nature: it
- *     comes off in the commit that adds the game's page. `speller` wore it until
+ *     comes off in the commit that adds the game's page. `wordcraft` wore it until
  *     exactly that commit.
  *
  * `pitch` is the line that dialog prints beside the name. The shelf shows no
@@ -107,8 +107,8 @@ const GAMES = [
         page: 'quiz'
     },
     {
-        id: 'speller',
-        title: 'Speller',
+        id: 'wordcraft',
+        title: 'Word Craft',
         // The places a word keeps for its letters, filling left to right: two
         // in and one still to come, which is what the screen behind this tile
         // shows while it is being played — a word is put back one piece at a
@@ -132,12 +132,12 @@ const GAMES = [
         // is the snake's, and a colour that moves to another game is a colour
         // that says the wrong name for as long as anybody remembers the first.
         color: '#9b72d4',
-        page: 'speller'
+        page: 'wordcraft'
     },
     {
         id: 'snake',
         title: 'Snake',
-        // Off the shelf since Speller took the place it had. It is the same
+        // Off the shelf since Word Craft took the place it had. It is the same
         // game, played from the dialog behind the fourth tile — see `away` in
         // the header, and moreSoon in catalog.js.
         away: true,
