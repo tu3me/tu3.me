@@ -822,8 +822,26 @@ function onboarding() {
      * Which means a card with no heading has no mark, and that is right: the
      * strip is signed where it speaks, and a card of three legends does not
      * speak.
+     *
+     * A ring of two and an upright glyph, on a card that is otherwise a
+     * hairline box full of italics. Both say the same thing: this is a
+     * signature and not a word. Drawn in the same hairline as the card's own
+     * edge it was furniture among furniture, and leaning with the heading it
+     * was the first letter of it.
+     *
+     * Border-box, so the weight goes inwards: the circle keeps the measure the
+     * line of type beside it has, instead of growing by the thickness of its
+     * own edge.
+     *
+     * The ring is the ink the glyph inside it is written in, not the colour the
+     * card's own edge is drawn in. Those are two different jobs: the card's edge
+     * is there to be found when looked for, and this is meant to be recognised
+     * across the screen -- it is the one thing tying the cards to the switch in
+     * the settings that takes them away. In the strip's own two colours there is
+     * nothing brighter to have: the ramp and the accent belong to the bubbles,
+     * and a signature in the accent is a second voice.
      */
-    const SIGN = () => `<span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; width: 20.5px; height: 20.5px; flex: none; border: 1px solid ${look.softBorder}; border-radius: 50%; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${look.softColor};">?</span>`;
+    const SIGN = () => `<span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; width: 20.5px; height: 20.5px; flex: none; box-sizing: border-box; border: 2px solid ${look.softColor}; border-radius: 50%; font-style: normal; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${look.softColor};">?</span>`;
 
     const STEP = (back) => `<svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;">

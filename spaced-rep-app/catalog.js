@@ -4030,22 +4030,85 @@ function catalog(container) {
      */
     function moreSoon(setId) {
         /*
-         * A game off the shelf, drawn as the row drew it: same tile, same
-         * colour, same two faces when a round of it was left open. A smaller or
-         * plainer picture here would be a second way of saying "Snake", and what
-         * this has to do is hand back the one thing the player knows by sight.
+         * A game off the shelf, drawn as a line of its own: its tile on the
+         * left, its name and what it is for on the right.
          *
-         * Boxed to the tile's own width, because tileBtn is written for the
-         * shelf and takes whatever width it is given. Left to fill the dialog it
-         * still draws a tile with a name under it, but the whole line it sits on
-         * becomes a press.
+         * The same tile the shelf draws -- same size, same colour, same two
+         * faces when a round of it was left open. A smaller or plainer picture
+         * here would be a second way of saying "Snake", and what this has to do
+         * is hand back the one thing the player knows by sight.
+         *
+         * A line rather than the column the shelf stands its tiles in, because
+         * this is the one place a game gets a sentence. Under a tile there is
+         * room for a name and nothing else, and on the shelf that is all a game
+         * needs: those are in front of the player every day. A game that was
+         * moved off it is one nobody has met, and its name alone does not say
+         * why anybody would open it. Beside the tile there is a column of room
+         * for the line that does -- see `pitch` in registry.js -- and the lines
+         * stack however many of them there turn out to be.
+         *
+         * Written out here rather than handed to tileBtn, which builds the
+         * other shape: a tile with its name under it, for a row of equal
+         * columns. The two share the classes the swap is keyed to instead --
+         * see .set-tile-swap in app.css -- so a game left open says so here in
+         * exactly the way it says so on the shelf.
          */
-        const tile = (game) => `<div style="width: ${TILE}px;">${tileBtn('more-dialog-game', game.color, game.icon(TILE_ICON), game.title, `data-game="${game.id}"`, openOn(game, setId))}</div>`;
+        const ROW = `display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; background: none; border: none; font-family: inherit; text-align: left;`;
+        const SQUARE = `display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; flex: none; box-sizing: border-box; border-radius: ${TILE_RADIUS}px;`;
+        const NAME = `font-size: 12.8px; font-weight: 700; line-height: 1.2; color: ${palette.dialogText};`;
+
+        // The tile, then the name and the sentence under it. What a game that
+        // is written and a game that is not have in common is exactly this
+        // much, so the two that differ -- the tile and the name -- are handed
+        // in.
+        const body = (tile, name, game) => `${tile}
+            <span style="min-width: 0;">
+                ${name}
+                ${game.pitch ? `<span style="display: block; margin-top: 3.4px; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.dialogBody};">${game.pitch}</span>` : ''}
+            </span>`;
+
+        const playable = (game) => {
+            const resuming = openOn(game, setId);
+            const swap = resuming ? ' set-tile-swap' : '';
+
+            const face = (html, alt) => `<span class="set-tile-face${alt ? ' set-tile-face-alt' : ''}" style="grid-area: 1 / 1; display: flex;">${html}</span>`;
+
+            return `<button class="more-dialog-game" data-game="${game.id}" style="${ROW} cursor: pointer;">${body(
+                `<span class="set-tile${swap}" style="${SQUARE} background: ${game.color}; color: #ffffff;">
+                    ${face(game.icon(TILE_ICON))}
+                    ${resuming ? face(PLAY_FACE(), true) : ''}
+                </span>`,
+                `<span class="set-tile-label${swap}" style="display: grid; ${NAME}">
+                    ${face(game.title)}
+                    ${resuming ? face('Continue', true) : ''}
+                </span>`,
+                game)}</button>`;
+        };
+
+        /*
+         * A game that is not written yet, drawn and not offered -- see `soon` in
+         * registry.js.
+         *
+         * A div and not a button, because there is nothing behind it: a press
+         * that does nothing is worse than no press, and a cursor that changes
+         * over it is a promise the row cannot keep. What says so without a word
+         * is the tile -- an outline in the dialog's own muted ink where every
+         * finished game is a solid colour -- and what says it in words is the
+         * two beside the name, which are the only thing here the app has to add
+         * to what the registry holds: the game's own line says what it will be
+         * for, and the saying when is this dialog's job.
+         */
+        const coming = (game) => `<div style="${ROW}">${body(
+            `<span style="${SQUARE} border: 2px solid ${palette.dialogBody}; color: ${palette.dialogBody};">${game.icon(TILE_ICON)}</span>`,
+            `<span style="display: block; ${NAME}">${game.title} <span style="font-weight: 600; color: ${palette.dialogBody};">(coming soon)</span></span>`,
+            game)}</div>`;
+
+        const line = (game) => (game.soon ? coming : playable)(game);
 
         const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="more-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
                 <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
-                ${AWAY.length ? `<div class="more-dialog-games" style="display: flex; justify-content: center; gap: 13.7px; margin: 10.2px 0 13.7px;">${AWAY.map(tile).join('')}</div>` : ''}
+                ${AWAY.length ? `<div class="more-dialog-games" style="display: flex; flex-direction: column; gap: 13.7px; margin: 12px 0 13.7px;">${AWAY.map(line).join('')}</div>` : ''}
                 <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
                     ${onboarding.promise().map((line, i) => `<p style="margin: 0 0 ${i ? 0 : 8.5}px;">${line}</p>`).join('')}
                 </div>

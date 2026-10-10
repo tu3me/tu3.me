@@ -11,10 +11,21 @@
  *     needed a place, and what moved is reached from the dialog behind that
  *     fourth tile instead. Nothing about the game itself changed — it is
  *     finished, it is played, and an unfinished round of it resumes.
- *   - `soon` is the other way round: on the shelf before it exists. The tile
- *     has no page to go to, so pressing it opens that same dialog, which is
- *     where the app says what is coming. Nothing wears it today; it is kept
- *     because the next game will arrive the same way this one did.
+ *   - `soon` says the game is not written yet. There is no page to go to, so
+ *     wherever it is drawn there is nothing to open: on the shelf a press on it
+ *     opens the dialog, which is where the app says what is coming, and in the
+ *     dialog it is not a press at all -- an outlined tile and a line of what the
+ *     game will be for. It is the one word here that is temporary by nature: it
+ *     comes off in the commit that adds the game's page. `speller` wore it until
+ *     exactly that commit.
+ *
+ * `pitch` is the line that dialog prints beside the name. The shelf shows no
+ * such line and has nowhere to put one -- under a tile there is room for a name
+ * and nothing else -- so a game needs a pitch exactly when it can turn up in
+ * the dialog. It lives here rather than in the catalog for the reason the rest
+ * of this list does: the catalog knows no game of its own accord, and a
+ * sentence about one kept over there would be a sentence about a game in a file
+ * that has never heard of it.
  *
  * Paths are relative to the app root, so they work from any page. The .html
  * suffix is not written here: nav adds it where it is required.
@@ -26,6 +37,12 @@
  * take the button's own ink, they are the same drawing everywhere, and they
  * line up with the pencil and shuffle icons already in the catalog, which are
  * cut to the same 24-unit grid and the same 2-unit stroke.
+ *
+ * One of them paints some of its strokes itself, and the rule above is what
+ * makes that possible: the root sets currentColor and a child that names a
+ * colour overrides it, so a drawing can take the button's ink for most of
+ * itself and still have a part that is a particular colour because the thing it
+ * draws is. See `search`, where the colours are the found words.
  *
  * `icon` is a function of its size because a drawing is cut to the size it is
  * shown at: an SVG scaled by CSS from one fixed size lands its strokes between
@@ -124,6 +141,11 @@ const GAMES = [
         // game, played from the dialog behind the fourth tile — see `away` in
         // the header, and moreSoon in catalog.js.
         away: true,
+
+        // What it is good for, in the words somebody would use to recommend it
+        // rather than to describe it: the mechanics are obvious from the name,
+        // and the reason to open a snake game inside a vocabulary app is not.
+        pitch: 'Turn boring screen time into quick vocab review',
         // The 8-bit snake: square segments on a grid with a pixel of food ahead
         // of the head. It climbs — three along the bottom, up the middle, then
         // out to the head — turning twice, with a run of three between turns.
@@ -145,5 +167,86 @@ const GAMES = [
             </g>`),
         color: '#56c4a6',
         page: 'snake'
+    },
+    {
+        id: 'search',
+        title: 'Word search',
+
+        /*
+         * Not written yet, and under the games that are: see `soon` and `away`
+         * in the header. Both words, because the two halves of where it stands
+         * are separate questions -- `away` says it is not on the shelf, `soon`
+         * says there is nothing behind it yet.
+         *
+         * It is here rather than in the dialog's own code for the same reason
+         * every other game is: the catalog knows no game by name, and a game
+         * nobody has written is still a row of this list -- the row is what the
+         * commit that writes it will edit.
+         */
+        away: true,
+        soon: true,
+
+        pitch: 'Mental repetition while searching for hidden words wires them straight into your memory',
+
+        /*
+         * The puzzle itself: a grid of letters with the found words struck
+         * through in colour.
+         *
+         * A magnifier over two lines of type stood here first, which is a
+         * picture of searching rather than of this game -- every app has that
+         * lens somewhere, and it says "find" without saying what is being found
+         * or how. What anybody who has played one of these recognises instantly
+         * is the grid with the coloured runs on it, so that is what is drawn.
+         *
+         * Three by three, because the whole of it has to live in nineteen
+         * units. A letter cannot be written at that size -- the real grid's
+         * letters are the one thing certain to come out as smudges -- so each
+         * place is a dot, which is a letter's footprint and reads as one in a
+         * grid of its fellows. Dots and not rings: a ring at this size is a
+         * hairline round a hole, nine of them are nine smudges, and the picture
+         * is nine places and three runs, which a dot says with one shape.
+         *
+         * The runs are the only colour, and they are a full one. Three of them,
+         * not the half-dozen a real grid carries: at this size the picture is
+         * read by its shape, and two rows with a diagonal across them say
+         * "found words" as plainly as six would, while leaving two dots bare to
+         * say there is a grid under it. Three is also what makes it a picture
+         * rather than a pattern -- with two the drawing sat in one corner and
+         * the other was empty.
+         *
+         * The diagonal goes on last, over both rows, the way the later pen does
+         * on paper.
+         *
+         * A dot on a run is white, like every other drawing this app puts on a
+         * colour, and a dot with no run through it takes the button's own ink at
+         * less than half: found and not found, said by colour and by weight at
+         * once. Which is also what keeps the drawing right in both themes -- the
+         * colours are the words, and the paper is whatever the tile stands on.
+         *
+         * The tile under it stays an outline: see the dialog in catalog.js. A
+         * game that is not written has no colour of its own, and these are not
+         * it -- they are two struck-through words in a picture of a puzzle.
+         */
+        icon: (size) => gameIcon(size, `
+            <g stroke-width="6.4" stroke-linecap="round">
+                <path d="M5 5h14" stroke="#1e9bff" />
+                <path d="M5 19h14" stroke="#35d16b" />
+                <path d="M5 19 19 5" stroke="#c62ff7" />
+            </g>
+            <g stroke="none">
+                <g fill="#ffffff">
+                    <circle cx="5" cy="5" r="2.2" />
+                    <circle cx="12" cy="5" r="2.2" />
+                    <circle cx="19" cy="5" r="2.2" />
+                    <circle cx="12" cy="12" r="2.2" />
+                    <circle cx="5" cy="19" r="2.2" />
+                    <circle cx="12" cy="19" r="2.2" />
+                    <circle cx="19" cy="19" r="2.2" />
+                </g>
+                <g fill="currentColor" opacity="0.4">
+                    <circle cx="5" cy="12" r="2.2" />
+                    <circle cx="19" cy="12" r="2.2" />
+                </g>
+            </g>`)
     }
 ];
