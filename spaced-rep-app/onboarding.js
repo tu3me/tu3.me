@@ -604,9 +604,15 @@ function onboarding() {
              * explained the quiet half of the screen and none of the part that
              * waves.
              *
-             * All three wear a colour from the middle of the ladder rather than
-             * one of their own, so that what is different about a row is the
-             * only thing that row is about.
+             * The two that are about movement wear the same colour, so that what
+             * is different about a row is the only thing that row is about, and
+             * the colour they wear is stage 2 -- a word answered rightly once,
+             * which is the lowest rung either of them can happen on. A timer is
+             * only ever on a word that has been answered, and the floor it
+             * would hop on below that is the grey the first row is already
+             * showing. A colour from the middle of the ladder stood here before
+             * and was a word further up the climb than the row needed, picked
+             * for no reason the picture could give.
              */
             /*
              * No title. Three rows that each say what they are is a card that
@@ -640,8 +646,8 @@ function onboarding() {
                  * sentences and not seven pieces of one picture.
                  */
                 return `${row(chip(look.damaged, look.failInk), 'a mistake — three steps back', 0, AFTER(0, 150))}
-                    ${row(chip(stage[8].fill, stage[8].ink, 'position: relative;', timer), 'a timer — repeat it later', 10.2, AFTER(1, 150))}
-                    ${row(chip(stage[8].fill, stage[8].ink, `animation: bounce ${look.bounce}ms ease-in-out infinite;`), 'a hop — ready to repeat', 10.2, AFTER(2, 150))}`;
+                    ${row(chip(stage[2].fill, stage[2].ink, 'position: relative;', timer), 'a timer — repeat it later', 10.2, AFTER(1, 150))}
+                    ${row(chip(stage[2].fill, stage[2].ink, `animation: bounce ${look.bounce}ms ease-in-out infinite;`), 'a hop — ready to repeat', 10.2, AFTER(2, 150))}`;
             }
         },
         {

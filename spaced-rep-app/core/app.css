@@ -606,6 +606,33 @@ body {
 }
 
 /*
+ * A timer plate breathing, in the dialog that turns a game away while every
+ * word is still counting down -- see confirmEarly in catalog.js.
+ *
+ * The hop above was tried there first and cannot be seen: it is cut to a
+ * bubble, where its widest moment stretches a thing by a twentieth, and a
+ * twentieth of a badge is two thirds of a pixel. True in the numbers, absent
+ * from the screen.
+ *
+ * So the badge is given the one motion a thing that small can wear -- the whole
+ * of it growing and shrinking about its own middle. Nothing leans, nothing
+ * tilts: a pill two characters wide has no room to do either legibly.
+ *
+ * It also keeps the two apart in meaning, which matters more than the size
+ * does. The hop is a word asking to be answered, and the onboarding says so in
+ * those words. This plate is the opposite -- a word that cannot be answered
+ * yet -- so it must not arrive wearing the motion the app has taught as "now".
+ *
+ * An eighth bigger at the top, which on a plate this size is a few pixels: far
+ * enough to be caught by the corner of an eye, near enough that nothing beside
+ * it has to move out of the way.
+ */
+@keyframes timer-pulse {
+    0%, 100% { scale: 1; }
+    50% { scale: 1.12; }
+}
+
+/*
  * One piece of the confetti that comes down over a finished snake board.
  *
  * It falls, and that is the whole of it: in above the top edge, out below the
@@ -649,6 +676,12 @@ body {
  */
 @media (prefers-reduced-motion: reduce) {
     .word-bubble-card {
+        animation: none !important;
+    }
+
+    /* The badge in the early dialog, which breathes. The one in a bubble has no
+       animation of its own -- it is carried by the bubble, stopped above. */
+    .bubble-timer-badge {
         animation: none !important;
     }
 

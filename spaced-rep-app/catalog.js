@@ -948,13 +948,29 @@ function catalog(container) {
      * whole of its run. The ramp's own colour for it is the first pale yellow of
      * a series that means ripening, which is the opposite of what happened.
      *
-     * So it takes a light red instead — the colour of a thing that has been hit,
-     * and the palest one that still reads as red rather than as pink. Kept here
-     * rather than swapped into tokens.stages(), because that ramp is generated as
-     * one arc and a step recoloured by hand inside it is a step that will drift
-     * away from its neighbours the next time the arc is regenerated.
+     * So it wears the stone of stage 0, which is the app's colour for a word
+     * with nothing to show: that is what a mistake has just made of this one.
+     * Nothing was gained and the run that was there is gone, so the bubble goes
+     * back to looking like a word nobody has met -- and a tint of its own would
+     * be a fifteenth rung quietly added to an arc that means ripening.
+     *
+     * The two are not confusable even though the colour is one. A word on the
+     * floor is written in red and carries a red mark in its timeline; a word
+     * nothing has happened to is in its stage's own grey ink and has no marks
+     * at all. The plate is the same because what the plate says -- no progress
+     * -- is the same.
+     *
+     * Taken out of the ramp rather than written as a colour that matches it
+     * today, so that the two cannot drift apart the next time the arc is
+     * regenerated. Kept as a name of its own because the meaning is its own:
+     * stage 1 is not stage 0, it only looks like it.
+     *
+     * Two colours stood here before. A light red, the colour of a thing that
+     * has been hit, which said the same as the red text it carried and said it
+     * twice; then white, which on the light theme is the card as well, so the
+     * bubble became a hole in it.
      */
-    const DAMAGED_FILL = '#f9d4d4';
+    const DAMAGED_FILL = stageRamp[0].fill;
 
     /*
      * The bar under a set's name: thirteen boxes, one per rung a word can
@@ -1250,6 +1266,20 @@ function catalog(container) {
     const SAD_BOUNCE_MS = BOUNCE_MS * 5;
 
     /*
+     * And the tempo of the badge's breath in the dialog that turns a game away
+     * -- see confirmEarly, and timer-pulse in app.css for why it breathes
+     * rather than hops.
+     *
+     * Twice the hop, which is a speed neither of the two on the shelf has, and
+     * that is the point. The fast one is a word asking to be answered and the
+     * slow one is a word waiting its turn; what moves here is not a word at
+     * all. Slow enough not to be read as "now", quick enough to be seen at all:
+     * the waiting tempo is a breath every three seconds, which in something
+     * opened and answered inside of two is an animation nobody sees run.
+     */
+    const EARLY_PULSE_MS = BOUNCE_MS * 2;
+
+    /*
      * The bubble that is being read, held a little larger until it stops.
      *
      * A bubble is said whole and has nothing inside it to mark, so without this
@@ -1315,6 +1345,27 @@ function catalog(container) {
         return `animation: bounce ${period}ms ease-in-out ${-order * 170}ms infinite;`;
     }
 
+    /*
+     * The plate a word wears while its timer runs.
+     *
+     * Written once for the two places it is drawn, because it is one badge and
+     * not two things that resemble each other: hung over the corner of a bubble
+     * here, and standing in the heading of the dialog that turns a game away
+     * while everything is still ripening -- see confirmEarly. Where it goes is
+     * the caller's business and arrives as `extra`; what it looks like is not.
+     *
+     * A third copy of it is drawn in onboarding.js, on the card that names the
+     * three things a bubble does. That one is written out by hand and has to
+     * stay that way: the strip is handed its colours rather than reading them
+     * -- see setLook -- so this function is of no use over there. Two copies in
+     * two files is the price of that, and the onboarding card says as much.
+     */
+    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px;'
+        + ' border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18);'
+        + ' white-space: nowrap; outline: none; letter-spacing: -0.2px;';
+
+    const timerBadge = (text, extra) => `<span class="bubble-timer-badge" style="${TIMER_BADGE} background: ${palette.timerFill}; color: ${palette.onTimer}; ${extra || ''}">${text}</span>`;
+
     function createBubble(bubbleData, parent, order) {
         const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang } = bubbleData;
 
@@ -1326,9 +1377,7 @@ function catalog(container) {
         //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
 
         // Optional timer badge in bottom-right corner
-        const timerHtml = timer
-            ? `<span class="bubble-timer-badge" style="position: absolute; bottom: -5px; right: -4px; background: ${palette.timerFill}; color: ${palette.onTimer}; font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px; border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); z-index: 3; white-space: nowrap; outline: none; letter-spacing: -0.2px;">${timer}</span>`
-            : '';
+        const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -5px; right: -4px; z-index: 3;') : '';
 
         const bubbleHtml = `
             <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
@@ -4068,7 +4117,7 @@ function catalog(container) {
         if (store.wordsOf(setId).length === 0) return;
 
         if (store.duePool(setId, false).length === 0) {
-            confirmEarly(() => beginSession(game, setId, true));
+            confirmEarly(setId, () => beginSession(game, setId, true));
             return;
         }
         beginSession(game, setId, false);
@@ -4227,11 +4276,72 @@ function catalog(container) {
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
+    /*
+     * How long until the first word of the selection is ready.
+     *
+     * The earliest timer in it, which is the only honest number here: the
+     * dialog is shown because every word is still counting down, and what
+     * somebody turned away wants to know is when to come back -- that is when
+     * the first of them is ready, not when the last one is.
+     *
+     * Asked of the whole selection rather than of the pool, because the pool is
+     * empty: that is what put this dialog on the screen.
+     *
+     * Written in the bubbles' own notation, by the bubbles' own function, since
+     * what is drawn around it is the bubbles' own badge.
+     */
+    function soonestTimer(setId) {
+        const times = store.wordsOf(setId)
+            .map(item => spacedRepetitions.getWordProgress(item.word).nextRepetition)
+            .filter(at => at > Date.now());
+
+        return times.length ? getCompactTimerText(Math.min(...times)) : null;
+    }
+
     // Modal shown when every word of the selection is still waiting for its timer
-    function confirmEarly(onPlayAnyway) {
+    function confirmEarly(setId, onPlayAnyway) {
+        /*
+         * The heading wears the badge itself, where an hourglass used to stand.
+         *
+         * An emoji is a picture of the idea; this is the thing. The reader has
+         * just come off a screen of bubbles with these plates on them, and the
+         * one sentence under the heading is about those plates -- so the
+         * heading hands back the object being talked about rather than a second
+         * drawing of the concept. It also says, in the two characters it is
+         * made of, the thing the sentence does not: how long.
+         *
+         * After the words and not before them, which is the order the two are
+         * read in: the heading says there is nothing to do yet, and the plate
+         * answers the question that raises. Leading with it put a number in
+         * front of the question it is the answer to, and left the sentence
+         * starting a line in from the edge the rest of the dialog starts at.
+         *
+         * Twice the size it is on a bubble, which is what makes it the
+         * heading's own mark rather than a bubble's badge that wandered into a
+         * line of type. `zoom` and not a second set of numbers: every length on
+         * it doubles at once -- the type, the padding, the corner, the shadow
+         * under it -- and the one place the badge is described stays the one
+         * place it is described.
+         *
+         * Breathing, so that it is read as a thing still running and not as a
+         * decoration on the title -- see timer-pulse in app.css, which is where
+         * the choice of that motion over the bubbles' hop is argued, and
+         * EARLY_PULSE_MS for the tempo.
+         *
+         * Nothing at all if the selection has no timer to show, which cannot
+         * happen from here: a word with no repetitions is due, and a due word
+         * would have kept this dialog off the screen. It is guarded because the
+         * heading is built before that is checked, and a heading reading
+         * "undefined" is a worse answer to an impossible case than no badge.
+         */
+        const soonest = soonestTimer(setId);
+        const badge = soonest
+            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`)
+            : '';
+
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
-                <div class="early-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">⏳ Nothing to repeat yet</div>
+                <div class="early-dialog-title" style="display: flex; align-items: center; gap: 6.8px; font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">Nothing to repeat yet${badge}</div>
                 <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">All words in this selection are still waiting for their timers. An early repetition will not move a word forward, but a mistake will still set it back.</div>
                 <div class="early-dialog-actions" style="display: flex; gap: 6.8px;">
                     <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Cancel</button>
