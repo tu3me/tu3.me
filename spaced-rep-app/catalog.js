@@ -3652,6 +3652,31 @@ function catalog(container) {
             softBorder: onbEdge,
             softColor: t.ink,
             accent: palette.accent,
+
+            /*
+             * Mint, which is this app's colour for what went well, and the
+             * strip has one word that is about something going well -- see the
+             * promise card.
+             *
+             * The one value here that is not the same in both themes, and it
+             * has to be: the ground under it moves while the mint does not.
+             * Pale mint is an object on the dark strip and 2.1 on the light
+             * one, which is not a word anybody reads; the deep mint the timer
+             * badge is filled with is far too dark to find on the navy. One
+             * each, and they are the same colour taken to two depths rather
+             * than two colours.
+             *
+             * Which lands at 3.3 on the dark strip and 3.7 on the light one,
+             * under the 4.5 this app holds its text to, and it is allowed here
+             * for one reason: nothing is carried by the colour. The word is one
+             * of five in a heading whose other four are at 11, it is bold, and
+             * the sentence under it says "free" again in the body's own ink.
+             * Clearing 4.5 would take a third depth of mint on each theme --
+             * two new colours invented for one word, in a file where every
+             * colour is a decision made once and used everywhere.
+             */
+            ok: isDark ? t.ok : t.progressFill,
+
             timerFill: palette.timerFill,
             onTimer: palette.onTimer,
             damaged: DAMAGED_FILL,

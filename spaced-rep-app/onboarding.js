@@ -170,6 +170,12 @@ function onboarding() {
      * games dialog says it in — the catalog reads them from here rather than
      * keeping a second copy, because two copies of a promise is one promise and
      * one mistake waiting.
+     *
+     * The dialog says both. The card says the first alone: the second is about
+     * games that are coming, and the place a reader asks that question is the
+     * dialog they opened to see what there is to play -- where the game that is
+     * coming is drawn a line above the sentence. On the strip it answers a
+     * question nobody has asked yet and dilutes the one thing that card is for.
      */
     const PROMISE = [
         'Congratulations — you are one of the first to install this app, so it stays free for you whatever it charges later.',
@@ -283,9 +289,24 @@ function onboarding() {
      * the card, because that word is the one the sentence points at the set
      * with -- which is also why that word is the one set heavier than the line
      * it stands in: the arrow and the weight say the same thing twice, once to
-     * the eye that is reading and once to the eye that is not. It is on the last line of the paragraph at the width this app is
-     * drawn at, so the arrow has nothing but air to cross; a line of prose under
-     * it would be crossed out by it.
+     * the eye that is reading and once to the eye that is not. It is on the
+     * last line of the paragraph at the width this app is drawn at, so the
+     * arrow has nothing but air to cross; a line of prose under it would be
+     * crossed out by it.
+     *
+     * It runs past the bottom of the strip and lands on the set itself, a few
+     * pixels above its title. Ending at the strip's own edge, which is where it
+     * stopped before, left the eye at a gap with the thing being pointed at on
+     * the far side of it -- near enough to guess and not pointed at. A stroke
+     * that laps onto the card hands the eye over instead, and the gap between
+     * the two is the one place on this screen where there is room to do it
+     * without crossing anything.
+     *
+     * Which is also the one mark here that has to be lifted: the set is drawn
+     * after the strip and would otherwise be drawn over the end of it. `z-index`
+     * on the mark alone, not on the strip, because the strip standing above the
+     * list is the strip becoming a thing in front of the cards rather than the
+     * first of them.
      *
      * The upward one leaves the written word at its left and runs across the top
      * of the card to the New set button: mostly sideways, because the distance
@@ -423,11 +444,11 @@ function onboarding() {
         </g>
     </svg>`;
 
-    const POINT_DOWN = () => `<svg width="19" height="24" viewBox="0 0 19 24"
+    const POINT_DOWN = () => `<svg width="19" height="36" viewBox="0 0 19 36"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; left: 50%; margin-left: -9.5px; top: 100%;">
-        <path ${DRAW(300, 500)} d="M9.6 2.4c1.9 6.4 1.6 12.8-.6 18.4" />
-        <path ${DRAW(150, 790)} d="M4.4 15 9 21.4 13.8 15.4" />
+        aria-hidden="true" style="display: block; position: absolute; left: 50%; margin-left: -9.5px; top: 100%; z-index: 7;">
+        <path ${DRAW(500, 500)} d="M9.6 2.4c2.8 9.6 2.4 20.8-.9 31.2" />
+        <path ${DRAW(150, 1010)} d="M4.1 27.8 8.7 34.2 13.5 28.2" />
     </svg>`;
 
     /* ------------------------------------------------------------------ *
@@ -553,6 +574,11 @@ function onboarding() {
      * ask it: the moment can come on a device that has no corner at all. A card
      * can be ahead of its moment and still be worth reading; a card about
      * something that is not on the device is not.
+     *
+     * The three that read a bubble stand together -- what its colour says, what
+     * it says besides colour, what the dots under the word are -- and the
+     * window's corner comes after them. It used to stand in the middle of the
+     * three, which put a card about the app between two cards about a word.
      */
     const CARDS = [
         {
@@ -651,14 +677,6 @@ function onboarding() {
             }
         },
         {
-            id: 'width',
-            moment: played,
-            only: mouse,
-            title: 'Pull the corner to resize the window',
-            body: () => text('Double-click the corner to put the width back.'),
-            marks: POINT_CORNER
-        },
-        {
             /*
              * A bubble off the shelf with every kind of mark on it at once, and
              * the four names under it with their own marks in front of them.
@@ -707,6 +725,16 @@ function onboarding() {
              * under the svg, and the stroke has to reach into it. It reaches
              * into the empty few pixels to the left of the first mark, so it
              * lands beside the row rather than on it.
+             *
+             * The box is ten units shorter than the drawing wants, and that is
+             * what sets the air between the bubble and the names: the row is in
+             * ordinary flow under the svg, so the svg's height is the only
+             * thing holding it down. At 70 the gap was eighteen pixels of
+             * nothing in the middle of a card that has three things on it and
+             * is the tallest in the strip; at 60 it is eight, and the card is
+             * ten shorter for it. The arrow lost the same ten and no more: both
+             * of its ends are still level with the row they belong to, which is
+             * the whole of what it is doing.
              *
              * It is drawn in the accent, which is also what lets it start where
              * it does: coral on white is a line, while the ink this card writes
@@ -762,13 +790,13 @@ function onboarding() {
                     </span>`;
 
                 return `<div style="position: relative;">
-                        <svg width="110" height="70" viewBox="0 0 110 70" aria-hidden="true" style="display: block; overflow: visible;">
+                        <svg width="110" height="60" viewBox="0 0 110 60" aria-hidden="true" style="display: block; overflow: visible;">
                             <rect x="14" y="0" width="86" height="52" rx="12" fill="#ffffff" />
                             <text x="57" y="19" text-anchor="middle" font-size="13.3" font-weight="800" font-style="normal" fill="${stage.ink}">hola</text>
                             ${marks.map(dot).join('')}
                             <text x="57" y="46" text-anchor="middle" font-size="13.3" font-weight="600" font-style="normal" fill="${stage.sub}">hello</text>
-                            <path ${DRAW(520, 360)} d="M30 29C-8 38 -2 77 14 77" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" />
-                            <path ${DRAW(190, 870)} d="M7.6 73.7 14 77 7.6 80.3" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <path ${DRAW(460, 360)} d="M30 29C-8 36.2 -2 67.3 14 67.3" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" />
+                            <path ${DRAW(190, 810)} d="M7.6 64 14 67.3 7.6 70.6" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                         <div style="position: absolute; left: 112px; top: 1px; width: 170px;">${text('Each card tracks how your brain remembers the word.')}</div>
                         <div style="display: flex; align-items: center; gap: 10.2px; margin-left: 27.3px;">${marks.map(named).join('')}</div>
@@ -776,10 +804,35 @@ function onboarding() {
             }
         },
         {
+            id: 'width',
+            moment: played,
+            only: mouse,
+            title: 'Pull the corner to resize the window',
+            body: () => text('Double-click the corner to put the width back.'),
+            marks: POINT_CORNER
+        },
+        {
+            /*
+             * One word of the heading in the mint, and it is the word the card
+             * is about: everything else on this card is the condition on it.
+             * The strip is the app talking about itself in a quiet voice, so
+             * there is nothing else here to compete with a single coloured
+             * word.
+             *
+             * The mint rather than the coral, because the two are not
+             * interchangeable here: coral is the colour of the thing to press
+             * and of the answer that was wrong, mint of progress and of what
+             * went right -- see `ok` in tokens.js. This word is good news and
+             * nothing to press, which is the mint's half of that pair.
+             *
+             * The heading is built rather than written out, for the reason the
+             * bodies are: a card that names a colour has to be made when the
+             * colours are known, and the strip is handed those -- see setLook.
+             */
             id: 'free',
             moment: () => true,
-            title: 'Forever free for early adopters',
-            body: () => `${text(PROMISE[0])}<div style="margin-top: 8.5px;">${text(PROMISE[1])}</div>`
+            title: () => `Forever <span style="color: ${look.ok};">free</span> for early adopters`,
+            body: () => text(PROMISE[0])
         },
         {
             /*
@@ -954,6 +1007,17 @@ function onboarding() {
         }, GROW + 40);
     }
 
+    /*
+     * A heading, which is a plain string on every card but one.
+     *
+     * The exception is the card with a coloured word in it, and it is written
+     * as a function for the reason every body is: the strip is handed its
+     * colours rather than knowing them -- see setLook -- so anything naming one
+     * has to be built at the moment of drawing and not at the moment this file
+     * is read.
+     */
+    const heading = (card) => (typeof card.title === 'function' ? card.title() : card.title);
+
     function paint(strip, cards) {
         const card = cards[place];
         const from = turn;
@@ -991,7 +1055,7 @@ function onboarding() {
         strip.innerHTML = `<div class="onb-card" style="position: relative; font-style: italic; background: ${look.cardBg}; border: 1px solid ${look.cardBorder}; border-radius: 15.4px; padding: 13.7px 27.3px;">
                 ${card.title ? `<div class="onb-head" style="display: flex; align-items: center; gap: 8.5px; margin-bottom: 8.5px;">
                     ${SIGN()}
-                    <span style="font-size: 13.3px; font-weight: 700; line-height: 1.2; color: ${look.heading};">${card.title}</span>
+                    <span style="font-size: 13.3px; font-weight: 700; line-height: 1.2; color: ${look.heading};">${heading(card)}</span>
                 </div>` : ''}
                 <div class="onb-body"${from ? ` style="--onb-from: ${from > 0 ? 10 : -10}px; animation: onb-turn 180ms ease-out;"` : ''}>${card.body()}</div>
                 ${card.marks ? card.marks() : ''}
@@ -1124,7 +1188,8 @@ function onboarding() {
     // Everything the strip wears, from the catalog's own palette: it is a card
     // in the list and has to be the same card as the sets are. `ramp` and
     // `bounce` are the bubbles' own colour scale and the tempo of their hop,
-    // which the colours card is a legend for.
+    // which the colours card is a legend for, and `ok` is the app's mint, which
+    // one word of one heading is written in.
     onboarding.setLook = (value) => { look = value || {}; };
 
     /*
