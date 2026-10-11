@@ -1,5 +1,5 @@
 /**
- * "Word Craft" game. The word is cut into pieces, the pieces are laid out in no
+ * "Wordcraft" game. The word is cut into pieces, the pieces are laid out in no
  * order with pieces of other words mixed in among them, and the player puts the
  * word back together by clicking them.
  *
@@ -37,15 +37,20 @@ function wordcraft(container) {
      * The stage a word has to reach before strangers turn up beside its pieces;
      * after it there is one more of them per stage.
      *
-     * Two, because the stages under it are where the word is still being met —
-     * at stage 0 it has never been answered and at 1 it has been answered once —
-     * and the cut is question enough there: a tray with nothing wrong in it can
-     * be read straight through, which is what learning to spell a word looks
-     * like. Strangers come in where the question would otherwise start getting
+     * Four, so the first stranger arrives at stage 5. Everything under that is
+     * the day the word was met: stages 1 to 4 wait five minutes, a quarter of
+     * an hour, three quarters and two — the whole ladder below 5 fits inside
+     * one evening — and there the cut is question enough on its own. A tray
+     * with nothing wrong in it can be read straight through, which is what
+     * learning to spell a word looks like.
+     *
+     * Strangers come in where the question would otherwise start getting
      * easier, since every stage cuts the word finer and finer pieces are a
-     * shorter thing to spell.
+     * shorter thing to spell. It was two before, which put them on the tray
+     * within minutes of the first right answer: a word still being met, cut in
+     * three, with somebody else's pieces beside it.
      */
-    const DECOYS_FROM = 2;
+    const DECOYS_FROM = 4;
 
     /*
      * What hearing the word takes off the round.

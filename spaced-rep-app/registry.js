@@ -108,7 +108,7 @@ const GAMES = [
     },
     {
         id: 'wordcraft',
-        title: 'Word Craft',
+        title: 'Wordcraft',
         // The places a word keeps for its letters, filling left to right: two
         // in and one still to come, which is what the screen behind this tile
         // shows while it is being played — a word is put back one piece at a
@@ -137,7 +137,7 @@ const GAMES = [
     {
         id: 'snake',
         title: 'Snake',
-        // Off the shelf since Word Craft took the place it had. It is the same
+        // Off the shelf since Wordcraft took the place it had. It is the same
         // game, played from the dialog behind the fourth tile — see `away` in
         // the header, and moreSoon in catalog.js.
         away: true,
