@@ -719,6 +719,14 @@ function onboarding() {
              * white is the one ground that gives all four -- the dark, the red,
              * the small one and the ring -- their full contrast in either theme.
              *
+             * The size is the legend's own, and larger than the shelf draws them
+             * at now -- see MARK_ICONS in catalog.js, where they were taken down
+             * a pixel because a bubble can hold a dozen of them. Here there are
+             * four, each alone in a white square with its name beside it, and
+             * nothing is competing for the room. What a reader has to do with
+             * them is tell them apart, which is a job for the ring, and the ring
+             * is the first thing to go when a mark is made smaller.
+             *
              * The two words in the bubble stand upright while the rest of the
              * card leans. Everything else here is the app talking; those two are
              * a card of the reader's own, quoted, and a quotation set in the

@@ -1085,19 +1085,140 @@ function catalog(container) {
 
     // How every timeline status is drawn: a symbol from the sprite in <body> and its output size.
     // OK/LATE_OK and FAIL/LATE_FAIL look the same on purpose; MISSED is the same dark dot at half size.
-    // The grid every symbol in the sprite is drawn on — see index.html, where
-    // all four carry viewBox="0 0 10 10".
-    const SPRITE_GRID = 10;
+    // The size is in the units the row is drawn in -- see marksSvg, where a unit
+    // is one of the layout's pixels, and the symbols' own ten-unit grid is
+    // mapped onto it by <use>.
 
+    /*
+     * Four across, and two for a missed one.
+     *
+     * The row has no length of its own. A mark is added for every repetition
+     * and for every interval that went by without one, so a word somebody has
+     * kept for a season carries a dozen of them, and what that costs is paid by
+     * the bubble: the row wraps inside it and pushes the word and its
+     * translation apart. The dots are what decides how tall a long-studied word
+     * is drawn.
+     *
+     * A pixel off the diameter is half a pixel of edge on either side -- nothing
+     * at all on one dot -- and a fifth off the row, which is another mark or two
+     * on the line before it wraps. Tighter air between them as well: the gap in
+     * bubble-dots-group is under a pixel, which still parts two dark dots and no
+     * longer costs as much as a mark of its own every time it is spent. The row
+     * is read as a pattern rather than counted through, and a pattern survives
+     * being small; what it does not survive is being folded in half.
+     *
+     * The missed one stays half the rest, because that is the whole of what it
+     * says: a gap in the row rather than a thing in it. It is also the one that
+     * made the row's old arrangement untenable: at two pixels a mark is mostly
+     * its own edges, and where those edges land was being decided by the layout
+     * -- see marksSvg.
+     *
+     * The legend in onboarding.js draws the same four marks from the same sprite
+     * at the size they used to be here, and that is deliberate -- see the dots
+     * card there.
+     */
     const MARK_ICONS = {
-        OK: { id: 'mark-dot-dark', size: 5 },
-        FAIL: { id: 'mark-dot-red', size: 5 },
-        LATE_OK: { id: 'mark-dot-dark', size: 5 },
-        LATE_FAIL: { id: 'mark-dot-red', size: 5 },
-        MISSED: { id: 'mark-dot-dark', size: 3 },
-        EARLY_OK: { id: 'mark-ring-dark', size: 5 },
-        EARLY_FAIL: { id: 'mark-ring-red', size: 5 }
+        OK: { id: 'mark-dot-dark', size: 4 },
+        FAIL: { id: 'mark-dot-red', size: 4 },
+        LATE_OK: { id: 'mark-dot-dark', size: 4 },
+        LATE_FAIL: { id: 'mark-dot-red', size: 4 },
+        MISSED: { id: 'mark-dot-dark', size: 2 },
+        EARLY_OK: { id: 'mark-ring-dark', size: 4 },
+        EARLY_FAIL: { id: 'mark-ring-red', size: 4 }
     };
+
+    // The air between two marks, and the line they stand on: the tallest mark
+    // there is, so every line is the same height whatever is on it.
+    const MARK_GAP = 0.6;
+    const MARK_LINE = Math.max(...Object.values(MARK_ICONS).map(icon => icon.size));
+
+    /*
+     * How far the row may run before it folds, in those same units.
+     *
+     * Arithmetic rather than a measurement, because the layout has one width and
+     * only ever zooms it -- see .app-main-content in app.css. 350, less the
+     * page's 6.8 of margin either side, less the set card's 1px border and 13.7
+     * of padding either side, less the bubble's own 8.5: 290, which is the
+     * widest a bubble's contents can be before the bubble stops growing.
+     *
+     * Sixty-odd marks, so most words will never reach it. It is here for the
+     * one that does -- a word somebody has kept for years -- and because the row
+     * used to be laid out by the browser, which wrapped it at exactly this width
+     * without being told to. Nothing should start overflowing a bubble because
+     * the drawing of the row moved into one element.
+     */
+    const MARK_WIDTH = 290;
+
+    /*
+     * The whole timeline as a single drawing.
+     *
+     * It was a row of little svgs before, one per mark, with the air between
+     * them a flexbox gap. Every one of those is positioned by the layout, and
+     * the layout rounds: the app is drawn at 350 and shown through a zoom, so
+     * each mark's left edge lands on a fraction and is pushed to the nearest
+     * device pixel on its own. The marks are drawn to a sixth of a pixel of each
+     * other and arrive at a third of one apart, which on a mark four pixels
+     * across is visible as an uneven row, and on the two-pixel missed ones --
+     * which are mostly edge -- it is the only thing you see.
+     *
+     * In one svg the positions are in its own coordinates, and the whole of it
+     * goes through a single transform on the way to the screen. The spacing is
+     * then exactly what is written here at any zoom: the row can be blurred by
+     * antialiasing but it can no longer be uneven, because nothing inside it is
+     * rounded separately from anything else.
+     *
+     * Which also moves the wrapping here, since the browser is no longer doing
+     * it: the marks are packed into lines of MARK_WIDTH and each line is centred
+     * on the widest, so a folded row sits under the word the way the flex one
+     * did.
+     *
+     * The box is exactly the drawing, so the outermost marks touch its edges,
+     * and an svg clips to its viewport by default. At the fractions a zoom
+     * leaves, the clip and the circle inside disagree by a fraction of a pixel
+     * and the clip takes that fraction out of the mark -- a flat edge on
+     * something meant to be round. Hence `overflow: visible`; nothing here needs
+     * clipping, as every mark is drawn to fill its own box and never anything
+     * more.
+     */
+    function marksSvg(marks) {
+        const icons = (marks || []).map(mark => MARK_ICONS[mark]).filter(Boolean);
+        if (icons.length === 0) return '';
+
+        const lines = [];
+
+        for (const icon of icons) {
+            const line = lines[lines.length - 1];
+            const grown = line ? line.width + MARK_GAP + icon.size : 0;
+
+            if (line && grown <= MARK_WIDTH) {
+                line.icons.push(icon);
+                line.width = grown;
+            } else {
+                lines.push({ icons: [icon], width: icon.size });
+            }
+        }
+
+        const width = Math.max(...lines.map(line => line.width));
+        const height = lines.length * MARK_LINE + (lines.length - 1) * MARK_GAP;
+
+        // Two decimals: every number here is a multiple of the gap or of half a
+        // mark, and anything past the second is noise in the markup.
+        const round = (v) => Number(v.toFixed(2));
+
+        const drawn = lines.map((line, n) => {
+            const middle = n * (MARK_LINE + MARK_GAP) + MARK_LINE / 2;
+            let x = (width - line.width) / 2;
+
+            return line.icons.map((icon) => {
+                const at = x;
+                x += icon.size + MARK_GAP;
+
+                return `<use href="#${icon.id}" x="${round(at)}" y="${round(middle - icon.size / 2)}" width="${icon.size}" height="${icon.size}" />`;
+            }).join('');
+        }).join('');
+
+        return `<svg class="bubble-progress" width="${round(width)}" height="${round(height)}" viewBox="0 0 ${round(width)} ${round(height)}" style="display: block; overflow: visible;">${drawn}</svg>`;
+    }
 
     /**
      * Creates a bubble HTML element and appends it to parent
@@ -1197,38 +1318,9 @@ function catalog(container) {
     function createBubble(bubbleData, parent, order) {
         const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang } = bubbleData;
 
-        // Build the repetition timeline: one sprite icon per repetition or elapsed interval
-        let dotsHtml = '';
-        for (const mark of (marks || [])) {
-            const icon = MARK_ICONS[mark];
-            if (!icon) continue;
-            /*
-             * The viewBox is not decoration: without one the mark is clipped
-             * the moment the app is shown at anything but its drawn size.
-             *
-             * A <use> of a <symbol> takes its viewport from the width and
-             * height written here, and those are the layout's pixels. The box
-             * the element actually occupies is those pixels through the app's
-             * zoom — smaller — and the symbol, drawn at the unscaled size into
-             * a smaller box, loses whatever hangs over the edge. An svg clips
-             * to its viewport by default, so what you see is a dot with a
-             * slice cut off it.
-             *
-             * With a viewBox the sprite's own ten-unit grid is mapped onto
-             * whatever box the element ends up with, at any zoom.
-             *
-             * And `overflow: visible`, because an svg clips to its viewport by
-             * default and this one is four pixels across sitting at whatever
-             * fraction the row lands on — 207.69, 212.48, 217.28. The box is
-             * clipped on the device's pixel grid while the circle inside is
-             * scaled to the unrounded box, so the two disagree by a fraction
-             * of a pixel and the clip takes that fraction out of the dot. On
-             * a mark this size a fraction is a visible flat edge on something
-             * that is meant to be round. Nothing here needs clipping: the mark
-             * is a circle drawn to fill its box and never anything more.
-             */
-            dotsHtml += `<svg class="bubble-progress-dot" width="${icon.size}" height="${icon.size}" viewBox="0 0 ${SPRITE_GRID} ${SPRITE_GRID}" style="display: block; flex: none; overflow: visible;"><use href="#${icon.id}" /></svg>`;
-        }
+        // The repetition timeline: one mark per repetition or elapsed interval,
+        // drawn as a single picture -- see marksSvg.
+        let dotsHtml = marksSvg(marks);
 
         // TEMP (debug): current stage number at the end of the timeline
         //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
@@ -1241,7 +1333,7 @@ function catalog(container) {
         const bubbleHtml = `
             <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 13.3px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
-                <div class="bubble-dots-group" style="font-size: 6px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px; max-width: 100%; margin: 2.6px; line-height: 1;">
+                <div class="bubble-dots-group" style="font-size: 6px; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; line-height: 1;">
                     ${dotsHtml}
                 </div>
                 <span class="bubble-trans-text" style="font-size: 13.3px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
