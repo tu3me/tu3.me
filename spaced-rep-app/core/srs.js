@@ -87,7 +87,7 @@ function spacedRepetitions() {
         FAIL: 'FAIL',             // error, repeated within the current interval window
         LATE_OK: 'LATE_OK',       // success after one or more skipped intervals
         LATE_FAIL: 'LATE_FAIL',   // error after one or more skipped intervals
-        MISSED: 'MISSED',         // interval elapsed and the word was not repeated (yet)
+        MISSED: 'MISSED',         // an interval went by with no repetition in it
         EARLY_OK: 'EARLY_OK',     // success in an early (ahead of the timer) repetition
         EARLY_FAIL: 'EARLY_FAIL'  // error in an early repetition
     };
@@ -186,11 +186,27 @@ function spacedRepetitions() {
             nextRepetition = rep.timestamp + INTERVALS[stage];
         }
 
-        // Checkpoints that already elapsed but have not been closed by a repetition yet.
-        // They are displayed, but do not affect the stage until the word is actually repeated.
+        /*
+         * Checkpoints that have elapsed with no repetition to close them. They
+         * are drawn, but they do not touch the stage until the word is actually
+         * repeated.
+         *
+         * All of them but the last, which is the window the word is standing in
+         * right now: its time has come and nobody has answered yet, and that is
+         * not a miss, it is the word's turn. A turn only becomes a miss once the
+         * next one has begun.
+         *
+         * Which is also what holds the row still when the answer does come. The
+         * branch above draws elapsed - 1 marks and then the answer's own on the
+         * last window, so a row that showed two small dots while the word waited
+         * shows those same two with a full dot after them. Counted the other
+         * way, the row lost a small dot at the moment of answering -- and a mark
+         * that disappears when the word is answered was never saying what the
+         * small dot says.
+         */
         if (nextRepetition !== null && nowTs >= nextRepetition) {
             const pending = countElapsedCheckpoints(nextRepetition, nowTs, stage);
-            for (let i = 0; i < pending; i++) marks.push(MARKS.MISSED);
+            for (let i = 0; i < pending - 1; i++) marks.push(MARKS.MISSED);
         }
 
         return { stage, errors, nextRepetition, marks, lastFailed };

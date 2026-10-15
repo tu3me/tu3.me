@@ -794,6 +794,7 @@ function snake(container) {
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                    <span class="snake-length" title="Length of the snake" style="display: inline-flex; align-items: center; gap: 2.6px; margin-left: auto; margin-right: 8.5px; font-size: 12.3px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
                 </div>
                 <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;"></div>
                 <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6.8px;">
@@ -1311,6 +1312,24 @@ function snake(container) {
         }
 
         view.draw = (s) => {
+            /*
+             * How long the snake is, in links, at the dots' left: the number
+             * and a square, and no word. The square is one link, so "12" and a
+             * square read as twelve of them -- a caption would need a language
+             * and room, and this header has neither to spare.
+             *
+             * It is the measure the set keeps a record of -- see noteLength --
+             * and a record of something the player was never shown would be a
+             * number arriving from nowhere.
+             *
+             * Written here because every frame comes through here, and only
+             * when it differs, so a frame that changes nothing touches nothing.
+             * Compared against the element rather than remembered, because the
+             * header can be built again under a running game.
+             */
+            const length = header.querySelector('.snake-length-count');
+            if (length && length.textContent !== String(s.snakeBody.length)) length.textContent = String(s.snakeBody.length);
+
             let out = '';
 
             if (s.phase === 'HEART' && s.heartPos) {
@@ -3191,6 +3210,27 @@ function snake(container) {
             view.victory();
         }
 
+        /*
+         * The longest the snake has been in this set, kept on the set as a
+         * record -- see store.noteBest.
+         *
+         * Taken whenever it grows, which is the only time it can set one: the
+         * snake never gets longer any other way, and the one thing that makes
+         * it shorter is the crash that starts it over. Every growth is followed
+         * by a save the game makes regardless -- the letter, the word, the
+         * heart -- so nothing here has to save.
+         *
+         * Not at all on a run over every set at once. The snake carries on from
+         * word to word, and on that run the words come from several sets: its
+         * length belongs to none of them in particular, and a record written to
+         * one would be partly earned on the others.
+         */
+        function noteLength() {
+            if (state.selectedSetId === 'all') return;
+
+            store.noteBest(state.selectedSetId, 'snake', 'length', board.snapshot().snakeBody.length);
+        }
+
         // One tick of the game: the board says what happened, the session
         // decides what it means for the player's progress.
         function onTick() {
@@ -3204,6 +3244,9 @@ function snake(container) {
 
             const wasHeartPhase = board.phase() === 'HEART';
             const event = board.step();
+
+            // A link more on every one of these -- see noteLength.
+            if (event === 'letter' || event === 'wordDone' || event === 'heart') noteLength();
 
             /*
              * The crash only writes the flag down; the offer itself waits for

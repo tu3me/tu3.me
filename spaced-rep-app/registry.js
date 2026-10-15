@@ -48,6 +48,15 @@
  * shown at: an SVG scaled by CSS from one fixed size lands its strokes between
  * pixels. The two places that ask for one — the shelf and the dialog — happen
  * to want the same 32 today, which is not a promise either makes the other.
+ *
+ * `crest` is the other half of a tile: what the game draws round its icon from
+ * the records it has set in a set -- see store.noteBest. It is handed the tile
+ * -- its size, its corner radius and the size of the icon drawn in its middle,
+ * because a crest draws to the tile's edge and round the icon rather than in
+ * the icon's square -- and the game's own corner of the set's `achievements`.
+ * It answers with nothing when there is nothing to show, and a game without one
+ * is a tile as it always was. Each lives in its game's folder rather than here:
+ * the icon is a picture, a crest is a set of rules for one, and those grow.
  */
 function gameIcon(size, body) {
     return `<svg class="game-icon" width="${size}" height="${size}" viewBox="0 0 24 24"
@@ -165,6 +174,8 @@ const GAMES = [
                 <rect x="18.3" y="6.7" width="4.7" height="4.7" rx="1.2" />
                 <rect x="19.4" y="1.7" width="2.6" height="2.6" rx="0.8" />
             </g>`),
+        // The ring round the tile -- see snake/crest.js.
+        crest: snakeCrest,
         color: '#56c4a6',
         page: 'snake'
     },

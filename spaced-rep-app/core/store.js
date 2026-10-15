@@ -265,8 +265,49 @@ function store() {
         }
     }
 
+    /*
+     * A record a game has set in a set: the best value of something it measures,
+     * and when that best was reached. True when it is a new best.
+     *
+     * On the set, under `achievements`, keyed by game and then by what was
+     * measured: { snake: { length: { best: 34, at: 1791734000000 } } }. On the
+     * set because records are a set's own -- the same game played on another
+     * set is a different record -- and because a set's lifetime is the right
+     * one for them: deleted with the set, untouched when its words are edited,
+     * since the form changes a set in place.
+     *
+     * Measurements, never achievements. What is kept is the longest the snake
+     * has been, not "reached thirty": the thresholds that turn a measure into
+     * an achievement live in the code that draws them, and can move without a
+     * word of the saved data changing. A stored "reached thirty" would make
+     * every change of threshold a translation in migrate.js.
+     *
+     * The best and nothing else -- not every run's value, which would grow for
+     * as long as the app is used. Two copies of it merge the way the answers
+     * do: the larger best wins, and its `at` comes with it.
+     *
+     * Absent until the first record, which reads as "nothing set yet" and is
+     * exactly that; no set written before this field existed has a record to
+     * lose. The caller saves -- this is always called just before a save the
+     * game makes anyway.
+     */
+    function noteBest(setId, game, key, value) {
+        const set = sets.find(s => s.id === setId);
+        if (!set) return false;
+
+        if (!set.achievements) set.achievements = {};
+        if (!set.achievements[game]) set.achievements[game] = {};
+
+        const held = set.achievements[game][key];
+        if (held && held.best >= value) return false;
+
+        set.achievements[game][key] = { best: value, at: Date.now() };
+        return true;
+    }
+
     store.load = load;
     store.save = save;
+    store.noteBest = noteBest;
     store.sets = () => sets;
     store.wordsOf = wordsOf;
     store.duePool = duePool;
