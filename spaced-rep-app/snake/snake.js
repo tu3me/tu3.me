@@ -3219,15 +3219,8 @@ function snake(container) {
          * it shorter is the crash that starts it over. Every growth is followed
          * by a save the game makes regardless -- the letter, the word, the
          * heart -- so nothing here has to save.
-         *
-         * Not at all on a run over every set at once. The snake carries on from
-         * word to word, and on that run the words come from several sets: its
-         * length belongs to none of them in particular, and a record written to
-         * one would be partly earned on the others.
          */
         function noteLength() {
-            if (state.selectedSetId === 'all') return;
-
             store.noteBest(state.selectedSetId, 'snake', 'length', board.snapshot().snakeBody.length);
         }
 

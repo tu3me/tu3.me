@@ -292,6 +292,8 @@ function store() {
      * game makes anyway.
      */
     function noteBest(setId, game, key, value) {
+        // No set by that id, no record -- which is also all a run over every
+        // set at once gets: its id is 'all', and no set is called that.
         const set = sets.find(s => s.id === setId);
         if (!set) return false;
 
