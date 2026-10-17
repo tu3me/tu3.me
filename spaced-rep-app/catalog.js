@@ -2826,38 +2826,33 @@ function catalog(container) {
      * one face in one cell lays out exactly as the plain span it replaces.
      */
     /*
-     * What a game draws round its icon from the records it holds in this set --
-     * see `crest` in registry.js. Nothing for a game that draws none, and
-     * nothing for a set where it has set no record yet.
+     * What a game's tile shows in this set: its crest where it has set a
+     * record here, and its icon where it has not -- see `crest` in
+     * registry.js.
+     *
+     * One or the other and never both. The crest is the tile's whole face,
+     * the icon placed in it wherever the crest wants it, so that a round left
+     * open swaps all of it for the play mark at once -- see .set-tile-swap in
+     * app.css. It used to be a layer of its own under the faces, and the ring
+     * stayed on the screen through the swap: a play mark standing in the
+     * middle of a record is a tile saying two things at once.
      *
      * Asked of the game with its own corner of the set's records and nothing
      * else: the rule that the catalog knows no game by name runs the other way
      * too, and a game handed the whole set would be a game reading words it has
      * no business with.
      */
-    const crestOf = (game, set) => (game.crest && set
-        ? game.crest({ size: TILE, radius: TILE_RADIUS, icon: TILE_ICON }, set.achievements && set.achievements[game.id])
-        : '');
+    const tileArt = (game, set) => (game.crest && set
+        && game.crest({ size: TILE, radius: TILE_RADIUS, icon: game.icon }, set.achievements && set.achievements[game.id]))
+        || game.icon(TILE_ICON);
 
-    /*
-     * A layer of the tile of its own, under the faces and outside them. The
-     * faces are what swap when a round is left open -- see .set-tile-swap in
-     * app.css -- and the crest belongs to the set, not to either face: it
-     * stays put while the icon and the play mark take turns over it. Presses
-     * go through it to the button it is drawn on.
-     */
-    const crestLayer = (crest) => (crest
-        ? `<span class="set-tile-crest" style="grid-area: 1 / 1; display: flex; pointer-events: none;">${crest}</span>`
-        : '');
-
-    function tileBtn(cls, fill, icon, label, attrs, resuming, crest) {
+    function tileBtn(cls, fill, icon, label, attrs, resuming) {
         const swap = resuming ? ' set-tile-swap' : '';
 
         const CUT = 'max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
 
         return `<button class="${cls}" ${attrs} style="flex: 1; min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile${swap}" style="display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; flex: none; background: ${fill}; color: #ffffff; border-radius: ${TILE_RADIUS}px; transition: background 0.2s;">
-                ${crestLayer(crest)}
                 <span class="set-tile-face" style="grid-area: 1 / 1; display: flex;">${icon}</span>
                 ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; display: flex;">${PLAY_FACE()}</span>` : ''}
             </span>
@@ -3328,7 +3323,7 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; align-items: flex-start; gap: 6.8px; margin-top: 15.4px;">
-                    ${SHELF.map(g => tileBtn('set-play-btn', g.color, g.icon(TILE_ICON), g.title, `data-game="${g.id}"`, unfinished(g), crestOf(g, set))).join('')}
+                    ${SHELF.map(g => tileBtn('set-play-btn', g.color, tileArt(g, set), g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
                     ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'More games', '', AWAY.some(unfinished))}
                 </div>
             `);
@@ -4267,8 +4262,7 @@ function catalog(container) {
 
             return `<button class="more-dialog-game" data-game="${game.id}" style="${ROW} cursor: pointer;">${body(
                 `<span class="set-tile${swap}" style="${SQUARE} background: ${game.color}; color: #ffffff;">
-                    ${crestLayer(crestOf(game, store.sets().find(s => s.id === setId)))}
-                    ${face(game.icon(TILE_ICON))}
+                    ${face(tileArt(game, store.sets().find(s => s.id === setId)))}
                     ${resuming ? face(PLAY_FACE(), true) : ''}
                 </span>`,
                 `<span class="set-tile-label${swap}" style="display: grid; ${NAME}">

@@ -49,14 +49,16 @@
  * pixels. The two places that ask for one — the shelf and the dialog — happen
  * to want the same 32 today, which is not a promise either makes the other.
  *
- * `crest` is the other half of a tile: what the game draws round its icon from
- * the records it has set in a set -- see store.noteBest. It is handed the tile
- * -- its size, its corner radius and the size of the icon drawn in its middle,
- * because a crest draws to the tile's edge and round the icon rather than in
- * the icon's square -- and the game's own corner of the set's `achievements`.
- * It answers with nothing when there is nothing to show, and a game without one
- * is a tile as it always was. Each lives in its game's folder rather than here:
- * the icon is a picture, a crest is a set of rules for one, and those grow.
+ * `crest` is what the tile becomes once the game has set a record in a set --
+ * see store.noteBest. It is the tile's whole face, the icon included, and not
+ * a layer round it: a record wants room the icon at its full size is standing
+ * in, so the crest decides where the icon goes and how big it is. It is handed
+ * the tile -- its size and its corner radius, because a crest draws to the
+ * tile's edge -- with the game's own `icon` to place, and the game's own corner
+ * of the set's `achievements`. It answers with nothing when there is nothing to
+ * show, and then the tile is the icon as it always was. Each lives in its
+ * game's folder rather than here: the icon is a picture, a crest is a set of
+ * rules for one, and those grow.
  */
 function gameIcon(size, body) {
     return `<svg class="game-icon" width="${size}" height="${size}" viewBox="0 0 24 24"

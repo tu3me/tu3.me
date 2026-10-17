@@ -794,7 +794,10 @@ function snake(container) {
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
-                    <span class="snake-length" title="Length of the snake" style="display: inline-flex; align-items: center; gap: 2.6px; margin-left: auto; margin-right: 8.5px; font-size: 12.3px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
+                    <span class="snake-length" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; flex-direction: column; align-items: center; gap: 1.7px; margin-left: auto; margin-right: 8.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};">
+                        <span style="display: inline-flex; align-items: center; gap: 2.6px; font-size: 12.3px;"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
+                        <span style="font-size: 8.2px; letter-spacing: 0.3px;">MAX <span class="snake-length-best"></span></span>
+                    </span>
                 </div>
                 <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;"></div>
                 <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6.8px;">
@@ -1311,7 +1314,7 @@ function snake(container) {
             return Math.max(10, Math.floor(nominal * room / ink));
         }
 
-        view.draw = (s) => {
+        view.draw = (s, record) => {
             /*
              * How long the snake is, in links, at the dots' left: the number
              * and a square, and no word. The square is one link, so "12" and a
@@ -1322,13 +1325,32 @@ function snake(container) {
              * and a record of something the player was never shown would be a
              * number arriving from nowhere.
              *
+             * And under it, small, the record itself: "MAX" and the longest the
+             * snake has been in this set, which is the number on the game's tile
+             * in the catalog -- the one the player came in to beat. Two lines in
+             * the height the buttons beside them already give the header, so
+             * the header is no taller for it.
+             *
+             * The record is never shown below the length. The two are written
+             * by the same call, so a snake that is setting a record grows both
+             * numbers in the same frame rather than one after the other; and
+             * where nothing is held yet -- a set's first game, or a run over
+             * every set, which keeps no records -- the record on show is the
+             * length itself, which is true of this run at least.
+             *
              * Written here because every frame comes through here, and only
              * when it differs, so a frame that changes nothing touches nothing.
              * Compared against the element rather than remembered, because the
              * header can be built again under a running game.
              */
+            const now = String(s.snakeBody.length);
+            const most = String(Math.max(record || 0, s.snakeBody.length));
+
             const length = header.querySelector('.snake-length-count');
-            if (length && length.textContent !== String(s.snakeBody.length)) length.textContent = String(s.snakeBody.length);
+            if (length && length.textContent !== now) length.textContent = now;
+
+            const best = header.querySelector('.snake-length-best');
+            if (best && best.textContent !== most) best.textContent = most;
 
             let out = '';
 
@@ -2839,8 +2861,11 @@ function snake(container) {
             page.save();
         }
 
+        // Drawn with the set's record beside it, for the header -- see
+        // view.draw. Read at every paint rather than kept, because the growth
+        // that sets a new one is noted just before the paint that shows it.
         function paint() {
-            view.draw(board.snapshot());
+            view.draw(board.snapshot(), store.bestOf(state.selectedSetId, 'snake', 'length'));
         }
 
         refreshDots();

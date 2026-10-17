@@ -1,6 +1,6 @@
 /*
- * The Snake tile's crest: what this set's records look like, drawn over the
- * tile the catalog puts the game on.
+ * The Snake tile's crest: what this set's records look like, drawn as the face
+ * of the tile the catalog puts the game on -- the icon included, see the end.
  *
  * A second snake, round the edge of the tile, as long as the longest the snake
  * has been in this set. It starts at twelve o'clock and grows clockwise, and at
@@ -170,48 +170,60 @@ function snakeCrest(tile, records) {
     const head = block(lit - 1, HEAD);
 
     /*
-     * And the record as a number, in the corner the icon leaves empty: its
-     * snake climbs from the bottom left to the top right, and the top left is
-     * the one quarter of the tile with nothing in it -- which is also where an
-     * arcade screen keeps the score.
+     * And the record in words, at the top of the tile and in the middle of it:
+     * "MAX" and the number under it, which is the way the game's own header
+     * says it -- see view.draw in snake.js. The two should read as one figure
+     * seen in two places, so the player who taps this tile to beat it finds it
+     * again over the board.
      *
      * The ring says how far the record has got; it cannot say what it is. A
      * reader who wants to beat thirty-four has to be told thirty-four, and a
      * quarter of a ring is anything from nine to eleven.
      *
-     * Fitted between the ring and the icon's middle column, both read off the
-     * geometry rather than written down: the icon's column stands at 12.6 of
-     * its 24 units, and the ring's inner edge is the head's half-width in from
-     * the track. Two digits at the size of the tile's label; three are made
-     * smaller rather than allowed to reach the icon -- a record over a hundred
-     * is rare, and it is the gold one, which says most of it already.
+     * The number at the size of the tile's label and the word at half of it:
+     * the word is there to say what the number is, once, and after that it is
+     * the number that is looked at. White whatever the ring is drawn in --
+     * gold on the tile's mint is a colour, not a number anybody reads.
      *
-     * White whatever the ring is drawn in. Gold on the tile's mint is a
-     * colour, not a number anybody reads.
-     *
-     * A digit is taken as 0.7 of the font size across. Measured in the app's
-     * own font it is 0.667 -- the figures are tabular, so every one of them is
-     * that wide -- and the first guess of 0.62 let three of them run into the
-     * icon by a pixel and a half. The rest is room for a platform whose bold
-     * figures are a little wider than these.
+     * In the middle rather than in a corner, which is where it stood first:
+     * the top left quarter the icon leaves empty, fitted between the ring and
+     * the icon's middle column. That gave three digits under eight pixels, and
+     * put a figure the size of a fingernail off to one side of a tile that is
+     * otherwise drawn about its centre.
      */
-    const AIR = 1.2;
-    const DIGIT = 0.7;
-    const unit = icon / 24;
-    const iconEdge = (size - icon) / 2;
+    const LABEL = 6.2;
+    const FIGURE = 12.3;
 
-    const left = INSET + HEAD / 2 + AIR;
-    const right = iconEdge + 12.6 * unit - AIR;
-    const digits = String(best).length;
-    const fontSize = round(Math.min(12.3, (right - left) / (DIGIT * digits)));
+    const label = `<text x="${round(centre)}" y="12.4" text-anchor="middle" dominant-baseline="central"
+        font-size="${LABEL}" font-weight="800" letter-spacing="0.4" fill="currentColor">MAX</text>`;
+    const score = `<text x="${round(centre)}" y="19.8" text-anchor="middle" dominant-baseline="central"
+        font-size="${FIGURE}" font-weight="800" fill="currentColor" style="font-variant-numeric: tabular-nums;">${best}</text>`;
 
-    const score = `<text x="${round((left + right) / 2)}" y="${round(iconEdge + 8 * unit)}" text-anchor="middle" dominant-baseline="central"
-        font-size="${fontSize}" font-weight="800" fill="currentColor" style="font-variant-numeric: tabular-nums;">${best}</text>`;
+    /*
+     * The game's own drawing, smaller and lower, in what is left under the
+     * record.
+     *
+     * The crest is the whole of the tile's face and not a layer under the
+     * icon: a record needs the middle of the top, and the icon at its full
+     * size has its column and its food standing there. It is the catalog's
+     * icon all the same -- handed in, not drawn again here -- so the snake on
+     * a tile with a record is the snake on every other tile, cut to the room
+     * it has.
+     *
+     * Twenty-two across, which takes it from under the number to the ring's
+     * inner edge with a pixel and a half to spare at each end. The play mark
+     * of a round left open replaces all of this, ring and record included,
+     * rather than being laid over it -- see .set-tile-swap in app.css.
+     */
+    const ICON = 22;
+    const drawing = `<g transform="translate(${round(centre - ICON / 2)} 26.4)">${icon(ICON)}</g>`;
 
     return `<svg class="tile-crest" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="display: block;">
         <g fill="currentColor" opacity="0.35">${track}</g>
         <g fill="${ink}">${body}</g>
         <g fill="${HEAD_INK}">${head}</g>
+        ${label}
         ${score}
+        ${drawing}
     </svg>`;
 }

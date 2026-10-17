@@ -307,9 +307,19 @@ function store() {
         return true;
     }
 
+    // And the record read back, for a game that shows it while it is being
+    // played: 0 where none is held, which is also what a run over every set
+    // gets -- the same reason as above.
+    function bestOf(setId, game, key) {
+        const set = sets.find(s => s.id === setId);
+        const held = set && set.achievements && set.achievements[game] && set.achievements[game][key];
+        return held ? held.best : 0;
+    }
+
     store.load = load;
     store.save = save;
     store.noteBest = noteBest;
+    store.bestOf = bestOf;
     store.sets = () => sets;
     store.wordsOf = wordsOf;
     store.duePool = duePool;
