@@ -167,7 +167,7 @@ function cards(container) {
                 // are filled while they are being said, and a square mark inside
                 // a rounded one reads as two different kinds of thing.
                 const letters = speech.letters(part.text)
-                    .map(ch => `<span class="say-letter" style="${tinted}">${escapeText(ch)}</span>`)
+                    .map(ch => `<span class="say-letter" data-press style="${tinted}">${escapeText(ch)}</span>`)
                     .join('');
 
                 return `<span class="say-word" style="${tinted}">${letters}</span>`;
@@ -512,11 +512,11 @@ function cards(container) {
         const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
             <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
-                <div class="card-face-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
+                <div class="card-face-front" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
                 </div>
 
-                <div class="card-face-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
+                <div class="card-face-back" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
                     <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
                 </div>
 

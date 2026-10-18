@@ -171,6 +171,13 @@ function catalog(container) {
     // away each time would be a section you can change one number in.
     let intervalsOpen = false;
 
+    // Whether the box for another device's code is folded out, and what was
+    // said last about the code typed into it. Panel state like the folds
+    // above: a redraw under the panel should not take away a code half typed
+    // or the answer it got.
+    let joinOpen = false;
+    let joinNote = '';
+
     // Set while the form is folding shut. The fold has to finish before the set
     // behind it is dropped, and until then the button still works — a second
     // press would start a second fold on a card that is already half gone.
@@ -502,6 +509,7 @@ function catalog(container) {
 
     const ROUTES = [
         {
+            id: 'translate',
             question: 'How to export from Google Translate?',
             steps: [
                 {
@@ -514,6 +522,7 @@ function catalog(container) {
             ]
         },
         {
+            id: 'paper',
             question: 'How to add words from a paper book or notebook?',
             steps: [
                 'Photograph the list of words and give the photo to any AI tool',
@@ -526,6 +535,7 @@ function catalog(container) {
             ]
         },
         {
+            id: 'web',
             question: 'How to make a set from a web page or a YouTube video?',
             steps: [
                 'Give the link to any AI tool',
@@ -546,10 +556,13 @@ function catalog(container) {
      *
      * A real button, not a div with a click handler: it is reachable by keyboard
      * and says what it is out loud, both for free.
+     *
+     * `name` says which section it is to the analytics, where every one of them
+     * is a press on set-fold-toggle -- see data-press in track.js.
      */
-    function foldingSection(label, bodyHtml, open) {
+    function foldingSection(label, bodyHtml, open, name) {
         return `<div class="set-fold">
-            <button class="set-fold-toggle" aria-expanded="${open}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; padding: 7.7px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 12.3px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
+            <button class="set-fold-toggle" data-press="${name}" aria-expanded="${open}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; padding: 7.7px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 12.3px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
                 <span class="set-fold-chevron" style="display: block; flex: none; color: ${palette.softColor}; transform: rotate(${open ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                 <span class="set-fold-label" style="flex: 1;">${label}</span>
             </button>
@@ -691,6 +704,31 @@ function catalog(container) {
     // Intl hands the code back for a language it cannot name, and a list with
     // "ba" in it among a hundred and thirty names is a list with a hole in it.
     const NAMED_BY_HAND = { ba: 'Bashkir', bo: 'Tibetan' };
+
+    /*
+     * Which separator the lines of a set were written with, for the analytics:
+     * the form takes "--" or a tab, and a tab is what a paste out of a
+     * spreadsheet brings -- so this is how sets typed by hand are told from
+     * sets carried over from a table. Read the way readWords reads, the first
+     * separator of each line; `both` for a set that has some of each, `none`
+     * for one with a single column.
+     */
+    function separatorOf(text) {
+        let tab = false;
+        let dash = false;
+
+        String(text || '').split('\n').forEach(row => {
+            const cut = row.search(/\t|--/);
+            if (cut === -1) return;
+
+            if (row[cut] === '\t') tab = true;
+            else dash = true;
+        });
+
+        if (tab && dash) return 'both';
+        if (tab) return 'tab';
+        return dash ? 'dash' : 'none';
+    }
 
     function languageName(tag) {
         const base = String(tag || '').split('-')[0];
@@ -1380,7 +1418,7 @@ function catalog(container) {
         const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -5px; right: -4px; z-index: 3;') : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card" style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
+            <div class="word-bubble-card" data-press style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
                 <span class="bubble-word-text" style="font-weight: 800; font-size: 13.3px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
                 <div class="bubble-dots-group" style="font-size: 6px; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; line-height: 1;">
                     ${dotsHtml}
@@ -2357,6 +2395,89 @@ function catalog(container) {
                 ${withChevron(`<select class="dict-learn-lang" style="${field}">${options('Add one', [mine].concat(learnLangs), null)}</select>`, edge)}`;
     }
 
+    /*
+     * The profile's code, and the way to take on another device's.
+     *
+     * Typed by hand on the second device -- copied here, pasted or typed
+     * there -- and the same on every device, with nothing in an address to
+     * open: a link would have to be got to the other device by hand anyway,
+     * and an id in an address is an id in history, in logs and in a Referer.
+     * See docs/BACKEND.md.
+     *
+     * Above Advanced, because it is the reason to open the panel on a second
+     * device at all. The box for a code from elsewhere is folded away behind a
+     * line of its own: it replaces everything on this device, and it says so
+     * before it is used rather than after.
+     */
+    function agoText(ms) {
+        const minutes = Math.floor(ms / 60000);
+
+        if (minutes < 1) return 'just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`;
+
+        return `${Math.floor(minutes / (24 * 60))}d ago`;
+    }
+
+    function syncRows() {
+        const meta = remote.meta();
+        if (!meta) return '';
+
+        const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">Sync code</div>`;
+
+        const synced = meta.syncedAt ? `Synced ${agoText(Date.now() - meta.syncedAt)}.` : 'Not synced yet.';
+
+        const small = `font-size: 10.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};`;
+        const button = `flex: none; padding: 5.1px 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;`;
+
+        return `<div class="dict-sync" style="margin-top: 10.2px;">
+                ${caption}
+                <div style="display: flex; align-items: center; gap: 5.1px;">
+                    <div class="dict-sync-code" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; user-select: all; white-space: nowrap;">${remote.grouped(meta.user)}</div>
+                    <button class="dict-sync-copy" style="${button}">Copy</button>
+                </div>
+                <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">Enter it on your other device to share your sets and progress. ${synced}</div>
+                <button class="dict-sync-join-line" aria-expanded="${joinOpen}" style="display: block; margin-top: 3.4px; padding: 3.4px 9.5px; background: transparent; border: none; font-family: inherit; font-size: 10.8px; font-weight: 700; color: ${palette.softColor}; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;">I have a code from another device</button>
+                <div class="dict-sync-join" style="overflow: hidden;"${joinOpen ? '' : ' hidden'}>
+                    <div style="padding-top: 3.4px;">
+                        <div style="display: flex; align-items: center; gap: 5.1px;">
+                            <input class="dict-sync-input" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; outline: none;">
+                            <button class="dict-sync-connect" style="${button} background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">Connect</button>
+                        </div>
+                        <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">The sets and progress on this device will be replaced with the ones under that code.</div>
+                        <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote}</div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    /*
+     * What the press on Connect does, and what it says when it cannot.
+     *
+     * A reload when it worked, because half of this screen was read at boot:
+     * the languages, the sets, a round that may have been left open.
+     */
+    const JOIN_NOTES = {
+        invalid: 'A code is 12 letters and digits.',
+        same: 'This device already uses that code.',
+        offline: 'Could not reach the server. Try again when you are online.',
+        missing: 'No profile has this code. Check it and try again.'
+    };
+
+    async function connect(input, status) {
+        status.textContent = 'Connecting…';
+
+        const answer = await sync.join(input.value, GAMES.map(g => g.id));
+
+        if (answer === 'ok') {
+            location.reload();
+            return;
+        }
+
+        joinNote = JOIN_NOTES[answer] || '';
+        status.textContent = joinNote;
+    }
+
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
@@ -2372,6 +2493,7 @@ function catalog(container) {
                 </div>
                 ${platformStrip()}
                 ${languageRows()}
+                ${syncRows()}
                 <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 5.1px; width: 100%; box-sizing: border-box; margin-top: 3.4px; padding: 5.1px 2px; background: transparent; border: none; font-family: inherit; font-size: 10.2px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
                     <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON_SMALL}</span>
                     <span>Advanced</span>
@@ -2430,6 +2552,7 @@ function catalog(container) {
 
             await saveSetting('myLang', myLang);
             await saveSetting('learnLangs', learnLangs);
+            await langsChanged('mine');
             await makeSets();
 
             render();
@@ -2452,6 +2575,7 @@ function catalog(container) {
             learnLangs = learnLangs.concat(e.target.value);
 
             await saveSetting('learnLangs', learnLangs);
+            await langsChanged('add');
             await makeSets();
 
             render();
@@ -2462,6 +2586,7 @@ function catalog(container) {
                 learnLangs = learnLangs.filter(tag => tag !== button.dataset.tag);
 
                 await saveSetting('learnLangs', learnLangs);
+                await langsChanged('drop');
 
                 render();
             });
@@ -2497,6 +2622,41 @@ function catalog(container) {
             catalog.setTheme(theme.isDark());
             render();
         });
+
+        const copy = overlay.querySelector('.dict-sync-copy');
+
+        if (copy) {
+            const code = overlay.querySelector('.dict-sync-code');
+
+            // The clipboard where the browser allows it, and the code selected
+            // where it does not -- one press of a shortcut away either way.
+            copy.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(code.textContent);
+                    copy.textContent = 'Copied';
+                    setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+                } catch (e) {
+                    const range = document.createRange();
+                    range.selectNodeContents(code);
+                    getSelection().removeAllRanges();
+                    getSelection().addRange(range);
+                }
+            });
+
+            const join = overlay.querySelector('.dict-sync-join');
+            const joinLine = overlay.querySelector('.dict-sync-join-line');
+            const input = overlay.querySelector('.dict-sync-input');
+            const status = overlay.querySelector('.dict-sync-status');
+
+            joinLine.addEventListener('click', () => {
+                joinOpen = !joinOpen;
+                joinLine.setAttribute('aria-expanded', joinOpen);
+                foldOut(join, joinOpen);
+            });
+
+            overlay.querySelector('.dict-sync-connect').addEventListener('click', () => connect(input, status));
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(input, status); });
+        }
 
         /*
          * Where a word ends — a question only the games ask. A tap on a card
@@ -2629,14 +2789,14 @@ function catalog(container) {
         function offer() {
             body.innerHTML = `
                 <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Clear data</button>
-                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device.</p>`;
+                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device, and gives it a new sync code.</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
         }
 
         function confirm() {
             body.innerHTML = `
-                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone, and there is no undo. The starting sets come back.</p>
+                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone from this device. The starting sets come back under a new sync code; entering the old code brings back what it holds.</p>
                 <div class="dict-wipe-actions" style="display: flex; gap: 6.8px;">
                     <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Erase</button>
                     <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">Cancel</button>
@@ -2774,8 +2934,23 @@ function catalog(container) {
      * that were read at boot, and a redraw over a database that no longer exists
      * would show a catalog built from memories of it. A reload comes back to an
      * empty store, which is what seeds the starting sets again.
+     *
+     * The server is not touched. This device starts again under a new profile
+     * -- remote.init makes one when there is none -- and the old one stays
+     * where it is, for its code to bring back and for the analytics.
+     *
+     * One thing outlives the wipe on purpose: the id of the device, put back
+     * into the new database before the reload. The analytics then see one
+     * device that started over rather than a stranger, which is the truth.
+     * What was gathered before goes first, under the profile it belongs to.
      */
     async function wipeEverything() {
+        track('wipe');
+        await track.close();
+
+        const meta = remote.meta();
+        const device = meta && meta.device;
+
         try {
             localStorage.clear();
         } catch (e) {
@@ -2783,6 +2958,8 @@ function catalog(container) {
         }
 
         await storage.wipe();
+
+        if (device) await storage.set('sync', { device: device });
 
         location.reload();
     }
@@ -2967,7 +3144,7 @@ function catalog(container) {
                             <div>${OWN_VOICE} voice installed</div>
                             <div>${BORROWED_VOICE} read by a related voice</div>
                             <div>${NO_VOICE} no voice at all</div>
-                        </div>`, false)}</div>
+                        </div>`, false, 'lang')}</div>
                 </div>`;
 
             // A set being written from scratch gets the box as the first section,
@@ -2987,12 +3164,12 @@ function catalog(container) {
             // bodies, so a section inside a section needs nothing but the
             // indent that says which is which.
             const routes = `<div class="set-fold-nest" style="padding-left: 10.2px;">`
-                + ROUTES.map(r => foldingSection(r.question, steps(r), false)).join('')
+                + ROUTES.map(r => foldingSection(r.question, steps(r), false, r.id)).join('')
                 + `</div>`;
 
             const formBody = guided
                 ? staticSection('Paste words here', box)
-                    + foldingSection(ROUTES_LABEL, routes, false)
+                    + foldingSection(ROUTES_LABEL, routes, false, 'routes')
                 : box;
 
             // The page turns selection off everywhere — it is a popup full of
@@ -3177,6 +3354,11 @@ function catalog(container) {
                 const parsed = readWords(textarea.value, set);
                 const keep = !!(parsed && parsed.words.length);
 
+                // What the detector made of the columns on its own, before
+                // either plate had a say -- the analytics hold it against the
+                // languages the set is saved with. See docs/BACKEND.md.
+                const guessed = keep ? store.label({ words: parsed.words }) : null;
+
                 if (keep) {
                     set.title = parsed.title;
                     set.words = parsed.words;
@@ -3201,20 +3383,33 @@ function catalog(container) {
                  * For a draft the same rule is not a deletion but the absence of
                  * an addition: there is nothing of it in the list to remove.
                  */
+                const langs = [set.originalLang, set.translationLang];
+                const found = guessed ? [guessed.originalLang, guessed.translationLang] : [];
+
+                /*
+                 * Deleting archives: the set is marked and kept, here and on
+                 * the server, so that the deletion reaches the other devices
+                 * as a change to the set rather than as a set going missing --
+                 * a set taken out of the list here would come back from the
+                 * next device that still had it. See store.archive.
+                 */
                 if (set === draft) {
-                    if (keep) store.addSet(set);
+                    if (keep) {
+                        store.addSet(set, true);
+                        track('set_add', 'form', separatorOf(textarea.value), set.words.length, found, langs);
+                    }
                     draft = null;
-                } else if (!keep) {
-                    // The position is read here rather than at render time: this
-                    // press can come long after the card was drawn, and a set
-                    // saved from another form since then sits in front of it.
-                    const index = store.sets().findIndex(s => s.id === set.id);
-                    if (index !== -1) store.removeAt(index);
+                } else if (keep) {
+                    store.touch(set);
+                    track('set_edit', set.id, separatorOf(textarea.value), set.words.length, found, langs);
+                } else {
+                    store.archive(set.id);
+                    track('set_archive', set.id);
                 }
 
                 editing.delete(set.id);
                 forgetForm(set.id);
-                store.save();
+                store.save().then(syncCatalog);
                 render();
             });
 
@@ -3909,6 +4104,15 @@ function catalog(container) {
      * A set that is already there is left alone. The questions can be answered
      * again in the settings, and answering them again must not undo whatever has
      * been learned in the meantime.
+     *
+     * Already there includes deleted: a deleted set is archived rather than
+     * gone (see store.archive), and building a second one beside it under the
+     * same id would leave two sets with one name in the list sync sends. So it
+     * is taken back out of the archive instead, with its history -- the same
+     * thing building it fresh used to do, minus the forgetting. That is a
+     * change a person caused, and dated as one; a set built here is not, so
+     * that an untouched copy loses to any copy that was played -- see
+     * store.touch.
      */
     function makeSets() {
         // Nothing to read a set in. Somebody who skipped the question can still
@@ -3922,7 +4126,14 @@ function catalog(container) {
             vocab.sets(learn, myLang).forEach(level => {
                 const id = `${CATALOG_ID}${learn}-${myLang}-${level.level.toLowerCase()}`;
 
-                if (store.sets().some(saved => saved.id === id)) return;
+                const saved = store.allSets().find(s => s.id === id);
+                if (saved) {
+                    if (saved.archived) {
+                        store.restore(id);
+                        track('set_restore', id);
+                    }
+                    return;
+                }
 
                 made.push({
                     id: id,
@@ -3931,6 +4142,8 @@ function catalog(container) {
                     translationLang: myLang,
                     words: level.words
                 });
+
+                track('set_add', 'vocab', '', level.words.length, [], [learn, myLang]);
             });
         });
 
@@ -3940,7 +4153,24 @@ function catalog(container) {
         // the app for the first time would meet Advanced.
         made.reverse().forEach(set => store.addSet(set));
 
-        return store.save();
+        return store.save().then(syncCatalog);
+    }
+
+    catalog.makeSets = makeSets;
+
+    /*
+     * The pair of languages, changed in the settings by somebody: a change the
+     * other devices of the profile take on, so it is dated -- the date sync.js
+     * compares -- and sent.
+     *
+     * Only changes made here. The first screen's answer is not dated: a device
+     * that is connected to a profile afterwards takes the profile's pair
+     * whatever it is, and before that there is nobody to tell.
+     */
+    async function langsChanged(how) {
+        await saveSetting('langsChangedAt', Date.now());
+        track('langs', how, myLang, learnLangs);
+        syncCatalog();
     }
 
     /*
@@ -3956,7 +4186,7 @@ function catalog(container) {
 
         learnLangs = learnLangs.concat(tag);
 
-        return saveSetting('learnLangs', learnLangs);
+        return saveSetting('learnLangs', learnLangs).then(() => langsChanged('set'));
     }
 
     /*
@@ -4034,6 +4264,15 @@ function catalog(container) {
      * list of checkboxes. Forty-nine checkboxes is a screen nobody reads to the
      * end; a chip is the answer already given, and the × on it is the only other
      * thing that can be done with it.
+     *
+     * One line of text under it after all, and only one, because the lists are
+     * finite and the reader may not be in them. Somebody whose language is not
+     * among the forty-nine reaches the bottom of the list with nothing to pick,
+     * and Start stays greyed out; what to do then is Skip, which on its own
+     * reads as giving up on the app. So the line says it in words -- skip this
+     * -- and says why that costs nothing: the sets are words the reader can
+     * write in, whatever the dropdowns said. Muted and small, so the screen is
+     * still two questions and a button.
      */
     function askLanguages(parent) {
         const ready = !!picking.mine && picking.learn.length > 0;
@@ -4089,7 +4328,9 @@ function catalog(container) {
             <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
             ${withChevron(`<select class="dict-start-learn" style="${field}">${options('Add one', [picking.mine].concat(picking.learn), null)}</select>`, textEdge)}
 
-            <div style="display: flex; align-items: center; gap: 6.8px; margin-top: 34.1px;">
+            <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">If you don’t see your language, just skip this. You can add your own words later in the app.</div>
+
+            <div style="display: flex; align-items: center; gap: 6.8px; margin-top: 27.3px;">
                 <button class="dict-start-skip" style="flex: none; padding: 11.9px ${textEdge}; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12.8px; font-weight: 700; cursor: pointer;">Skip</button>
                 <button class="dict-start-go" ${ready ? '' : 'disabled'} style="flex: 1; padding: 11.9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; font-weight: 700; opacity: ${ready ? 1 : 0.4}; cursor: ${ready ? 'pointer' : 'default'};">Start</button>
             </div>
@@ -4134,6 +4375,9 @@ function catalog(container) {
             if (myLang) await saveSetting('myLang', myLang);
             await saveSetting('langsAsked', true);
 
+            track('langs', 'skip', myLang, []);
+            syncCatalog();
+
             render();
         });
 
@@ -4147,6 +4391,8 @@ function catalog(container) {
             await saveSetting('myLang', myLang);
             await saveSetting('learnLangs', learnLangs);
             await saveSetting('langsAsked', true);
+
+            track('langs', 'start', myLang, learnLangs);
             await makeSets();
 
             // The sets were just written, so the bars grow out of nothing: this
@@ -4439,6 +4685,35 @@ async function refreshCatalog() {
     catalog.render();
 }
 
+/*
+ * A sync from the catalog, and the screen drawn again when it brought
+ * anything: sets changed on another device, or the pair of languages.
+ *
+ * Never awaited by what draws the screen -- the catalog is up out of IndexedDB
+ * before the request has left, and offline it simply stays as it is. Called on
+ * every load of this page, which in the popup is also the way back from every
+ * game, and after every change made here.
+ */
+async function syncCatalog() {
+    const done = await sync.run();
+    if (!done || (!done.replaced.length && !done.langs)) return;
+
+    /*
+     * A language another device started learning brings its sets with it,
+     * built here the way the settings would have built them. Safe to build
+     * twice: a set made by the app carries no date and loses to any copy that
+     * was played, and two untouched copies are the same copy -- see
+     * store.touch. Built rather than waited for, because the other device may
+     * not have sent them yet.
+     */
+    if (done.langs) {
+        catalog.setLangs(await storage.get('settings'));
+        await catalog.makeSets();
+    }
+
+    await refreshCatalog();
+}
+
 async function bootCatalog() {
     // Said before anything is drawn, because the browser restores the offset as
     // soon as the page is tall enough to carry it — see showFromTop.
@@ -4456,6 +4731,10 @@ async function bootCatalog() {
     await migrate.run();
 
     const settings = await storage.get('settings');
+
+    // The ids first, then the visit they are written on -- see track.js.
+    await remote.init();
+    await track.start('catalog', settings);
 
     // The ladder the player is on, if they have changed it. Absent means the
     // defaults, which is what the algorithm starts with anyway — see srs.js.
@@ -4499,6 +4778,15 @@ async function bootCatalog() {
     await refreshCatalog();
     showFromTop();
     popupHeight.release();
+
+    syncCatalog();
+
+    // An installed app brought back from the background is the same page, not
+    // a new one: nothing above runs again, and the other devices may have
+    // moved on meanwhile.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncCatalog();
+    });
 }
 
 // The browser's own Back button can restore this page from the bfcache: the
@@ -4513,7 +4801,7 @@ async function bootCatalog() {
 window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
 
-    refreshCatalog();
+    refreshCatalog().then(syncCatalog);
 
     // A page out of the bfcache comes back scrolled where it was left, and
     // scrollRestoration has nothing to say about that: the offset is part of the

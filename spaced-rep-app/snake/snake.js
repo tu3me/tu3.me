@@ -476,8 +476,11 @@ function snake(container) {
         // One button style for every on-screen control, d-pad and turn row alike. Both
         // panels are 3-column grids filling the whole width — this is thumb territory on
         // a phone, so the cell places the button and `place` only says which cell.
+        //
+        // data-untracked: a press here is a move of the snake, as raw as a key and
+        // as many -- hundreds a run. The analytics leave it out, see track.js.
         function padBtn(id, glyph, place) {
-            return `<button class="snake-pad-btn" id="${id}" style="grid-area: ${place}; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 20.5px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
+            return `<button class="snake-pad-btn" id="${id}" data-untracked style="grid-area: ${place}; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; background: ${palette.dpadBg}; border: 1px solid ${palette.dpadBorder}; border-radius: 12px; font-weight: 700; font-size: 20.5px; cursor: pointer; color: ${palette.dpadColor}; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;">${glyph}</button>`;
         }
 
         /*
@@ -845,7 +848,7 @@ function snake(container) {
                 grid += `M${at} 0V${side}M0 ${at}H${side}`;
             }
 
-            svg = $(host, `<svg class="snake-svg" id="snake-svg" viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 12px; box-shadow: 0 3.4px 10.2px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; flex: none; cursor: pointer;">
+            svg = $(host, `<svg class="snake-svg" id="snake-svg" data-press viewBox="0 0 ${side} ${side}" style="background: ${palette.boardBg}; border: 1px solid ${palette.boardBorder}; border-radius: 12px; box-shadow: 0 3.4px 10.2px rgba(0,0,0,${palette.boardShadow}); display: block; touch-action: none; width: 100%; height: auto; aspect-ratio: 1; flex: none; cursor: pointer;">
                 <path d="${grid}" stroke="${palette.grid}" stroke-width="1" fill="none" />
                 <g class="snake-svg-scene"></g>
             </svg>`);
@@ -1041,6 +1044,10 @@ function snake(container) {
                     // What the click means depends on how much of the word is
                     // open, and the board is what knows that — the view only
                     // says where the click landed.
+                    // Which of the two this press is, for the analytics: the
+                    // class is the same either way -- see data-press in track.js.
+                    box.dataset.press = shown ? 'say' : 'reveal';
+
                     box.addEventListener('click', () => cb.onLetterClick(i));
                 }
 

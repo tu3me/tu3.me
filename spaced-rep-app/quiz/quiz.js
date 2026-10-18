@@ -94,7 +94,7 @@ function quiz(container) {
             if (!part.isWord) return escapeText(part.text);
 
             const letters = speech.letters(part.text)
-                .map(ch => `<span class="say-letter" style="${tinted}">${escapeText(ch)}</span>`)
+                .map(ch => `<span class="say-letter" data-press style="${tinted}">${escapeText(ch)}</span>`)
                 .join('');
 
             return `<span class="say-word" style="${tinted}">${letters}</span>`;
@@ -445,7 +445,7 @@ function quiz(container) {
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-        const questionCard = $(container, `<div class="quiz-question-card" style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
+        const questionCard = $(container, `<div class="quiz-question-card" data-press style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
             <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
         </div>`);
 

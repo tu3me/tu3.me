@@ -94,9 +94,21 @@ function store() {
 
     store.label = label;
 
+    /*
+     * The sets anybody is shown: every set but the archived ones.
+     *
+     * Deleting a set archives it rather than taking it out of the list -- see
+     * archive below -- so the list holds sets that are gone as far as anybody
+     * looking is concerned. This is the one place that says so. Every reader
+     * of sets goes through here, the games' pools included, and an archived
+     * set that slipped past one of them would be deleted words turning up in
+     * a game.
+     */
+    const live = () => sets.filter(s => !s.archived);
+
     // Live references into `sets` — the games build their own session pools from these
     function wordsOf(setId) {
-        const activeSets = setId !== 'all' ? sets.filter(s => s.id === setId) : sets;
+        const activeSets = setId !== 'all' ? live().filter(s => s.id === setId) : live();
 
         // The set's two languages travel with every word taken out of it. A
         // game is handed a flat list and has no set to look up, and this is the
@@ -177,10 +189,81 @@ function store() {
      * them -- when they were made was never written down anywhere. Absent reads
      * as "not known", which leaves them ordered by their answers alone, exactly
      * as they are ordered now.
+     *
+     * `byHand` for a set a person wrote, which is a change they made and is
+     * dated as one; a set the app built for a language is not -- see touch.
      */
-    function addSet(set) {
+    function addSet(set, byHand) {
         set.createdAt = Date.now();
+        if (byHand) touch(set);
         sets.unshift(set);
+    }
+
+    /*
+     * When a person last changed a set, written on it as `changedAt`: the date
+     * synchronisation compares -- see sync.js and docs/BACKEND.md.
+     *
+     * Every change a person makes to a set comes through here: an answer, a
+     * record, a set written by hand, an edit, an archive and a return from it.
+     * One place, because a change that forgot to write the date is a change
+     * that never leaves the device -- nothing else tells sync it happened.
+     *
+     * Only a person's changes. A set the app made by itself -- the starter set,
+     * the ones built out of the table when a language is chosen -- carries no
+     * date at all, and that is what lets it lose to any copy somebody has
+     * played. Dated, the untouched copy a new language builds on this device
+     * would be newer than the one with a month of answers that the same
+     * language built on another, and would replace it.
+     *
+     * Absent reads as "never changed", which is also true of every set saved
+     * before the field existed -- see docs/BACKEND.md on why that needs no
+     * translation in migrate.js.
+     */
+    function touch(set) {
+        if (set) set.changedAt = Date.now();
+    }
+
+    /*
+     * Deleting a set, which keeps it.
+     *
+     * Marked and left in the list, on this device and on the server: a
+     * deletion is then a change like any other, carried by sending the set
+     * whole. Taken out instead, the set would come back from the next device
+     * that still had it, and saying that it went would need a record of its
+     * own.
+     *
+     * It also leaves the way back open -- restore, which is what choosing a
+     * language again does for the sets built for it, history and all.
+     */
+    function archive(setId) {
+        const set = sets.find(s => s.id === setId);
+        if (!set) return;
+
+        set.archived = true;
+        touch(set);
+    }
+
+    function restore(setId) {
+        const set = sets.find(s => s.id === setId);
+        if (!set || !set.archived) return;
+
+        delete set.archived;
+        touch(set);
+    }
+
+    /*
+     * A set as another device last saved it, put in place of the one here:
+     * synchronisation replaces whole sets and never merges them -- see sync.js.
+     *
+     * In the same place in the list, because the order of the list is the last
+     * tie-breaker of the catalog's order; a set nobody has seen here yet goes
+     * to the end.
+     */
+    function put(set) {
+        const at = sets.findIndex(s => s.id === set.id);
+
+        if (at === -1) sets.push(set);
+        else sets[at] = set;
     }
 
     /*
@@ -256,6 +339,7 @@ function store() {
         if (liveWord) {
             if (!liveWord.repetitions) liveWord.repetitions = [];
             liveWord.repetitions.push(entry);
+            touch(set);
         }
 
         // Keep the session pool copy in sync (it is a separate object after a page reload)
@@ -283,8 +367,10 @@ function store() {
      * every change of threshold a translation in migrate.js.
      *
      * The best and nothing else -- not every run's value, which would grow for
-     * as long as the app is used. Two copies of it merge the way the answers
-     * do: the larger best wins, and its `at` comes with it.
+     * as long as the app is used. It travels with the set it is on: devices
+     * replace whole sets and never merge them, so there is no rule here for
+     * two copies of a record -- see docs/BACKEND.md, where the one that would
+     * be needed is written down, and why "the larger best" is not it.
      *
      * Absent until the first record, which reads as "nothing set yet" and is
      * exactly that; no set written before this field existed has a record to
@@ -304,6 +390,7 @@ function store() {
         if (held && held.best >= value) return false;
 
         set.achievements[game][key] = { best: value, at: Date.now() };
+        touch(set);
         return true;
     }
 
@@ -320,11 +407,19 @@ function store() {
     store.save = save;
     store.noteBest = noteBest;
     store.bestOf = bestOf;
-    store.sets = () => sets;
+    store.sets = live;
+    // The archived ones too, for the one reader that has to see them: the
+    // copy of the list another device keeps -- see sync.js.
+    store.allSets = () => sets;
     store.wordsOf = wordsOf;
     store.duePool = duePool;
     store.addSet = addSet;
+    store.touch = touch;
+    store.archive = archive;
+    store.restore = restore;
+    store.put = put;
+    // Everything at once, for a device taking on another one's sets whole.
+    store.replaceAll = (list) => { sets = list.slice(); };
     store.gameOf = gameOf;
-    store.removeAt = (index) => sets.splice(index, 1);
     store.recordRepetition = recordRepetition;
 }

@@ -690,7 +690,13 @@ function speech() {
 
     function speak(text, lang, whenDone) {
         const voice = voiceOf(text, lang);
-        if (!voice) return false;
+
+        // Counted rather than written each time: a missing voice is missing
+        // on every tap of the session -- see track.tally.
+        if (!voice) {
+            track.tally('no_voice', [lang || detect(text).lang || '']);
+            return false;
+        }
 
         // Counted here rather than on the way in: a word the device has no
         // voice for was never said, and asking for it twice is not a repeat of
@@ -714,10 +720,24 @@ function speech() {
         // the utterance this one replaces fires the same events a moment later,
         // and they are about a word nobody is listening to any more.
         line.onend = () => { if (pending === watcher) settle(); };
-        line.onerror = () => { if (pending === watcher) settle(); };
 
-        watcher.guard = setTimeout(() => {
+        // For the analytics, every failure but the two this file causes
+        // itself: `interrupted` and `canceled` are what the next word does to
+        // the last one, which is how speaking is meant to work here.
+        line.onerror = (e) => {
+            const code = (e && e.error) || 'unknown';
+            if (code !== 'interrupted' && code !== 'canceled') track.tally('speech_error', [code, line.lang]);
+
             if (pending === watcher) settle();
+        };
+
+        // And the backstop firing, which is a voice that never said it had
+        // finished -- or never started.
+        watcher.guard = setTimeout(() => {
+            if (pending !== watcher) return;
+
+            track.tally('speech_timeout', [line.lang]);
+            settle();
         }, guardMs(text, again.rate));
 
         pending = watcher;
@@ -924,7 +944,7 @@ function speech() {
     // Every word its own target; everything between them left as it was written
     speech.lineHtml = (text) => partsOf(text)
         .map(part => (part.isWordLike
-            ? `<span class="say-word" style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${part.segment}</span>`
+            ? `<span class="say-word" data-press style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${part.segment}</span>`
             : part.segment))
         .join('');
 
@@ -956,7 +976,7 @@ function speech() {
     speech.speakerHtml = (text, lang, colour, css) => {
         if (!speech.readable(text, lang)) return '';
 
-        return `<span class="say-all" title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
+        return `<span class="say-all" data-press title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
     };
 
 }

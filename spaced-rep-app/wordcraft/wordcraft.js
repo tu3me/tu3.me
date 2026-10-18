@@ -844,6 +844,10 @@ function wordcraft(container) {
                     box.style.cursor = 'pointer';
                     box.title = open ? 'Say it' : 'Click to give the word away (counts as a mistake)';
 
+                    // Which of the two this press is, for the analytics: the
+                    // class is the same either way -- see data-press in track.js.
+                    box.dataset.press = open ? 'say' : 'reveal';
+
                     box.addEventListener('click', () => onLetterClick(i, text, open));
                 }
 

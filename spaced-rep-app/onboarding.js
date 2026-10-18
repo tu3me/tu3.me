@@ -947,7 +947,7 @@ function onboarding() {
      * something, one of these cards is about those dots, and a second meaning
      * for a dot on the same screen is a meaning lost.
      */
-    const step = (back, off) => (off ? '' : `<button class="onb-step" data-back="${back ? 1 : 0}"
+    const step = (back, off) => (off ? '' : `<button class="onb-step" data-back="${back ? 1 : 0}" data-press="${back ? 'back' : 'next'}"
         title="${back ? 'Previous' : 'Next'}" aria-label="${back ? 'Previous card' : 'Next card'}"
         style="position: absolute; ${back ? 'left' : 'right'}: 4.3px; top: 0; bottom: 0; display: inline-flex;
         align-items: center; justify-content: center; width: 20.5px; padding: 0; background: transparent;
@@ -1124,6 +1124,10 @@ function onboarding() {
 
         at = card.id;
         save('onboardingAt', at);
+
+        // Which cards are reached, and in what order, is the onboarding's
+        // funnel -- see docs/BACKEND.md.
+        track('onb_show', card.id);
     }
 
     // Every card this device can show, which is all of them unless the device
@@ -1238,6 +1242,9 @@ function onboarding() {
     onboarding.toggle = () => {
         want = !onboarding.showing();
         save('onboarding', want);
+
+        // Off on the card it was sent away from, which is where the funnel ends.
+        track(want ? 'onb_on' : 'onb_off', at);
 
         live = null;
         decide(here());

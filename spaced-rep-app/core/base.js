@@ -341,6 +341,8 @@ function resizeGrip() {
 
         place();
         remember();
+
+        track('resize', 'reset');
     }
 
     handle.addEventListener('pointerdown', (event) => {
@@ -408,10 +410,14 @@ function resizeGrip() {
             if (!frame) frame = requestAnimationFrame(apply);
         };
 
+        // The width a drag ended on is the one the analytics hear about, not
+        // the sixty a second it passed through -- see track.js.
         const stop = () => {
             handle.removeEventListener('pointermove', move);
             handle.removeEventListener('pointerup', stop);
             handle.removeEventListener('pointercancel', stop);
+
+            if (held) track('resize', held);
         };
 
         handle.addEventListener('pointermove', move);

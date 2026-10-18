@@ -128,6 +128,19 @@ function storage() {
         });
     }
 
+    // Gone rather than set to null, for keys that come and go -- one per
+    // visit of the analytics, see track.js -- and would otherwise pile up as
+    // empty entries for as long as the app is used.
+    async function remove(key) {
+        const os = await objectStore('readwrite');
+        if (!os) return false;
+        return new Promise((resolve) => {
+            const request = os.delete(key);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => resolve(false);
+        });
+    }
+
     async function get(key) {
         const os = await objectStore('readonly');
         if (!os) return undefined;
@@ -168,6 +181,7 @@ function storage() {
     storage.init = init;
     storage.get = get;
     storage.set = set;
+    storage.remove = remove;
     storage.wipe = wipe;
     // Hook for telling the player their progress is not being saved
     storage.isAvailable = () => db !== null;

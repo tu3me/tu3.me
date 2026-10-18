@@ -100,19 +100,50 @@ function page() {
      */
     let ended = false;
 
+    /*
+     * The run being played, by the moment it was dealt -- the middle part of
+     * the `run` mark on every answer it writes, see store.js. Which is what
+     * lets the analytics tie answers to the device they were given on: the
+     * repetitions do not say, and `run_start` does.
+     *
+     * Noticed here rather than in each game. Every game says when its run was
+     * dealt in the state it saves, and it saves straight after dealing -- see
+     * bootGame -- so a moment that is new to this page is a run that has just
+     * begun, whichever game it is and however it began: a fresh start, or
+     * "again" pressed at the end of the last one.
+     */
+    let run = null;
+
+    page.resumed = (at) => { run = at || null; };
+
+    function noteRun(state) {
+        if (!state || !state.sessionAt || state.sessionAt === run) return;
+
+        run = state.sessionAt;
+        track('run_start', gameId, state.selectedSetId, run, (state.sessionPool || []).length);
+    }
+
     // The session blob is private to its game — no other page ever reads this key,
     // so its shape is the game's own business.
     page.save = () => {
         if (ended) return Promise.resolve(false);
 
-        storage.set('session:' + gameId, module.getState());
+        const state = module.getState();
+        noteRun(state);
+
+        storage.set('session:' + gameId, state);
         return store.save();
     };
 
     // The session is over: the catalog must not offer to continue it, and the
     // popup must reopen at the catalog rather than back here.
-    page.endSession = () => {
+    //
+    // `why` for the analytics: played to the end, or ended by sync.js under a
+    // set that changed on another device -- see syncUnder below.
+    page.endSession = (why) => {
         ended = true;
+
+        if (run) track('run_end', run, why || 'done');
 
         nav.setEntryPoint('index.html');
         storage.set('session:' + gameId, null);
@@ -129,6 +160,33 @@ function page() {
     };
 }
 page();
+
+/*
+ * A sync from a game page, and what follows when it replaced a set the game
+ * is playing: the run ends, without a word, and the player is back in the
+ * catalog.
+ *
+ * Without a word because it is rare -- the popup was closed in the middle of a
+ * game, and the same set was played on another device before it was opened
+ * again -- and because there is nothing to choose: the words under the run are
+ * not the words the set has any more. Asked while the restored game is still
+ * paused, which is when it happens unnoticed; a player who pressed on before the
+ * answer came is taken out under their finger, and that is accepted.
+ *
+ * Over every set it plays from, for a run over all of them.
+ */
+async function syncUnder(module) {
+    const done = await sync.run();
+    if (!done || !done.replaced.length) return;
+
+    const state = module.getState() || {};
+    const playing = state.selectedSetId;
+
+    if (playing !== 'all' && !done.replaced.includes(playing)) return;
+
+    await page.endSession('sync');
+    await nav.home();
+}
 
 /**
  * The boot every game page runs, as its own last line:
@@ -151,6 +209,10 @@ async function bootGame(id, module) {
     await migrate.run();
 
     const settings = await storage.get('settings');
+
+    // The ids first, then the visit they are written on -- see track.js.
+    await remote.init();
+    await track.start(id, settings);
 
     // The ladder the player is on, if they have changed it. Absent means the
     // defaults, which is what the algorithm starts with anyway — see srs.js.
@@ -207,8 +269,15 @@ async function bootGame(id, module) {
         || params.get('resume') === '1'
         || !params.has('set');
 
-    if (isResume && saved) module.setState(saved);
-    else module.start(setId, allowEarly, saved);
+    if (isResume && saved) {
+        module.setState(saved);
+
+        // The run carries on rather than begins: no second `run_start` for it.
+        page.resumed(saved.sessionAt);
+        if (saved.sessionAt) track('run_resume', saved.sessionAt);
+    } else {
+        module.start(setId, allowEarly, saved);
+    }
 
     // This history entry now stands for a running session. Every way back into it
     // — Forward, a reload, a restore the bfcache declined to serve — continues
@@ -255,4 +324,13 @@ async function bootGame(id, module) {
     await page.save();
 
     popupHeight.release();
+
+    // Not awaited: the game is on screen and playable while this is asked.
+    syncUnder(module);
+
+    // An installed app brought back from the background is the same page, not
+    // a new one, and a set may have moved on elsewhere while it was away.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncUnder(module);
+    });
 }
