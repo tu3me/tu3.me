@@ -28,14 +28,27 @@ function sync() {
 
     const dateOf = (set) => (set && set.changedAt) || 0;
 
-    // The answers in `set` that `instead` does not have, which is what
-    // replacing one with the other loses. Told apart by when they were given.
+    /*
+     * The answers in `set` that `instead` does not have, which is what
+     * replacing one with the other loses. Told apart by when they were given.
+     *
+     * Only over the words both copies hold. A word renamed or taken out on the
+     * other device takes its answers with it on purpose -- the form keeps
+     * answers by the word -- and counting those would report as lost what
+     * somebody deleted.
+     */
     function lostAnswers(set, instead) {
-        const kept = new Set();
-        ((instead && instead.words) || []).forEach(w => (w.repetitions || []).forEach(r => kept.add(r.timestamp)));
+        const kept = new Map();
+        ((instead && instead.words) || []).forEach(w => {
+            kept.set(w.original, new Set((w.repetitions || []).map(r => r.timestamp)));
+        });
 
         let lost = 0;
-        (set.words || []).forEach(w => (w.repetitions || []).forEach(r => { if (!kept.has(r.timestamp)) lost++; }));
+        (set.words || []).forEach(w => {
+            const theirs = kept.get(w.original);
+            if (!theirs) return;
+            (w.repetitions || []).forEach(r => { if (!theirs.has(r.timestamp)) lost++; });
+        });
 
         return lost;
     }
@@ -64,9 +77,22 @@ function sync() {
      * answer to the earlier may arrive after a change made in between. Checked
      * now, it loses to that change, as it should.
      *
-     * A set replaced while it held changes of its own that this request had
-     * carried is a loss -- the server had a newer copy from somewhere else --
-     * and the answers that went with it are counted for the analytics.
+     * A set replaced by a copy that lacks answers this one has is a loss, and
+     * the answers are counted for the analytics, with whether they had been
+     * sent. Both ways round are losses, and only one of them used to be
+     * counted:
+     *
+     *   - not sent: this device played while another, playing later, got its
+     *     copy to the server first. The answers here never left;
+     *   - sent: this device played and sent, and another device that had not
+     *     seen those answers played afterwards and sent its copy, later and so
+     *     the winner. The answers here reached the server and were overwritten
+     *     there, and this is the only device that can tell -- the other one
+     *     won, and never saw them.
+     *
+     * Measured in the scenario run: 23 answers lost on one profile, 13 of them
+     * counted when only the first way was -- the other ten were found only by
+     * matching each run_start against the answers left on the server.
      */
     async function apply(answer, sentBefore) {
         const replaced = [];
@@ -77,9 +103,8 @@ function sync() {
             const here = store.allSets().find(s => s.id === entry.id);
             if (here && dateOf(entry.data) <= dateOf(here)) return;
 
-            if (here && dateOf(here) > sentBefore) {
-                track('sync_loss', entry.id, lostAnswers(here, entry.data));
-            }
+            const lost = here ? lostAnswers(here, entry.data) : 0;
+            if (lost) track('sync_loss', entry.id, lost, dateOf(here) > sentBefore ? 0 : 1);
 
             store.put(entry.data);
             replaced.push(entry.id);
@@ -132,6 +157,23 @@ function sync() {
     }
 
     /*
+     * A request that did not go through: counted for the analytics, and the
+     * start of the run of failures remembered on the device -- across visits,
+     * because a device offline for a day fails on every page of every visit
+     * in it. The settings say so when it has lasted, see syncRows in
+     * catalog.js; the first success after it reports how long it was.
+     */
+    async function failed(error) {
+        track.tally('sync_fail', [error]);
+
+        const meta = remote.meta();
+        await remote.update({
+            failedAt: meta.failedAt || Date.now(),
+            failures: (meta.failures || 0) + 1
+        });
+    }
+
+    /*
      * One sync. Answers what changed here because of it, or null when nothing
      * could be asked -- no storage, no network, a server that said no.
      *
@@ -160,7 +202,7 @@ function sync() {
         let answer = await remote.post('sync.php', body);
 
         if (answer.error) {
-            track.tally('sync_fail', [answer.error]);
+            await failed(answer.error);
             return null;
         }
 
@@ -177,10 +219,17 @@ function sync() {
             return null;
         }
 
+        // The first success after a run of failures says how long they lasted:
+        // sync_fail is counted, and its moment is that of the first one, so it
+        // cannot say when they stopped.
+        if (meta.failedAt) track('sync_back', meta.failures || 0, Date.now() - meta.failedAt);
+
         await remote.update({
             fresh: false,
             lastSent: Math.max(meta.lastSent || 0, assembled),
-            syncedAt: Date.now()
+            syncedAt: Date.now(),
+            failedAt: 0,
+            failures: 0
         });
 
         const first = await apply(answer, sentBefore);
@@ -201,7 +250,7 @@ function sync() {
             });
 
             if (answer.error) {
-                track.tally('sync_fail', [answer.error]);
+                await failed(answer.error);
             } else {
                 const second = await apply(answer, sentBefore);
                 replaced.push(...second.replaced);
@@ -230,13 +279,23 @@ function sync() {
      *
      * Answers 'invalid', 'same', 'offline', 'missing' or 'ok'. After 'ok' the
      * caller reloads: half of what is on screen was read at boot.
+     *
+     * Every answer but 'ok' is written down too. The person is told on screen,
+     * and the analytics used to see only presses of Connect with nothing after
+     * them -- measured: three attempts, two codes nobody had and one too short,
+     * and nothing to say which.
      */
     async function join(code, gameIds) {
+        const refuse = (why, detail) => {
+            track('join_fail', why, detail || '');
+            return why;
+        };
+
         const user = remote.normalize(code);
-        if (!remote.valid(user)) return 'invalid';
+        if (!remote.valid(user)) return refuse('invalid');
 
         const meta = remote.meta();
-        if (user === meta.user) return 'same';
+        if (user === meta.user) return refuse('same');
 
         const answer = await remote.post('sync.php', {
             format: FORMAT,
@@ -246,16 +305,23 @@ function sync() {
             sets: []
         }, user);
 
-        if (answer.error) return 'offline';
-        if (answer.missing) return 'missing';
+        if (answer.error) return refuse('offline', answer.error);
+        if (answer.missing) return refuse('missing');
+
+        const sets = (answer.sets || []).filter(e => e && e.data && (e.format || 1) <= FORMAT).map(e => e.data);
+
+        // What the move brought and what it cost: the sets and answers that
+        // came, and the answers this device had of its own, which go. The
+        // screen warned about the second; this is how often it is paid.
+        const answers = (list) => list.reduce((n, set) => n + (set.words || [])
+            .reduce((m, w) => m + (w.repetitions || []).length, 0), 0);
 
         // Whatever was gathered under the profile being left goes under it,
         // the move itself included; the visit after the reload is the new
         // profile's.
-        track('join');
+        track('join', sets.length, answers(sets), answers(store.allSets()));
         await track.close();
 
-        const sets = (answer.sets || []).filter(e => e && e.data && (e.format || 1) <= FORMAT).map(e => e.data);
         store.replaceAll(sets);
         await store.save();
 

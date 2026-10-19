@@ -122,6 +122,11 @@ function remote() {
      * `fresh` marks a profile the server has not confirmed yet. Its first sync
      * says so, and a server that already knows the id from another device
      * answers that it is taken -- see sync.js.
+     *
+     * Two more belong to the device rather than to sync, and live here because
+     * this is the record that outlives "Clear data": `visits`, how many visits
+     * the device has begun (see `seq` in track.js), and `failedAt`/`failures`,
+     * the run of failed requests the settings warn about (see sync.js).
      */
     let meta = null;
 
@@ -170,15 +175,28 @@ function remote() {
      *
      * Its own `key` for the one request that asks about a profile this device
      * does not belong to yet -- see sync.join.
+     *
+     * `leaving` for a request made as the page leaves the screen -- the visit
+     * that has just ended, see track.js. Sent at once and uncompressed:
+     * compressing is asynchronous, and a page on its way out should have its
+     * request on the wire before it does anything else. A visit is a few
+     * kilobytes either way -- 3.4 KB the largest in the scenario run, 1 KB
+     * gzipped. And with keepalive, which lets the request outlive the page,
+     * up to the browser's limit for such requests: 64 KB in flight, past which
+     * Chrome refuses the request outright (measured: 50 KB went, 70 KB was
+     * refused). A body that large goes without it; a plain request still left
+     * a closing popup in every case measured.
      */
     const TIMEOUT = 15000;
+    const KEEPALIVE_LIMIT = 60000;
 
-    async function post(path, body, key) {
+    async function post(path, body, key, options) {
+        const leaving = !!(options && options.leaving);
         const json = JSON.stringify(body);
         const headers = { 'Content-Type': 'application/json', 'X-Sync-Key': key || meta.user };
 
         let payload = json;
-        if (typeof CompressionStream === 'function') {
+        if (!leaving && typeof CompressionStream === 'function') {
             try {
                 payload = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).blob();
                 headers['Content-Encoding'] = 'gzip';
@@ -197,6 +215,7 @@ function remote() {
                 body: payload,
                 cache: 'no-store',
                 credentials: 'omit',
+                keepalive: leaving && new Blob([json]).size < KEEPALIVE_LIMIT,
                 signal: controller.signal
             });
 
@@ -208,6 +227,11 @@ function remote() {
             clearTimeout(timer);
         }
     }
+
+    // Whether this copy talks to the live server: the store build and the live
+    // site. The background worker says so in the address of the farewell page,
+    // which has to know which database a departure belongs in.
+    remote.live = () => base() === LIVE;
 
     remote.init = init;
     remote.enabled = enabled;

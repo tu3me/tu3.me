@@ -327,11 +327,22 @@ function speech() {
      * the same thing. Words with no letters of their own say nothing and vote
      * for nobody — they would otherwise drag every set back to the script's
      * default. A column nobody named outright is answered by its shared letters
-     * instead, on the same terms: one hint and no argument. When the column
-     * really does hold several languages, no one language can stand for it, and
-     * each word is left with its own.
+     * instead, and when its words point different ways the column is asked as
+     * a whole, the way a single word is: Kazakh written without its own letters
+     * has і, which Ukrainian shares, in one word and ү in the next, and only
+     * Kazakh explains both. Asked word by word it came back Russian — measured:
+     * one word said Ukrainian, three Kazakh, and the six with neither letter
+     * outvoted them both for the script's default.
+     *
+     * A column with no evidence at all is the script's default, unless the
+     * person is known to read or learn another language written the same way
+     * and not the default itself — see `preferred`. Spanish with no ñ or accent
+     * in it was English, for somebody learning Spanish and not English.
+     *
+     * When the column really does hold several languages, no one language can
+     * stand for it, and each word is left with its own.
      */
-    speech.languageOfAll = (texts) => {
+    speech.languageOfAll = (texts, preferred) => {
         const lines = (texts || []).map(t => String(t || '')).filter(t => t.trim());
         const seen = lines.map(detect).filter(r => r.script);
 
@@ -342,6 +353,8 @@ function speech() {
         const hinted = new Set(seen.map(r => r.hinted).filter(Boolean));
 
         if (scripts.size === 1) {
+            const owner = seen[0].script;
+
             // One language named outright answers for the column, whatever the
             // shared letters elsewhere in it were pointing at.
             if (named.size === 1) return { lang: [...named][0], perText: null };
@@ -349,13 +362,37 @@ function speech() {
             // Nobody named: a hint answers if the column has only one of them —
             // a column of French words carries no letter French alone writes,
             // and falling back to English would waste every ç in it.
-            if (named.size === 0 && hinted.size <= 1) {
-                return { lang: hinted.size ? [...hinted][0] : seen[0].script, perText: null };
+            if (named.size === 0 && hinted.size === 1) return { lang: [...hinted][0], perText: null };
+
+            if (named.size === 0 && hinted.size > 1) {
+                const script = SCRIPTS.find(s => s.lang === owner);
+                const whole = script && hintFrom(script, lines.join(' ').normalize('NFC'));
+                if (whole) return { lang: whole, perText: null };
             }
+
+            if (named.size === 0 && hinted.size === 0) return { lang: unmarked(owner, preferred), perText: null };
         }
 
         return { lang: null, perText: (texts || []).map(t => detect(t).lang) };
     };
+
+    /*
+     * What to call a column that carries nothing to tell its language by.
+     *
+     * The script's own language, as always -- unless the person reads or
+     * learns that language already, in which case it is the safe answer, or
+     * does not, and does read or learn another language written the same way.
+     * The first of those in `preferred` (the languages being learned first,
+     * then the one the person reads) is far likelier than a language they
+     * never mentioned. Only a guess where there was none: a column whose
+     * letters say anything is never overruled by it.
+     */
+    function unmarked(owner, preferred) {
+        const mine = (preferred || []).filter(Boolean);
+        if (!mine.length || mine.includes(owner)) return owner;
+
+        return mine.find(tag => ownerOf(tag) === owner) || owner;
+    }
 
     /*
      * Every language the detector can name outright — sixty-odd, and that is a fact
@@ -794,9 +831,20 @@ function speech() {
      * player might not know it. Now the quiet is something they asked for and
      * the switch is already showing its off face: answering a tap by explaining
      * their own choice back to them is one answer too many.
+     *
+     * The analytics hear it, though, counted like a missing voice: a person
+     * who turned the sound off and forgot presses speakers into silence, and
+     * without this the presses were all there was to see -- measured in the
+     * scenario run, where that case had to be pieced together from the visit's
+     * starting state and what each pressed class does.
      */
     speech.say = (text, lang, whenDone) => {
-        if (!text || muted || !speech.available()) return false;
+        if (!text || !speech.available()) return false;
+
+        if (muted) {
+            track.tally('say_muted', [lang || detect(text).lang || '']);
+            return false;
+        }
 
         if (voices().length === 0) {
             held = { text: text, lang: lang, done: whenDone };

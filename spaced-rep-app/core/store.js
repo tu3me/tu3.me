@@ -39,14 +39,17 @@ function store() {
      * business overwriting it on every edit. Only the words that have no answer
      * get one, and the column they are read against is the whole column, the
      * already-named words included: they are the evidence.
+     *
+     * `preferred` is the languages the person learns and reads, for a column
+     * that has nothing in it to tell -- see speech.languageOfAll.
      */
-    function label(set) {
+    function label(set, preferred) {
         const words = set.words || [];
 
         [['originalLang', 'original'], ['translationLang', 'translation']].forEach(([field, side]) => {
             if (set[field]) return;
 
-            const guess = speech.languageOfAll(words.map(w => w[side]));
+            const guess = speech.languageOfAll(words.map(w => w[side]), preferred);
 
             // Nothing recognised — digits, an empty column — leaves the field
             // absent rather than putting a null in the saved data.

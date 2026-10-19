@@ -1526,8 +1526,12 @@ function catalog(container) {
 
         if (addSetBtn) addSetBtn.addEventListener('click', toggleNewSet);
 
+        // What the press left the sound at goes to the analytics: the press
+        // alone says it was pressed, not whether it turned the sound off or
+        // back on -- see `sound` in docs/ANALYTICS.md.
         header.querySelector('#mute-btn').addEventListener('click', () => {
             speech.mute(!speech.muted());
+            track('sound', speech.muted() ? 'off' : 'on', 'catalog');
             saveSetting('muted', speech.muted());
             render();
         });
@@ -2425,7 +2429,22 @@ function catalog(container) {
 
         const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">Sync code</div>`;
 
-        const synced = meta.syncedAt ? `Synced ${agoText(Date.now() - meta.syncedAt)}.` : 'Not synced yet.';
+        /*
+         * Said plainly when syncing has stopped working, rather than an honest
+         * "Synced 1m ago" that reads as all is well -- measured: a device behind
+         * a proxy that refused every request showed exactly that through three
+         * visits. Not for a single failure a minute old, which the next page
+         * usually mends.
+         */
+        const now = Date.now();
+        const failing = meta.failedAt && now - meta.failedAt > 60000;
+
+        let synced = meta.syncedAt ? `Synced ${agoText(now - meta.syncedAt)}.` : 'Not synced yet.';
+        if (failing) {
+            synced = meta.syncedAt
+                ? `Last synced ${agoText(now - meta.syncedAt)}, and the server has not answered since. Your changes stay on this device until it does.`
+                : 'Not synced yet: the server has not answered.';
+        }
 
         const small = `font-size: 10.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};`;
         const button = `flex: none; padding: 5.1px 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;`;
@@ -2940,9 +2959,11 @@ function catalog(container) {
      * where it is, for its code to bring back and for the analytics.
      *
      * One thing outlives the wipe on purpose: the id of the device, put back
-     * into the new database before the reload. The analytics then see one
-     * device that started over rather than a stranger, which is the truth.
-     * What was gathered before goes first, under the profile it belongs to.
+     * into the new database before the reload, and with it the count of its
+     * visits. The analytics then see one device that started over rather than
+     * a stranger, which is the truth, and its visits numbered on without a
+     * restart that would read as lost visits -- see `seq` in track.js. What was
+     * gathered before goes first, under the profile it belongs to.
      */
     async function wipeEverything() {
         track('wipe');
@@ -2950,6 +2971,7 @@ function catalog(container) {
 
         const meta = remote.meta();
         const device = meta && meta.device;
+        const visits = (meta && meta.visits) || 0;
 
         try {
             localStorage.clear();
@@ -2959,7 +2981,7 @@ function catalog(container) {
 
         await storage.wipe();
 
-        if (device) await storage.set('sync', { device: device });
+        if (device) await storage.set('sync', { device: device, visits: visits });
 
         location.reload();
     }
@@ -3263,15 +3285,44 @@ function catalog(container) {
              * are refreshed against a throwaway built from the box, and Save
              * calls it on the real thing. One reader, so what the plate shows and
              * what Save writes cannot disagree.
+             *
+             * A side the detector named and nobody has chosen since is marked as
+             * guessed (`guessedLangs` on the set), and a guess is made again
+             * from the words every time they change. A set's language used to be
+             * kept once named, guess or not, so a set saved broken stayed named
+             * after its broken shape -- measured: six Spanish lines written with
+             * a single dash were read as one Cyrillic column and named Russian,
+             * and the same lines fixed to "--" kept Russian on both sides, for
+             * the Russian voice to read the Spanish. What a person chose on a
+             * plate, and every language saved before the mark existed, is still
+             * kept: absent means known.
              */
             function nameSet(target) {
+                const guessed = new Set(target.guessedLangs || []);
+
                 ['originalLang', 'translationLang'].forEach(field => {
-                    if (choice[field] === 'auto') delete target[field];
-                    else if (choice[field]) target[field] = choice[field];
+                    if (choice[field] === 'auto' || (!choice[field] && guessed.has(field))) {
+                        delete target[field];
+                    } else if (choice[field]) {
+                        target[field] = choice[field];
+                        guessed.delete(field);
+                    }
                 });
 
-                if ((target.words || []).length) store.label(target);
+                const unnamed = ['originalLang', 'translationLang'].filter(field => !target[field]);
+                if ((target.words || []).length) store.label(target, preferredLangs());
+                unnamed.forEach(field => { if (target[field]) guessed.add(field); });
+
+                if (guessed.size) target.guessedLangs = [...guessed];
+                else delete target.guessedLangs;
             }
+
+            // Which sides a person chose on a plate while this form was open,
+            // for the analytics: `o`, `t`, both or neither -- what lets a saved
+            // language be read as the person's answer rather than the
+            // detector's, see set_add in docs/ANALYTICS.md.
+            const byHand = () => (choice.originalLang && choice.originalLang !== 'auto' ? 'o' : '')
+                + (choice.translationLang && choice.translationLang !== 'auto' ? 't' : '');
 
             /*
              * The plates follow the box. The words are read exactly as saving
@@ -3294,10 +3345,12 @@ function catalog(container) {
 
                 // What Save would write, worked out on something nobody is
                 // holding: the set's own two languages are the starting point, so
-                // a set that was named once is not re-guessed every keystroke.
+                // a language somebody chose is not re-guessed every keystroke --
+                // only one the detector gave, see nameSet.
                 const probe = {
                     originalLang: set.originalLang,
                     translationLang: set.translationLang,
+                    guessedLangs: set.guessedLangs,
                     words: words
                 };
 
@@ -3357,7 +3410,7 @@ function catalog(container) {
                 // What the detector made of the columns on its own, before
                 // either plate had a say -- the analytics hold it against the
                 // languages the set is saved with. See docs/BACKEND.md.
-                const guessed = keep ? store.label({ words: parsed.words }) : null;
+                const guessed = keep ? store.label({ words: parsed.words }, preferredLangs()) : null;
 
                 if (keep) {
                     set.title = parsed.title;
@@ -3370,8 +3423,11 @@ function catalog(container) {
                     noteLearnLang(set.originalLang);
 
                     // And typing into the starter set makes it a set like any
-                    // other, which is to say one that stays.
-                    set.adopted = true;
+                    // other, which is to say one that stays. Only the starter
+                    // set: on any other the mark means nothing, and written on
+                    // every set saved here it read as if every one of them had
+                    // started as the sample (ARCHITECTURE.md §5).
+                    if (String(set.id) === SAMPLE_ID) set.adopted = true;
                 }
 
                 /*
@@ -3396,12 +3452,12 @@ function catalog(container) {
                 if (set === draft) {
                     if (keep) {
                         store.addSet(set, true);
-                        track('set_add', 'form', separatorOf(textarea.value), set.words.length, found, langs);
+                        track('set_add', 'form', separatorOf(textarea.value), set.words.length, found, langs, byHand());
                     }
                     draft = null;
                 } else if (keep) {
                     store.touch(set);
-                    track('set_edit', set.id, separatorOf(textarea.value), set.words.length, found, langs);
+                    track('set_edit', set.id, separatorOf(textarea.value), set.words.length, found, langs, byHand());
                 } else {
                     store.archive(set.id);
                     track('set_archive', set.id);
@@ -3689,7 +3745,11 @@ function catalog(container) {
             <path d="M12 2.4 14.16 9.03 21.13 9.03 15.49 13.13 17.64 19.77 12 15.67 6.36 19.77 8.51 13.13 2.87 9.03 9.84 9.03Z" />
         </svg>`;
 
-        const starLink = (stars) => `<a class="dict-rate-star" href="${stars > 3 ? STORE_REVIEWS : FEEDBACK_FORM}" target="_blank" rel="noopener noreferrer" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5" style="display: block;">${star}</a>`;
+        // The number goes on the press for the analytics: five links with one
+        // class were five presses nobody could tell apart, and how many stars
+        // somebody gave -- and so whether they were sent to the store or to the
+        // form -- is the whole of what the press says.
+        const starLink = (stars) => `<a class="dict-rate-star" data-press="${stars}" href="${stars > 3 ? STORE_REVIEWS : FEEDBACK_FORM}" target="_blank" rel="noopener noreferrer" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5" style="display: block;">${star}</a>`;
 
         // Air above it and no rule across the page. A line there is read as the
         // end of the list -- it is the only full-width line on the screen -- and
@@ -4151,7 +4211,17 @@ function catalog(container) {
         // comes out is the order they were built in: the first language first,
         // and inside it the first level first. Added forwards, a reader opening
         // the app for the first time would meet Advanced.
-        made.reverse().forEach(set => store.addSet(set));
+        //
+        // And a millisecond apart, so the order is written on the sets and not
+        // only in where the store holds them. The store's order is this
+        // device's: another device that joins the profile gets the sets in the
+        // server's order, which is by id -- measured: Advanced came before
+        // Intermediate there, where every set made in one go had the same
+        // moment and nothing else to sort them by. See `recent`.
+        made.reverse().forEach((set, i) => {
+            store.addSet(set);
+            set.createdAt += i;
+        });
 
         return store.save().then(syncCatalog);
     }
@@ -4181,6 +4251,13 @@ function catalog(container) {
      * are learning. Nothing is made for it -- the set they just wrote is what
      * they wanted -- so this only widens the answer.
      */
+    // The languages this person learns and reads, the learned ones first: what
+    // the detector falls back on for a column with nothing in it to tell --
+    // see speech.languageOfAll.
+    function preferredLangs() {
+        return learnLangs.concat(myLang ? [myLang] : []);
+    }
+
     function noteLearnLang(tag) {
         if (!tag || tag === myLang || learnLangs.includes(tag)) return null;
 
@@ -4232,6 +4309,13 @@ function catalog(container) {
     // What the first screen has been told so far, which is not the answer until
     // the button at the bottom is pressed.
     let picking = { mine: null, learn: [] };
+
+    // Whether the person moved the first dropdown, or answered with what it
+    // was standing on -- the browser's guess, see systemLang. The analytics
+    // need the difference: somebody whose language is not in the list skips,
+    // and what is saved is the guess, which reads as an answer -- measured: a
+    // reader looking for Kazakh came out as an English speaker.
+    let mineChosen = false;
 
     /*
      * The reader's language as a row has to show it: the saved answer if there
@@ -4338,6 +4422,7 @@ function catalog(container) {
 
         panel.querySelector('.dict-start-mine').addEventListener('change', (e) => {
             picking = { mine: e.target.value || null, learn: picking.learn.filter(t => t !== e.target.value) };
+            mineChosen = true;
             render();
         });
 
@@ -4375,7 +4460,7 @@ function catalog(container) {
             if (myLang) await saveSetting('myLang', myLang);
             await saveSetting('langsAsked', true);
 
-            track('langs', 'skip', myLang, []);
+            track('langs', 'skip', myLang, [], mineChosen ? 1 : 0);
             syncCatalog();
 
             render();
@@ -4392,7 +4477,7 @@ function catalog(container) {
             await saveSetting('learnLangs', learnLangs);
             await saveSetting('langsAsked', true);
 
-            track('langs', 'start', myLang, learnLangs);
+            track('langs', 'start', myLang, learnLangs, mineChosen ? 1 : 0);
             await makeSets();
 
             // The sets were just written, so the bars grow out of nothing: this
@@ -4530,8 +4615,13 @@ function catalog(container) {
          * two beside the name, which are the only thing here the app has to add
          * to what the registry holds: the game's own line says what it will be
          * for, and the saying when is this dialog's job.
+         *
+         * Marked for the analytics all the same, with the game in the mark: a
+         * press here does nothing, and is the one measure there is of how many
+         * people want the game -- measured: two taps on it in the scenario run,
+         * and not one of them in the data.
          */
-        const coming = (game) => `<div style="${ROW}">${body(
+        const coming = (game) => `<div class="more-dialog-soon" data-press="${game.id}" style="${ROW}">${body(
             `<span style="${SQUARE} border: 2px solid ${palette.dialogBody}; color: ${palette.dialogBody};">${game.icon(TILE_ICON)}</span>`,
             `<span style="display: block; ${NAME}">${game.title} <span style="font-weight: 600; color: ${palette.dialogBody};">(coming soon)</span></span>`,
             game)}</div>`;
@@ -4674,9 +4764,17 @@ function showFromTop() {
 // on while a game was in front: progress, timers, and whether a session is still
 // unfinished. Kept separate from boot so it can be run again without setting the
 // modules up a second time.
-async function refreshCatalog() {
+//
+// `afterSync` for a redraw because a sync brought something. The open round is
+// not handed in again then: handing it in is also what makes the help strip
+// choose its card afresh (onboarding.setSession), which is right once per
+// arrival at this screen and wrong under somebody reading it -- the strip
+// jumped to another card the moment the other device's sets arrived. A sync
+// never changes the open round here anyway; the one that does, joining a
+// profile, reloads the page.
+async function refreshCatalog(afterSync) {
     await store.load();
-    catalog.setSession(await storage.get('active_session'));
+    if (!afterSync) catalog.setSession(await storage.get('active_session'));
 
     // After store.load(), which is what decides whether a form still has a set
     // to edit.
@@ -4711,7 +4809,7 @@ async function syncCatalog() {
         await catalog.makeSets();
     }
 
-    await refreshCatalog();
+    await refreshCatalog(true);
 }
 
 async function bootCatalog() {

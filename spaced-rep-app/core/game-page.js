@@ -82,8 +82,10 @@ function page() {
 
         drawMute(btn);
 
+        // What the press left the sound at, the same as the catalog's switch.
         btn.addEventListener('click', () => {
             speech.mute(!speech.muted());
+            track('sound', speech.muted() ? 'off' : 'on', 'game');
             saveSetting('muted', speech.muted());
             drawMute(btn);
         });
