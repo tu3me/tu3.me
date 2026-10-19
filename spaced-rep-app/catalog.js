@@ -171,11 +171,12 @@ function catalog(container) {
     // away each time would be a section you can change one number in.
     let intervalsOpen = false;
 
-    // Whether the box for another device's code is folded out, and what was
-    // said last about the code typed into it. Panel state like the folds
-    // above: a redraw under the panel should not take away a code half typed
-    // or the answer it got.
-    let joinOpen = false;
+    // Whether the list of codes used before is folded out, what the code field
+    // holds when it is not this device's own code, and what was said last
+    // about it. Panel state like the folds above: a redraw under the panel
+    // should not take away a code half typed or the answer it got.
+    let pastOpen = false;
+    let syncTyped = null;
     let joinNote = '';
 
     // Set while the form is folding shut. The fold has to finish before the set
@@ -2409,9 +2410,20 @@ function catalog(container) {
      * See docs/BACKEND.md.
      *
      * Above Advanced, because it is the reason to open the panel on a second
-     * device at all. The box for a code from elsewhere is folded away behind a
-     * line of its own: it replaces everything on this device, and it says so
-     * before it is used rather than after.
+     * device at all.
+     *
+     * One field, which shows this device's code and takes another's. It was
+     * the code on show and a second box for a code from elsewhere, folded away
+     * behind a line of its own: two places for one thing, and the second had
+     * to be found. A code in the field that is not this device's own puts
+     * the warning and the button in place of Copy -- the move replaces
+     * everything on this device, and it says so before it is made rather than
+     * after.
+     *
+     * Under the field's arrow, the codes this device has used before (see
+     * sync.join), each with what it held when it was left: twelve characters
+     * on their own cannot be told apart. The code in use heads the list, which
+     * is also how a field typed over is put back.
      */
     function agoText(ms) {
         const minutes = Math.floor(ms / 60000);
@@ -2423,9 +2435,29 @@ function catalog(container) {
         return `${Math.floor(minutes / (24 * 60))}d ago`;
     }
 
+    // The day a code was left, with the year only when it is not this one.
+    function codeDay(at) {
+        const day = new Date(at);
+        const options = { month: 'short', day: 'numeric' };
+        if (day.getFullYear() !== new Date().getFullYear()) options.year = 'numeric';
+
+        return day.toLocaleDateString('en', options);
+    }
+
+    /*
+     * Whether synchronisation is offered: not yet where the live server is,
+     * the store build and the live site. There the server is for learning how
+     * the app is used, and synchronisation runs underneath without being
+     * offered -- the sets still go, because the analytics reads the answers in
+     * them (docs/ANALYTICS.md), and the day it is offered every profile is
+     * already on the server. Everywhere else, where it is tested, it is shown.
+     * Decided 19 October 2026; offering it is this line.
+     */
+    const syncOffered = () => !remote.live();
+
     function syncRows() {
         const meta = remote.meta();
-        if (!meta) return '';
+        if (!meta || !syncOffered()) return '';
 
         const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">Sync code</div>`;
 
@@ -2448,25 +2480,48 @@ function catalog(container) {
 
         const small = `font-size: 10.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};`;
         const button = `flex: none; padding: 5.1px 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;`;
+        const code = `font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums;`;
+
+        const past = meta.past || [];
+        const typed = syncTyped !== null && remote.normalize(syncTyped) !== meta.user;
+
+        const sets = (n) => `${n} ${n === 1 ? 'set' : 'sets'}`;
+
+        // The code over what it held, in two lines: side by side they do not
+        // fit the panel, and a note cut short is the half that tells the codes
+        // apart.
+        const entry = (user, note, place) => `<button class="dict-sync-past" data-code="${remote.grouped(user)}" data-press="${place}" style="display: block; width: 100%; box-sizing: border-box; padding: 4.3px 6.8px; background: transparent; color: ${palette.softColor}; border: none; border-radius: 7.7px; font-family: inherit; text-align: left; cursor: pointer;">
+                <span style="display: block; ${code}">${remote.grouped(user)}</span>
+                <span style="display: block; ${small}">${note}</span>
+            </button>`;
+
+        const list = past.length ? `<div class="dict-sync-past-fold" style="overflow: hidden;"${pastOpen ? '' : ' hidden'}>
+                <div style="margin-top: 3.4px; padding: 2.6px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px;">
+                    ${entry(meta.user, 'In use on this device', 0)}
+                    ${past.map((p, i) => entry(p.user, `${sets(p.sets)} · used until ${codeDay(p.left)}`, i + 1)).join('')}
+                </div>
+            </div>` : '';
+
+        const arrow = past.length ? `<button class="dict-sync-list" aria-expanded="${pastOpen}" title="Codes used on this device" style="position: absolute; right: 3.4px; top: 50%; translate: 0 -50%; display: flex; align-items: center; justify-content: center; width: 22.2px; height: 22.2px; padding: 0; background: transparent; border: none; color: ${palette.softColor}; cursor: pointer;">
+                <span class="dict-sync-list-chevron" style="display: block; rotate: ${pastOpen ? -90 : 90}deg; transition: rotate 0.18s ease-out;">${CHEVRON}</span>
+            </button>` : '';
 
         return `<div class="dict-sync" style="margin-top: 10.2px;">
                 ${caption}
                 <div style="display: flex; align-items: center; gap: 5.1px;">
-                    <div class="dict-sync-code" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; user-select: all; white-space: nowrap;">${remote.grouped(meta.user)}</div>
-                    <button class="dict-sync-copy" style="${button}">Copy</button>
-                </div>
-                <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">Enter it on your other device to share your sets and progress. ${synced}</div>
-                <button class="dict-sync-join-line" aria-expanded="${joinOpen}" style="display: block; margin-top: 3.4px; padding: 3.4px 9.5px; background: transparent; border: none; font-family: inherit; font-size: 10.8px; font-weight: 700; color: ${palette.softColor}; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;">I have a code from another device</button>
-                <div class="dict-sync-join" style="overflow: hidden;"${joinOpen ? '' : ' hidden'}>
-                    <div style="padding-top: 3.4px;">
-                        <div style="display: flex; align-items: center; gap: 5.1px;">
-                            <input class="dict-sync-input" type="text" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; outline: none;">
-                            <button class="dict-sync-connect" style="${button} background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">Connect</button>
-                        </div>
-                        <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">The sets and progress on this device will be replaced with the ones under that code.</div>
-                        <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote}</div>
+                    <div style="position: relative; flex: 1; min-width: 0;">
+                        <input class="dict-sync-input" type="text" value="${escapeText(typed ? syncTyped : remote.grouped(meta.user))}" placeholder="XXXX-XXXX-XXXX" aria-label="Sync code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="width: 100%; box-sizing: border-box; padding: 5.1px ${past.length ? '27.3px' : '8.5px'} 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; ${code} outline: none;">
+                        ${arrow}
                     </div>
+                    <button class="dict-sync-copy" style="${button}"${typed ? ' hidden' : ''}>Copy</button>
                 </div>
+                ${list}
+                <div class="dict-sync-hint" style="margin-top: 4.3px; padding-left: 9.5px; ${small}"${typed ? ' hidden' : ''}>Enter it on your other device to share your sets and progress, or put that device's code here. ${synced}</div>
+                <div class="dict-sync-switch"${typed ? '' : ' hidden'}>
+                    <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">The sets and progress on this device will be replaced with the ones under that code. The code in use now goes to this device's list of codes, to come back to.</div>
+                    <button class="dict-sync-connect" style="${button} margin-top: 5.1px; background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">Save and sync</button>
+                </div>
+                <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote}</div>
             </div>`;
     }
 
@@ -2483,7 +2538,15 @@ function catalog(container) {
         missing: 'No profile has this code. Check it and try again.'
     };
 
+    // One move at a time. A move now syncs the profile it leaves before it
+    // asks about the next, which is long enough to be pressed twice -- and a
+    // second move begun before the first has finished would file the code
+    // just taken as the one left.
+    let joining = false;
+
     async function connect(input, status) {
+        if (joining) return;
+        joining = true;
         status.textContent = 'Connecting…';
 
         const answer = await sync.join(input.value, GAMES.map(g => g.id));
@@ -2493,6 +2556,7 @@ function catalog(container) {
             return;
         }
 
+        joining = false;
         joinNote = JOIN_NOTES[answer] || '';
         status.textContent = joinNote;
     }
@@ -2642,39 +2706,74 @@ function catalog(container) {
             render();
         });
 
-        const copy = overlay.querySelector('.dict-sync-copy');
+        const codeField = overlay.querySelector('.dict-sync-input');
 
-        if (copy) {
-            const code = overlay.querySelector('.dict-sync-code');
+        if (codeField) {
+            const meta = remote.meta();
+            const copy = overlay.querySelector('.dict-sync-copy');
+            const hint = overlay.querySelector('.dict-sync-hint');
+            const move = overlay.querySelector('.dict-sync-switch');
+            const status = overlay.querySelector('.dict-sync-status');
+
+            const other = () => remote.normalize(codeField.value) !== meta.user;
+
+            // Copy under this device's own code, the warning and the button
+            // under any other -- see syncRows.
+            const settle = () => {
+                const elsewhere = other();
+
+                syncTyped = elsewhere ? codeField.value : null;
+                copy.hidden = elsewhere;
+                hint.hidden = elsewhere;
+                move.hidden = !elsewhere;
+
+                joinNote = '';
+                status.textContent = '';
+            };
+
+            codeField.addEventListener('input', settle);
 
             // The clipboard where the browser allows it, and the code selected
             // where it does not -- one press of a shortcut away either way.
             copy.addEventListener('click', async () => {
                 try {
-                    await navigator.clipboard.writeText(code.textContent);
+                    await navigator.clipboard.writeText(remote.grouped(meta.user));
                     copy.textContent = 'Copied';
                     setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
                 } catch (e) {
-                    const range = document.createRange();
-                    range.selectNodeContents(code);
-                    getSelection().removeAllRanges();
-                    getSelection().addRange(range);
+                    codeField.select();
                 }
             });
 
-            const join = overlay.querySelector('.dict-sync-join');
-            const joinLine = overlay.querySelector('.dict-sync-join-line');
-            const input = overlay.querySelector('.dict-sync-input');
-            const status = overlay.querySelector('.dict-sync-status');
+            overlay.querySelector('.dict-sync-connect').addEventListener('click', () => connect(codeField, status));
+            codeField.addEventListener('keydown', (e) => { if (e.key === 'Enter' && other()) connect(codeField, status); });
 
-            joinLine.addEventListener('click', () => {
-                joinOpen = !joinOpen;
-                joinLine.setAttribute('aria-expanded', joinOpen);
-                foldOut(join, joinOpen);
-            });
+            const arrow = overlay.querySelector('.dict-sync-list');
 
-            overlay.querySelector('.dict-sync-connect').addEventListener('click', () => connect(input, status));
-            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(input, status); });
+            if (arrow) {
+                const fold = overlay.querySelector('.dict-sync-past-fold');
+                const turn = arrow.querySelector('.dict-sync-list-chevron');
+
+                const unroll = (open) => {
+                    pastOpen = open;
+                    arrow.setAttribute('aria-expanded', open);
+                    turn.style.rotate = `${open ? -90 : 90}deg`;
+                    foldOut(fold, open);
+                };
+
+                arrow.addEventListener('click', () => unroll(!pastOpen));
+
+                // A code picked goes into the field and nowhere further: the
+                // move is the button under the warning, the same as for a
+                // code typed in.
+                for (const line of fold.querySelectorAll('.dict-sync-past')) {
+                    line.addEventListener('click', () => {
+                        codeField.value = line.dataset.code;
+                        settle();
+                        unroll(false);
+                    });
+                }
+            }
         }
 
         /*
@@ -2805,17 +2904,22 @@ function catalog(container) {
             }, RISE_IN + 40);
         }
 
+        // One sentence for every build, on both steps. What the wipe does to
+        // the sync code is a matter for builds that offer synchronisation, and
+        // telling it only there would be a sentence per build.
+        const WIPE_NOTE = 'Removes all data on this device.';
+
         function offer() {
             body.innerHTML = `
                 <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Clear data</button>
-                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Removes every set and all progress kept on this device, and gives it a new sync code.</p>`;
+                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
         }
 
         function confirm() {
             body.innerHTML = `
-                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">Every set and all progress will be gone from this device. The starting sets come back under a new sync code; entering the old code brings back what it holds.</p>
+                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>
                 <div class="dict-wipe-actions" style="display: flex; gap: 6.8px;">
                     <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Erase</button>
                     <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">Cancel</button>
@@ -2964,6 +3068,10 @@ function catalog(container) {
      * a stranger, which is the truth, and its visits numbered on without a
      * restart that would read as lost visits -- see `seq` in track.js. What was
      * gathered before goes first, under the profile it belongs to.
+     *
+     * The list of codes the device has used does not outlive it, and that is
+     * decided: erasing everything here erases the way back to those profiles
+     * too.
      */
     async function wipeEverything() {
         track('wipe');

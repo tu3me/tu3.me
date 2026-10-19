@@ -123,6 +123,12 @@ function remote() {
      * says so, and a server that already knows the id from another device
      * answers that it is taken -- see sync.js.
      *
+     * `past` is the profiles this device has left for another by its code,
+     * newest first, as `{ user, sets, left }`: the settings offer them to come
+     * back to, so that taking on another device's code never costs the one
+     * that was here -- see sync.join. Gone with "Clear data", which erases the
+     * way back to them along with everything else.
+     *
      * Two more belong to the device rather than to sync, and live here because
      * this is the record that outlives "Clear data": `visits`, how many visits
      * the device has begun (see `seq` in track.js), and `failedAt`/`failures`,

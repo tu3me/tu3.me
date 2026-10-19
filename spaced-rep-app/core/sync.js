@@ -264,10 +264,11 @@ function sync() {
     /*
      * This device becomes a copy of another device's profile.
      *
-     * Its own sets are not kept, and that is decided rather than missed: two
-     * devices that were never connected are two profiles, and the code typed
-     * in is the code of the one worth keeping. Which is also why nothing here
-     * compares dates -- everything the profile has is taken as it is.
+     * Its own sets are not carried over, and that is decided rather than
+     * missed: two devices that were never connected are two profiles, and the
+     * code typed in is the code of the one worth keeping. Which is also why
+     * nothing here compares dates -- everything the profile has is taken as it
+     * is.
      *
      * The server is asked first, and nothing is erased until it has answered
      * that the profile exists: a mistyped code must not cost a single word.
@@ -284,7 +285,16 @@ function sync() {
      * and the analytics used to see only presses of Connect with nothing after
      * them -- measured: three attempts, two codes nobody had and one too short,
      * and nothing to say which.
+     *
+     * The profile being left is not lost with the device's copy of it: it is
+     * synced first, and its code goes on the device's list of codes it has
+     * used, which the settings offer to come back to. Synced first because the
+     * list is a promise -- a profile picked from it that lacks the answers
+     * given here just before the move would have broken it -- and so a sync
+     * that fails stops the move: the move needs the server anyway.
      */
+    const PAST_KEPT = 10;
+
     async function join(code, gameIds) {
         const refuse = (why, detail) => {
             track('join_fail', why, detail || '');
@@ -296,6 +306,12 @@ function sync() {
 
         const meta = remote.meta();
         if (user === meta.user) return refuse('same');
+
+        // The reason is counted by run() itself, as sync_fail.
+        if (!await run()) return refuse('offline', 'leaving');
+
+        const past = meta.past || [];
+        const returning = past.some(entry => entry.user === user);
 
         const answer = await remote.post('sync.php', {
             format: FORMAT,
@@ -319,8 +335,14 @@ function sync() {
         // Whatever was gathered under the profile being left goes under it,
         // the move itself included; the visit after the reload is the new
         // profile's.
-        track('join', sets.length, answers(sets), answers(store.allSets()));
+        track('join', sets.length, answers(sets), answers(store.allSets()), returning ? 1 : 0);
         await track.close();
+
+        // Newest first, each code once, and never the one in use: the code
+        // just taken leaves the list, the one just left goes to its top.
+        const left = { user: meta.user, sets: store.sets().length, left: Date.now() };
+        const kept = [left].concat(past.filter(entry => entry.user !== user && entry.user !== meta.user))
+            .slice(0, PAST_KEPT);
 
         store.replaceAll(sets);
         await store.save();
@@ -335,7 +357,7 @@ function sync() {
         // one's -- the mark is put past all of them.
         const latest = sets.reduce((most, set) => Math.max(most, dateOf(set)), Date.now());
 
-        await remote.update({ user: user, fresh: false, lastSent: latest, syncedAt: Date.now() });
+        await remote.update({ user: user, fresh: false, lastSent: latest, syncedAt: Date.now(), past: kept });
 
         return 'ok';
     }
