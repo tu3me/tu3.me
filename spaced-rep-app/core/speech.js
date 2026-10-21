@@ -508,24 +508,60 @@ function speech() {
      *
      * So a word asked for too early is held, and said when the list lands. One
      * word, not a queue: if two arrive before the voices do, the second is what
-     * the player last asked for.
+     * the player last asked for -- and the first is over, its waiter told so,
+     * the same as a word cut off in the air (see settle).
+     *
+     * Held for a while and not for ever. A browser with no voices at all has a
+     * list that is empty and stays empty, and says nothing about it: no
+     * `voiceschanged`, ever. A word held for that was held for good, and so was
+     * whoever was waiting on it -- measured in the snake, which lit every
+     * letter it ate and never put the light out, and stopped at the end of the
+     * round waiting for the last letter to finish being said. A list that is
+     * coming at all comes fast -- measured: 14ms after it was first asked for,
+     * in Chromium 152 -- so a list still empty at VOICES_WAIT is taken to be no
+     * list: the held word goes as one with no voice, and so does everything
+     * asked for after it, until a list does turn up.
      *
      * Nothing else is cached. Voices come and go as the system installs them,
      * and reading the list is cheap.
      */
+    const VOICES_WAIT = 1500;
+
     let held = null;
     let waiting = false;
+    let voiceless = false;
 
     function voices() {
         return typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices();
+    }
+
+    // A held word that will not be said after all. Its waiter is told either
+    // way; counted as a missing voice only when that is why -- a word overtaken
+    // by the next one, or hushed, is not a word the device could not say.
+    function letGo(noVoice) {
+        const word = held;
+        held = null;
+
+        if (!word) return;
+        if (noVoice) track.tally('no_voice', [word.lang || detect(word.text).lang || '']);
+        if (word.done) word.done();
     }
 
     function whenVoicesArrive() {
         if (waiting) return;
         waiting = true;
 
+        // The listener outlives the giving up: a list that turns up late puts
+        // the device back among the ones that speak.
+        const giveUp = setTimeout(() => {
+            voiceless = true;
+            letGo(true);
+        }, VOICES_WAIT);
+
         speechSynthesis.addEventListener('voiceschanged', () => {
+            clearTimeout(giveUp);
             waiting = false;
+            voiceless = false;
             const word = held;
             held = null;
 
@@ -847,6 +883,13 @@ function speech() {
         }
 
         if (voices().length === 0) {
+            // Known to have none: the answer a language with no voice gets.
+            if (voiceless) {
+                track.tally('no_voice', [lang || detect(text).lang || '']);
+                return false;
+            }
+
+            letGo(false);
             held = { text: text, lang: lang, done: whenDone };
             whenVoicesArrive();
             return true;
@@ -856,7 +899,7 @@ function speech() {
     };
 
     speech.hush = () => {
-        held = null;
+        letGo(false);
         settle();
         if (speech.available()) speechSynthesis.cancel();
     };

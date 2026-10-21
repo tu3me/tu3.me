@@ -405,9 +405,16 @@ function onboarding() {
      */
     const AFTER = (i, step) => `animation: onb-mark 220ms ease-out ${Math.round(60 + i * (step || 90))}ms both;`;
 
+    /*
+     * Every mark drawn by hand on a card -- the arrows and the word under the
+     * first one -- is an `onb-point`, so that the new-set form can put them
+     * away when it covers the strip. They are what the form cannot cover: each
+     * reaches out of its card, and two stand above the list on purpose. See
+     * onb-point in app.css.
+     */
     const POINT_UP = () => `<svg width="70" height="38" viewBox="0 0 70 38"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; right: 66px; top: -12px;">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 66px; top: -12px;">
         <path ${DRAW(420, 500)} d="M61 32H48.7A24 24 0 0 1 24.7 8L24.7 6.5" />
         <path ${DRAW(170, 910)} d="M21 13.6 24.7 6.5 28.4 13.6" />
     </svg>`;
@@ -430,7 +437,7 @@ function onboarding() {
      */
     const LABEL = () => `<svg width="46" height="15" viewBox="0 0 62 20" fill="none"
         stroke="${look.body}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; right: 20px; top: 13px; ${WORD_IN}">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 20px; top: 13px; ${WORD_IN}">
         <g transform="rotate(-4 31 11)">
             <path d="M10 8C6 5.5 2 8 2 11.2 2 14.6 6 16.6 10 14.6" />
             <path d="M14.4 16 15.2 8.4" />
@@ -446,7 +453,7 @@ function onboarding() {
 
     const POINT_DOWN = () => `<svg width="19" height="36" viewBox="0 0 19 36"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; left: 50%; margin-left: -9.5px; top: 100%; z-index: 7;">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; left: 50%; margin-left: -9.5px; top: 100%; z-index: 7;">
         <path ${DRAW(500, 500)} d="M9.6 2.4c2.8 9.6 2.4 20.8-.9 31.2" />
         <path ${DRAW(150, 1010)} d="M4.1 27.8 8.7 34.2 13.5 28.2" />
     </svg>`;
@@ -489,7 +496,7 @@ function onboarding() {
      */
     const POINT_CORNER = () => `<svg width="26" height="80" viewBox="0 0 26 80"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; left: -8.6px; top: -44.5px; z-index: 7;">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; left: -8.6px; top: -44.5px; z-index: 7;">
         <path ${DRAW(560, 320)} d="M22 69C17 58 6.5 44 6.5 20L6.5 6" />
         <path ${DRAW(200, 870)} d="M3.2 12.2 6.5 6 9.8 12.2" />
     </svg>`;
@@ -539,7 +546,7 @@ function onboarding() {
      */
     const POINT_SETTINGS = () => `<svg width="60" height="68" viewBox="0 0 60 68"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true" style="display: block; position: absolute; right: 43.4px; top: -10px;">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 43.4px; top: -10px;">
         <path ${DRAW(560, 320)} d="M2.2 65A62.38 62.38 0 0 0 54.1 3.5" />
         <path ${DRAW(200, 870)} d="M50.4 10.6 54.1 3.5 57.8 10.6" />
     </svg>`;

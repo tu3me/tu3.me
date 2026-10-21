@@ -1451,7 +1451,46 @@ function catalog(container) {
         return bubble;
     }
 
-    function render() {
+    /*
+     * The screen drawn again where it stands.
+     *
+     * Drawing empties the column before it fills it again, and for that moment
+     * the page is as short as an empty column: the browser pulls the scroll
+     * back to fit, and the list comes back under a page that is no longer
+     * where it was. Reported on a phone: Edit pressed on a set further down
+     * the list put the reader back at the top of it -- and so would any other
+     * redraw, a sync's among them. Not in the popup, whose scroller is the body
+     * (.in-popup in app.css) and kept its place; both are put back, the way
+     * showFromTop takes both to the top.
+     *
+     * Except for the New set form opening, which goes in at the top of the
+     * list: kept where it stood, the reader further down would press the
+     * button and see nothing happen. That one goes to the top -- where the web
+     * already went, by the accident above, and the popup did not.
+     *
+     * `shaped` is for a redraw that gives something its starting size after
+     * the drawing and before the scroll is put back -- see redrawEased. A page
+     * at the size it is about to animate away from is the page the scroll was
+     * measured on; put back first, against the size it is animating to, a
+     * scroll near the bottom of a page that is about to get shorter is cut to
+     * fit it -- measured: 450 asked, 375 kept, and the set that was pressed
+     * standing 75px lower than where it was pressed.
+     */
+    function render(shaped) {
+        const page = document.scrollingElement || document.documentElement;
+        const toTop = unfolding === 'set';
+        const pageTop = toTop ? 0 : page.scrollTop;
+        const bodyTop = toTop ? 0 : document.body.scrollTop;
+
+        draw();
+
+        if (typeof shaped === 'function') shaped();
+
+        page.scrollTop = pageTop;
+        document.body.scrollTop = bodyTop;
+    }
+
+    function draw() {
         // Read once per draw, so every card in the pass agrees, and cleared here
         // rather than at the end: an exception further down should not leave the
         // animation armed for whatever redraws next.
@@ -1896,9 +1935,14 @@ function catalog(container) {
     // Read back by the fold rather than measured again: by then the strip is
     // already out of the column, and the distance that is wanted is the one it
     // used to take.
+    // Covered, the strip also puts away its hand-drawn arrows -- the one part
+    // of it the form cannot cover -- see onb-point in app.css. Nothing takes
+    // the mark off again: every way the form goes ends in a redraw, and the
+    // strip it draws is a new one, with its arrows drawing themselves anew.
     function coverStrip(rise) {
         if (!onbStrip) return;
 
+        onbStrip.dataset.covered = '';
         onbStrip.style.marginBottom = `-${rise}px`;
 
         onbRise = rise;
@@ -2068,6 +2112,51 @@ function catalog(container) {
             closing = false;
             discardDraft();
             render();
+        });
+    }
+
+    /*
+     * A set's card turning into its form, or the form back into the card,
+     * grown or shrunk into the new height rather than jumping to it.
+     *
+     * The form is two and three times the card, and arriving in one frame it
+     * shoved everything under it down the screen at once. Eased, the card
+     * stays where the press was and the list under it is seen to make room.
+     *
+     * The browser's own numbers at both ends, the way the strip reads them
+     * (see settle in onboarding.js): the content box from getComputedStyle,
+     * which is what a height is written in, inside the app's zoom -- both are
+     * the same .set-card, so the padding and the border are the same on each.
+     * Clipped while it moves, so that the form does not stand out of a card
+     * still growing into it.
+     */
+    function redrawEased(setId, ms) {
+        const cardOf = () => container.querySelector(`.set-card[data-set-id="${setId}"]`);
+
+        const was = cardOf();
+        const from = was ? getComputedStyle(was).height : null;
+
+        // Started inside the redraw, before the scroll is put back -- see
+        // render.
+        render(() => {
+            const card = cardOf();
+            if (!card || !from) return;
+
+            const to = getComputedStyle(card).height;
+            if (to === from) return;
+
+            card.style.height = from;
+            card.style.overflow = 'hidden';
+            pin(card);
+
+            card.style.transition = `height ${ms}ms ease-out`;
+            card.style.height = to;
+
+            setTimeout(() => {
+                card.style.transition = '';
+                card.style.height = '';
+                card.style.overflow = '';
+            }, ms + 40);
         });
     }
 
@@ -3557,7 +3646,11 @@ function catalog(container) {
                  * a set taken out of the list here would come back from the
                  * next device that still had it. See store.archive.
                  */
-                if (set === draft) {
+                // A new set's form is over the strip and leaves by its own way
+                // -- see coverStrip; an existing set's eases back into its card.
+                const fresh = set === draft;
+
+                if (fresh) {
                     if (keep) {
                         store.addSet(set, true);
                         track('set_add', 'form', separatorOf(textarea.value), set.words.length, found, langs, byHand());
@@ -3574,7 +3667,9 @@ function catalog(container) {
                 editing.delete(set.id);
                 forgetForm(set.id);
                 store.save().then(syncCatalog);
-                render();
+
+                if (fresh) render();
+                else redrawEased(set.id, FOLD_SHUT);
             });
 
             editForm.querySelector('.set-cancel-btn').addEventListener('click', () => {
@@ -3590,7 +3685,7 @@ function catalog(container) {
                 editing.delete(set.id);
                 forgetForm(set.id);
                 store.save();
-                render();
+                redrawEased(set.id, FOLD_SHUT);
             });
 
         } else {
@@ -3762,7 +3857,7 @@ function catalog(container) {
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
                 rememberForm(set.id, setAsText(set));
-                render();
+                redrawEased(set.id, FOLD_OPEN);
             });
         }
     }

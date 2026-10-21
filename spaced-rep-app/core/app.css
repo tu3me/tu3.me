@@ -548,6 +548,28 @@ body {
 }
 
 /*
+ * The strip's hand-drawn marks, put away while the new-set form covers the
+ * strip (data-covered, see coverStrip in catalog.js).
+ *
+ * The form covers the card and nothing that reaches out of it: the arrow at
+ * New set rises above the card's top edge, and the arrow off "this" stands over
+ * the list on purpose, so that it can land on the first set -- which put it
+ * over the form as well, across the help text, pointing at nothing. Hidden
+ * rather than sent under the form, because a layer low enough to go under the
+ * form is under the set it was lifted to reach.
+ *
+ * Gone from the moment the form starts to open, in a fade shorter than the
+ * form takes to grow, so that the arrow at the bottom of the card has left
+ * before the form's edge gets there. Visibility after the fade, because a
+ * stroke at nought opacity still takes the presses that land on it.
+ */
+.onb-strip[data-covered] .onb-point {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+}
+
+/*
  * The tile of a game that was started and left, saying so by turning into the
  * thing it does: the drawing becomes a play triangle and the name becomes
  * "Continue", then both go back, and so on.
