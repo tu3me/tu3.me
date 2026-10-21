@@ -286,10 +286,12 @@ function quiz(container) {
             const letter = e.target.closest('.say-letter');
 
             // Beside the words, or on the speaker under them: the whole line,
-            // which is the third depth reached without the first two.
+            // which is the third depth reached without the first two. The
+            // speaker's is the one sound the switch in the header leaves
+            // alone -- see speech.say.
             if (!letter) {
                 forgetTaps();
-                return sayLine(root, text, lang);
+                return sayLine(root, text, lang, !!e.target.closest('.say-all'));
             }
 
             const word = letter.closest('.say-word');
@@ -340,7 +342,7 @@ function quiz(container) {
      * word's colour off the same ramp — see WORD_FILLS. A colour kept for
      * single letters would have been saying the next tap marks something else.
      */
-    function sayLater(text, lang, mark) {
+    function sayLater(text, lang, mark, asked) {
         clearTimeout(sayTimer);
 
         sayTimer = setTimeout(() => {
@@ -350,7 +352,7 @@ function quiz(container) {
             // and then there is nothing to wait behind: the mark stands its
             // minimum and goes. The silence itself is not answered; see
             // speech.say.
-            if (!speech.say(text, lang, done)) done();
+            if (!speech.say(text, lang, done, asked)) done();
         }, SAY_DELAY);
     }
 
@@ -370,11 +372,11 @@ function quiz(container) {
         sayLater(word.textContent, lang, light([tint(word, wordsIn(root).indexOf(word))]));
     }
 
-    function sayLine(root, text, lang) {
+    function sayLine(root, text, lang, asked) {
         // A colour each, so the line reads as the words it is made of rather
         // than as one long stripe. They repeat past the fourth word, which is
         // where a question stops being a question and starts being a sentence.
-        sayLater(text, lang, light(wordsIn(root).map(tint)));
+        sayLater(text, lang, light(wordsIn(root).map(tint)), asked);
     }
 
     function render() {
@@ -625,7 +627,7 @@ function quiz(container) {
             if (speaker) speaker.addEventListener('click', (e) => {
                 e.stopPropagation();
 
-                speech.say(opt, optionLang);
+                speech.say(opt, optionLang, null, true);
             });
 
             optBtn.addEventListener('click', () => {

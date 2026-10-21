@@ -522,17 +522,59 @@ function speech() {
      * list: the held word goes as one with no voice, and so does everything
      * asked for after it, until a list does turn up.
      *
+     * The wait starts with the page rather than with the first word, because a
+     * word is not the only thing waiting on the answer: every speaker on the
+     * screen was drawn on the strength of not knowing (see readable), and on a
+     * device with no voices they stayed for good -- a promise of a sound with
+     * nothing behind it. The screens are told when the answer comes, either
+     * way (see onVoices).
+     *
+     * And the answer is remembered from one page to the next. Every game is a
+     * page of its own and starts this file afresh, so on a device with no
+     * voices each game drew its speakers, waited out VOICES_WAIT and took them
+     * down again -- a second and a half of a promise on every game opened.
+     * Remembered, the first page on the device is the only one that waits;
+     * the rest start knowing, and a list that does turn up clears it on
+     * whichever page it turns up. In localStorage rather than the database,
+     * because it is wanted synchronously, before the first drawing -- the same
+     * as the theme in prepaint.js; "Clear data" takes it with the rest, and the
+     * device is asked again.
+     *
      * Nothing else is cached. Voices come and go as the system installs them,
      * and reading the list is cheap.
      */
     const VOICES_WAIT = 1500;
+    const VOICELESS_KEY = 'voiceless';
+
+    function remembered() {
+        try { return localStorage.getItem(VOICELESS_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    function remember(none) {
+        try {
+            if (none) localStorage.setItem(VOICELESS_KEY, '1');
+            else localStorage.removeItem(VOICELESS_KEY);
+        } catch (e) {
+            // Storage switched off: every page asks for itself, as before.
+        }
+    }
 
     let held = null;
     let waiting = false;
-    let voiceless = false;
+    let voiceless = remembered();
+    let giveUp = 0;
+
+    // The screens that drew before the answer was known -- see onVoices.
+    let told = [];
 
     function voices() {
         return typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices();
+    }
+
+    function known() {
+        const all = told;
+        told = [];
+        all.forEach(redraw => redraw());
     }
 
     // A held word that will not be said after all. Its waiter is told either
@@ -547,21 +589,33 @@ function speech() {
         if (word.done) word.done();
     }
 
+    // Nothing to wait out where the answer came from an earlier page: a list
+    // that turns up is heard all the same, by the listener below.
     function whenVoicesArrive() {
-        if (waiting) return;
+        if (waiting || voiceless) return;
         waiting = true;
 
-        // The listener outlives the giving up: a list that turns up late puts
-        // the device back among the ones that speak.
-        const giveUp = setTimeout(() => {
+        giveUp = setTimeout(() => {
             voiceless = true;
+            remember(true);
             letGo(true);
+            known();
         }, VOICES_WAIT);
+    }
 
+    /*
+     * For the life of the page rather than once: a list that turns up after
+     * the giving up puts the device back among the ones that speak. A list
+     * that changed to nothing is no answer at all.
+     */
+    if (typeof speechSynthesis !== 'undefined') {
         speechSynthesis.addEventListener('voiceschanged', () => {
+            if (!voices().length) return;
+
             clearTimeout(giveUp);
             waiting = false;
             voiceless = false;
+            remember(false);
             const word = held;
             held = null;
 
@@ -575,7 +629,18 @@ function speech() {
             // finally arrived may have nothing for this language — the caller
             // was told it would be said, so it has to be told that it was not.
             if (word && !speak(word.text, word.lang, word.done) && word.done) word.done();
-        }, { once: true });
+
+            known();
+        });
+
+        // A list here from the first call needs no event to say so, and
+        // whatever an earlier page remembered is then out of date.
+        if (voices().length) {
+            voiceless = false;
+            remember(false);
+        } else {
+            whenVoicesArrive();
+        }
     }
 
     // An exact match first, then any voice of the same language: a device with
@@ -740,23 +805,33 @@ function speech() {
      * a session because the list had not landed yet is worse than one that
      * promises a little too much, and say() is optimistic in exactly the same
      * way — it holds the word and tries again when the voices turn up.
+     *
+     * Knowing there are none counts as no: the list still empty VOICES_WAIT
+     * after the page asked for it, or an earlier page having found so. The
+     * speakers drawn before then are taken back through onVoices.
      */
     /*
-     * Calls back once, when the voice list first arrives.
+     * Calls back once, when it becomes known whether this device has voices:
+     * the list arriving, or the wait for it running out.
      *
      * For a screen that had to draw before it could know: the answer it drew is
      * the optimistic one, and this is the moment it can be checked. Nothing is
      * registered when the list is already here — the screen has already drawn
-     * the right thing and has nothing to redo.
+     * the right thing and has nothing to redo. Registered when there are known
+     * to be none, though: a list can still arrive -- above all where "none"
+     * was remembered from an earlier page -- and the speakers come back then.
+     * Each redraw once, however often a screen asks: the screens ask on every
+     * drawing, which addEventListener used to fold into one by itself.
      */
     speech.onVoices = (whenKnown) => {
         if (!speech.available() || voices().length) return;
-        speechSynthesis.addEventListener('voiceschanged', whenKnown, { once: true });
+        if (!told.includes(whenKnown)) told.push(whenKnown);
+        whenVoicesArrive();
     };
 
     speech.readable = (text, lang) => {
         if (!speech.available() || !hasWords(text)) return false;
-        if (voices().length === 0) return true;
+        if (voices().length === 0) return !voiceless;
 
         return !!voiceOf(text, lang);
     };
@@ -849,7 +924,8 @@ function speech() {
      * wherever they are.
      *
      * Kept here rather than asked of the caller, because every way a word can
-     * be said goes through say(), and one gate is one place to be wrong.
+     * be said goes through say(), and one gate is one place to be wrong. What
+     * the caller does say is whether the sound is a speaker's -- see say().
      */
     let muted = false;
 
@@ -862,22 +938,27 @@ function speech() {
      * when the device has no voice, and for the same reason: the caller is being
      * told that no sound happened, whatever the cause.
      *
+     * Except for the speaker. `asked` is a press on one of the speakers drawn
+     * by speakerHtml, and that is said whatever the switch says: a speaker has
+     * no purpose but the sound, and one that answered its own press with
+     * nothing read as broken rather than as switched off. Everything else
+     * stays under the switch -- what the app says by itself, the snake reading
+     * out what it eats, and taps on words and letters as well. Decided 21
+     * October 2026, the speaker alone.
+     *
      * And nothing is drawn about it. The switch used to pulse when a tap landed
      * here while it was off, which made sense while off was the default and the
      * player might not know it. Now the quiet is something they asked for and
      * the switch is already showing its off face: answering a tap by explaining
      * their own choice back to them is one answer too many.
      *
-     * The analytics hear it, though, counted like a missing voice: a person
-     * who turned the sound off and forgot presses speakers into silence, and
-     * without this the presses were all there was to see -- measured in the
-     * scenario run, where that case had to be pieced together from the visit's
-     * starting state and what each pressed class does.
+     * The analytics hear it, though, counted like a missing voice -- what the
+     * switch kept quiet, which since `asked` is never a speaker.
      */
-    speech.say = (text, lang, whenDone) => {
+    speech.say = (text, lang, whenDone, asked) => {
         if (!text || !speech.available()) return false;
 
-        if (muted) {
+        if (muted && !asked) {
             track.tally('say_muted', [lang || detect(text).lang || '']);
             return false;
         }

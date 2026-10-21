@@ -61,12 +61,14 @@ function wordcraft(container) {
      * stops being "which word is this" and becomes "spell the word you have
      * just been given", and those are not the same round.
      *
-     * So the smallest price there is. A hundredth is nothing beside the share a
-     * half-spelled word records, and it is enough to miss the only number that
-     * counts as knowing the word: srs.js reads a 1 and nothing else as success,
-     * so 0.99 is a word that comes round again.
+     * So it has a price: a tenth. Any price at all misses the only number that
+     * counts as knowing the word -- srs.js reads a 1 and nothing else as
+     * success, so 0.9 is a word that comes round again -- and a tenth also
+     * shows in every figure made of the results rather than only in that one.
+     * It was a hundredth until 21 October 2026, the smallest price there is;
+     * the answers recorded before keep the 0.99 they were given.
      */
-    const HEARD_COST = 0.01;
+    const HEARD_COST = 0.1;
 
     let state = getEmptyState();
     let palette = {};
@@ -324,7 +326,7 @@ function wordcraft(container) {
         // the first Check cut the line, in boxes, and null until there has been
         // one; `locked` is how many of the laid tiles that Check settled, which
         // is as far back as Undo reaches. `heard` is whether the word has been
-        // asked for out loud, which costs the round a hundredth whatever else
+        // asked for out loud, which costs the round a tenth whatever else
         // becomes of it — see HEARD_COST.
         return { at: state.currentIndex, tray, laid: [], shown: false, done: false, right: null, locked: 0, heard: false };
     }
@@ -408,10 +410,14 @@ function wordcraft(container) {
      * it may never report at all — no voice for this language, or the sound
      * switched off — and a tap answered by nothing is a tap that missed, as far
      * as the person tapping can tell.
+     *
+     * `asked` for the speaker, which the switch in the header does not
+     * silence; a tap on a letter and the word said by itself when it is
+     * checked whole stay under the switch -- see speech.say.
      */
-    function sayNow(text, paint) {
+    function sayNow(text, paint, asked) {
         const done = until(light(paint));
-        const said = speech.say(text, sayLang, done);
+        const said = speech.say(text, sayLang, done, asked);
 
         if (!said) done();
 
@@ -419,9 +425,10 @@ function wordcraft(container) {
          * And whether a sound happened at all, which is what the speaker
          * charges the round on — see hearWord.
          *
-         * say() answers false with the switch in the header off, and a round
-         * charged for silence is a round charged for somebody's own decision to
-         * keep it quiet.
+         * say() answers false where there is no voice, and a round charged for
+         * silence is a round charged for nothing. The switch in the header no
+         * longer silences the speaker, which is asked for by hand: switched
+         * off, it is heard and charged like any other press.
          */
         return said;
     }
@@ -722,7 +729,7 @@ function wordcraft(container) {
          * given away. Filled again by the player, it goes back to ink.
          *
          * The speaker is there from the first frame and reads the whole line
-         * out loud without opening anything. It costs a hundredth of the round
+         * out loud without opening anything. It costs a tenth of the round
          * — see HEARD_COST — and the dot says so the moment it is pressed,
          * while what is finally written down waits for the end: giving the
          * letters away is still the greater shortcut, and still costs more.
@@ -755,7 +762,7 @@ function wordcraft(container) {
                     const said = sayNow(currentItem.word.original, () => {
                         hold(speaker);
                         speaker.style.color = palette.saying;
-                    });
+                    }, true);
 
                     if (said) hearWord();
                 });
@@ -900,13 +907,13 @@ function wordcraft(container) {
              * a word given away, and only one number is ever written.
              *
              * Taken off in hundredths and put back rather than subtracted
-             * outright: 0.1 - 0.01 is 0.09000000000000001 in binary floating
+             * outright: 0.3 - 0.1 is 0.19999999999999998 in binary floating
              * point, and a repetition is kept for good. Nothing is lost on the
              * way through, because both numbers have two decimals at most — the
              * share is truncated to them.
              *
              * Never below nothing. A word given away records a 0 already, and
-             * -0.01 is not a worse answer than that — it is not an answer.
+             * -0.1 is not a worse answer than that — it is not an answer.
              */
             const paid = round.heard ? HEARD_COST : 0;
             const final = Math.max(0, Math.round((result - paid) * 100)) / 100;
@@ -918,7 +925,7 @@ function wordcraft(container) {
              *
              * Green is the one number that means the word was written and
              * nothing was given up to write it. A word spelled out after
-             * hearing it records 0.99, which is a verdict its caller believed
+             * hearing it records 0.9, which is a verdict its caller believed
              * was a clean one — asked to name the dot itself, checkWord would
              * have painted it green over a record that says otherwise.
              */
@@ -1091,7 +1098,7 @@ function wordcraft(container) {
          * decimals, truncated, which is the number snake records for a word it
          * was asked to open and for the same reason — truncating is what keeps
          * an unfinished word from ever recording a 1, the one number that means
-         * it was spelled. Less a hundredth if the word was heard first, which is
+         * it was spelled. Less a tenth if the word was heard first, which is
          * why a whole line can be green on the bar and red on the dots: the
          * spelling was right, and it was not spelled from memory.
          *

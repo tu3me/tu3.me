@@ -35,12 +35,14 @@ function snake(container) {
      * being "what is this" and becomes "find the letters of a word you have
      * just been given", and those are not the same round.
      *
-     * So the smallest price there is. A hundredth is nothing beside the share
-     * an opened word records, and it is enough to miss the only number that
-     * counts as knowing the word: srs.js reads a 1 and nothing else as success,
-     * so 0.99 is a word that comes round again.
+     * So it has a price: a tenth. Any price at all misses the only number that
+     * counts as knowing the word -- srs.js reads a 1 and nothing else as
+     * success, so 0.9 is a word that comes round again -- and a tenth also
+     * shows in every figure made of the results rather than only in that one.
+     * It was a hundredth until 21 October 2026, the smallest price there is;
+     * the answers recorded before keep the 0.99 they were given.
      */
-    const HEARD_COST = 0.01;
+    const HEARD_COST = 0.1;
 
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
@@ -955,7 +957,7 @@ function snake(container) {
              * The speaker is there from the first frame, with every letter still
              * a "?", and it reads the line out loud without opening any of them.
              *
-             * It costs a hundredth of the round — see HEARD_COST — and the
+             * It costs a tenth of the round — see HEARD_COST — and the
              * dot says so the moment it is pressed, while what is finally
              * written down waits for the end: opening the letters is still the
              * greater shortcut, and still costs more.
@@ -2180,9 +2182,13 @@ function snake(container) {
      * held in one place instead of at every call; the answer says whether
      * anything is going to be heard, which the caller needs -- a mark it has put
      * up has to come down, and the turn has to be handed on, when nothing is.
+     *
+     * `asked` for the speaker, the one sound the switch in the header leaves
+     * alone; a tap on a letter or a word stays under it, as does the board's
+     * own narration in sayInTurn -- see speech.say.
      */
-    function sayAloud(text, whenDone) {
-        return speech.say(text, sayLang, whenDone);
+    function sayAloud(text, whenDone, asked) {
+        return speech.say(text, sayLang, whenDone, asked);
     }
 
     /*
@@ -2316,11 +2322,11 @@ function snake(container) {
     }
 
     // Said and marked at once, for a tap that cannot be deepened by another.
-    function sayNow(text, paint) {
+    function sayNow(text, paint, asked) {
         clearTimeout(sayTimer);
 
         const done = until(light(paint));
-        const said = sayAloud(text, done);
+        const said = sayAloud(text, done, asked);
 
         if (!said) done();
 
@@ -2328,9 +2334,10 @@ function snake(container) {
          * And whether a sound happened at all, which is what the speaker
          * charges the round on — see hearWord.
          *
-         * say() answers false with the switch in the header off, and a round
-         * charged for silence is a round charged for somebody's own decision to
-         * keep it quiet.
+         * say() answers false where there is no voice, and a round charged for
+         * silence is a round charged for nothing. The switch in the header no
+         * longer silences the speaker: switched off, it is heard and charged
+         * like any other press.
          */
         return said;
     }
@@ -2546,7 +2553,7 @@ function snake(container) {
              *
              * There was a third depth — the whole line, on a third tap — and it
              * is gone. The line belongs to the speaker at the head of the bar,
-             * and the speaker costs a hundredth of the round now (see hearWord);
+             * and the speaker costs a tenth of the round now (see hearWord);
              * a tap on any collected letter was handing the same sound out for
              * nothing, which made the price something you paid only if you had
              * not found the way round it.
@@ -2612,15 +2619,15 @@ function snake(container) {
              * Nothing here touches showHint or hadErrorThisRound. Listening is
              * not a mistake and opens nothing: the marks it paints are over
              * boxes that go on reading "?" until they are found, and the word
-             * stays as hidden as it was. What it does cost is a hundredth of
-             * the round, which is hearWord's business — see the speaker in
+             * stays as hidden as it was. What it does cost is a tenth of the
+             * round, which is hearWord's business — see the speaker in
              * view.gathered.
              */
             onSayAll: () => {
                 forgetTaps();
 
                 const letters = board.letters();
-                const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)));
+                const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)), true);
 
                 if (said) hearWord();
             },
@@ -2779,13 +2786,13 @@ function snake(container) {
              * only one number is ever written.
              *
              * Taken off in hundredths and put back rather than subtracted
-             * outright: 0.1 - 0.01 is 0.09000000000000001 in binary floating
+             * outright: 0.3 - 0.1 is 0.19999999999999998 in binary floating
              * point, and a repetition is kept for good. Nothing is lost on the
              * way through, because both numbers have two decimals at most —
              * recalledShare truncates to them.
              *
              * Never below nothing. A share is already as low as an answer goes,
-             * and -0.01 is not a worse answer than 0 — it is not an answer.
+             * and -0.1 is not a worse answer than 0 — it is not an answer.
              */
             const paid = state.heardThisRound ? HEARD_COST : 0;
             const final = Math.max(0, Math.round((result - paid) * 100)) / 100;
@@ -2797,7 +2804,7 @@ function snake(container) {
              *
              * Green is the one number that means the word was spelled out and
              * nothing was asked for to spell it. A word collected after hearing
-             * it records 0.99, which is a verdict its caller believed was a
+             * it records 0.9, which is a verdict its caller believed was a
              * clean one — asked to name the dot itself, the end of the word
              * would have painted it green over a record that says otherwise.
              */
@@ -3366,7 +3373,7 @@ function snake(container) {
                  * Whole here means the letters, not the dot. A line that was
                  * heard first is still a line the player spelled out, and it
                  * still comes through here -- scoreRound is where the hearing
-                 * is paid for, and it comes to 0.99 and a red dot.
+                 * is paid for, and it comes to 0.9 and a red dot.
                  */
                 const clean = !state.hadErrorThisRound;
 
