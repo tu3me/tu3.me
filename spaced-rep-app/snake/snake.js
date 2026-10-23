@@ -44,6 +44,20 @@ function snake(container) {
      */
     const HEARD_COST = 0.1;
 
+    /*
+     * The star beside the dots: a run of right answers, kept for this
+     * session only.
+     *
+     * Counted in steps. Nought is no star at all; the first right answer
+     * puts up its outline, and every one after that fills another
+     * STAR_FILL_STEP of it with gold from the bottom up — seven of them to
+     * fill it, the last one only by the ten per cent still left. Right answers
+     * past a full star change nothing. A wrong one takes it back to nought,
+     * and a crash takes it back one step.
+     */
+    const STAR_FILL_STEP = 0.15;
+    const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
+
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
 
@@ -804,7 +818,12 @@ function snake(container) {
                         <span style="font-size: 8.2px; letter-spacing: 0.3px;">MAX <span class="snake-length-best"></span></span>
                     </span>
                 </div>
-                <div class="snake-dots-group" id="snake-dots" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;"></div>
+                <div class="snake-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center;">
+                    <div class="snake-dots-row" style="position: relative; display: flex; align-items: center;">
+                        <div class="snake-dots" id="snake-dots" style="display: flex; align-items: center; gap: 5px;"></div>
+                        ${starHtml()}
+                    </div>
+                </div>
                 <div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center; gap: 6.8px;">
                     <button class="snake-settings-btn" id="snake-settings-btn" title="Settings" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer;">${GEAR_ICON}</button>
                 </div>
@@ -877,10 +896,26 @@ function snake(container) {
             renderControls();
         };
 
+        /*
+         * Painted over the dots that already stand rather than drawn again.
+         *
+         * A right or wrong answer sends a wave along the dots to the right of
+         * it — see view.wave — and the wave lives on these nodes. Drawn anew,
+         * the next paint would throw it away half-way: a heart caught quickly
+         * after the last letter moves the index, and that paint lands while
+         * the wave is still on its way to the star. Kept, the dot that has just
+         * been answered also changes colour through its transition instead of
+         * all at once.
+         */
         view.dots = (pool, results, currentIndex, heard) => {
             const dotsEl = header.querySelector('#snake-dots');
             if (!dotsEl) return;
-            dotsEl.innerHTML = pool.map((_, idx) => {
+
+            if (dotsEl.children.length !== pool.length) {
+                dotsEl.innerHTML = pool.map(() => '<div class="snake-dot" style="width: 8px; height: 8px; border-radius: 50%; transition: all 0.2s; flex-shrink: 0;"></div>').join('');
+            }
+
+            pool.forEach((_, idx) => {
                 const res = results[idx];
                 let bg = palette.dotIdle;
                 if (res === 'correct') bg = palette.ok;
@@ -903,10 +938,118 @@ function snake(container) {
                 if (!res && idx === currentIndex && heard) bg = palette.err;
 
                 const isCurrent = idx === currentIndex;
-                const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
+                const dot = dotsEl.children[idx];
 
-                return `<div class="snake-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
-            }).join('');
+                dot.style.background = bg;
+                dot.style.outline = isCurrent ? `1px solid ${palette.cursor}` : '';
+                dot.style.transform = isCurrent ? 'scale(1.15)' : '';
+            });
+        };
+
+        /*
+         * The star, hung off the end of the row of dots rather than set in it.
+         *
+         * In the row it would be one more thing to centre, and the dots would
+         * stand half a star to the left of the middle of the header — and move
+         * there and back as it came and went. Hung off the end, it takes
+         * nothing from the row and nothing from the groups either side: the
+         * settings and the sound are pushed to the far end of theirs, and what
+         * it stands in is the empty part of that third.
+         *
+         * The gold is a rectangle clipped to the star and scaled up from its
+         * foot. Clipped on a group around it and not on the rectangle itself:
+         * a clip path is measured in the coordinates of the element it is on,
+         * transform included, so on the rectangle it would shrink with the
+         * fill and the gold would always look full.
+         */
+        const STAR_PATH = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z';
+
+        function starHtml() {
+            return `<svg class="snake-star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" style="position: absolute; left: 100%; top: 50%; margin: -7.5px 0 0 7px; overflow: visible; opacity: 0;">
+                <defs><clipPath id="snake-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
+                <g clip-path="url(#snake-star-shape)">
+                    <rect class="snake-star-fill" x="2" y="2" width="20" height="19.02" fill="${palette.star}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0);" />
+                </g>
+                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.8" stroke-linejoin="round" />
+            </svg>`;
+        }
+
+        const starFill = (level) => `scaleY(${level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0})`;
+
+        /*
+         * A dot has just been answered, and the answer runs on to the star:
+         * every dot still waiting to its right lights up in the answer's own
+         * colour, one after another, and the star takes the news when the
+         * light gets to it. Returns when that is, so the star knows when to
+         * move — see view.star.
+         *
+         * The waiting dots and no others, because they are the ones the run
+         * still has to get through; the answered ones have said what they had
+         * to say. None waiting, and the light goes straight to the star.
+         *
+         * No timers. The delays are the animations' own, so leaving the
+         * screen in the middle of a wave leaves nothing behind it to fire.
+         */
+        const WAVE_START = 140;
+        const WAVE_STEP = 70;
+        const WAVE_PULSE = 320;
+
+        view.wave = (from, right) => {
+            const dotsEl = header.querySelector('#snake-dots');
+            const waiting = dotsEl ? [...dotsEl.children].slice(from + 1) : [];
+            const colour = right ? palette.ok : palette.err;
+
+            waiting.forEach((dot, k) => dot.animate([
+                { background: palette.dotIdle, transform: 'scale(1)' },
+                { background: colour, transform: 'scale(1.4)' },
+                { background: palette.dotIdle, transform: 'scale(1)' }
+            ], { duration: WAVE_PULSE, delay: WAVE_START + k * WAVE_STEP, easing: 'ease-in-out' }));
+
+            return WAVE_START + waiting.length * WAVE_STEP;
+        };
+
+        /*
+         * The star at `now`, coming from `was`. Without a delay it is simply
+         * drawn — a header built over a session already under way.
+         *
+         * With one it holds `was` until then (fill: backwards), and then
+         * swells as the gold rises or shrinks as it drains, and settles back
+         * to its own size. Swells at the top too, where nothing is left to
+         * fill: the answer still got there. Shrinks out of sight when it is
+         * going back to nought.
+         *
+         * The finished state goes in the style at once and the animation only
+         * plays over it, so a screen left or drawn again half-way through
+         * still has the right star.
+         */
+        const STAR_PULSE = 520;
+
+        view.star = (was, now, delay) => {
+            const star = header && header.querySelector('.snake-star');
+            if (!star) return;
+
+            const fill = star.querySelector('.snake-star-fill');
+
+            star.style.opacity = now ? '1' : '0';
+            fill.style.transform = starFill(now);
+
+            if (delay === undefined || (!was && !now)) return;
+
+            const up = now >= was;
+            const timing = { duration: STAR_PULSE, delay, easing: 'ease-out', fill: 'backwards' };
+            const turn = up ? 0.4 : 0.5;
+
+            star.animate([
+                { transform: was ? 'scale(1)' : 'scale(0.4)', opacity: was ? 1 : 0 },
+                { transform: up ? 'scale(1.7)' : 'scale(0.5)', opacity: now ? 1 : 0, offset: turn },
+                { transform: 'scale(1)', opacity: now ? 1 : 0 }
+            ], timing);
+
+            fill.animate([
+                { transform: starFill(was) },
+                { transform: starFill(now), offset: turn },
+                { transform: starFill(now) }
+            ], timing);
         };
 
         view.banner = (text) => {
@@ -1808,8 +1951,20 @@ function snake(container) {
             snakeBody.push({ x: oldTailPos.x, y: oldTailPos.y, char });
         }
 
-        function hits(x, y) {
-            return snakeBody.some(s => s.x === x && s.y === y);
+        /*
+         * Whether the head would land on the body as it stands after this
+         * step, not before it.
+         *
+         * The tail leaves its cell in the same step the head arrives, so a
+         * head following its own tail nose to tail has somewhere to go. Checked
+         * against the body before the move, that cell still held the tail and
+         * the step counted as a crash — the snake could never close the
+         * one-cell gap behind itself. The tail only stays where it is when the
+         * snake grows on this step, and then its cell is still taken.
+         */
+        function hits(x, y, grows) {
+            const after = grows ? snakeBody : snakeBody.slice(0, -1);
+            return after.some(s => s.x === x && s.y === y);
         }
 
         // Rolls the move back and freezes; a collected heart pays for the mistake
@@ -2024,9 +2179,10 @@ function snake(container) {
             const prev = snakeBody.map(s => ({ ...s }));
 
             if (phase === 'HEART') {
-                if (hits(headX, headY)) return crash(prev);
+                const onHeart = !!heartPos && headX === heartPos.x && headY === heartPos.y;
+                if (hits(headX, headY, onHeart)) return crash(prev);
 
-                if (heartPos && headX === heartPos.x && headY === heartPos.y) {
+                if (onHeart) {
                     grow(headX, headY, '❤️');
                     return 'heart';
                 }
@@ -2035,9 +2191,9 @@ function snake(container) {
                 return 'moved';
             }
 
-            if (hits(headX, headY)) return crash(prev);
-
             const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
+
+            if (hits(headX, headY, !!touched)) return crash(prev);
 
             if (touched) {
                 if (touched.char !== targetLetters[nextLetterIndex]) {
@@ -2113,7 +2269,7 @@ function snake(container) {
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false,
-            hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, savedSnake: null,
+            hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, difficulty: SPEED_AT_START, starLevel: 0, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
             savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
@@ -2670,6 +2826,31 @@ function snake(container) {
             view.dots(pool, state.sessionResults, state.currentIndex, state.heardThisRound);
         }
 
+        /*
+         * The star hears about a dot the moment the dot takes its colour, and
+         * from the same thing the dot is coloured by: green moves it up a
+         * step, red takes it back to nought. So a word that was heard counts
+         * as wrong here too, and at the speaker rather than when the round
+         * ends — that is when its dot goes red. Called once per round: by
+         * scoreRound, or by hearWord before any verdict, never both.
+         */
+        function starAnswered(right) {
+            const was = state.starLevel;
+            state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 0;
+
+            view.star(was, state.starLevel, view.wave(state.currentIndex, right));
+        }
+
+        // A crash costs the star one step, with no wave: it is not an answer,
+        // and the round it happened in is still clean.
+        function starCrashed() {
+            const was = state.starLevel;
+            if (!was) return;
+
+            state.starLevel = was - 1;
+            view.star(was, state.starLevel, 0);
+        }
+
     /*
      * The hand that says a "?" can be pressed, for someone who has not worked
      * that out for themselves.
@@ -2809,6 +2990,10 @@ function snake(container) {
              * would have painted it green over a record that says otherwise.
              */
             state.sessionResults[state.currentIndex] = final === 1 ? 'correct' : 'wrong';
+
+            // A heard word told the star at the speaker — see starAnswered
+            if (!state.heardThisRound) starAnswered(final === 1);
+
             store.save();
         }
 
@@ -2830,6 +3015,9 @@ function snake(container) {
             if (state.heardThisRound) return;
 
             state.heardThisRound = true;
+
+            // The dot goes red now, unless a verdict has made it so already
+            if (!state.sessionResults[state.currentIndex]) starAnswered(false);
 
             refreshDots();
             page.save();
@@ -2883,6 +3071,7 @@ function snake(container) {
         }
 
         refreshDots();
+        view.star(0, state.starLevel);
 
         if (board.load(state, targetWord)) board.spawnLetters();
 
@@ -3302,6 +3491,8 @@ function snake(container) {
                 offerReveal();
             }
 
+            if (event === 'crashHeart' || event === 'crashRestart') starCrashed();
+
             if (event === 'crashHeart') {
                 board.persistTo(state);
                 paint();
@@ -3479,6 +3670,16 @@ function snake(container) {
             onRing: t.onAccent,
             ok: t.ok,
             err: t.err,
+            /*
+             * The star's gold, which is a colour of its own and in no token:
+             * nothing else in the app is a prize. One gold in both themes,
+             * like the coral and the mint. Its outline is the same gold on the
+             * navy, and deeper on the cream, where that gold comes to 1.6
+             * against the page and an empty star would be an outline you had
+             * to know was there.
+             */
+            star: '#f5bf3a',
+            starEdge: isDark ? '#f5bf3a' : '#b7860f',
             // Darker than `soft` in the light theme, where soft is a hair off the
             // page ground and the banner all but vanishes into it. The dark
             // theme keeps soft, which already stands clear of its ground.
@@ -3596,6 +3797,12 @@ function snake(container) {
         heardThisRound: state.heardThisRound,
 
         usedReveal: state.usedReveal,
+
+        // The star is the session's and goes with it — see STAR_TOP. Kept
+        // here so that a popup closed and opened again is the same session
+        // with the same star, and not one that has forgotten its run.
+        starLevel: state.starLevel,
+
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,
         savedInputQueue: state.savedInputQueue,
