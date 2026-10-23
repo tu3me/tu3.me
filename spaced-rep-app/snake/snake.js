@@ -962,13 +962,75 @@ function snake(container) {
          * transform included, so on the rectangle it would shrink with the
          * fill and the gold would always look full.
          */
-        const STAR_PATH = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z';
+        /*
+         * The star, with its corners rounded off.
+         *
+         * Drawn from the ten corners of the usual five-pointed star, each cut
+         * back along both its edges and turned with a curve: the points by
+         * more, the hollows between them by less, so it keeps its shape and
+         * loses only the sharpness. Worked out here rather than written out as
+         * a path, so that how round it is stays a number to change.
+         *
+         * STAR_BOX is the room the rounded star takes up, which is less than
+         * the polygon's — the rounding takes it off the tips — and it is what
+         * the gold is measured against: fifteen per cent of the star's height,
+         * not of the box it was drawn in.
+         */
+        const STAR_CORNERS = [[12, 2], [15.09, 8.26], [22, 9.27], [17, 14.14], [18.18, 21.02], [12, 17.77], [5.82, 21.02], [7, 14.14], [2, 9.27], [8.91, 8.26]];
+        const STAR_TIP_ROUND = 2.4;
+        const STAR_HOLLOW_ROUND = 1;
+
+        const { STAR_PATH, STAR_BOX } = (() => {
+            const toward = (from, to, by) => {
+                const dx = to[0] - from[0];
+                const dy = to[1] - from[1];
+                const length = Math.hypot(dx, dy);
+                return [from[0] + dx / length * by, from[1] + dy / length * by];
+            };
+
+            const n = STAR_CORNERS.length;
+            const turns = STAR_CORNERS.map((corner, i) => {
+                const by = i % 2 ? STAR_HOLLOW_ROUND : STAR_TIP_ROUND;
+                return {
+                    from: toward(corner, STAR_CORNERS[(i + n - 1) % n], by),
+                    corner,
+                    to: toward(corner, STAR_CORNERS[(i + 1) % n], by)
+                };
+            });
+
+            const xy = (p) => p.map(c => +c.toFixed(2)).join(' ');
+            const path = 'M' + xy(turns[0].from)
+                + turns.map((t, i) => (i ? 'L' + xy(t.from) : '') + 'Q' + xy(t.corner) + ' ' + xy(t.to)).join('')
+                + 'Z';
+
+            // The straight runs end where the curves begin, so the curves
+            // are all there is to measure
+            const seen = [];
+            turns.forEach(({ from, corner, to }) => {
+                for (let k = 0; k <= 20; k++) {
+                    const t = k / 20;
+                    const a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+                    seen.push([a * from[0] + b * corner[0] + c * to[0], a * from[1] + b * corner[1] + c * to[1]]);
+                }
+            });
+
+            const xs = seen.map(p => p[0]);
+            const ys = seen.map(p => p[1]);
+            const round = (v) => +v.toFixed(2);
+            const x = round(Math.min(...xs));
+            const y = round(Math.min(...ys));
+
+            return {
+                STAR_PATH: path,
+                STAR_BOX: { x, y, width: round(Math.max(...xs) - x), height: round(Math.max(...ys) - y) }
+            };
+        })();
 
         function starHtml() {
             return `<svg class="snake-star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" style="position: absolute; left: 100%; top: 50%; margin: -7.5px 0 0 7px; overflow: visible; opacity: 0;">
                 <defs><clipPath id="snake-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
                 <g clip-path="url(#snake-star-shape)">
-                    <rect class="snake-star-fill" x="2" y="2" width="20" height="19.02" fill="${palette.star}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0);" />
+                    <rect class="snake-star-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="${palette.star}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0);" />
                 </g>
                 <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.8" stroke-linejoin="round" />
             </svg>`;
@@ -1386,7 +1448,210 @@ function snake(container) {
             setTimeout(() => sky.remove(), START_WINDOW + FALL_LEAST + FALL_SPAN + 500);
         }
 
-        view.victory = () => {
+        // The setting app.css reads for the confetti, asked here for the motion
+        // that is made in script rather than in a stylesheet
+        const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        /*
+         * The end of the session, told on the dots: a crest of gold runs along
+         * them and back — for as long as the screen is up when the star came
+         * out full, and SWAY_PLAIN times there and back when it did not. A
+         * session that won the star goes on being celebrated; one that did
+         * not is told it is over, and then left in peace.
+         *
+         * The same light the answers sent towards the star — see view.wave —
+         * but over every dot, and with no star at the end of it to arrive at,
+         * so it turns round and comes back. In the star's gold whatever the
+         * star came to: what it says is that the session is over, and every
+         * dot has an answer of its own colour already.
+         *
+         * Drawn as one repeating animation per dot rather than as waves sent
+         * one after another. A wave sent off the end of the last one would
+         * reach the dot next to the turn while that dot is still lit from the
+         * way out, and the second animation starts from dark — the dots by the
+         * ends would flicker. Here the crest is a position along the row, going
+         * there and back at an even pace, and each dot is lit by how near it
+         * is, so a dot by the turn simply stays lit while the crest goes past
+         * and comes back. Each lights over its own colour and returns to it.
+         *
+         * Not with reduced motion: motion that never stops is exactly what
+         * that setting is set against — see app.css.
+         */
+        const SWAY_STEP = 90;
+        const SWAY_REACH = 1.6;
+        const SWAY_FRAMES = 48;
+        const SWAY_PLAIN = 5;
+
+        function sway(times) {
+            const dotsEl = header && header.querySelector('#snake-dots');
+            const dots = dotsEl ? [...dotsEl.children] : [];
+            if (!dots.length || still()) return;
+
+            const span = Math.max(1, dots.length - 1);
+
+            dots.forEach((dot, i) => {
+                const own = dot.style.background;
+                const frames = [];
+
+                for (let f = 0; f <= SWAY_FRAMES; f++) {
+                    const offset = f / SWAY_FRAMES;
+                    const crest = span * (1 - Math.abs(1 - 2 * offset));
+                    const lit = Math.max(0, 1 - Math.abs(crest - i) / SWAY_REACH);
+
+                    frames.push({
+                        offset,
+                        background: `color-mix(in srgb, ${palette.star} ${Math.round(lit * 100)}%, ${own})`,
+                        transform: `scale(${1 + 0.4 * lit})`
+                    });
+                }
+
+                dot.animate(frames, { duration: 2 * span * SWAY_STEP, iterations: times });
+            });
+        }
+
+        /*
+         * A full star at the end of the session leaves its place by the dots
+         * and comes down to the middle of the board, a third of it across,
+         * over everything — and pressing it is the way out, the same as the
+         * Dictionary button.
+         *
+         * It waits for the star to have finished filling. The last answer is
+         * what fills it, and on a device with no voice the panel comes up the
+         * moment that answer lands, while the gold is still rising: the star
+         * would leave half-full and arrive full.
+         *
+         * Fixed and placed in the layout's pixels, like the confetti and for
+         * the same reasons — see fireworks — measured from wherever fixed
+         * boxes start (fixedOrigin). Placed again when the window changes,
+         * because unlike the confetti it stays: the board it is centred on
+         * moves with the window and it would not.
+         *
+         * A button, so the press is written down like any other: `snake-prize`.
+         *
+         * It turns as it comes, by two fifths of a turn: a five-pointed star
+         * looks the same every fifth of one, so a whole turn read as five of
+         * them and the star seemed to spin.
+         *
+         * Turned back to nought rather than on to two fifths. Two fifths is
+         * upright only nearly: this star is not quite regular, and it turns
+         * about the middle of its box rather than its own centre. Ending
+         * there, the flight let go and the star jumped to where it stands
+         * unturned. Starting from minus two fifths instead puts the mismatch
+         * at the start, where the star is the size of a dot in the header,
+         * and the last frame of the flight is the star at rest.
+         *
+         * Edged in white, so that it stands clear of the board without a
+         * halo. A gold edge on the dark board ran into the gold of the star
+         * and took its shape with it.
+         *
+         * Once it has landed it breathes — swells a little and brightens, and
+         * back — and a glint crosses it now and again. Both for as long as it
+         * is there, so neither with reduced motion.
+         */
+        const PRIZE_FLIGHT = 1200;
+        const PRIZE_TURN = 144;
+        const PRIZE_BREATH = 1100;
+        const PRIZE_GLINT = 2800;
+
+        function prize() {
+            const small = header && header.querySelector('.snake-star');
+            if (!small) return;
+
+            Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished))
+                .then(() => { if (small.isConnected) flyPrize(small); }, () => { });
+        }
+
+        function flyPrize(small) {
+            const from = appRect(small);
+
+            const box = STAR_BOX;
+
+            const button = $(host, `<button class="snake-prize" title="Dictionary" aria-label="Dictionary" style="position: fixed; z-index: 6; padding: 0; background: none; border: none; cursor: pointer;">
+                <svg viewBox="${box.x} ${box.y} ${box.width} ${box.height}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
+                    <defs>
+                        <clipPath id="snake-prize-shape"><path d="${STAR_PATH}" /></clipPath>
+                        <linearGradient id="snake-prize-glint" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0" stop-color="#ffffff" stop-opacity="0" />
+                            <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.75" />
+                            <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <path d="${STAR_PATH}" fill="${palette.star}" />
+                    <g clip-path="url(#snake-prize-shape)">
+                        <rect class="snake-prize-glint" x="${box.x - 8}" y="${box.y - 4}" width="6" height="${box.height + 8}" fill="url(#snake-prize-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+                    </g>
+                    <path d="${STAR_PATH}" fill="none" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round" />
+                </svg>
+            </button>`);
+
+            /*
+             * Where a fixed box with left and top at nought actually lands.
+             *
+             * Not always the corner of the window: in a tab the page keeps a
+             * scrollbar's width spare on both sides (scrollbar-gutter in
+             * app.css), and fixed is measured from inside it. Taken for the
+             * corner, the star stood fifteen pixels right of the middle of
+             * the board everywhere but the popup.
+             */
+            const fixedOrigin = () => {
+                const probe = $(host, '<div style="position: fixed; left: 0; top: 0; width: 0; height: 0;"></div>');
+                const at = appRect(probe);
+                probe.remove();
+                return at;
+            };
+
+            const place = () => {
+                const board = appRect(svg);
+                const origin = fixedOrigin();
+                const width = board.width / 3;
+                const height = width * box.height / box.width;
+
+                button.style.width = width + 'px';
+                button.style.height = height + 'px';
+                button.style.left = (board.left - origin.left + (board.width - width) / 2) + 'px';
+                button.style.top = (board.top - origin.top + (board.height - height) / 2) + 'px';
+
+                return { x: board.left + board.width / 2, y: board.top + board.height / 2, width };
+            };
+
+            const to = place();
+            window.addEventListener('resize', place);
+            button.addEventListener('click', () => cb.onGoDictionary());
+
+            small.style.visibility = 'hidden';
+            if (still()) return;
+
+            const dx = from.left + from.width / 2 - to.x;
+            const dy = from.top + from.height / 2 - to.y;
+
+            const flight = button.animate([
+                { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}) rotate(${-PRIZE_TURN}deg)` },
+                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8 },
+                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
+            ], { duration: PRIZE_FLIGHT, easing: 'ease-in-out' });
+
+            // On the star inside rather than on the button, which the flight
+            // is still moving: two animations of one transform would fight.
+            flight.finished.then(() => {
+                if (!button.isConnected) return;
+
+                button.querySelector('svg').animate([
+                    { transform: 'scale(1)', filter: 'brightness(1)' },
+                    { transform: 'scale(1.07)', filter: 'brightness(1.18)' }
+                ], { duration: PRIZE_BREATH, direction: 'alternate', iterations: Infinity, easing: 'ease-in-out' });
+
+                // Across in the first part of the cycle, out of sight for the
+                // rest of it: a glint that never stops is a stripe
+                button.querySelector('.snake-prize-glint').animate([
+                    { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
+                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 1, offset: 0.35 },
+                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 0, offset: 0.36 },
+                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 0 }
+                ], { duration: PRIZE_GLINT, iterations: Infinity, easing: 'ease-in-out' });
+            }, () => { });
+        }
+
+        view.victory = (full) => {
             const el = translationEl();
             if (el) {
                 el.innerHTML = '🎉 Victory! Snake completed! 🏆';
@@ -1411,6 +1676,8 @@ function snake(container) {
             // Last, so the burst is measured against the board as it now stands
             // and lands on a screen that has finished changing.
             fireworks();
+            sway(full ? Infinity : SWAY_PLAIN);
+            if (full) prize();
         };
 
         // Markup is being assembled as text, so anything coming from a word has
@@ -2833,9 +3100,16 @@ function snake(container) {
          * as wrong here too, and at the speaker rather than when the round
          * ends — that is when its dot goes red. Called once per round: by
          * scoreRound, or by hearWord before any verdict, never both.
+         *
+         * A wrong answer with no star up sends nothing. The wave is the answer
+         * on its way to the star, and there is no star to reach and nothing
+         * for it to change: a red light running off to an empty place only
+         * says something happened that did not.
          */
         function starAnswered(right) {
             const was = state.starLevel;
+            if (!right && !was) return;
+
             state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 0;
 
             view.star(was, state.starLevel, view.wave(state.currentIndex, right));
@@ -3435,7 +3709,7 @@ function snake(container) {
          * of seconds and on a silent device is almost none.
          */
         function showVictory() {
-            view.victory();
+            view.victory(state.starLevel === STAR_TOP);
         }
 
         /*
