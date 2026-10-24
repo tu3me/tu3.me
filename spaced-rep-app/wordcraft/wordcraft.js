@@ -762,7 +762,7 @@ function wordcraft(container) {
                     const said = sayNow(currentItem.word.original, () => {
                         hold(speaker);
                         speaker.style.color = palette.saying;
-                    }, true);
+                    }, speaker);
 
                     if (said) hearWord();
                 });

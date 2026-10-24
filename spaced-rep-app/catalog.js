@@ -1445,10 +1445,53 @@ function catalog(container) {
             // settles whatever was in the air, and settling takes the last
             // bubble back down — this one included, when it is the one that was
             // talking. Grown at all only if there was something to hear.
-            if (speech.say(word, lang, shrink)) grow(bubble);
+            if (speech.say(word, lang, shrink)) return grow(bubble);
+
+            // Nothing heard because the sound is off, and the switch is what
+            // answers -- see pulseMute. Not where there is no voice for the
+            // word: switching the sound on would not make it heard.
+            if (speech.muted() && speech.readable(word, lang)) pulseMute();
         });
 
         return bubble;
+    }
+
+    /*
+     * The sound switch, saying that it is the reason a bubble said nothing.
+     *
+     * It used to do this for every silent tap, and was stopped when the sound
+     * came on by default (5 October 2026): the quiet was then the player's own
+     * choice, and explaining it back to them seemed one answer too many. Back
+     * for the bubbles on 24 October 2026, because that choice gets forgotten:
+     * people turn the sound off, forget it, and tap bubble after bubble in a
+     * set without hearing anything or seeing why. A tap answered by neither a
+     * sound nor a movement looks like a tap that missed.
+     *
+     * Only the bubbles. The games keep their silence: a word tapped in a game
+     * is marked, so the tap is answered anyway, and their speakers are heard
+     * whatever the switch says.
+     *
+     * A swell and back, twice -- the pulse it had. Where motion is turned down,
+     * the switch fades and comes back instead. A tap during a pulse starts it
+     * over rather than stacking another on top.
+     */
+    let pulsing = null;
+
+    function pulseMute() {
+        const btn = container.querySelector('#mute-btn');
+        if (!btn || !btn.animate) return;
+
+        if (pulsing) pulsing.cancel();
+
+        const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        pulsing = still
+            ? btn.animate([{ opacity: 1 }, { opacity: 0.3 }, { opacity: 1 }], { duration: 420, iterations: 2 })
+            : btn.animate([
+                { scale: 1 },
+                { scale: 1.3, offset: 0.3 },
+                { scale: 0.94, offset: 0.65 },
+                { scale: 1 }
+            ], { duration: 420, iterations: 2, easing: 'ease-out' });
     }
 
     /*
@@ -2413,23 +2456,60 @@ function catalog(container) {
      * The two that do not exist yet are drawn in dashes, the same dashes the
      * stage with no interval of its own wears further down the panel: an
      * outline with nothing filling it is the shortest way to say planned rather
-     * than missing. Nothing here can be pressed — it is a legend, and a cell
-     * that looked like a button would promise a place to go.
+     * than missing.
+     *
+     * Those two can be pressed, and the press goes nowhere: it is counted --
+     * `click|dict-where-cell|||web` or `mobile`, see ANALYTICS.md -- and that
+     * count is why they are pressable at all. Which of the two to build first
+     * is a question only the people waiting for one can answer, the same way a
+     * press on a game that is not written yet answers it for the games. With
+     * "In progress" printed under each, there was nothing to press for, so the
+     * line under them stays empty until a press fills it with "Coming soon!",
+     * where the extension's cell says "You are here". It is there all along,
+     * only invisible, so nothing in the strip moves when it shows; and it
+     * fades again after a moment, so the next press has something to say too.
+     * A real button rather than a cell with a handler, so that a keyboard can
+     * reach it as well.
      */
+    const WHERE_NOTE_MS = 2400;
+
     function platformStrip() {
         const spots = [
             { icon: PUZZLE, name: 'Browser', note: 'You are here', here: true },
-            { icon: DESKTOP, name: 'Web App', note: 'In progress' },
-            { icon: HANDSET, name: 'Mobile', note: 'In progress' }
+            { icon: DESKTOP, name: 'Web App', note: 'Coming soon!', press: 'web' },
+            { icon: HANDSET, name: 'Mobile', note: 'Coming soon!', press: 'mobile' }
         ];
 
-        const cells = spots.map(spot => `<div class="dict-where-cell" style="display: flex; flex-direction: column; align-items: center; gap: 4.3px; flex: 1; min-width: 0; box-sizing: border-box; padding: 7.7px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 10.2px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};">
+        const cells = spots.map(spot => {
+            const tag = spot.here ? 'div' : 'button';
+            const press = spot.here ? '' : ` data-press="${spot.press}"`;
+            const button = spot.here ? '' : ' margin: 0; font-family: inherit; cursor: pointer;';
+
+            return `<${tag} class="dict-where-cell"${press} style="display: flex; flex-direction: column; align-items: center; gap: 4.3px; flex: 1; min-width: 0; box-sizing: border-box; padding: 7.7px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 10.2px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};${button}">
                 ${spot.icon}
                 <span style="font-size: 10.2px; font-weight: 700; line-height: 1;">${spot.name}</span>
-                <span style="font-size: 9.7px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};">${spot.note}</span>
-            </div>`).join('');
+                <span class="dict-where-note" style="font-size: 9.7px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};${spot.here ? '' : ' opacity: 0;'}">${spot.note}</span>
+            </${tag}>`;
+        }).join('');
 
         return `<div class="dict-where" style="display: flex; gap: 5.1px; margin-bottom: 8.5px;">${cells}</div>`;
+    }
+
+    // Shows the note from wherever it is now, so a second press during the
+    // first does not blink it out and back. The easing sits on the frames
+    // rather than on the whole run: over the whole run it bends the offsets
+    // too, and the note was measured fading from 1.6 s instead of 2.
+    function sayWhereSoon(cell) {
+        const note = cell.querySelector('.dict-where-note');
+        const from = getComputedStyle(note).opacity;
+
+        note.getAnimations().forEach(run => run.cancel());
+        note.animate([
+            { opacity: from, easing: 'ease-out' },
+            { opacity: 1, offset: 0.06 },
+            { opacity: 1, offset: 0.85, easing: 'ease-in' },
+            { opacity: 0 }
+        ], WHERE_NOTE_MS);
     }
 
     /*
@@ -2793,6 +2873,10 @@ function catalog(container) {
             theme.set(!theme.isDark());
             catalog.setTheme(theme.isDark());
             render();
+        });
+
+        overlay.querySelectorAll('.dict-where-cell[data-press]').forEach(cell => {
+            cell.addEventListener('click', () => sayWhereSoon(cell));
         });
 
         const codeField = overlay.querySelector('.dict-sync-input');
@@ -4242,6 +4326,9 @@ function catalog(container) {
      * back from a game, and what it reads is the record every change wrote to,
      * so there is nothing of its own to carry across the call.
      */
+    // Whether any form is open -- see keepPlace.
+    catalog.formsOpen = () => editing.size > 0;
+
     catalog.setOpenForms = (list) => {
         editing.clear();
         openForms.clear();
@@ -4963,6 +5050,78 @@ function showFromTop() {
     document.body.scrollTop = 0;
 }
 
+/*
+ * Except where a form was left open: then the catalog comes back where it was
+ * left.
+ *
+ * What it is for: a set being edited, and the next word looked up in another
+ * tab. That closes the popup -- a popup goes as soon as it loses focus -- and
+ * the form outlives it (see saveForms), but it came back at the top of the
+ * list, and the set being edited had to be looked for. The reason for the
+ * top does not hold here: nothing has been played, so nothing has moved up.
+ *
+ * The place is a card and where it stood on the screen -- the first card
+ * still in sight -- rather than an offset. What stands above the list is not
+ * the same on every opening: the banner of an unfinished game comes and goes,
+ * and so does the strip of help cards. An offset would come back close to the
+ * set, a card comes back on it.
+ *
+ * Written to localStorage, which is synchronous, as the screen is left: the
+ * popup gives no warning, and a write still under way when it goes may never
+ * land. Not on the way to another page of the app -- pagehide comes first
+ * then -- because coming back from a game is what the top is for. Taken away by
+ * the next opening, used or not, and by the page coming back to the screen
+ * alive, where the place never went anywhere.
+ */
+const PLACE_KEY = 'catalog-place';
+
+// pagehide has fired: this document is being replaced, not left.
+let replacing = false;
+
+function keepPlace() {
+    try {
+        localStorage.removeItem(PLACE_KEY);
+        if (replacing || !catalog.formsOpen()) return;
+
+        const card = Array.from(document.querySelectorAll('.set-card'))
+            .find(c => c.getBoundingClientRect().bottom > 0);
+        if (!card) return;
+
+        localStorage.setItem(PLACE_KEY, JSON.stringify({
+            id: card.dataset.setId,
+            top: Math.round(card.getBoundingClientRect().top)
+        }));
+    } catch (e) {
+        // Storage switched off: the catalog opens at the top, as before.
+    }
+}
+
+function takePlace() {
+    try {
+        const place = JSON.parse(localStorage.getItem(PLACE_KEY) || 'null');
+        localStorage.removeItem(PLACE_KEY);
+        return place;
+    } catch (e) {
+        return null;
+    }
+}
+
+// The card back where it stood. Both scrollers, the way showFromTop does it:
+// only one of them moves.
+function returnTo(place) {
+    if (!place || !catalog.formsOpen()) return false;
+
+    const card = document.querySelector(`.set-card[data-set-id="${place.id}"]`);
+    if (!card) return false;
+
+    const by = card.getBoundingClientRect().top - place.top;
+    const page = document.scrollingElement || document.documentElement;
+
+    page.scrollTop += by;
+    document.body.scrollTop += by;
+    return true;
+}
+
 // Everything the catalog shows comes from storage, and all of it can have moved
 // on while a game was in front: progress, timers, and whether a session is still
 // unfinished. Kept separate from boot so it can be run again without setting the
@@ -5077,7 +5236,7 @@ async function bootCatalog() {
     catalog.setLangs(settings);
 
     await refreshCatalog();
-    showFromTop();
+    if (!returnTo(takePlace())) showFromTop();
     popupHeight.release();
 
     syncCatalog();
@@ -5086,8 +5245,16 @@ async function bootCatalog() {
     // a new one: nothing above runs again, and the other devices may have
     // moved on meanwhile.
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) syncCatalog();
+        if (document.hidden) {
+            keepPlace();
+            return;
+        }
+
+        takePlace();
+        syncCatalog();
     });
+
+    window.addEventListener('pagehide', () => { replacing = true; });
 }
 
 // The browser's own Back button can restore this page from the bfcache: the
@@ -5102,6 +5269,7 @@ async function bootCatalog() {
 window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
 
+    replacing = false;
     refreshCatalog().then(syncCatalog);
 
     // A page out of the bfcache comes back scrolled where it was left, and

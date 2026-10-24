@@ -291,7 +291,7 @@ function quiz(container) {
             // alone -- see speech.say.
             if (!letter) {
                 forgetTaps();
-                return sayLine(root, text, lang, !!e.target.closest('.say-all'));
+                return sayLine(root, text, lang, e.target.closest('.say-all'));
             }
 
             const word = letter.closest('.say-word');
@@ -627,7 +627,7 @@ function quiz(container) {
             if (speaker) speaker.addEventListener('click', (e) => {
                 e.stopPropagation();
 
-                speech.say(opt, optionLang, null, true);
+                speech.say(opt, optionLang, null, speaker);
             });
 
             optBtn.addEventListener('click', () => {

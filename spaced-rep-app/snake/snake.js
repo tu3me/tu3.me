@@ -1180,7 +1180,7 @@ function snake(container) {
             const speakerHtml = speech.speakerHtml(targetLetters.join(''), sayLang, palette.sayIcon, SAY_LEAD);
 
             if (speakerHtml) {
-                $(gatheredBar, speakerHtml).addEventListener('click', () => cb.onSayAll());
+                $(gatheredBar, speakerHtml).addEventListener('click', (e) => cb.onSayAll(e.currentTarget));
             }
 
             for (let i = 0; i < targetLetters.length; i++) {
@@ -3046,11 +3046,11 @@ function snake(container) {
              * round, which is hearWord's business — see the speaker in
              * view.gathered.
              */
-            onSayAll: () => {
+            onSayAll: (speaker) => {
                 forgetTaps();
 
                 const letters = board.letters();
-                const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)), true);
+                const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)), speaker);
 
                 if (said) hearWord();
             },

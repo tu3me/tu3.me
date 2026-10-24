@@ -585,6 +585,7 @@ function speech() {
         held = null;
 
         if (!word) return;
+        stopWaves();
         if (noVoice) track.tally('no_voice', [word.lang || detect(word.text).lang || '']);
         if (word.done) word.done();
     }
@@ -628,7 +629,10 @@ function speech() {
             // "yes" while the voice list was still empty, and the list that
             // finally arrived may have nothing for this language — the caller
             // was told it would be said, so it has to be told that it was not.
-            if (word && !speak(word.text, word.lang, word.done) && word.done) word.done();
+            if (word && !speak(word.text, word.lang, word.done, word.asked, word.since)) {
+                stopWaves();
+                if (word.done) word.done();
+            }
 
             known();
         });
@@ -753,18 +757,26 @@ function speech() {
      * machine while the wait allowed 1530, so the mark came off three hundred
      * milliseconds before the voice stopped, every time. A backstop that fires
      * during ordinary use is not a backstop, it is a second, worse clock.
+     *
+     * Each direction says which it was, for the analytics -- see noteOutcome.
+     *
+     * And each but the next word stops the waves of a speaker still waiting
+     * for its voice. The next word leaves them to awaitVoice, which keeps them
+     * going if it comes from the same speaker, pressed again while it waited.
      */
     let pending = null;
 
-    function settle() {
+    function settle(outcome) {
         if (!pending) return;
 
         clearTimeout(pending.guard);
+        if (outcome !== 'cut') stopWaves();
 
-        const done = pending.done;
+        const was = pending;
         pending = null;
 
-        if (done) done();
+        noteOutcome(was, outcome);
+        if (was.done) was.done();
     }
 
     function guardMs(text, rate) {
@@ -836,7 +848,150 @@ function speech() {
         return !!voiceOf(text, lang);
     };
 
-    function speak(text, lang, whenDone) {
+    /*
+     * Which voice it was, for the analytics: whether it lives on this machine
+     * or answers from a server, and its name — `online Google 日本語`.
+     *
+     * Added after two people learning Japanese had their voice fail with the
+     * voice right there in the list (23 October 2026): one failure with
+     * `synthesis-failed`, the rest never saying they had finished. A cloud
+     * voice that the network or the service left without an answer would do
+     * both, and so might the cancel() just before speak(); the events could
+     * not tell which, because they did not say which voice it was.
+     *
+     * The text a tallied event ends with, after the count — see track.tally —
+     * so the parts before it keep their meaning. The separator is taken out of
+     * the name all the same, so that the line still splits into the same parts.
+     */
+    function voiceNote(voice) {
+        const where = voice.localService ? 'local' : 'online';
+        const name = String(voice.name || '').replace(/\|/g, '/').slice(0, 60);
+
+        return name ? where + ' ' + name : where;
+    }
+
+    /*
+     * How each thing said came out, and how long the voice took to begin:
+     * `speech`, one line per kind, counted -- see track.tally and
+     * ANALYTICS.md.
+     *
+     * Asked the day after the Japanese voices failed (24 October 2026): how
+     * long does somebody who pressed a speaker wait for the sound, and is it
+     * heard out? Nothing could say. A voice that worked wrote nothing, and the
+     * one that was cut off went out with `interrupted` and `canceled`, which
+     * are thrown away below.
+     *
+     * The wait runs from the asking to the voice's `start`, the network and a
+     * cloud voice's answer included, which is what the person sits through.
+     * It is written as the band it fell in rather than in milliseconds: a sum
+     * would be a different text every time and could not be counted, and a
+     * band says "how many waited over a second" outright. `silent` where the
+     * voice never began. The first band ends at half a second rather than
+     * nearer: a voice installed on Windows took 255 to 270ms to begin in
+     * every measurement, and a line drawn at 300 would have split one voice
+     * between two bands by chance.
+     *
+     * Once for each utterance, when its end is known. Leaving the page is
+     * known before the end of the sound, which may yet come -- see leaving --
+     * so the first word is the one that counts.
+     */
+    const WAITS = [500, 1000, 3000];
+
+    function waitOf(watcher) {
+        if (watcher.began == null) return 'silent';
+
+        const band = WAITS.find(top => watcher.began - watcher.since < top);
+        return band ? String(band) : WAITS[WAITS.length - 1] + '+';
+    }
+
+    function noteOutcome(watcher, outcome) {
+        if (watcher.noted) return;
+        watcher.noted = true;
+
+        track.tally('speech', [watcher.lang, watcher.asked ? 'speaker' : 'other', outcome, waitOf(watcher)], watcher.voice);
+    }
+
+    /*
+     * The screen left while a voice is in the air: said as `left` there and
+     * then, because the visit ends with the screen (track.js) and whatever is
+     * told after it lands in the next visit, or in none. Not settled: a tab in
+     * the background goes on talking and may yet finish, and whoever waits on
+     * the voice is told when it does, as before.
+     *
+     * On the window and in the capture phase, so that it runs before the
+     * analytics' own listener on the document ends the visit, whichever of the
+     * two was added first. pagehide for a page replaced by the next one of the
+     * app, which takes the visit along.
+     */
+    function leaving() {
+        if (pending) noteOutcome(pending, 'left');
+    }
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('visibilitychange', () => { if (document.hidden) leaving(); }, true);
+        window.addEventListener('pagehide', leaving, true);
+    }
+
+    /*
+     * A pressed speaker whose voice has not begun yet: the two waves of the
+     * glyph fade and come back, one after the other, until the sound starts.
+     *
+     * A cloud voice can take a second or more to answer -- the network, then
+     * the service -- and a speaker that sits still under the finger for that
+     * long reads as a press that missed. It gets pressed again, and the second
+     * press starts the wait over. The waves say that the press landed and the
+     * sound is on its way.
+     *
+     * Not for the first WAVES_AFTER ms. A voice installed on the device begins
+     * in about a quarter of a second, and waves flickering on every press would
+     * be answering a wait nobody had noticed.
+     *
+     * Opacity alone, on the waves alone: the colour is the games' own -- the
+     * speaker in Wordcraft is painted while it talks -- and so is the size,
+     * which the bars fit to the letters. Where motion is turned down, the waves
+     * dim once and stay dim until the voice begins.
+     *
+     * `asked` is the speaker itself or just `true`; only an element has waves
+     * to move.
+     */
+    const WAVES_AFTER = 300;
+    const WAVES_CYCLE = 900;
+    const WAVES_STAGGER = 250;
+
+    let hanging = null;
+
+    function awaitVoice(asked) {
+        if (hanging && hanging.speaker === asked) return;
+        stopWaves();
+
+        if (typeof Element === 'undefined' || !(asked instanceof Element) || !asked.animate) return;
+
+        const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const waves = Array.from(asked.querySelectorAll('.say-wave'));
+
+        hanging = {
+            speaker: asked,
+            moves: (waves.length ? waves : [asked]).map((wave, i) => (still
+                ? wave.animate([{ opacity: 1 }, { opacity: 0.35 }], { duration: 1, delay: WAVES_AFTER, fill: 'forwards' })
+                : wave.animate([{ opacity: 1 }, { opacity: 0.15 }, { opacity: 1 }], {
+                    duration: WAVES_CYCLE,
+                    delay: WAVES_AFTER + i * WAVES_STAGGER,
+                    iterations: Infinity,
+                    easing: 'ease-in-out'
+                })))
+        };
+    }
+
+    function stopWaves() {
+        if (!hanging) return;
+
+        hanging.moves.forEach(move => move.cancel());
+        hanging = null;
+    }
+
+    // `since` for a word that waited for the voice list: the wait is the
+    // person's from the moment they asked, the list's arrival included.
+    function speak(text, lang, whenDone, asked, since) {
         const voice = voiceOf(text, lang);
 
         // Counted rather than written each time: a missing voice is missing
@@ -859,33 +1014,55 @@ function speech() {
 
         // Whatever was being said is over as of this line, whoever was waiting
         // on it included.
-        settle();
+        settle('cut');
+        awaitVoice(asked);
 
-        const watcher = { done: whenDone || null, guard: 0 };
+        const watcher = {
+            done: whenDone || null,
+            guard: 0,
+            since: since == null ? performance.now() : since,
+            began: null,
+            asked: !!asked,
+            lang: line.lang,
+            voice: voiceNote(voice),
+            noted: false
+        };
 
         // Both, because a voice can fail as well as finish, and either way the
         // sound has stopped. Each checks that it is still the one in the air:
         // the utterance this one replaces fires the same events a moment later,
         // and they are about a word nobody is listening to any more.
-        line.onend = () => { if (pending === watcher) settle(); };
+        line.onend = () => { if (pending === watcher) settle('done'); };
+
+        // For the wait, and so that the backstop can say which of its two
+        // cases it was
+        line.onstart = () => {
+            if (watcher.began == null) watcher.began = performance.now();
+            if (pending === watcher) stopWaves();
+        };
 
         // For the analytics, every failure but the two this file causes
         // itself: `interrupted` and `canceled` are what the next word does to
-        // the last one, which is how speaking is meant to work here.
+        // the last one, which is how speaking is meant to work here. On the
+        // one still in the air they are not this file's doing -- it cuts only
+        // the one before -- and the voice was `stopped` by something else.
         line.onerror = (e) => {
             const code = (e && e.error) || 'unknown';
-            if (code !== 'interrupted' && code !== 'canceled') track.tally('speech_error', [code, line.lang]);
+            const cutOff = code === 'interrupted' || code === 'canceled';
+            if (!cutOff) track.tally('speech_error', [code, line.lang], watcher.voice);
 
-            if (pending === watcher) settle();
+            if (pending === watcher) settle(cutOff ? 'stopped' : 'error');
         };
 
         // And the backstop firing, which is a voice that never said it had
-        // finished -- or never started.
+        // finished -- or never started. Which of the two goes on the end:
+        // a voice that never began is one that was not reached, or not let
+        // speak; one that began and went quiet is another trouble.
         watcher.guard = setTimeout(() => {
             if (pending !== watcher) return;
 
-            track.tally('speech_timeout', [line.lang]);
-            settle();
+            track.tally('speech_timeout', [line.lang], watcher.voice + (watcher.began != null ? ' started' : ' silent'));
+            settle('timeout');
         }, guardMs(text, again.rate));
 
         pending = watcher;
@@ -939,18 +1116,21 @@ function speech() {
      * told that no sound happened, whatever the cause.
      *
      * Except for the speaker. `asked` is a press on one of the speakers drawn
-     * by speakerHtml, and that is said whatever the switch says: a speaker has
+     * by speakerHtml -- the speaker itself, which then shows the wait for its
+     * voice (see awaitVoice), or `true` -- and that is said whatever the switch
+     * says: a speaker has
      * no purpose but the sound, and one that answered its own press with
      * nothing read as broken rather than as switched off. Everything else
      * stays under the switch -- what the app says by itself, the snake reading
      * out what it eats, and taps on words and letters as well. Decided 21
      * October 2026, the speaker alone.
      *
-     * And nothing is drawn about it. The switch used to pulse when a tap landed
-     * here while it was off, which made sense while off was the default and the
-     * player might not know it. Now the quiet is something they asked for and
-     * the switch is already showing its off face: answering a tap by explaining
-     * their own choice back to them is one answer too many.
+     * And nothing is drawn about it here. The switch used to pulse when a tap
+     * landed here while it was off, which made sense while off was the default
+     * and the player might not know it. Now the quiet is something they asked
+     * for and the switch is already showing its off face. Except that it gets
+     * forgotten, and a tap on a bubble in the catalog pulses the switch again
+     * -- see pulseMute in catalog.js; the games do not.
      *
      * The analytics hear it, though, counted like a missing voice -- what the
      * switch kept quiet, which since `asked` is never a speaker.
@@ -971,17 +1151,18 @@ function speech() {
             }
 
             letGo(false);
-            held = { text: text, lang: lang, done: whenDone };
+            held = { text: text, lang: lang, done: whenDone, asked: asked, since: performance.now() };
+            awaitVoice(asked);
             whenVoicesArrive();
             return true;
         }
 
-        return speak(text, lang, whenDone);
+        return speak(text, lang, whenDone, asked);
     };
 
     speech.hush = () => {
         letGo(false);
-        settle();
+        settle('hushed');
         if (speech.available()) speechSynthesis.cancel();
     };
 
@@ -1148,7 +1329,7 @@ function speech() {
     speech.speakerHtml = (text, lang, colour, css) => {
         if (!speech.readable(text, lang)) return '';
 
-        return `<span class="say-all" data-press title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
+        return `<span class="say-all" data-press title="Say it" aria-hidden="true" style="margin-top: 10px; padding: 0; color: ${colour}; cursor: pointer; display: inline-flex; font-size: 20px; transition: color 0.2s;${css || ''}"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path class="say-wave" d="M15.5 8.5a5 5 0 0 1 0 7" /><path class="say-wave" d="M18.8 5.2a9 9 0 0 1 0 13.6" /></svg></span>`;
     };
 
 }

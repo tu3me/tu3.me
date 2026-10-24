@@ -60,7 +60,7 @@ function remote() {
      * build.sh writes the extension's number in over the placeholder below, so
      * the site says the same thing the extension it was built with does.
      */
-    const BUILD_VERSION = '0.2.6';
+    const BUILD_VERSION = '0.2.8';
 
     // Unbuilt -- served straight out of app/ while developing -- the
     // placeholder is still there, and says so as "dev". Asked as a prefix

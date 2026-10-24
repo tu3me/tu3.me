@@ -352,7 +352,7 @@ function cards(container) {
             // alone -- see speech.say.
             if (!letter) {
                 forgetTaps();
-                return sayLine(face, text, lang, !!e.target.closest('.say-all'));
+                return sayLine(face, text, lang, e.target.closest('.say-all'));
             }
 
             const word = letter.closest('.say-word');

@@ -15,7 +15,8 @@
  * It is sent the moment it ends, while the page can still send it, and kept in
  * a queue until that is known to have worked: whatever did not go -- no
  * network, an answer that came back to a popup already gone -- goes with the
- * next start of any page. A visit, once ended, never changes, so sending one
+ * next start of any page, or as the network comes back to a page that is
+ * open. A visit, once ended, never changes, so sending one
  * twice is harmless: the server keeps the first copy and passes over the rest.
  *
  * An event is two things: when, in milliseconds from the start of the visit,
@@ -763,6 +764,11 @@ function analytics() {
         // The site installed as an app, from the page it was installed from:
         // the moment itself, which the first visit with p = 'p' only hints at.
         window.addEventListener('appinstalled', () => track('pwa_install'));
+
+        // The network back while a page is open: what waited for it goes now,
+        // not with the next page -- the site or the installed app can stay
+        // open for hours after a ride with no network.
+        window.addEventListener('online', () => deliver(false));
 
         window.addEventListener('pageshow', (e) => {
             if (!e.persisted) return;
