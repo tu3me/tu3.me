@@ -849,6 +849,176 @@ function speech() {
     };
 
     /*
+     * What stands between this device and the sound of these words, or null
+     * when nothing does -- or when that is not known yet.
+     *
+     * Asked when the sound is switched on, which is the one moment somebody
+     * says outright that they want to hear something. A switch that answers
+     * "on" over a device with nothing to say it with sends them off tapping
+     * words in silence and blaming the app -- see explainSilence.
+     *
+     * Three answers, each with its own way out:
+     *   browser  no speechSynthesis at all, which is the browser and not the
+     *            device: some browsers built into other apps leave it out;
+     *   none     the list of voices is empty, and has stayed empty past the
+     *            wait for it (see VOICES_WAIT);
+     *   lang     there are voices, and none of them reads these languages,
+     *            not even with a neighbour's accent (see voiceOf).
+     *
+     * A list still on its way is not an answer, and nothing is said rather
+     * than something wrong. Each item is a word and the language it will be
+     * asked in, the way say() is asked, so the answer is the one say() would
+     * give; one word per language is enough to ask about.
+     */
+    speech.gap = (items) => {
+        if (!speech.available()) return { why: 'browser', langs: [] };
+        if (voices().length === 0) return voiceless ? { why: 'none', langs: [] } : null;
+
+        const asked = new Map();
+        (items || []).forEach(item => {
+            if (!hasWords(item.text)) return;
+
+            const tag = String(item.lang || detect(item.text).lang || '').split('-')[0].toLowerCase();
+            if (tag && !asked.has(tag)) asked.set(tag, item);
+        });
+
+        const langs = Array.from(asked).filter(([, item]) => !voiceOf(item.text, item.lang)).map(([tag]) => tag);
+
+        return langs.length ? { why: 'lang', langs: langs } : null;
+    };
+
+    /*
+     * Where a voice is added, on the machine in front of the reader.
+     *
+     * A path rather than an explanation: the way to a voice is a place in the
+     * system's own settings, and the one thing a person needs is where that
+     * place is. Then the browser has to be started again, which is the step
+     * nobody guesses -- it does not see a voice added while it was running.
+     *
+     * Read off the user agent, the client hint first: the platform is all that
+     * is wanted, and a wrong guess costs a sentence about the wrong system,
+     * not anything that breaks.
+     */
+    function voicePath() {
+        const hint = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+        const ua = navigator.userAgent || '';
+        const touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+
+        if (/Android/i.test(hint + ua)) return 'Settings → search “Text-to-speech output” → install voice data';
+        if (/iPhone|iPad|iPod/.test(ua) || touchMac) return 'Settings → Accessibility → Spoken Content → Voices';
+        if (/Windows/i.test(hint + ua)) return 'Settings → Time & language → Speech → Add voices';
+        if (/mac/i.test(hint) || /Macintosh/.test(ua)) return 'System Settings → Accessibility → Spoken Content → System voice → Manage Voices';
+        if (/Chrome OS|CrOS/i.test(hint + ua)) return 'Settings → Accessibility → Text-to-Speech → voice settings';
+        if (/Linux/i.test(hint + ua)) return 'speech-dispatcher with a voice for it, espeak-ng for one';
+
+        return 'your system’s speech settings';
+    }
+
+    // Languages by name -- "Greek", not "el" -- with the code itself where
+    // the browser cannot name it.
+    const NAMES = (() => {
+        try {
+            return new Intl.DisplayNames(['en'], { type: 'language' });
+        } catch (e) {
+            return null;
+        }
+    })();
+
+    function nameOf(tag) {
+        try {
+            return (NAMES && NAMES.of(tag)) || tag;
+        } catch (e) {
+            return tag;
+        }
+    }
+
+    function namesOf(tags) {
+        const names = tags.map(nameOf);
+        return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+    }
+
+    /*
+     * The tip under the switch that was just turned on, when the sound it
+     * turned on cannot be heard -- see gap. Returns whether it was shown.
+     *
+     * Hung on the body and over everything, so the redraw the switch causes
+     * does not take it away; gone at the next press anywhere, or once it has
+     * been up long enough to be read twice.
+     *
+     * Right edges together under the switch, the way the settings panel hangs
+     * under the gear. And put right by what it missed by once it is placed,
+     * the way pinAt in catalog.js places a fixed box, and for its reason.
+     *
+     * `where` is for the analytics: `voice_hint`, see ANALYTICS.md.
+     */
+    const TIP_MS = 9000;
+    const TIP_GAP = 6.8;
+    const TIP_EDGE = 10.2;
+
+    let tip = null;
+
+    function dropTip() {
+        if (!tip) return;
+
+        clearTimeout(tip.timer);
+        document.removeEventListener('pointerdown', tip.away, true);
+        tip.el.remove();
+        tip = null;
+    }
+
+    speech.explainSilence = (anchor, items, where) => {
+        const gap = speech.gap(items);
+        if (!gap || !anchor) return false;
+
+        track('voice_hint', where, gap.why, gap.langs.join(','));
+
+        const title = gap.why === 'browser' ? 'This browser can’t read words aloud'
+            : gap.why === 'none' ? 'No voices on this device'
+                : `No voice for ${namesOf(gap.langs)} on this device`;
+
+        const fix = gap.why === 'browser'
+            ? 'Open this page in Chrome, Edge or Safari.'
+            : `Add one in ${voicePath()}, then restart the browser.`;
+
+        dropTip();
+
+        const look = tokens.of(theme.isDark());
+        const el = document.createElement('div');
+
+        el.className = 'voice-tip';
+        el.setAttribute('role', 'status');
+        // In the page's ink, with the page's ground for its letters: the
+        // switch it hangs under is on the settings panel in the catalog, and in
+        // the panel's own surface the tip was a second panel melting into it.
+        el.style.cssText = `position: fixed; z-index: 200; box-sizing: border-box; width: 230px; padding: 8.5px 10.2px;`
+            + ` background: ${look.ink}; color: ${look.ground}; border-radius: 10.2px;`
+            + ` box-shadow: 0 6.8px 17px rgba(0, 0, 0, 0.28); font-size: 11.3px; font-weight: 600; line-height: 1.45;`
+            + ` text-align: left; pointer-events: none;`;
+        el.innerHTML = `<div style="font-weight: 800;">${title}</div>
+            <div style="margin-top: 3.4px; opacity: 0.8;">${fix}</div>`;
+
+        document.body.appendChild(el);
+
+        const a = appRect(anchor);
+        const left = Math.max(TIP_EDGE, a.right - el.offsetWidth);
+        const top = a.bottom + TIP_GAP;
+
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+
+        const landed = appRect(el);
+        el.style.left = `${2 * left - landed.left}px`;
+        el.style.top = `${2 * top - landed.top}px`;
+
+        if (el.animate) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'ease-out' });
+
+        tip = { el: el, away: dropTip, timer: setTimeout(dropTip, TIP_MS) };
+        document.addEventListener('pointerdown', tip.away, true);
+
+        return true;
+    };
+
+    /*
      * Which voice it was, for the analytics: whether it lives on this machine
      * or answers from a server, and its name — `online Google 日本語`.
      *
@@ -1097,8 +1267,8 @@ function speech() {
      * The old worry is answered by what speaks and when. Nothing here says
      * anything of its own accord: the first sound of a session follows a tap on
      * a word or a game being played, so it arrives after something the player
-     * did rather than before. And the switch is in the header, one tap from
-     * wherever they are.
+     * did rather than before. And the switch is near: in a game's header, and
+     * in the catalog's settings panel, behind the gear.
      *
      * Kept here rather than asked of the caller, because every way a word can
      * be said goes through say(), and one gate is one place to be wrong. What
@@ -1129,8 +1299,8 @@ function speech() {
      * landed here while it was off, which made sense while off was the default
      * and the player might not know it. Now the quiet is something they asked
      * for and the switch is already showing its off face. Except that it gets
-     * forgotten, and a tap on a bubble in the catalog pulses the switch again
-     * -- see pulseMute in catalog.js; the games do not.
+     * forgotten, and a tap on a bubble in the catalog points at the switch
+     * again -- see pulseMute in catalog.js; the games do not.
      *
      * The analytics hear it, though, counted like a missing voice -- what the
      * switch kept quiet, which since `asked` is never a speaker.

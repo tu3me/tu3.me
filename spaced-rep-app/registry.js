@@ -3,29 +3,37 @@
  * or removed — the catalog builds its tiles from here and knows no game of its
  * own accord.
  *
- * The list is not the row, though. Two words here say where the catalog puts a
- * game, and neither is a state the game is in:
+ * The list is not the row, though. Every game is in the dialog behind the last
+ * tile of a set's row, and the row is the games pinned to that set -- see
+ * pinnedOn in catalog.js. Two words here say more about where a game stands,
+ * and neither is a state the game is in:
  *
- *   - `away` keeps it off the shelf. The row has four places and the fourth is
- *     not a game, so the third game was the last one that fitted; a new one
- *     needed a place, and what moved is reached from the dialog behind that
- *     fourth tile instead. Nothing about the game itself changed — it is
- *     finished, it is played, and an unfinished round of it resumes.
+ *   - `away` keeps it off the row of a set nobody has pinned anything on. A set
+ *     starts with the games that do not carry it; the rest are a pin away in
+ *     the dialog, and a game played on a set is pinned to it by the playing.
+ *     Nothing about the game itself is different -- it is finished, it is
+ *     played, and an unfinished round of it resumes. Until 26 October 2026 it
+ *     meant off the row for good: the row had four fixed places, the fourth
+ *     was the door to the dialog, and the game that did not fit was played
+ *     from there.
  *   - `soon` says the game is not written yet. There is no page to go to, so
- *     wherever it is drawn there is nothing to open: on the shelf a press on it
- *     opens the dialog, which is where the app says what is coming, and in the
- *     dialog it is not a press at all -- an outlined tile and a line of what the
- *     game will be for. It is the one word here that is temporary by nature: it
- *     comes off in the commit that adds the game's page. `wordcraft` wore it until
- *     exactly that commit.
+ *     it is never on a row, and in the dialog it is not a press at all -- an
+ *     outlined tile and a line of what the game will be for, with no pin. It is
+ *     the one word here that is temporary by nature: it comes off in the commit
+ *     that adds the game's page. `wordcraft` wore it until exactly that commit.
  *
- * `pitch` is the line that dialog prints beside the name. The shelf shows no
- * such line and has nowhere to put one -- under a tile there is room for a name
- * and nothing else -- so a game needs a pitch exactly when it can turn up in
- * the dialog. It lives here rather than in the catalog for the reason the rest
- * of this list does: the catalog knows no game of its own accord, and a
- * sentence about one kept over there would be a sentence about a game in a file
- * that has never heard of it.
+ * `fresh` puts a "New" plate beside the name in that dialog, for as long as
+ * the game has not been played -- see allGames in catalog.js, which asks the
+ * answers. The flag itself comes off by hand, once the game is no longer new
+ * to anybody arriving either.
+ *
+ * `pitch` is the line that dialog prints beside the name, and every game has
+ * one, because every game is in the dialog. The row shows no such line and has
+ * nowhere to put one -- under a tile there is room for a name and nothing else.
+ * It lives here rather than in the catalog for the reason the rest of this list
+ * does: the catalog knows no game of its own accord, and a sentence about one
+ * kept over there would be a sentence about a game in a file that has never
+ * heard of it.
  *
  * Paths are relative to the app root, so they work from any page. The .html
  * suffix is not written here: nav adds it where it is required.
@@ -47,7 +55,7 @@
  * `icon` is a function of its size because a drawing is cut to the size it is
  * shown at: an SVG scaled by CSS from one fixed size lands its strokes between
  * pixels. The two places that ask for one — the shelf and the dialog — happen
- * to want the same 32 today, which is not a promise either makes the other.
+ * to want the same 28 today, which is not a promise either makes the other.
  *
  * `crest` is what the tile becomes once the game has set a record in a set --
  * see store.noteBest. It is the tile's whole face, the icon included, and not
@@ -87,6 +95,7 @@ const GAMES = [
                 <path d="M6 9.4V6.6a2 2 0 0 1 2-2h9.4" transform="rotate(16 10.5 6.4)" />
                 <rect x="3" y="8.8" width="17.4" height="11" rx="2.6" />
             </g>`),
+        pitch: 'Classic spaced-repetition cards for fast, effortless active recall.',
         color: '#ef6f5a',
         page: 'cards'
     },
@@ -114,6 +123,7 @@ const GAMES = [
             <path d="M3.2 13.2 L8.8 18.8" />
             <path d="M8.8 13.2 L3.2 18.8" />
             <path d="M12.6 16h8.4" />`),
+        pitch: 'Adaptive multiple-choice drills that get harder as your vocabulary grows.',
         color: '#d9a520',
         page: 'quiz'
     },
@@ -142,21 +152,22 @@ const GAMES = [
         // A violet of its own rather than the mint the shelf had free. The mint
         // is the snake's, and a colour that moves to another game is a colour
         // that says the wrong name for as long as anybody remembers the first.
+        pitch: 'Break words into fragments and piece them back together — getting harder with every level.',
         color: '#9b72d4',
         page: 'wordcraft'
     },
     {
         id: 'snake',
         title: 'Snake',
-        // Off the shelf since Wordcraft took the place it had. It is the same
-        // game, played from the dialog behind the fourth tile — see `away` in
-        // the header, and moreSoon in catalog.js.
+        // Off the row of a set until it is pinned there or played there, since
+        // Wordcraft took the place it had -- see `away` in the header, and
+        // allGames in catalog.js.
         away: true,
 
         // What it is good for, in the words somebody would use to recommend it
         // rather than to describe it: the mechanics are obvious from the name,
         // and the reason to open a snake game inside a vocabulary app is not.
-        pitch: 'Turn boring screen time into quick vocab review',
+        pitch: 'Turn boring screen time into quick vocab review.',
         // The 8-bit snake: square segments on a grid with a pixel of food ahead
         // of the head. It climbs — three along the bottom, up the middle, then
         // out to the head — turning twice, with a run of three between turns.
@@ -176,6 +187,11 @@ const GAMES = [
                 <rect x="18.3" y="6.7" width="4.7" height="4.7" rx="1.2" />
                 <rect x="19.4" y="1.7" width="2.6" height="2.6" rx="0.8" />
             </g>`),
+        // A "New" plate beside its name in the dialog until it is played,
+        // asked for on 26 October 2026 when the dialog came to hold every
+        // game: the one most people have not opened yet.
+        fresh: true,
+
         // The ring round the tile -- see snake/crest.js.
         crest: snakeCrest,
         color: '#56c4a6',
@@ -199,7 +215,7 @@ const GAMES = [
         away: true,
         soon: true,
 
-        pitch: 'Mental repetition while searching for hidden words wires them straight into your memory',
+        pitch: 'Mental repetition while searching for hidden words wires them straight into your memory.',
 
         /*
          * The puzzle itself: a grid of letters with the found words struck

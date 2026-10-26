@@ -284,11 +284,12 @@ function resizeGrip() {
         /*
          * Everything above is measured on the screen; `left` below is not.
          *
-         * A fixed element is laid out in the initial containing block, and the
-         * strips reserved for the scrollbar are outside it — see
-         * scrollbar-gutter in app.css. The two spaces agree to the pixel while
-         * nothing is reserved, and the day both edges were, the handle stood a
-         * whole gutter to the right of the edge it belongs on.
+         * A fixed element is laid out in the initial containing block, and
+         * strips reserved for a scrollbar are outside it. The two spaces agree
+         * to the pixel while nothing is reserved -- and nothing is since
+         * 26 October 2026, when the scrollbars went (see app.css) -- but the
+         * day both edges were, the handle stood a whole gutter to the right of
+         * the edge it belongs on.
          *
          * The root's own box is that block, so its left edge is where `left: 0`
          * lands. Plus the page's horizontal scroll, which slides the root under

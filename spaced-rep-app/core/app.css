@@ -158,33 +158,31 @@
 }
 
 /*
- * The window's scrollbar gets its width reserved instead of being left to come
- * and go.
+ * No scrollbar is drawn anywhere in the app: not the window's, not the
+ * popup's, not a panel's, a dialog's or a text box's. Whatever scrolled still
+ * scrolls -- the wheel, a finger, the keys and focus move it as before -- and
+ * content cut off at an edge is its own cue that there is more.
  *
- * The layout is a fixed 350px column held in the middle by auto margins, so the
- * width a scrollbar takes is width the centring divides in two: the moment a
- * page grows past the fold the whole app slides sideways by half a scrollbar,
- * and back again when it shrinks. Opening the new-set form does exactly that.
+ * Decided by the owner on 26 October 2026, for every screen at once. Until
+ * then only the popup hid its bar. The site reserved the width of one on both
+ * edges of the window (scrollbar-gutter: stable both-edges), because the app
+ * is a 350px column centred by auto margins and a bar coming and going slid it
+ * sideways by half its width -- opening the new-set form did exactly that. A
+ * hidden bar takes no width to begin with, so the jump went, and the
+ * reservation with it; and so did the one thing the reservation broke: a fixed
+ * box was measured from inside the left strip, fifteen pixels right of where
+ * its numbers put it on Windows.
  *
- * Reserved rather than hidden. In a window this is the only scrollbar there is —
- * it says how far down the page goes, and dragging it is how some people scroll.
- * The popup below is the opposite case and hides its own: there the app is the
- * whole window and has no width to give up.
- *
- * On both edges, which is the difference between centring the app and leaning
- * it. Reserved on one side only — the scrollbar's own side — the box the
- * margins centre in is a scrollbar narrower on the right than on the left, and
- * an auto margin splits what is left: the app stands half a scrollbar left of
- * the middle of the window, on every page, forever. That is a worse bargain
- * than the jump it was bought to prevent, and `both-edges` costs only the same
- * strip of empty page on the other side.
- *
- * Nothing is reserved where scrollbars are overlaid on the content and take no
- * width to begin with — every phone, and macOS unless it is set otherwise — so
- * this costs those nothing.
+ * Both spellings: the standard property for Chrome and Firefox, and the WebKit
+ * pseudo-element for Safari before 18.2, which knows only that one.
  */
-:root:not(.in-popup) {
-    scrollbar-gutter: stable both-edges;
+* {
+    scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 
 /*
@@ -212,17 +210,9 @@
     max-height: calc(600px * var(--app-unscale));
     overflow-y: auto;
 
-    /* An inner scrollbar would eat into the 350px layout exactly as the popup's
-       own did — it is not zero-width on Windows. Hidden rather than reserved with
-       scrollbar-gutter, because the design has no width to give up and content
-       cut off at the fold is its own cue that there is more. Wheel, touch, keys
-       and focus-scrolling all still work. */
-    scrollbar-width: none;
-}
-
-:root.in-popup body::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    /* Its scrollbar is not drawn, like every other -- see the rule above. It
+       mattered here first: an inner bar is not zero-width on Windows and would
+       eat into the 350px layout exactly as the popup's own did. */
 }
 
 /*
@@ -570,14 +560,15 @@ body {
 }
 
 /*
- * The tile of a game that was started and left, saying so by turning into the
- * thing it does: the drawing becomes a play triangle and the name becomes
- * "Continue", then both go back, and so on.
+ * The name under a game that was started and left, saying so: it becomes
+ * "Continue" and a play mark, then goes back, and so on. The tile above it stays
+ * as it is -- until 26 October 2026 its drawing turned into a play triangle in
+ * time with the name; see CONTINUE in catalog.js.
  *
  * A swap and not a fade. What is being said is not "look here" -- that is what
  * the corner's pulse is for and one of those per screen is plenty -- but "this
- * one is open": the tile shows the two states it is between. Nothing fades or
- * resizes, because a shape half-way through dissolving says nothing at all,
+ * one is open": the name shows the two states it is between. Nothing fades or
+ * resizes, because a word half-way through dissolving says nothing at all,
  * while either of these says something on every frame it is up.
  *
  * step-end is what makes it a swap: the keyframes name two instants, and the

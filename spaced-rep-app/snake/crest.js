@@ -71,9 +71,18 @@ function snakeCrest(tile, records) {
      * be clipped by the tile's own rounding; further in, the ring and the icon
      * touch.
      */
-    const INSET = 5.2;
-    const SEGMENT = 3.4;
-    const HEAD = 4.8;
+    /*
+     * Every length placed by hand here was placed on a tile of 57.6 and is
+     * scaled to the tile it is handed: the tile came down to fifty on
+     * 26 October 2026, so that five fit in a row (see TILE in catalog.js), and
+     * a record laid out for the larger one ran its drawing into the ring. The
+     * ring's own course is worked out from the tile and needs no scaling.
+     */
+    const k = size / 57.6;
+
+    const INSET = 5.2 * k;
+    const SEGMENT = 3.4 * k;
+    const HEAD = 4.8 * k;
 
     /*
      * The head in the colour the board draws it in, which is what makes the
@@ -159,7 +168,7 @@ function snakeCrest(tile, records) {
     let track = '';
     for (let slot = lit; slot < SLOTS; slot++) {
         const p = along(slot * perimeter / SLOTS);
-        track += `<circle cx="${round(centre + p.x)}" cy="${round(centre + p.y)}" r="0.8" />`;
+        track += `<circle cx="${round(centre + p.x)}" cy="${round(centre + p.y)}" r="${round(0.8 * k)}" />`;
     }
 
     // The tail at twelve o'clock, the body after it, the head last so that it is
@@ -191,12 +200,12 @@ function snakeCrest(tile, records) {
      * put a figure the size of a fingernail off to one side of a tile that is
      * otherwise drawn about its centre.
      */
-    const LABEL = 6.2;
-    const FIGURE = 12.3;
+    const LABEL = round(6.2 * k);
+    const FIGURE = round(12.3 * k);
 
-    const label = `<text x="${round(centre)}" y="12.4" text-anchor="middle" dominant-baseline="central"
-        font-size="${LABEL}" font-weight="800" letter-spacing="0.4" fill="currentColor">MAX</text>`;
-    const score = `<text x="${round(centre)}" y="19.8" text-anchor="middle" dominant-baseline="central"
+    const label = `<text x="${round(centre)}" y="${round(12.4 * k)}" text-anchor="middle" dominant-baseline="central"
+        font-size="${LABEL}" font-weight="800" letter-spacing="${round(0.4 * k)}" fill="currentColor">MAX</text>`;
+    const score = `<text x="${round(centre)}" y="${round(19.8 * k)}" text-anchor="middle" dominant-baseline="central"
         font-size="${FIGURE}" font-weight="800" fill="currentColor" style="font-variant-numeric: tabular-nums;">${best}</text>`;
 
     /*
@@ -210,13 +219,14 @@ function snakeCrest(tile, records) {
      * a tile with a record is the snake on every other tile, cut to the room
      * it has.
      *
-     * Twenty-two across, which takes it from under the number to the ring's
-     * inner edge with a pixel and a half to spare at each end. The play mark
-     * of a round left open replaces all of this, ring and record included,
-     * rather than being laid over it -- see .set-tile-swap in app.css.
+     * Twenty-two across on a tile of 57.6, which takes it from under the
+     * number to the ring's inner edge with a pixel and a half to spare at each
+     * end. A round left open no longer touches any of it: since 26 October
+     * 2026 the name under the tile says so, and the tile stays as it is --
+     * see CONTINUE in catalog.js.
      */
-    const ICON = 22;
-    const drawing = `<g transform="translate(${round(centre - ICON / 2)} 26.4)">${icon(ICON)}</g>`;
+    const ICON = Math.round(22 * k);
+    const drawing = `<g transform="translate(${round(centre - ICON / 2)} ${round(26.4 * k)})">${icon(ICON)}</g>`;
 
     return `<svg class="tile-crest" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="display: block;">
         <g fill="currentColor" opacity="0.35">${track}</g>

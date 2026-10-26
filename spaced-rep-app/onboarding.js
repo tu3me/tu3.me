@@ -32,8 +32,8 @@
  * say, and the strip retired — which is what the hand and the blinking did, and
  * why it was written that way. But those two had no way of being sent away and
  * no way of being brought back; retiring on their own was the only mercy either
- * of them could offer. This has both, the Hide button on the last card and the
- * switch in the settings, and from the moment a reader can say "enough", the
+ * of them could offer. This has both, the cross on every card and the switch
+ * in the settings, and from the moment a reader can say "enough", the
  * app saying it for them is the app taking back a decision it had handed over.
  * So the strip stands until it is sent away, and what the moments decide is
  * only which card it stands on.
@@ -113,7 +113,7 @@ function onboarding() {
      * settings.onboardingAt: the card the reader was last left looking at.
      *
      * Written down because closing the popup is not an answer to anything. A
-     * strip of seven cards is read a few at a time -- the popup is shut by a
+     * strip of six cards is read a few at a time -- the popup is shut by a
      * click anywhere else on the screen, and a game page is a navigation away
      * and back -- and a booklet that falls open at page one every time is one
      * nobody gets to the end of.
@@ -153,17 +153,18 @@ function onboarding() {
     let turn = 0;
 
     /*
-     * How to ask the catalog to draw itself again, handed in by it -- see
-     * onboarding.setRedraw.
+     * How to take the strip off the screen, handed in by the catalog -- see
+     * onboarding.setSendAway.
      *
-     * The strip has to be able to take itself off the screen: the hide button on
-     * the last card is the switch in the settings worded the other way round,
-     * and that switch redraws the catalog behind the panel. Handed in rather
-     * than called for, because the knowing in this pair goes one way -- the
-     * catalog owns the screen and tells the strip things, and a strip that
-     * reached into the catalog would be the second half of a circle.
+     * The cross on every card is the switch in the settings worded the other
+     * way round, and what follows a press on it is the catalog's to do: the
+     * card flies into the gear the switch lives behind, and the screen is drawn
+     * again without the strip. Handed in rather than called for, because the
+     * knowing in this pair goes one way -- the catalog owns the screen and
+     * tells the strip things, and a strip that reached into the catalog would
+     * be the second half of a circle.
      */
-    let redraw = null;
+    let sendAway = null;
 
     /*
      * What the app promises the people who are here now, in the words the More
@@ -308,39 +309,32 @@ function onboarding() {
      * list is the strip becoming a thing in front of the cards rather than the
      * first of them.
      *
-     * The upward one leaves the written word at its left and runs across the top
-     * of the card to the New set button: mostly sideways, because the distance
-     * it has to carry the eye is sideways, and then turned up at the end so that
-     * it arrives going straight at the middle of the button's lower edge. A
-     * stroke that ended on the slant it travelled would be pointing past the
-     * button rather than at it.
+     * The upward one rises from beside the written word to the New set button,
+     * and it is short and nearly upright. It used to be long and mostly
+     * sideways: the button was the third in from the right of the header, most
+     * of a hundred pixels left of the word, and the stroke ran across the top of
+     * the card to get there, turned up at the end by a quarter of a circle. On
+     * 26 October 2026 the sound switch went into the settings, the button moved
+     * right by the switch and the gap after it, and came to stand almost over
+     * the word. What had been a journey became a step up.
      *
-     * One curve into one straight line, and the curve ends already upright, so
-     * the join between them is no join at all. It was two curves meeting at an
-     * angle before, which put a corner in the shaft a few pixels short of the
-     * head, and the head stopped reading as a head.
+     * So the word stands to the right of the stroke's foot, and the stroke leans
+     * into the button from there: it leaves at a slant and arrives upright,
+     * going straight at the middle of the button's lower edge. A stroke that
+     * ended on the slant it travelled would be pointing past the button rather
+     * than at it, and against a shaft still leaning in, the inner stroke of the
+     * head lies along it and disappears. The word keeps out of the card's top
+     * right corner, where the cross that sends the strip away is.
      *
-     * The bend is a quarter of a circle of twenty-four, which is most of the
-     * stroke: a curve drawn across a run three times its own drop is flat for
-     * two thirds of the way and then hooks, however it is drawn, so the stroke
-     * starts lower -- out from under the written word rather than beside it --
-     * and buys the drop that lets the turn be even. A circle in particular,
-     * because an even bend is a constant one, and nothing else about it is worth
-     * a reader's attention.
-     *
-     * It stops nine pixels short of the word it comes from. A stroke that
+     * It starts nine pixels short of the word it comes from. A stroke that
      * touches what it was written beside is a correction; one that starts a
      * little away from it is an aside.
      *
-     * The upright finish is also what gives the two strokes of the head their
-     * room: against a shaft still leaning in, the inner one lies along it and
-     * disappears.
-     *
      * Where it ends is measured rather than chosen: the head is under the middle
-     * of the New set button, which is the third button in from the right of a
+     * of the New set button, which is the second button in from the right of a
      * header whose buttons are all a known width. That is the one number here
-     * another file can break -- a button added to that row moves it -- and this
-     * comment is the whole of the warning.
+     * another file can break -- a button added to that row moves it, and one
+     * taken out of it did -- and this comment is the whole of the warning.
      *
      * How far up it reaches is not a choice at all. The header is sticky, opaque
      * and above everything in the column, which is what has to happen when the
@@ -358,7 +352,7 @@ function onboarding() {
      *
      * Every arrow in the strip is drawn this way. Each of them points at
      * something that is not on the card -- the set below, the New set button,
-     * the corner of the window, the row of names, the gear in the header -- and
+     * the corner of the window, the row of names -- and
      * an arrow that is simply there is a picture of a direction, while one being
      * drawn is a hand showing you something. Following the line while it is made
      * is most of what carries the eye off the card at all.
@@ -412,11 +406,11 @@ function onboarding() {
      * reaches out of its card, and two stand above the list on purpose. See
      * onb-point in app.css.
      */
-    const POINT_UP = () => `<svg width="70" height="38" viewBox="0 0 70 38"
+    const POINT_UP = () => `<svg width="24" height="38" viewBox="0 0 24 38"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 66px; top: -12px;">
-        <path ${DRAW(420, 500)} d="M61 32H48.7A24 24 0 0 1 24.7 8L24.7 6.5" />
-        <path ${DRAW(170, 910)} d="M21 13.6 24.7 6.5 28.4 13.6" />
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 63.5px; top: -12px;">
+        <path ${DRAW(300, 500)} d="M3.5 32.5C7 30 12 24 12 6.5" />
+        <path ${DRAW(170, 790)} d="M8.3 13.6 12 6.5 15.7 13.6" />
     </svg>`;
 
     /*
@@ -437,7 +431,7 @@ function onboarding() {
      */
     const LABEL = () => `<svg width="46" height="15" viewBox="0 0 62 20" fill="none"
         stroke="${look.body}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 20px; top: 13px; ${WORD_IN}">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 30px; top: 13px; ${WORD_IN}">
         <g transform="rotate(-4 31 11)">
             <path d="M10 8C6 5.5 2 8 2 11.2 2 14.6 6 16.6 10 14.6" />
             <path d="M14.4 16 15.2 8.4" />
@@ -500,75 +494,6 @@ function onboarding() {
         <path ${DRAW(560, 320)} d="M22 69C17 58 6.5 44 6.5 20L6.5 6" />
         <path ${DRAW(200, 870)} d="M3.2 12.2 6.5 6 9.8 12.2" />
     </svg>`;
-
-    /*
-     * The arrow on the last card: from the word Settings in the sentence to the
-     * Settings button in the header.
-     *
-     * One long diagonal across the empty top right of the card, which is the
-     * only clear way between those two ends: the word is at the end of the
-     * card's one line of prose, the button is at the right-hand end of the
-     * header, and what lies between them in a straight line is the heading. So
-     * the stroke leaves the line where the line ends, crosses the corner nothing
-     * is written in, and straightens up into the button.
-     *
-     * One bow, and it is an arc of a single circle -- which is what makes a
-     * curve this long an even one: the bend is the same at every point of it, so
-     * there is no stretch where the stroke is turning and no stretch where it is
-     * not. It had a kink in it twice before this. Once it turned out, back and
-     * up again inside thirty pixels; once it ran straight along the line between
-     * its ends and remembered to turn only at the button, which puts all forty
-     * degrees of the turn in the last few pixels, exactly where the head is and
-     * where there is least room to read it.
-     *
-     * Leaving the word almost sideways is the price of that, and it is worth
-     * paying twice over: the first stretch runs along the line of type it came
-     * off, at the height of the word itself, which is a plainer way of saying
-     * "this word" than any amount of pointing at it.
-     *
-     * Upright at the end, because that is what has it pointing at the button
-     * rather than past it; and no higher than a pixel under the header's bottom
-     * edge, because the header is opaque and above the whole column. Both are
-     * written out at POINT_UP, which is the same arrow at the next button along.
-     *
-     * Measured from the card's right edge, because that is the edge the header
-     * holds it to: the buttons there are right-aligned, so the distance from
-     * that edge to the middle of the gear is a fact about the header rather than
-     * about how wide the app is. It is the one number here another file can
-     * break -- a button added to that row moves it -- and this is the whole of
-     * the warning.
-     *
-     * It starts nine pixels past the end of the sentence rather than over the
-     * word, the same nine the New set arrow keeps from the word it comes off.
-     * Above the letters themselves the first pixels of the stroke would be
-     * crossing out the word they come from, and the air after it is the
-     * difference between an aside and a correction.
-     */
-    const POINT_SETTINGS = () => `<svg width="60" height="68" viewBox="0 0 60 68"
-        fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 43.4px; top: -10px;">
-        <path ${DRAW(560, 320)} d="M2.2 65A62.38 62.38 0 0 0 54.1 3.5" />
-        <path ${DRAW(200, 870)} d="M50.4 10.6 54.1 3.5 57.8 10.6" />
-    </svg>`;
-
-    /*
-     * The press that sends the strip away, drawn on the strip.
-     *
-     * One word and a hairline box. It is the only thing in here that does
-     * something rather than says something, and what it does is make everything
-     * around it leave -- a button in the app's accent, or a filled one, would be
-     * the loudest thing on a screen whose subject is the shelf below.
-     *
-     * Upright among a card of italics, which is the rule the two words on the
-     * stand-in bubble follow as well: the lean is the app talking about itself,
-     * and a control is not talk. Pressed, it is the app doing something, and
-     * that is the voice every other button on this screen is set in.
-     */
-    const HIDE = () => `<button class="onb-hide" type="button" title="Hide the help cards"
-        style="display: inline-flex; align-items: center; justify-content: center; height: 25.6px;
-        padding: 0 12px; background: transparent; border: 1px solid ${look.softBorder};
-        border-radius: 10.2px; font-family: inherit; font-style: normal; font-size: 11.8px;
-        font-weight: 600; line-height: 1; color: ${look.softColor}; cursor: pointer;">Hide</button>`;
 
     /*
      * In the order they are shown, which is the order they come true in.
@@ -840,52 +765,6 @@ function onboarding() {
             moment: () => true,
             title: () => `Forever <span style="color: ${look.ok};">free</span> for early adopters`,
             body: () => text(PROMISE[0])
-        },
-        {
-            /*
-             * The way out, printed on the strip itself.
-             *
-             * Everything above this card is the app explaining the screen, and
-             * what a reader who has had enough of that wants is a button, not
-             * directions to one. So the last card is the button, and what
-             * stands over it is the one thing the button cannot say by itself:
-             * that this is not a door locking behind them. The arrow goes to the
-             * panel the switch lives in, and the switch is the mark at the head
-             * of every card above -- which is the whole reason that mark is on
-             * them.
-             *
-             * The first sentence is the heading and the second stands under
-             * it, which is what the two of them are: one says what the card is
-             * for, the other is the condition on it.
-             *
-             * Which is also the one arrangement the arrow can be drawn in. Run
-             * together as a paragraph the two sentences wrapped, and they
-             * wrapped between "in" and "Settings" -- so the word the arrow
-             * comes from came out at the head of the second line, under the
-             * middle of the first, and a stroke leaving it for the header
-             * crossed out the line above on the way. Split, the line under the
-             * heading is one short line of its own and that word is at the end
-             * of it, with the empty corner of the card over it.
-             *
-             * The button stands in the middle. Under a line of type and flush
-             * with its left edge it read as the next line of the paragraph; in
-             * the middle of the card it is a thing of its own, which is what it
-             * is -- the only thing in the strip that does something rather than
-             * saying something.
-             *
-             * Its moment is always, like the promise card's: a reader is allowed
-             * to want the strip gone on the first evening, and nothing has to
-             * have happened for that to be true. Which does mean this card
-             * brings the strip back once for everybody who had already read it
-             * out -- see decide -- and that is the right way round: the one new
-             * thing the strip has to say is that it can be sent away.
-             */
-            id: 'hide',
-            moment: () => true,
-            title: 'You can hide these tips',
-            body: () => `${text(`They’re always available in <span style="font-weight: 800;">Settings</span>.`)}
-                <div style="display: flex; justify-content: center; margin-top: 11.9px;">${HIDE()}</div>`,
-            marks: POINT_SETTINGS
         }
     ];
 
@@ -959,6 +838,33 @@ function onboarding() {
         style="position: absolute; ${back ? 'left' : 'right'}: 4.3px; top: 0; bottom: 0; display: inline-flex;
         align-items: center; justify-content: center; width: 20.5px; padding: 0; background: transparent;
         border: none; color: ${look.softColor}; opacity: 0.75; cursor: pointer;">${STEP(back)}</button>`);
+
+    /*
+     * The press that sends the strip away, on every card.
+     *
+     * It was a card of its own until 26 October 2026: the last one, saying the
+     * tips could be hidden, with a Hide button under it and an arrow to the
+     * gear. A way out at the end of six cards is a way out for whoever reads to
+     * the end, and the reader who wants the strip gone is the one who stopped
+     * reading -- on the first card as often as anywhere. So every card carries
+     * it, in the corner where every panel this reader has ever closed had one.
+     *
+     * What the old card said in words, the press now shows: the card flies into
+     * the gear and the gear swells, and that is where the strip can be had back.
+     * See sendAway.
+     *
+     * In the strip's corner, over the top of the margin the Next press owns,
+     * and above it: the chevron there stands in the middle of the card's
+     * height, and the corner is the part of that margin nobody is aiming at.
+     * The chevrons' ink and their three quarters, because the three of them
+     * are the strip's furniture and not what it says.
+     */
+    const CLOSE = () => `<button class="onb-close" type="button" title="Hide the help cards" aria-label="Hide the help cards"
+        style="position: absolute; top: 3.4px; right: 3.4px; z-index: 1; display: inline-flex; align-items: center;
+        justify-content: center; width: 20.5px; height: 20.5px; padding: 0; background: transparent; border: none;
+        color: ${look.softColor}; opacity: 0.75; cursor: pointer;"><svg width="10" height="10" viewBox="0 0 10 10"
+        fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"
+        style="display: block;"><path d="M1.5 1.5 8.5 8.5M8.5 1.5 1.5 8.5" /></svg></button>`;
 
     /*
      * How long the card takes to grow or shrink into the next card's height.
@@ -1068,7 +974,8 @@ function onboarding() {
                 ${card.marks ? card.marks() : ''}
             </div>
             ${step(true, place === 0)}
-            ${step(false, place === cards.length - 1)}`;
+            ${step(false, place === cards.length - 1)}
+            ${CLOSE()}`;
 
         settle(strip.querySelector('.onb-card'), was);
 
@@ -1079,21 +986,19 @@ function onboarding() {
         }));
 
         /*
-         * And the press that sends the whole strip away, which is on one card of
-         * the set -- hence the question before the listener.
+         * And the press that sends the whole strip away.
          *
          * It goes through the same toggle the switch in the settings goes
          * through, so there is one place where the strip is sent away and one
          * answer written down. What is different about this press is only that
          * the reader is looking at the thing being switched rather than at the
-         * switch.
+         * switch -- which is why what follows it shows them where the switch
+         * is. See sendAway.
          */
-        const away = strip.querySelector('.onb-hide');
-
-        if (away) away.addEventListener('click', () => {
+        strip.querySelector('.onb-close').addEventListener('click', () => {
             onboarding.toggle();
 
-            if (redraw) redraw();
+            if (sendAway) sendAway(strip);
         });
     }
 
@@ -1215,10 +1120,11 @@ function onboarding() {
         live = null;
     };
 
-    // Handed over once, where the catalog wires the strip up: the hide button
-    // on the last card needs the screen drawn again without the strip in it,
-    // and that is the catalog's own business.
-    onboarding.setRedraw = (fn) => { redraw = fn; };
+    // Handed over once, where the catalog wires the strip up: the cross on a
+    // card needs the strip shown into the gear and the screen drawn again
+    // without it, and both are the catalog's own business. Called with the
+    // strip, which is already switched off by then.
+    onboarding.setSendAway = (fn) => { sendAway = fn; };
 
     onboarding.setSaved = (settings) => {
         want = settings && 'onboarding' in settings ? !!settings.onboarding : null;
@@ -1261,6 +1167,15 @@ function onboarding() {
     };
 
     onboarding.promise = () => PROMISE;
+
+    /*
+     * The mark itself, for the catalog to send the strip away as: a card sent
+     * away shrinks into this mark beside the cross that was pressed, and the
+     * mark flies into the gear -- see flyToGear in catalog.js. Asked for here
+     * rather than drawn there, because it has to be the mark every heading
+     * wears and the switch in the settings is drawn as, and not a copy of it.
+     */
+    onboarding.sign = () => SIGN();
 
     /*
      * Draw the strip, or draw nothing. Between the header and the list, which

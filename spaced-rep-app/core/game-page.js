@@ -19,8 +19,10 @@ function page() {
     };
 
     /*
-     * The sound switch, on every game page, in the same corner the catalog
-     * keeps it: top right.
+     * The sound switch, on every game page, top right. The catalog kept it in
+     * the same corner until 26 October 2026 and keeps it behind the gear now;
+     * a game has no gear to put it behind, and a game is where the sound is
+     * heard most.
      *
      * Here rather than in each game because this is the shell a game is drawn
      * inside — the same place page.home and page.save live. What a game keeps
@@ -71,23 +73,32 @@ function page() {
         // The share belongs to the group and not to the button: a button with a
         // third of the header in it is a button you press by aiming at nothing
         // in particular.
-        // Reused when the game has already put one there. Snake keeps its own
-        // controls at this end and builds the group with them; the switch then
-        // hangs off what is there rather than opening a second group beside it,
-        // which would be a fourth share of a header divided in three.
-        const end = header.querySelector('.game-header-end')
-            || $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
+        //
+        // Always a group of its own now. Snake kept a gear at this end until 26
+        // October 2026 and built the group with it, and the switch hung off
+        // that; the gear went with the snake's speeds.
+        const end = $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
 
         const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 10.2px; color: ${colour}; cursor: pointer;"></button>`);
 
         drawMute(btn);
 
-        // What the press left the sound at, the same as the catalog's switch.
+        // What the press left the sound at, the same as the catalog's switch,
+        // and the same tip when what it switched on cannot be heard -- asked
+        // about the words of the set being played, in the set's language.
         btn.addEventListener('click', () => {
             speech.mute(!speech.muted());
             track('sound', speech.muted() ? 'off' : 'on', 'game');
             saveSetting('muted', speech.muted());
             drawMute(btn);
+
+            if (speech.muted()) return;
+
+            const playing = (module && module.getState()) || {};
+            const words = store.wordsOf(playing.selectedSetId || 'all')
+                .map(item => ({ text: item.word.original, lang: item.originalLang }));
+
+            speech.explainSilence(btn, words, 'game');
         });
 
         return btn;
@@ -236,8 +247,8 @@ async function bootGame(id, module) {
     // the player asked for the dictionary's answer instead.
     speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
 
-    // And whether anything is said at all. The switch is in the catalog's
-    // header; a game only obeys what it was left at.
+    // And whether anything is said at all. The switch is in the game's header
+    // and in the catalog's settings; both write the same setting.
     speech.mute(!!(settings && settings.muted));
 
     await store.load();
