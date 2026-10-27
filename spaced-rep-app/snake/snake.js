@@ -45,18 +45,36 @@ function snake(container) {
     const HEARD_COST = 0.1;
 
     /*
-     * The star beside the dots: a run of right answers, kept for this
-     * session only.
+     * The star beside the dots: a run of right answers, kept in the session
+     * while it is played, and in the set's achievements if it is full when the
+     * session ends -- see settle.
      *
      * Counted in steps. Nought is no star at all; the first right answer
      * puts up its outline, and every one after that fills another
-     * STAR_FILL_STEP of it with gold from the bottom up — seven of them to
-     * fill it, the last one only by the ten per cent still left. Right answers
-     * past a full star change nothing. A wrong one takes it back to nought,
-     * and a crash takes it back one step.
+     * STAR_FILL_STEP of it with gold from the bottom up -- five of them to
+     * fill it. Right answers past a full star change nothing. A wrong one
+     * takes it back to the outline, and a crash does nothing to it: the star
+     * is for knowing the words, and a crash is steering. The owner's rules
+     * since 27 October 2026; before that it filled by 15% in seven, a wrong
+     * answer took it to nought and a crash one step back.
      */
-    const STAR_FILL_STEP = 0.15;
+    const STAR_FILL_STEP = 0.2;
     const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
+
+    /*
+     * A swell and a settle: out to `peak`, back past where it started by a
+     * fifth of the way, and home. The shape the sound switch used to answer a
+     * swallowed tap with (mute-pulse, gone on 5 October 2026), and at 1.3 it
+     * is that pulse exactly. Here it is the answered dot setting off its wave
+     * and a prize arriving in the banner.
+     */
+    const beckon = (peak) => [
+        { scale: 1 },
+        { scale: peak, offset: 0.3 },
+        { scale: 1 - (peak - 1) / 5, offset: 0.65 },
+        { scale: 1 }
+    ];
+    const BECKON_MS = 420;
 
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
@@ -221,6 +239,10 @@ function snake(container) {
         let header, hintBanner, gatheredBar, svg, scene, measure, controlsArea;
         let cellSize = 0;
 
+        // The board's own width, in the units its viewBox is drawn in -- which
+        // is what a cell is a twelfth of. Kept to find a cell on the screen.
+        let boardSide = 0;
+
         /*
          * Which link is wearing the head's colour this frame, while the head is
          * running down the body after a crash — null the rest of the time.
@@ -242,6 +264,33 @@ function snake(container) {
         let eyesShut = false;
 
         view.eyesShut = (on) => { eyesShut = on; };
+
+        /*
+         * What the end of the session has taken off the board, display state
+         * like the two above: the hearts that have flown out of the snake to
+         * the goblet, by link; whether the letters of a board filled to its
+         * last cell are drawn as crowns, and which of those crowns have gone
+         * up to the banner -- see view.victory. Never saved: the session is
+         * over by the time any of it is set.
+         *
+         * `won` stops the screen being the game's: once the banner says the
+         * session is won, nothing that would draw the word's row of letters
+         * into it again -- a voice list arriving late, say -- may do so.
+         * `showing` numbers the ending, so a screen built again in the middle
+         * of one leaves the rest of it undone.
+         */
+        let flown = new Set();
+        let crowned = false;
+        let crownsGone = new Set();
+        let won = false;
+        let showing = 0;
+
+        // The last frame drawn, so that the board can be drawn again from the
+        // view when one of the above changes and the game has stopped
+        // drawing it.
+        let lastFrame = null;
+
+        const redraw = () => { if (lastFrame) view.draw(lastFrame.s, lastFrame.record, lastFrame.beaten); };
 
         let controlMode = 0;
 
@@ -619,6 +668,12 @@ function snake(container) {
             // A screen built fresh has nothing mid-blink about it, whatever the
             // last one was doing when it went away.
             headRun = null;
+            flown = new Set();
+            crowned = false;
+            crownsGone = new Set();
+            won = false;
+            showing += 1;
+            lastFrame = null;
             controlMode = opts.controlMode || 0;
 
             /*
@@ -680,9 +735,12 @@ function snake(container) {
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
-                    <span class="snake-length" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; flex-direction: column; align-items: center; gap: 1.7px; margin-left: auto; margin-right: 8.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};">
-                        <span style="display: inline-flex; align-items: center; gap: 2.6px; font-size: 12.3px;"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
-                        <span style="font-size: 8.2px; letter-spacing: 0.3px;">MAX <span class="snake-length-best"></span></span>
+                    <span class="snake-length" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; align-items: center; gap: 5.1px; margin-left: auto; margin-right: 8.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};">
+                        <span class="snake-length-plain" style="display: inline-flex; flex-direction: column; align-items: center; gap: 1.7px;">
+                            <span style="display: inline-flex; align-items: center; gap: 2.6px; font-size: 12.3px;"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
+                            <span class="snake-length-max" style="font-size: 8.2px; letter-spacing: 0.3px;">MAX <span class="snake-length-best"></span></span>
+                        </span>
+                        <span class="snake-length-medal" aria-hidden="true" style="display: none; width: ${MEDAL_IN_HEADER}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
                     </span>
                 </div>
                 <div class="snake-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center;">
@@ -745,6 +803,7 @@ function snake(container) {
             measure = document.createElement('canvas').getContext('2d');
 
             cellSize = side / GRID_COUNT;
+            boardSide = side;
 
             controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: 0 1 auto; min-height: 0; overflow: hidden;">
                 <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: 1 1 auto; min-height: 0; align-items: stretch;"></div>
@@ -914,14 +973,28 @@ function snake(container) {
          * No timers. The delays are the animations' own, so leaving the
          * screen in the middle of a wave leaves nothing behind it to fire.
          */
+        /*
+         * And the answered dot sets the wave off with a swell of its own, once
+         * -- the sound switch's old pulse (see beckon), out to 1.8 where the
+         * switch went to 1.3: on an eight-pixel dot, a third more is a pixel
+         * and a half, and it has to read beside dots the wave takes to 1.4.
+         * Alongside the wave rather than ahead of it: the wave sets off when it
+         * always did, WAVE_START after the colour, which is room enough (the
+         * owner's rule, 27 October 2026). On `scale`, which adds to the
+         * transform the current dot already wears.
+         */
         const WAVE_START = 140;
         const WAVE_STEP = 70;
         const WAVE_PULSE = 320;
+        const DOT_SWELL = beckon(1.8);
 
         view.wave = (from, right) => {
             const dotsEl = header.querySelector('#snake-dots');
             const waiting = dotsEl ? [...dotsEl.children].slice(from + 1) : [];
             const colour = right ? palette.ok : palette.err;
+
+            const answered = dotsEl && dotsEl.children[from];
+            if (answered) answered.animate(DOT_SWELL, { duration: BECKON_MS, easing: 'ease-out' });
 
             waiting.forEach((dot, k) => dot.animate([
                 { background: palette.dotIdle, transform: 'scale(1)' },
@@ -939,8 +1012,10 @@ function snake(container) {
          * With one it holds `was` until then (fill: backwards), and then
          * swells as the gold rises or shrinks as it drains, and settles back
          * to its own size. Swells at the top too, where nothing is left to
-         * fill: the answer still got there. Shrinks out of sight when it is
-         * going back to nought.
+         * fill: the answer still got there. And shrinks at the outline, where
+         * a wrong answer has nothing left to drain: that one got there too.
+         * Out of sight only on the way to nought, which since 27 October 2026
+         * no answer takes it to -- a screen drawn afresh starts there.
          *
          * The finished state goes in the style at once and the animation only
          * plays over it, so a screen left or drawn again half-way through
@@ -959,7 +1034,9 @@ function snake(container) {
 
             if (delay === undefined || (!was && !now)) return;
 
-            const up = now >= was;
+            // Level with where it was, it is a right answer at the top or a
+            // wrong one at the outline -- nothing else stands still.
+            const up = now > was || (now === was && now >= STAR_TOP);
             const timing = { duration: STAR_PULSE, delay, easing: 'ease-out', fill: 'backwards' };
             const turn = up ? 0.4 : 0.5;
 
@@ -977,6 +1054,8 @@ function snake(container) {
         };
 
         view.banner = (text) => {
+            if (won) return;
+
             const el = translationEl();
             if (el) {
                 el.textContent = text;
@@ -1009,10 +1088,12 @@ function snake(container) {
 
         view.pointAtClosed = () => {
             pointingHand.clear();
-            if (firstClosed) pointingHand.at(firstClosed, { into: host, size: HINT_HAND });
+            if (firstClosed && !won) pointingHand.at(firstClosed, { into: host, size: HINT_HAND });
         };
 
         view.gathered = (targetLetters, collected, showHint) => {
+            if (won) return;
+
             gatheredBar.innerHTML = '';
             firstClosed = null;
 
@@ -1229,7 +1310,6 @@ function snake(container) {
             renderControls();
         };
 
-        // Replaces the banner and the letter row with the end-of-session panel
         /*
          * The confetti that comes down over a finished board.
          *
@@ -1362,176 +1442,743 @@ function snake(container) {
         }
 
         /*
-         * A full star at the end of the session leaves its place by the dots
-         * and comes down to the middle of the board, a third of it across,
-         * over everything — and pressing it is the way out, the same as the
-         * Dictionary button.
+         * The end of the session, told in the banner: "You won!" and, under
+         * it, what the session achieved, arriving one after another -- the
+         * crown, the record, the star, the goblet, in that order. When the last
+         * of them is in, the banner beckons, and a press anywhere on it is the
+         * way out, to the catalog. The owner's design, 27 October 2026. Before
+         * it the banner said "Victory! Snake completed!" between two emoji over
+         * a Dictionary button, and a full star came down to the middle of the
+         * board and stayed there, a second way out; the button went, and the
+         * star goes on from the middle of the board to the banner.
          *
-         * It waits for the star to have finished filling. The last answer is
-         * what fills it, and on a device with no voice the panel comes up the
-         * moment that answer lands, while the gold is still rising: the star
-         * would leave half-full and arrive full.
+         * Every prize has its moment over the middle of the board first, big:
+         * it comes out there, shines once, and only then goes down into its
+         * place in the banner. The record's medal and the star fly out of the
+         * header to get there; the crown and the goblet come up in the middle
+         * and are filled there, by what flies into them from the board.
          *
-         * Fixed and placed in the layout's pixels, like the confetti and for
-         * the same reasons — see fireworks — measured from wherever fixed
-         * boxes start (fixedOrigin). Placed again when the window changes,
-         * because unlike the confetti it stays: the board it is centred on
-         * moves with the window and it would not.
+         * `result` is what the session settled -- see settle -- and each prize
+         * is there or not:
          *
-         * A button, so the press is written down like any other: `snake-prize`.
+         *   crown   the board filled to its last cell as a word arrived. The
+         *           letters on the board turn into crowns, and the crowns fly up
+         *           into the outline and fill it, a share each.
+         *   record  the session beat the set's record for length, and the
+         *           length in the header has been a medal since -- see
+         *           view.draw. The medal is what flies.
+         *   star    full.
+         *   hearts  the hearts the session dealt -- one after every word it
+         *           finished but the last -- and which links of the snake still
+         *           carry them, red and black. They fly out of the snake into
+         *           the goblet one by one, the red first, each filling it with
+         *           gold by a share of those dealt. Then, if any were lost, a
+         *           pause, and the black ones fill the rest of it with black to
+         *           the brim, the gold goes black with it, and the goblet goes up
+         *           in smoke where it stands. With none black -- the hearts were
+         *           lost with the snake's length -- nothing more comes, and it
+         *           goes up in smoke as it is, short of full. It is won with
+         *           every heart still red, and that is what this shows.
          *
-         * It turns as it comes, by two fifths of a turn: a five-pointed star
-         * looks the same every fifth of one, so a whole turn read as five of
-         * them and the star seemed to spin.
+         * Every place in the row is laid out at once and hidden, so that
+         * nothing already there moves when the next one arrives -- except for
+         * a goblet gone up in smoke, whose place closes and lets the rest come
+         * together in the middle again.
          *
-         * Turned back to nought rather than on to two fifths. Two fifths is
-         * upright only nearly: this star is not quite regular, and it turns
-         * about the middle of its box rather than its own centre. Ending
-         * there, the flight let go and the star jumped to where it stands
-         * unturned. Starting from minus two fifths instead puts the mismatch
-         * at the start, where the star is the size of a dot in the header,
-         * and the last frame of the flight is the star at rest.
-         *
-         * Edged in white, so that it stands clear of the board without a
-         * halo. A gold edge on the dark board ran into the gold of the star
-         * and took its shape with it.
-         *
-         * Once it has landed it breathes — swells a little and brightens, and
-         * back — and a glint crosses it now and again. Both for as long as it
-         * is there, so neither with reduced motion.
+         * With reduced motion nothing flies or shines: what was won is simply
+         * there, and a goblet that was not is not.
          */
-        const PRIZE_FLIGHT = 1200;
+
+        /*
+         * A prize in the banner is a badge: the shape in the medal's gold, and
+         * under it a plate with its name (the owner's names and the owner's
+         * gold, 27 October 2026). Drawn on a grid of 52 by 46, which is its
+         * size in the banner: the shape at 1.4 times the 24 grid it is drawn
+         * on, centred across the top, and the plate across the foot.
+         */
+        const BADGE_W = 52;
+        const BADGE_H = 46;
+        const SHAPE_SCALE = 1.4;
+        const SHAPE_LEFT = (BADGE_W - 24 * SHAPE_SCALE) / 2;
+
+        // The record's medal, square, the size it always was in the banner.
+        const MEDAL = 44;
+
+        const PRIZE_GAP = 10.2;
+
+        // How much of the board's width a prize takes over the middle of it.
+        const BADGE_SHARE = 0.44;
+        const MEDAL_SHARE = 0.36;
+
+        // The navy the snake's eyes are filled with: the gold is pale, and the
+        // page's own ink is pale too in the dark theme.
+        const MEDAL_INK = '#0f2b3c';
+
+        // What a goblet that was not won is filled with, and edged in.
+        const SOOT_TOP = '#55555e';
+        const SOOT_FOOT = '#101014';
+        const SOOT_EDGE = '#26262c';
+
+        const PRIZE_BEAT = 500;     // "You won!" on its own, before the first prize
+        const PRIZE_REST = 300;     // after one prize is in, before the next sets off
+        const ARRIVE = 1200;        // out of the header to the middle of the board
+        const POP_IN = 520;         // or up in the middle of it
+        const SHINE = 900;
+        const DEPART = 650;         // down into the banner
+        const FILLED_REST = 250;
         const PRIZE_TURN = 144;
-        const PRIZE_BREATH = 1100;
-        const PRIZE_GLINT = 2800;
+        const CROWN_TURN = 600;     // the letters, still letters, before they turn
+        const CROWN_WAIT = 600;     // and crowns, before they go up
+        const CROWN_GAP = 90;
+        const CROWN_FLIGHT = 700;
+        const HEART_WAIT = 350;
+        const HEART_GAP = 260;
+        const HEART_FLIGHT = 650;
+        const BLACK_PAUSE = 800;    // before the black hearts: the owner's pause
+        const BLACKEN = 400;
+        const SMOKE_AFTER = 300;    // the owner's number
+        const BANNER_BEAT = 1600;
 
-        function prize() {
-            const small = header && header.querySelector('.snake-star');
-            if (!small) return;
+        /*
+         * The crown and the goblet, on the 24 grid the star is drawn on, each as
+         * the outline that is filled and the box the gold is measured against
+         * -- the same pair the star has in STAR_PATH and STAR_BOX. The crown's
+         * band is a second shape in the same path, so the gold rises through
+         * both. The goblet's handles are drawn and never filled: gold rising
+         * through two thin hoops reads as the cup leaking.
+         */
+        const CROWN = {
+            path: 'M4.2 17.8 2.8 8.6 8.1 12.1 12 4.6 15.9 12.1 21.2 8.6 19.8 17.8ZM4.2 19.4H19.8V21.2H4.2Z',
+            box: { x: 2.8, y: 4.6, width: 18.4, height: 16.6 },
+            label: 'FULL BOARD'
+        };
 
-            Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished))
-                .then(() => { if (small.isConnected) flyPrize(small); }, () => { });
+        const GOBLET = {
+            path: 'M6.5 3.5H17.5V8.5A5.5 5.5 0 0 1 13.1 13.9V17.2H15.4Q16.6 17.2 16.6 18.4V20.5H7.4V18.4Q7.4 17.2 8.6 17.2H10.9V13.9A5.5 5.5 0 0 1 6.5 8.5Z',
+            handles: 'M6.6 5.4H4.9Q3.2 5.4 3.4 7.3 3.7 9.6 7.3 10.6M17.4 5.4H19.1Q20.8 5.4 20.6 7.3 20.3 9.6 16.7 10.6',
+            box: { x: 6.5, y: 3.5, width: 11, height: 17 },
+            label: 'FULL HEALTH'
+        };
+
+        const STAR = { path: STAR_PATH, box: STAR_BOX, label: 'FLAWLESS' };
+
+        const SHAPES = { crown: CROWN, goblet: GOBLET, star: STAR };
+
+        /*
+         * The header's star is the whole of its 24 grid at fifteen pixels, and
+         * in a badge that grid is the top of it -- so a star leaving the header
+         * starts its flight as a badge scaled to put its star exactly on the
+         * one it leaves, and the badge's middle that far below it.
+         */
+        const STAR_FIT = { size: 24 * SHAPE_SCALE, dy: BADGE_H / 2 - 12 * SHAPE_SCALE, total: BADGE_H };
+        const MEDAL_FIT = { size: MEDAL, dy: 0, total: MEDAL };
+
+        // The medal's gold, which every prize is filled with: pale at the
+        // top, the star's own gold, deeper at the foot.
+        const goldStops = () => `<stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${palette.star}" /><stop offset="1" stop-color="#e3a51c" />`;
+
+        const GLINT_STOPS = '<stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.8" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" />';
+
+        const RISES = 'transform-box: fill-box; transform-origin: 50% 100%;';
+
+        // Ids inside a drawing have to be unique on the page, and one prize is
+        // drawn twice at once -- in flight, and in its place in the banner.
+        let drawn = 0;
+
+        /*
+         * The name on a badge's plate, squeezed to fit where it is longer than
+         * the plate: FULL HEALTH is eleven capitals in a plate the width of a
+         * star. Measured on the canvas that measures the board's letters.
+         */
+        const PLATE_ROOM = 42;
+        const PLATE_TYPE = 6.6;
+        const PLATE_SPACING = 0.3;
+
+        function fitPlate(text) {
+            measure.font = fontOf(PLATE_TYPE, 800);
+            const width = measure.measureText(text).width + PLATE_SPACING * (text.length - 1);
+            return width > PLATE_ROOM ? ` textLength="${PLATE_ROOM}" lengthAdjust="spacingAndGlyphs"` : '';
         }
 
-        function flyPrize(small) {
-            const from = appRect(small);
+        /*
+         * A badge, gold to `level` from the bottom up -- see starHtml, and why
+         * the gold is a clipped rectangle. Under the gold, the soot a goblet
+         * that was not won fills with (see darkTo), and over it the glint a
+         * prize shines with in the middle of the board. `quiet` leaves the
+         * plate out of sight: the star has none while it is in the header.
+         */
+        function badgeSvg(kind, level, quiet) {
+            const shape = SHAPES[kind];
+            const id = 'snake-won-' + (++drawn);
+            const { x, y, width, height } = shape.box;
+            const edge = palette.starEdge;
+            const fades = 'transition: stroke 0.4s ease-in-out;';
 
-            const box = STAR_BOX;
-
-            const button = $(host, `<button class="snake-prize" title="Dictionary" aria-label="Dictionary" style="position: fixed; z-index: 6; padding: 0; background: none; border: none; cursor: pointer;">
-                <svg viewBox="${box.x} ${box.y} ${box.width} ${box.height}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
-                    <defs>
-                        <clipPath id="snake-prize-shape"><path d="${STAR_PATH}" /></clipPath>
-                        <linearGradient id="snake-prize-glint" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0" stop-color="#ffffff" stop-opacity="0" />
-                            <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.75" />
-                            <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
-                        </linearGradient>
-                    </defs>
-                    <path d="${STAR_PATH}" fill="${palette.star}" />
-                    <g clip-path="url(#snake-prize-shape)">
-                        <rect class="snake-prize-glint" x="${box.x - 8}" y="${box.y - 4}" width="6" height="${box.height + 8}" fill="url(#snake-prize-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+            return `<svg viewBox="0 0 ${BADGE_W} ${BADGE_H}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
+                <defs>
+                    <linearGradient id="${id}-gold" x1="0" y1="0" x2="0" y2="1">${goldStops()}</linearGradient>
+                    <linearGradient id="${id}-soot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${SOOT_TOP}" /><stop offset="1" stop-color="${SOOT_FOOT}" /></linearGradient>
+                    <linearGradient id="${id}-glint" x1="0" y1="0" x2="1" y2="0">${GLINT_STOPS}</linearGradient>
+                    <clipPath id="${id}-shape"><path d="${shape.path}" /></clipPath>
+                </defs>
+                <g transform="translate(${SHAPE_LEFT} 0) scale(${SHAPE_SCALE})">
+                    <g clip-path="url(#${id}-shape)">
+                        <rect class="snake-won-soot" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-soot)" style="${RISES} transform: scaleY(0); transition: transform 0.45s ease-out;" />
+                        <rect class="snake-won-fill" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-gold)" style="${RISES} transform: scaleY(${level}); transition: transform 0.3s ease-out, opacity ${BLACKEN}ms ease-in-out;" />
+                        <rect class="snake-won-glint" data-travel="${width + 12}" x="${x - 8}" y="${y - 4}" width="6" height="${height + 8}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
                     </g>
-                    <path d="${STAR_PATH}" fill="none" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round" />
-                </svg>
-            </button>`);
-
-            /*
-             * Where a fixed box with left and top at nought actually lands.
-             *
-             * Not always the corner of the window: until 26 October 2026 a
-             * tab kept a scrollbar's width spare on both sides of the page
-             * (scrollbar-gutter, since gone with the scrollbars -- see
-             * app.css), and fixed was measured from inside it. Taken for the
-             * corner, the star stood fifteen pixels right of the middle of
-             * the board everywhere but the popup. Still measured: whatever
-             * else comes to stand there, the probe sees it.
-             */
-            const fixedOrigin = () => {
-                const probe = $(host, '<div style="position: fixed; left: 0; top: 0; width: 0; height: 0;"></div>');
-                const at = appRect(probe);
-                probe.remove();
-                return at;
-            };
-
-            const place = () => {
-                const board = appRect(svg);
-                const origin = fixedOrigin();
-                const width = board.width / 3;
-                const height = width * box.height / box.width;
-
-                button.style.width = width + 'px';
-                button.style.height = height + 'px';
-                button.style.left = (board.left - origin.left + (board.width - width) / 2) + 'px';
-                button.style.top = (board.top - origin.top + (board.height - height) / 2) + 'px';
-
-                return { x: board.left + board.width / 2, y: board.top + board.height / 2, width };
-            };
-
-            const to = place();
-            window.addEventListener('resize', place);
-            button.addEventListener('click', () => cb.onGoDictionary());
-
-            small.style.visibility = 'hidden';
-            if (still()) return;
-
-            const dx = from.left + from.width / 2 - to.x;
-            const dy = from.top + from.height / 2 - to.y;
-
-            const flight = button.animate([
-                { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}) rotate(${-PRIZE_TURN}deg)` },
-                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8 },
-                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
-            ], { duration: PRIZE_FLIGHT, easing: 'ease-in-out' });
-
-            // On the star inside rather than on the button, which the flight
-            // is still moving: two animations of one transform would fight.
-            flight.finished.then(() => {
-                if (!button.isConnected) return;
-
-                button.querySelector('svg').animate([
-                    { transform: 'scale(1)', filter: 'brightness(1)' },
-                    { transform: 'scale(1.07)', filter: 'brightness(1.18)' }
-                ], { duration: PRIZE_BREATH, direction: 'alternate', iterations: Infinity, easing: 'ease-in-out' });
-
-                // Across in the first part of the cycle, out of sight for the
-                // rest of it: a glint that never stops is a stripe
-                button.querySelector('.snake-prize-glint').animate([
-                    { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
-                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 1, offset: 0.35 },
-                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 0, offset: 0.36 },
-                    { transform: `translateX(${box.width + 12}px) skewX(-20deg)`, opacity: 0 }
-                ], { duration: PRIZE_GLINT, iterations: Infinity, easing: 'ease-in-out' });
-            }, () => { });
+                    <path class="snake-won-edge" d="${shape.path}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round" style="${fades}" />
+                    ${shape.handles ? `<path class="snake-won-edge" d="${shape.handles}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linecap="round" style="${fades}" />` : ''}
+                </g>
+                <g class="snake-won-plate" style="opacity: ${quiet ? 0 : 1};">
+                    <rect x="3" y="31.5" width="46" height="13" rx="3.5" fill="url(#${id}-gold)" stroke="${edge}" stroke-width="1" />
+                    <text x="26" y="38" text-anchor="middle" dominant-baseline="central" font-size="${PLATE_TYPE}" font-weight="800" letter-spacing="${PLATE_SPACING}" fill="${MEDAL_INK}"${fitPlate(shape.label)}>${shape.label}</text>
+                </g>
+            </svg>`;
         }
 
-        view.victory = (full) => {
-            const el = translationEl();
-            if (el) {
-                el.innerHTML = '🎉 Victory! Snake completed! 🏆';
-                fitTranslation(el);
+        /*
+         * The record's medal: MAX and the number under it, the way the header
+         * and the tile in the catalog say it, on a square of the prize gold.
+         * Three figures come down a size to stay inside it. The same drawing in
+         * the header once the record is beaten, in flight, and in the banner.
+         */
+        function medalSvg(value) {
+            const id = 'snake-won-' + (++drawn);
+            // MAX up near the top edge and the figure as large as the square
+            // holds, the owner's call: the figure is what is read, and at the
+            // header's 26 pixels it was small. Three figures a size down.
+            const figure = String(value).length > 2 ? 18 : 22;
+
+            return `<svg viewBox="0 0 ${MEDAL} ${MEDAL}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
+                <defs>
+                    <linearGradient id="${id}-gold" x1="0" y1="0" x2="0" y2="1">${goldStops()}</linearGradient>
+                    <linearGradient id="${id}-glint" x1="0" y1="0" x2="1" y2="0">${GLINT_STOPS}</linearGradient>
+                    <clipPath id="${id}-face"><rect x="2.5" y="2.5" width="39" height="39" rx="11" /></clipPath>
+                </defs>
+                <rect x="2.5" y="2.5" width="39" height="39" rx="11" fill="url(#${id}-gold)" stroke="${palette.starEdge}" stroke-width="1.6" />
+                <text x="22" y="11.6" text-anchor="middle" dominant-baseline="central" font-size="8.6" font-weight="800" letter-spacing="0.6" fill="${MEDAL_INK}">MAX</text>
+                <text x="22" y="27" text-anchor="middle" dominant-baseline="central" font-size="${figure}" font-weight="800" fill="${MEDAL_INK}" style="font-variant-numeric: tabular-nums;">${value}</text>
+                <g clip-path="url(#${id}-face)">
+                    <rect class="snake-won-glint" data-travel="${MEDAL + 12}" x="-6" y="-2" width="8" height="${MEDAL + 4}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+                </g>
+            </svg>`;
+        }
+
+        // A letter of a full board as a crown, and the crown that flies from
+        // it: the same drawing, so the one that leaves is the one that stood.
+        const crownSvg = () => `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;"><path d="${CROWN.path}" fill="${palette.star}" stroke="${palette.starEdge}" stroke-width="1.4" stroke-linejoin="round" /></svg>`;
+
+        const CROWN_ON_CELL = 0.72;
+
+        function crownOn(cx, cy) {
+            const scale = cellSize * CROWN_ON_CELL / 24;
+            const { x, y, width, height } = CROWN.box;
+            const left = cx - (x + width / 2) * scale;
+            const top = cy - (y + height / 2) * scale;
+
+            return `<path d="${CROWN.path}" transform="translate(${left} ${top}) scale(${scale})" fill="${palette.star}"
+                stroke="${palette.starEdge}" stroke-width="1.4" stroke-linejoin="round" />`;
+        }
+
+        // The heart a link carries, flying: the glyph the board draws it with.
+        const heartHtml = (red) => `<span style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 15.6px; line-height: 1;">${red ? '❤️' : '🖤'}</span>`;
+
+        /*
+         * Where a fixed box with left and top at nought actually lands.
+         *
+         * Not always the corner of the window: until 26 October 2026 a tab
+         * kept a scrollbar's width spare on both sides of the page
+         * (scrollbar-gutter, since gone with the scrollbars -- see app.css),
+         * and fixed was measured from inside it. Taken for the corner, the
+         * star stood fifteen pixels right of the middle of the board
+         * everywhere but the popup. Still measured: whatever else comes to
+         * stand there, the probe sees it.
+         */
+        const fixedOrigin = () => {
+            const probe = $(host, '<div style="position: fixed; left: 0; top: 0; width: 0; height: 0;"></div>');
+            const at = appRect(probe);
+            probe.remove();
+            return at;
+        };
+
+        const centreOf = (el) => {
+            const box = appRect(el);
+            return { x: box.left + box.width / 2, y: box.top + box.height / 2, width: box.width, height: box.height };
+        };
+
+        // A cell of the board on the screen: its middle and its width. Inside
+        // the board's one-pixel border, which the viewBox does not count.
+        const cellAt = (cell) => {
+            const box = appRect(svg);
+            const unit = (box.width - 2) / boardSide * cellSize;
+            return { x: box.left + 1 + (cell.x + 0.5) * unit, y: box.top + 1 + (cell.y + 0.5) * unit, width: unit };
+        };
+
+        /*
+         * Something flying over the screen by way of `frames`: where its middle
+         * is, how big it is against `size` and how far it is turned, in the
+         * layout's pixels, which is what appRect measures in -- see fireworks.
+         *
+         * The box is fixed, with its middle on the corner of the window, and
+         * every frame is a translation from there: one box for a flight across
+         * the board, and nothing in the layout moved to make room. Gone when
+         * it lands.
+         */
+        function launch(html, size, frames, duration) {
+            const origin = fixedOrigin();
+            const flyer = $(host, `<div class="snake-flyer" aria-hidden="true" style="position: fixed; z-index: 7; left: ${-origin.left - size / 2}px; top: ${-origin.top - size / 2}px; width: ${size}px; height: ${size}px; pointer-events: none; will-change: transform;">${html}</div>`);
+
+            const flight = flyer.animate(frames.map(f => ({
+                offset: f.offset === undefined ? null : f.offset,
+                easing: f.easing || 'ease-in-out',
+                opacity: f.opacity === undefined ? 1 : f.opacity,
+                transform: `translate(${f.x}px, ${f.y}px) scale(${f.scale}) rotate(${f.turn || 0}deg)`
+            })), { duration, fill: 'forwards' });
+
+            return flight.finished.then(() => flyer.remove(), () => flyer.remove());
+        }
+
+        /*
+         * A prize over the middle of the board, at its full size there: a
+         * fixed box centred on the board, which everything after -- coming in,
+         * shining, going down to the banner -- moves by transforms from where
+         * it stands. Its middle is kept, because that is where the crowns and
+         * the hearts are aimed.
+         */
+        function stage(html, width, height) {
+            const board = appRect(svg);
+            const origin = fixedOrigin();
+            const centre = { x: board.left + board.width / 2, y: board.top + board.height / 2 };
+
+            const el = $(host, `<div class="snake-won-stage" aria-hidden="true" style="position: fixed; z-index: 6; left: ${centre.x - origin.left - width / 2}px; top: ${centre.y - origin.top - height / 2}px; width: ${width}px; height: ${height}px; pointer-events: none; will-change: transform;">${html}</div>`);
+
+            return { el, centre, width, height };
+        }
+
+        function badgeStage(kind, level, quiet) {
+            const width = appRect(svg).width * BADGE_SHARE;
+            return stage(badgeSvg(kind, level, quiet), width, width * BADGE_H / BADGE_W);
+        }
+
+        // Up out of nothing in the middle of the board: the crown and the goblet.
+        function popIn(at) {
+            return at.el.animate([
+                { transform: 'scale(0.2)', opacity: 0, easing: 'ease-out' },
+                { transform: 'scale(1.12)', opacity: 1, offset: 0.6, easing: 'ease-in-out' },
+                { transform: 'scale(1)', opacity: 1 }
+            ], { duration: POP_IN }).finished;
+        }
+
+        /*
+         * Out of the header, from `from` to the middle of the board: the medal
+         * and the star. `fit` says which part of the prize the thing in the
+         * header is -- see STAR_FIT -- so the flight starts with that part
+         * exactly over it.
+         *
+         * The star turns as it comes, by two fifths of a turn: a five-pointed
+         * star looks the same every fifth of one, so a whole turn read as five
+         * of them and the star seemed to spin. From minus two fifths to nought
+         * rather than from nought on: two fifths is upright only nearly -- the
+         * star is not quite regular, and it turns about the middle of its box
+         * rather than its own centre -- and a flight ending there let go of a
+         * star that jumped to where it stands unturned. The mismatch is at the
+         * start, where the star is the size of a dot.
+         */
+        function arriveFrom(at, from, turn, fit) {
+            const start = centreOf(from);
+            const unit = at.height / fit.total;
+            const scale = start.width / (fit.size * unit);
+            const dx = start.x - at.centre.x;
+            const dy = start.y + fit.dy * unit * scale - at.centre.y;
+
+            return at.el.animate([
+                { transform: `translate(${dx}px, ${dy}px) scale(${scale}) rotate(${-turn}deg)`, easing: 'ease-in-out' },
+                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8, easing: 'ease-out' },
+                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
+            ], { duration: ARRIVE }).finished;
+        }
+
+        /*
+         * Its moment: a glow that swells and fades, a little growth with it,
+         * and a glint across the gold.
+         */
+        function shine(at) {
+            const glint = at.el.querySelector('.snake-won-glint');
+
+            if (glint) {
+                glint.animate([
+                    { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
+                    { transform: `translateX(${glint.dataset.travel}px) skewX(-20deg)`, opacity: 1 }
+                ], { duration: SHINE * 0.7, delay: SHINE * 0.15, easing: 'ease-in-out' });
             }
 
-            gatheredBar.innerHTML = `
-                <div class="snake-win-actions" style="display: flex; gap: 6.8px; width: 100%;">
-                    <button class="snake-go-dict-btn" id="snake-go-dict" style="flex: 1; padding: 7.7px 8.5px; background: ${palette.ring}; color: ${palette.onRing}; border: none; border-radius: 12px; font-weight: 700; font-size: 12.3px; cursor: pointer; transition: background 0.2s;">📚 Dictionary</button>
-                </div>
-            `;
+            return at.el.animate([
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 },
+                { filter: 'drop-shadow(0 0 18px rgba(255, 214, 92, 0.9))', scale: 1.06, offset: 0.5 },
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 }
+            ], { duration: SHINE, easing: 'ease-in-out' }).finished;
+        }
 
+        // And down into its place in the banner, where it is shown instead.
+        function depart(at, place) {
+            const to = centreOf(place);
+
+            return at.el.animate([
+                { transform: 'translate(0px, 0px) scale(1)' },
+                { transform: `translate(${to.x - at.centre.x}px, ${to.y - at.centre.y}px) scale(${to.height / at.height})` }
+            ], { duration: DEPART, easing: 'ease-in-out', fill: 'forwards' }).finished
+                .then(() => { at.el.remove(); arrive(place); }, () => at.el.remove());
+        }
+
+        // Going up in smoke where it stands: it swells, blurs and fades.
+        function dissolve(at) {
+            return at.el.animate([
+                { opacity: 1, scale: 1, filter: 'blur(0px)' },
+                { opacity: 0, scale: 1.5, filter: 'blur(4px)' }
+            ], { duration: 520, easing: 'ease-in', fill: 'forwards' }).finished
+                .then(() => at.el.remove(), () => at.el.remove());
+        }
+
+        // A pause in the ending, on the clock that owns every wait the game
+        // makes: leaving the screen clears it, and the ending stops there.
+        const wait = (ms) => new Promise(done => clock.after(ms, done));
+
+        // A prize shown in its place, with the swell the dots set off with.
+        function arrive(place) {
+            place.style.visibility = 'visible';
+            if (!still()) place.animate(beckon(1.3), { duration: BECKON_MS, easing: 'ease-out' });
+        }
+
+        function fillTo(el, level) {
+            const gold = el.querySelector('.snake-won-fill');
+            if (gold) gold.style.transform = `scaleY(${level})`;
+        }
+
+        // The soot, rising under the gold: what shows of it is what stands
+        // above the gold.
+        function darkTo(el, level) {
+            const soot = el.querySelector('.snake-won-soot');
+            if (soot) soot.style.transform = `scaleY(${level})`;
+        }
+
+        // And all of it black: the gold fades off the soot under it, and the
+        // edges go dark with it.
+        function blacken(el) {
+            const gold = el.querySelector('.snake-won-fill');
+            if (gold) gold.style.opacity = '0';
+
+            el.querySelectorAll('.snake-won-edge').forEach(edge => { edge.style.stroke = SOOT_EDGE; });
+        }
+
+        function bump(el) {
+            el.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 220, easing: 'ease-out' });
+        }
+
+        function shake(el) {
+            el.animate([{ translate: '0 0' }, { translate: '-4px 0' }, { translate: '4px 0' }, { translate: '-2px 0' }, { translate: '0 0' }], { duration: 260, easing: 'ease-in-out' });
+        }
+
+        /*
+         * The place of a prize that did not come, closed: its width and the gap
+         * in front of it -- the goblet is the last of the row -- or, alone in
+         * the row, the row itself, and "You won!" comes down to the middle,
+         * where it stands when nothing was won.
+         */
+        function closePlace(place) {
+            const row = place.parentNode;
+            const alone = row.children.length === 1;
+            const closing = alone ? row : place;
+
+            const shut = alone
+                ? [{ height: row.offsetHeight + 'px', marginTop: '0px' }, { height: '0px', marginTop: '-3.4px' }]
+                : [{ width: place.offsetWidth + 'px', marginLeft: '0px' }, { width: '0px', marginLeft: -PRIZE_GAP + 'px' }];
+
+            if (still()) return closing.remove();
+
+            return closing.animate(shut, { duration: 260, easing: 'ease-in-out', fill: 'forwards' }).finished
+                .then(() => closing.remove(), () => closing.remove());
+        }
+
+        // The banner, once everything is in: the whole of it is what to press.
+        function beckonBanner() {
+            if (still()) return;
+
+            hintBanner.animate([
+                { scale: 1 },
+                { scale: 1.04, offset: 0.12 },
+                { scale: 0.99, offset: 0.26 },
+                { scale: 1, offset: 0.4 },
+                { scale: 1 }
+            ], { duration: BANNER_BEAT, iterations: Infinity, easing: 'ease-in-out' });
+        }
+
+        view.victory = (result) => {
+            const mine = ++showing;
+            const alive = () => mine === showing;
+
+            won = true;
             controlsRetired = true;
             dropHint();
             if (controlsArea) controlsArea.style.display = 'none';
+            pointingHand.clear();
 
-            const goDictBtn = gatheredBar.querySelector('#snake-go-dict');
-            if (goDictBtn) {
-                goDictBtn.addEventListener('click', () => cb.onGoDictionary());
+            const hearts = result.hearts;
+            const full = hearts && hearts.red.length === hearts.expected;
+
+            const prizes = [
+                result.crown && { kind: 'crown', html: badgeSvg('crown', 1), width: BADGE_W, height: BADGE_H },
+                result.record && { kind: 'record', html: medalSvg(result.record), width: MEDAL, height: MEDAL },
+                result.star && { kind: 'star', html: badgeSvg('star', 1), width: BADGE_W, height: BADGE_H },
+                hearts && (full || !still()) && { kind: 'goblet', html: badgeSvg('goblet', 1), width: BADGE_W, height: BADGE_H }
+            ].filter(Boolean);
+
+            hintBanner.innerHTML = `<div class="snake-won-title" style="font-size: 18.4px; font-weight: 800; line-height: 1.2; color: ${palette.hintText};">You won!</div>`
+                + (prizes.length ? `<div class="snake-won-prizes" style="display: flex; justify-content: center; align-items: center; gap: ${PRIZE_GAP}px;">
+                    ${prizes.map(p => `<span class="snake-won-prize" style="display: block; flex: none; width: ${p.width}px; height: ${p.height}px; visibility: hidden;">${p.html}</span>`).join('')}
+                </div>` : '');
+
+            // The whole banner is the way out. data-press, because a press on
+            // a plain block is otherwise not written down -- see track.js:
+            // `snake-hint-banner`, the class it has had all along.
+            hintBanner.dataset.press = '';
+            hintBanner.title = 'Dictionary';
+            hintBanner.style.cursor = 'pointer';
+            hintBanner.style.userSelect = 'none';
+            hintBanner.addEventListener('click', () => cb.onGoDictionary());
+
+            const places = [...hintBanner.querySelectorAll('.snake-won-prize')];
+
+            async function crownIn(place) {
+                if (still()) {
+                    crowned = true;
+                    redraw();
+                    return arrive(place);
+                }
+
+                const at = badgeStage('crown', 0);
+                await popIn(at);
+
+                const crowns = lastFrame
+                    ? lastFrame.s.lettersOnBoard.map((letter, k) => ({ letter, k })).filter(c => !c.letter.isEaten)
+                    : [];
+
+                await wait(CROWN_TURN);
+                if (!alive()) return;
+
+                crowned = true;
+                redraw();
+
+                await wait(CROWN_WAIT);
+                if (!alive()) return;
+
+                // At the crown in the badge, which stands a little above the
+                // badge's middle: the plate is under it.
+                const to = { x: at.centre.x, y: at.centre.y - at.height * 0.1 };
+                let landed = 0;
+
+                if (!crowns.length) fillTo(at.el, 1);
+
+                await Promise.all(crowns.map((crown, k) => wait(k * CROWN_GAP).then(() => {
+                    if (!alive()) return null;
+
+                    const from = cellAt(crown.letter);
+                    crownsGone.add(crown.k);
+                    redraw();
+
+                    return launch(crownSvg(), from.width, [
+                        { x: from.x, y: from.y, scale: CROWN_ON_CELL },
+                        { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 30, scale: 1.25, offset: 0.45 },
+                        { x: to.x, y: to.y, scale: 0.9, opacity: 0.6 }
+                    ], CROWN_FLIGHT).then(() => {
+                        landed += 1;
+                        fillTo(at.el, landed / crowns.length);
+                        bump(at.el);
+                    });
+                })));
+                if (!alive()) return;
+
+                await wait(FILLED_REST);
+                await shine(at);
+                if (!alive()) return;
+
+                await depart(at, place);
             }
+
+            async function medalIn(place) {
+                const from = header && header.querySelector('.snake-length-medal');
+                if (still() || !from) return arrive(place);
+
+                const size = appRect(svg).width * MEDAL_SHARE;
+                const at = stage(medalSvg(result.record), size, size);
+
+                const flight = arriveFrom(at, from, 0, MEDAL_FIT);
+
+                // And the length back in its place, where the medal stood in
+                // for it -- see showMedal.
+                from.style.display = 'none';
+                const plain = header.querySelector('.snake-length-plain');
+                plain.style.display = 'inline-flex';
+                plain.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
+
+                await flight;
+                if (!alive()) return;
+
+                await shine(at);
+                if (!alive()) return;
+
+                await depart(at, place);
+            }
+
+            /*
+             * The star waits for itself to have finished filling. The last
+             * answer is what fills it, and on a device with no voice the ending
+             * comes the moment that answer lands, while the gold is still
+             * rising: the star would leave half full and arrive full.
+             *
+             * Its plate comes with it as it leaves, and not before: in the
+             * header it is a star and nothing more (the owner's call).
+             */
+            async function starIn(place) {
+                const small = header && header.querySelector('.snake-star');
+                if (!small) return arrive(place);
+
+                await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => { });
+                if (!alive() || !small.isConnected) return;
+
+                if (still()) {
+                    small.style.visibility = 'hidden';
+                    return arrive(place);
+                }
+
+                const at = badgeStage('star', 1, true);
+
+                const flight = arriveFrom(at, small, PRIZE_TURN, STAR_FIT);
+                small.style.visibility = 'hidden';
+
+                at.el.querySelector('.snake-won-plate').animate([
+                    { opacity: 0 },
+                    { opacity: 0, offset: 0.1 },
+                    { opacity: 1, offset: 0.45 },
+                    { opacity: 1 }
+                ], { duration: ARRIVE, fill: 'forwards' });
+
+                await flight;
+                if (!alive()) return;
+
+                await shine(at);
+                if (!alive()) return;
+
+                await depart(at, place);
+            }
+
+            async function gobletIn(place) {
+                if (still()) return arrive(place);
+
+                const at = badgeStage('goblet', 0);
+                await popIn(at);
+
+                const body = lastFrame ? lastFrame.s.snakeBody : [];
+
+                // Into the cup, which stands well above the badge's middle.
+                const to = { x: at.centre.x, y: at.centre.y - at.height * 0.2 };
+
+                const fly = (link, red) => {
+                    if (!alive() || !body[link]) return null;
+
+                    const from = cellAt(body[link]);
+                    flown.add(link);
+                    redraw();
+
+                    return launch(heartHtml(red), from.width, [
+                        { x: from.x, y: from.y, scale: 0.8 },
+                        { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 30, scale: 1.4, offset: 0.45 },
+                        { x: to.x, y: to.y, scale: 0.8, opacity: 0.7 }
+                    ], HEART_FLIGHT);
+                };
+
+                let gold = 0;
+
+                await wait(HEART_WAIT);
+                await Promise.all(hearts.red.map((link, k) => wait(k * HEART_GAP)
+                    .then(() => fly(link, true))
+                    .then(() => {
+                        gold = Math.min(1, gold + 1 / hearts.expected);
+                        fillTo(at.el, gold);
+                        bump(at.el);
+                    })));
+                if (!alive()) return;
+
+                if (full) {
+                    await wait(FILLED_REST);
+                    await shine(at);
+                    if (!alive()) return;
+
+                    return depart(at, place);
+                }
+
+                await wait(BLACK_PAUSE);
+                if (!alive()) return;
+
+                /*
+                 * The black ones share out what the gold left, to the brim, and
+                 * the gold goes black with them.
+                 *
+                 * None black -- the snake lost its hearts with its length,
+                 * starting a round over -- and nothing more comes: the goblet
+                 * goes up in smoke as it stands, short of full. It was topped
+                 * up with black by itself for a while, as if the lost hearts
+                 * had been black ones; the owner would rather it stayed unfilled
+                 * (27 October 2026).
+                 */
+                const black = hearts.black;
+
+                if (black.length) {
+                    let landed = 0;
+
+                    await Promise.all(black.map((link, k) => wait(k * HEART_GAP)
+                        .then(() => fly(link, false))
+                        .then(() => {
+                            landed += 1;
+                            darkTo(at.el, gold + (1 - gold) * landed / black.length);
+                            shake(at.el);
+                        })));
+                    if (!alive()) return;
+
+                    await wait(FILLED_REST);
+                    blacken(at.el);
+
+                    await wait(BLACKEN);
+                }
+
+                await wait(SMOKE_AFTER);
+                if (!alive()) return;
+
+                await dissolve(at);
+                if (!alive()) return;
+
+                await closePlace(place);
+            }
+
+            const steps = { crown: crownIn, record: medalIn, star: starIn, goblet: gobletIn };
+
+            let chain = wait(still() ? 0 : PRIZE_BEAT);
+
+            prizes.forEach((prize, k) => {
+                chain = chain.then(() => {
+                    if (!alive()) return null;
+
+                    return Promise.resolve(steps[prize.kind](places[k]))
+                        .then(() => alive() && !still() && wait(PRIZE_REST));
+                });
+            });
+
+            chain.then(() => { if (alive()) beckonBanner(); });
 
             // Last, so the burst is measured against the board as it now stands
             // and lands on a screen that has finished changing.
             fireworks();
-            sway(full ? Infinity : SWAY_PLAIN);
-            if (full) prize();
+            sway(result.star ? Infinity : SWAY_PLAIN);
         };
 
         // Markup is being assembled as text, so anything coming from a word has
@@ -1557,6 +2204,49 @@ function snake(container) {
             return `<text x="${cx}" y="${cy + inkOffset(char, shown)}" fill="${fill}"
                 font-family="${LETTER_FONT}" font-size="${size}" font-weight="${weight || 'normal'}"
                 text-anchor="middle">${esc(char)}</text>`;
+        }
+
+        /*
+         * The record, once it is this session's, as the medal the ending flies
+         * rather than a line of small print -- the owner's call, 27 October
+         * 2026. It turns into the medal the moment the record the set held
+         * falls (in a set's first session, at the first growth -- see
+         * recordBeaten), stays one for the rest of the session, and swells each
+         * time the number on it goes up. At the end this is the medal that
+         * leaves the header -- see view.victory.
+         *
+         * In place of the length, which is not shown while the medal is up --
+         * the owner's call. It stood beside the length at first, on the grounds
+         * that after a crash that starts the round over the length is a long
+         * way below the record; the two together were one number too many for
+         * the corner of a header. The length comes back when the medal flies
+         * at the end -- see medalIn -- so the corner is not left empty.
+         *
+         * Not on the first frame of a screen: a session coming back already
+         * holding a beaten record shows the medal, and has nothing to turn.
+         */
+        const MEDAL_IN_HEADER = 26;
+        const MEDAL_TURNS = [
+            { scale: 0.3, opacity: 0 },
+            { scale: 1.3, opacity: 1, offset: 0.55 },
+            { scale: 0.92, offset: 0.8 },
+            { scale: 1 }
+        ];
+
+        function showMedal(most, seen) {
+            const medal = header.querySelector('.snake-length-medal');
+            if (!medal || medal.dataset.value === most) return;
+
+            const first = !medal.dataset.value;
+
+            medal.dataset.value = most;
+            medal.innerHTML = medalSvg(most);
+            medal.style.display = 'block';
+            header.querySelector('.snake-length-plain').style.display = 'none';
+
+            if (!seen || still()) return;
+
+            medal.animate(first ? MEDAL_TURNS : beckon(1.3), { duration: first ? 560 : BECKON_MS, easing: 'ease-out' });
         }
 
         /*
@@ -1587,7 +2277,10 @@ function snake(container) {
             return Math.max(10, Math.floor(nominal * room / ink));
         }
 
-        view.draw = (s, record) => {
+        view.draw = (s, record, beaten) => {
+            const seen = !!lastFrame;
+            lastFrame = { s, record, beaten };
+
             /*
              * How long the snake is, in links, at the dots' left: the number
              * and a square, and no word. The square is one link, so "12" and a
@@ -1625,6 +2318,8 @@ function snake(container) {
             const best = header.querySelector('.snake-length-best');
             if (best && best.textContent !== most) best.textContent = most;
 
+            if (beaten) showMedal(most, seen);
+
             let out = '';
 
             if (s.phase === 'HEART' && s.heartPos) {
@@ -1634,11 +2329,16 @@ function snake(container) {
             }
 
             // Every letter out there is one to be read and gone for. The blanks
-            // are not among them — see BLANK.
-            s.lettersOnBoard.forEach(l => {
-                if (l.isEaten) return;
+            // are not among them — see BLANK. On a board filled to the last
+            // cell they are crowns at the end, and then not there at all as
+            // the crowns go up to the banner — see view.victory.
+            s.lettersOnBoard.forEach((l, at) => {
+                if (l.isEaten || crownsGone.has(at)) return;
 
-                out += glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, 25.6, palette.boardLetter, 'bold');
+                const cx = (l.x + 0.5) * cellSize;
+                const cy = (l.y + 0.5) * cellSize;
+
+                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, 25.6, palette.boardLetter, 'bold');
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -1812,7 +2512,9 @@ function snake(container) {
                 // that is only borrowing the colour would be a second snake.
                 if (idx === 0 && headRun === null) out += faceOn(part, eyesShut);
 
-                if (!part.char) return;
+                // A heart that has flown to the goblet leaves the link it
+                // was carried on, and the link stays -- see view.victory.
+                if (!part.char || flown.has(idx)) return;
 
                 out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 12.3, '#ffffff', 'bold');
             });
@@ -2011,21 +2713,34 @@ function snake(container) {
             }
         }
 
+        /*
+         * The word's letters, each on a free cell, and whether that left the
+         * board without one: the crown, which ends the session -- see
+         * crownSession.
+         *
+         * Drawn from the cells that are free rather than tried at random until
+         * one is. It made no difference while the snake was short; a snake
+         * that fills most of the board left five hundred tries short of a free
+         * cell, and the letter went down on the snake. With the crown the
+         * board is meant to fill: when there are no more free cells than
+         * letters, the letters take every one of them, and those that do not
+         * fit are not put out at all.
+         */
         function spawnLetters() {
             lettersOnBoard = [];
 
-            targetLetters.forEach((char, idx) => {
-                if (BLANK.test(char)) return;
-
-                let pos;
-                let attempts = 0;
-                while (attempts < 500) {
-                    attempts++;
-                    pos = randomCell();
-                    const onSnake = snakeBody.some(s => s.x === pos.x && s.y === pos.y);
-                    const onOtherLetter = lettersOnBoard.some(l => l.x === pos.x && l.y === pos.y);
-                    if (!onSnake && !onOtherLetter) break;
+            const free = [];
+            for (let y = 0; y < GRID_COUNT; y++) {
+                for (let x = 0; x < GRID_COUNT; x++) {
+                    if (!snakeBody.some(s => s.x === x && s.y === y)) free.push({ x, y });
                 }
+            }
+
+            targetLetters.forEach((char, idx) => {
+                if (BLANK.test(char) || !free.length) return;
+
+                const [pos] = free.splice(Math.floor(Math.random() * free.length), 1);
+
                 lettersOnBoard.push({
                     char: char,
                     index: idx,
@@ -2034,6 +2749,8 @@ function snake(container) {
                     isEaten: false
                 });
             });
+
+            return free.length === 0;
         }
 
         function spawnHeart() {
@@ -2176,13 +2893,14 @@ function snake(container) {
 
         board.letters = () => targetLetters;
 
+        // True when the word filled the board -- see spawnLetters.
         board.setWord = (word) => {
             targetLetters = lettersOf(word).map(shownAs);
             nextLetterIndex = 0;
             skipBlanks();
             phase = 'WORD';
             heartPos = null;
-            spawnLetters();
+            return spawnLetters();
         };
 
         board.beginHeartPhase = () => {
@@ -2383,7 +3101,7 @@ function snake(container) {
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false,
-            hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, starLevel: 0, savedSnake: null,
+            hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, starLevel: 0, recordAt: null, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
             savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
@@ -2775,6 +3493,9 @@ function snake(container) {
             // saved state so that closing the popup mid-run does not start a
             // second one in the records.
             state.sessionAt = Date.now();
+
+            // And no record of its own yet -- see noteLength.
+            state.recordAt = null;
         }
 
         let pool = state.sessionPool;
@@ -2935,33 +3656,27 @@ function snake(container) {
         /*
          * The star hears about a dot the moment the dot takes its colour, and
          * from the same thing the dot is coloured by: green moves it up a
-         * step, red takes it back to nought. So a word that was heard counts
-         * as wrong here too, and at the speaker rather than when the round
-         * ends — that is when its dot goes red. Called once per round: by
-         * scoreRound, or by hearWord before any verdict, never both.
+         * step, red takes it back to the outline. So a word that was heard
+         * counts as wrong here too, and at the speaker rather than when the
+         * round ends — that is when its dot goes red. Called once per round:
+         * by scoreRound, or by hearWord before any verdict, never both.
          *
          * A wrong answer with no star up sends nothing. The wave is the answer
          * on its way to the star, and there is no star to reach and nothing
          * for it to change: a red light running off to an empty place only
          * says something happened that did not.
+         *
+         * Crashes are not told: the star is for the words (see STAR_TOP).
+         * Held below the top as it is read, for a session saved while the
+         * star took seven steps to fill and kept one of the two it has lost.
          */
         function starAnswered(right) {
-            const was = state.starLevel;
+            const was = Math.min(STAR_TOP, state.starLevel);
             if (!right && !was) return;
 
-            state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 0;
+            state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 1;
 
             view.star(was, state.starLevel, view.wave(state.currentIndex, right));
-        }
-
-        // A crash costs the star one step, with no wave: it is not an answer,
-        // and the round it happened in is still clean.
-        function starCrashed() {
-            const was = state.starLevel;
-            if (!was) return;
-
-            state.starLevel = was - 1;
-            view.star(was, state.starLevel, 0);
         }
 
     /*
@@ -3180,7 +3895,27 @@ function snake(container) {
         // view.draw. Read at every paint rather than kept, because the growth
         // that sets a new one is noted just before the paint that shows it.
         function paint() {
-            view.draw(board.snapshot(), store.bestOf(state.selectedSetId, 'snake', 'length'));
+            view.draw(board.snapshot(), store.recordOf(state.selectedSetId, 'snake', 'maxLength'), recordBeaten());
+        }
+
+        /*
+         * Whether the set's record for length is this session's: its own entry
+         * is in the log (recordAt -- see noteLength). That is from the first
+         * growth past the record the set held, or, in a set's first session,
+         * which has none to pass, from its first growth: a first record is a
+         * record.
+         *
+         * It used to ask for an older entry as well, so that a first session
+         * had nothing to beat. Its record was written all the same, but no
+         * medal came up in the header or at the end, and that read as the
+         * record not being kept at all (reported by the owner, 27 October
+         * 2026).
+         */
+        function recordBeaten() {
+            if (!state.recordAt) return false;
+
+            return store.achievementsOf(state.selectedSetId, 'snake')
+                .some(entry => 'maxLength' in entry && entry.at === state.recordAt);
         }
 
         refreshDots();
@@ -3498,7 +4233,9 @@ function snake(container) {
             state.hadErrorThisRound = false;
             state.showHint = false;
             state.heardThisRound = false;
-            board.setWord(targetWord);
+
+            if (board.setWord(targetWord)) return crownSession();
+
             view.banner(currentItem.word.translation);
             refreshGathered();
             board.persistTo(state);
@@ -3514,14 +4251,14 @@ function snake(container) {
          * and lose a round that had already been won.
          *
          * Stopped by hand rather than through cleanup(), which silences the
-         * screen it is leaving. Nothing is being left here — the panel appears
+         * screen it is leaving. Nothing is being left here — the ending is told
          * on the same page, and the last word of the session is still being read
          * out at that moment: sayProgress says the letter as it lands and holds
          * the word and the line behind a wait. cleanup() cancelled the one and
          * cleared the other, so the last word of every session was the one word
          * that went by in silence.
          *
-         * The session is closed here too rather than with the panel: leaving the
+         * The session is closed here too rather than with the ending: leaving the
          * page during the wait has to leave a finished session behind, not one
          * the "Continue" banner will offer to resume onto a board with nothing
          * left on it.
@@ -3536,21 +4273,105 @@ function snake(container) {
         }
 
         /*
-         * And the panel waits for the line to be read out.
+         * And the ending waits for the line to be read out.
          *
-         * It is drawn over the bar — the banner is a fixed 88.8px and there is no
-         * room for both — so putting it up while the line is still being narrated
-         * takes away the very thing the narration is pointing at, marks and all.
-         * The wait is however long the voice takes, which on a phrase is a couple
-         * of seconds and on a silent device is almost none.
+         * It is told in the banner, over the bar — the banner is a fixed 88.8px
+         * and there is no room for both — so starting it while the line is still
+         * being narrated takes away the very thing the narration is pointing at,
+         * marks and all. The wait is however long the voice takes, which on a
+         * phrase is a couple of seconds and on a silent device is almost none.
+         * The crown does not wait: it ends a session as a word arrives, and that
+         * word is never spelled, so nothing is being read.
          */
-        function showVictory() {
-            view.victory(state.starLevel === STAR_TOP);
+        function showVictory(result) {
+            view.victory(result);
         }
 
         /*
-         * The longest the snake has been in this set, kept on the set as a
-         * record -- see store.noteBest.
+         * What the session achieved, settled the moment it is over and written
+         * into the set's achievements -- see store.achieve -- before any of it
+         * is shown: the ending takes seconds to tell, and a popup closed in the
+         * middle of it must not take the prizes with it. Answers what the
+         * banner is to show.
+         *
+         * Four, and their names and numbers are the owner's (27 October 2026):
+         *
+         *   maxLength  the record for length. Written as it grows, not here --
+         *              see noteLength; what is read here is whether this session
+         *              beat the set's record (recordBeaten), and what it came to.
+         *   star       a full star: `star` is how many of the session's words
+         *              were answered without a mistake.
+         *   goblet     a session without a crash, told by the hearts: one is
+         *              dealt after every word but the last, a crash with a heart
+         *              to spend turns one black, and a crash with none starts
+         *              the round over with a snake of one link, the hearts it
+         *              carried gone with it. Every heart dealt still red is the
+         *              goblet, and `goblet` is how many hearts that was. A crash
+         *              in the first word, before there is a heart to lose, starts
+         *              that word over and leaves no trace for this to read.
+         *   crown      the board filled to its last cell as a word arrived --
+         *              see crownSession: `crown` is how long the snake was.
+         *
+         * A run over every set achieves the same and writes nothing: there is no
+         * set by its id. Nor has it a record to beat.
+         */
+        function settle(crown) {
+            const body = board.snapshot().snakeBody;
+            const carrying = (char) => body.map((part, at) => (part.char === char ? at : -1)).filter(at => at >= 0);
+
+            const red = carrying('\u2764\ufe0f');
+            const black = carrying('\ud83d\udda4');
+
+            // The hearts dealt: one after each word but the last, and the crown
+            // ends a session as the next word arrives -- after the heart for
+            // every word finished before it.
+            const dealt = crown ? state.currentIndex : pool.length - 1;
+
+            const star = state.starLevel >= STAR_TOP;
+            const goblet = dealt > 0 && red.length === dealt;
+
+            const setId = state.selectedSetId;
+
+            const record = recordBeaten() ? store.recordOf(setId, 'snake', 'maxLength') : 0;
+
+            if (crown) store.achieve(setId, 'snake', 'crown', body.length);
+            if (star) store.achieve(setId, 'snake', 'star', state.sessionResults.filter(r => r === 'correct').length);
+            if (goblet) store.achieve(setId, 'snake', 'goblet', red.length);
+
+            return { crown, record, star, hearts: dealt > 0 ? { red, black, expected: dealt } : null };
+        }
+
+        /*
+         * The crown: a word arrived and took the last free cell on the board
+         * -- the snake is so long that what is left of the board is no more
+         * than the word's letters. There is nowhere to go, and the session is
+         * won there and then, with the word it was given still unplayed: no
+         * answer is written for it, and it is due as it was.
+         *
+         * Ended the way the last word ends one -- see stopPlaying -- and moved
+         * past the end of the pool, so a screen drawn again finds a finished
+         * session and goes back to the catalog rather than dealing this word
+         * once more.
+         */
+        function crownSession() {
+            const result = settle(true);
+
+            state.currentIndex = pool.length;
+            state.savedSnake = null;
+            refreshDots();
+
+            stopPlaying();
+            showVictory(result);
+        }
+
+        /*
+         * The longest the snake has been in this set, kept in the set's
+         * achievements as `maxLength` -- see store.noteRecord: one entry for a
+         * session that beats the record, raised as the snake grows, and the
+         * entries of the sessions before it left as they are. Which entry is
+         * this session's is the moment it carries, kept in the session as
+         * `recordAt` and saved with it, so a session closed and resumed goes
+         * on raising the same one.
          *
          * Taken whenever it grows, which is the only time it can set one: the
          * snake never gets longer any other way, and the one thing that makes
@@ -3559,7 +4380,8 @@ function snake(container) {
          * heart -- so nothing here has to save.
          */
         function noteLength() {
-            store.noteBest(state.selectedSetId, 'snake', 'length', board.snapshot().snakeBody.length);
+            const at = store.noteRecord(state.selectedSetId, 'snake', 'maxLength', board.snapshot().snakeBody.length, state.recordAt);
+            if (at) state.recordAt = at;
         }
 
         // One tick of the game: the board says what happened, the session
@@ -3601,8 +4423,6 @@ function snake(container) {
                 offerReveal();
             }
 
-            if (event === 'crashHeart' || event === 'crashRestart') starCrashed();
-
             if (event === 'crashHeart') {
                 board.persistTo(state);
                 paint();
@@ -3627,7 +4447,9 @@ function snake(container) {
                     store.save();
 
                     if (state.currentIndex >= pool.length) {
-                        showVictory();
+                        const result = settle(false);
+                        stopPlaying();
+                        showVictory(result);
                     } else {
                         moveToNextWord();
                     }
@@ -3700,10 +4522,12 @@ function snake(container) {
                     state.savedSnake = null;
                     refreshDots();
 
-                    // The board stops now and the panel comes when the line has
-                    // been read out — see stopPlaying.
+                    // The board stops now and the ending comes when the line
+                    // has been read out — see stopPlaying. What it achieved is
+                    // settled first, and saved by the end of the session.
+                    const result = settle(false);
                     stopPlaying();
-                    sayProgress(showVictory);
+                    sayProgress(() => showVictory(result));
                     return;
                 }
 
@@ -3903,6 +4727,11 @@ function snake(container) {
         // here so that a popup closed and opened again is the same session
         // with the same star, and not one that has forgotten its run.
         starLevel: state.starLevel,
+
+        // The session's own entry in the record for length -- see
+        // noteLength. A session that comes back without it would start a
+        // second entry for the same record.
+        recordAt: state.recordAt,
 
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,

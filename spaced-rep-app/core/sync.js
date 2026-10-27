@@ -23,8 +23,23 @@ function sync() {
      * is left alone -- an older device must not take a set apart it does not
      * understand -- and when this number goes up, migrate.js gains a way to
      * read the old shape, the same as it does for a database.
+     *
+     * 2 since 27 October 2026: a game's records became a log -- see
+     * store.achieve. A set of format 1 is still taken, and put into the
+     * shape this code reads before anything else sees it (`current`).
      */
-    const FORMAT = 1;
+    const FORMAT = 2;
+
+    /*
+     * A set from the server, in the shape this code reads. One written by a
+     * device on an older format is a set from the database of an older
+     * version, only over the network, and goes through the same translation
+     * -- see migrate.set.
+     */
+    const current = (entry) => {
+        if ((entry.format || 1) < FORMAT) migrate.set(entry.data);
+        return entry.data;
+    };
 
     const dateOf = (set) => (set && set.changedAt) || 0;
 
@@ -103,10 +118,12 @@ function sync() {
             const here = store.allSets().find(s => s.id === entry.id);
             if (here && dateOf(entry.data) <= dateOf(here)) return;
 
-            const lost = here ? lostAnswers(here, entry.data) : 0;
+            const data = current(entry);
+
+            const lost = here ? lostAnswers(here, data) : 0;
             if (lost) track('sync_loss', entry.id, lost, dateOf(here) > sentBefore ? 0 : 1);
 
-            store.put(entry.data);
+            store.put(data);
             replaced.push(entry.id);
         });
 
@@ -324,7 +341,7 @@ function sync() {
         if (answer.error) return refuse('offline', answer.error);
         if (answer.missing) return refuse('missing');
 
-        const sets = (answer.sets || []).filter(e => e && e.data && (e.format || 1) <= FORMAT).map(e => e.data);
+        const sets = (answer.sets || []).filter(e => e && e.data && (e.format || 1) <= FORMAT).map(current);
 
         // What the move brought and what it cost: the sets and answers that
         // came, and the answers this device had of its own, which go. The

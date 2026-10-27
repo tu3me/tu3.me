@@ -16,6 +16,13 @@
  *
  * Both of them from 0.2.3, because that is the published version and the one
  * every reader is on.
+ *
+ * A third came on 27 October 2026, and it is the first that is not only about
+ * the database on this device: a game's records on a set, from the best kept
+ * per measure to a log -- see foldRecords. A set in the old shape can also
+ * arrive from the server, written by a device not yet updated, so this one
+ * works a set at a time and sync.js calls it on what it is handed. The day
+ * that was written about in docs/BACKEND.md ("Формат") is this one.
  * Anything older than it has nowhere to arrive from, and anything newer was
  * only ever written here, by versions nobody was given. Three other
  * translations stood in this file and went with the databases they were for:
@@ -34,7 +41,8 @@
  * reader may well open one of those first — a popup reopens where it was left.
  *
  * Meant to be deleted whole, one day, when no 0.2.3 database can still be out
- * there. Nothing outside refers to anything in here.
+ * there. Nothing outside refers to anything in here but sync.js, to
+ * migrate.set.
  */
 function migrate() {
     /*
@@ -154,24 +162,85 @@ function migrate() {
     }
 
     /*
+     * A set's records, from the best kept per measure to the log the games
+     * write since 27 October 2026 -- see store.achieve.
+     *
+     *     { snake: { length: { best: 34, at } } }  ->  { snake: [ { maxLength: 34, at } ] }
+     *
+     * One measure ever had that shape, the snake's length, and in the log it is
+     * called maxLength, the owner's name for it. Any other measure, which there
+     * never was, keeps its own name rather than being dropped.
+     *
+     * The check is the data, as above: a game whose records are an object and
+     * not a list is from before, and nothing writes that shape any more, so a
+     * set passes through here once. A record with nothing in it is left out --
+     * absent reads as "none yet", which is what it is.
+     *
+     * One set at a time, because sets arrive one at a time as well as all at
+     * once: the database at startup, and a set from the server written by a
+     * device that has not been updated -- see sync.js, where FORMAT went to 2
+     * with this. Answers whether it changed anything.
+     */
+    const RENAMED = { length: 'maxLength' };
+
+    function foldRecords(set) {
+        const held = set && set.achievements;
+        if (!held || typeof held !== 'object') return false;
+
+        let changed = false;
+
+        Object.keys(held).forEach(game => {
+            const records = held[game];
+            if (Array.isArray(records)) return;
+
+            held[game] = Object.keys(records || {})
+                .filter(measure => records[measure] && records[measure].best)
+                .map(measure => ({ [RENAMED[measure] || measure]: records[measure].best, at: records[measure].at }))
+                .sort((a, b) => (a.at || 0) - (b.at || 0));
+
+            changed = true;
+        });
+
+        return changed;
+    }
+
+    async function foldAllRecords() {
+        const sets = await storage.get('word_sets');
+
+        if (!Array.isArray(sets) || sets.length === 0) return false;
+
+        // Every set, and not as soon as one has changed
+        const changed = sets.map(foldRecords).some(Boolean);
+        if (!changed) return false;
+
+        await storage.set('word_sets', sets);
+
+        return true;
+    }
+
+    /*
      * The translations, in order, and the answer is whether anything was done at
      * all. Nobody reads it yet.
      *
      * Each is a function that answers that question and knows nothing about its
      * neighbours, so adding one is a line here and taking one out is a line
-     * here. They touch different keys -- one `word_sets`, one `settings` -- and
-     * neither reads what the other wrote, so the order between them is
-     * arbitrary; it is kept as the order they were written in, because an
-     * arbitrary order that is also stable is one less thing to think about when
-     * a third arrives.
+     * here. They touch different keys or different parts of one -- the answers
+     * and the records of `word_sets`, and `settings` -- and none reads what
+     * another wrote, so the order between them is arbitrary; it is kept as the
+     * order they were written in, because an arbitrary order that is also
+     * stable is one less thing to think about when another arrives.
      */
     async function run() {
         const folded = await foldRuns();
         const marked = await foldMarks();
+        const recorded = await foldAllRecords();
 
-        return folded || marked;
+        return folded || marked || recorded;
     }
 
     migrate.run = run;
+
+    // One set, for what arrives from the server -- see foldRecords.
+    migrate.set = foldRecords;
 }
 migrate();

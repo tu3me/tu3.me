@@ -58,7 +58,7 @@
  * to want the same 28 today, which is not a promise either makes the other.
  *
  * `crest` is what the tile becomes once the game has set a record in a set --
- * see store.noteBest. It is the tile's whole face, the icon included, and not
+ * see store.achieve. It is the tile's whole face, the icon included, and not
  * a layer round it: a record wants room the icon at its full size is standing
  * in, so the crest decides where the icon goes and how big it is. It is handed
  * the tile -- its size and its corner radius, because a crest draws to the

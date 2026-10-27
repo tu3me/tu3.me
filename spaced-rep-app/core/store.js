@@ -380,63 +380,116 @@ function store() {
     }
 
     /*
-     * A record a game has set in a set: the best value of something it measures,
-     * and when that best was reached. True when it is a new best.
+     * What a game has achieved in a set, as a log: one entry for each thing
+     * achieved, in the order it happened, added to and never rewritten.
      *
-     * On the set, under `achievements`, keyed by game and then by what was
-     * measured: { snake: { length: { best: 34, at: 1791734000000 } } }. On the
-     * set because records are a set's own -- the same game played on another
-     * set is a different record -- and because a set's lifetime is the right
-     * one for them: deleted with the set, untouched when its words are edited,
-     * since the form changes a set in place.
+     * On the set, under `achievements`, keyed by game, and each entry is one
+     * name with its measure and the moment: { snake: [ { maxLength: 34, at },
+     * { star: 7, at }, { goblet: 9, at }, { crown: 131, at } ] }. The name is
+     * the game's own word for the achievement and the number is what it came
+     * to -- see the game for what each one counts. Decided by the owner on
+     * 27 October 2026, in place of { snake: { length: { best, at } } }, which
+     * kept the best and nothing else; migrate.js carries that shape over.
      *
-     * Measurements, never achievements. What is kept is the longest the snake
-     * has been, not "reached thirty": the thresholds that turn a measure into
-     * an achievement live in the code that draws them, and can move without a
-     * word of the saved data changing. A stored "reached thirty" would make
-     * every change of threshold a translation in migrate.js.
+     * Old entries stay as they were (the owner's rule): a later run that does
+     * better adds an entry of its own, so the log is every record there has
+     * been, and the record is the largest in it. It grows with the runs that
+     * achieve something, a few entries at most for a run of ten words that
+     * writes ten answers, which is why a log is affordable where a set already
+     * keeps every answer it was ever given.
      *
-     * The best and nothing else -- not every run's value, which would grow for
-     * as long as the app is used. It travels with the set it is on: devices
-     * replace whole sets and never merge them, so there is no rule here for
-     * two copies of a record -- see docs/BACKEND.md, where the one that would
-     * be needed is written down, and why "the larger best" is not it.
+     * On the set because achievements are a set's own -- the same game played
+     * on another set is another log -- and because a set's lifetime is the
+     * right one for them: deleted with the set, untouched when its words are
+     * edited, since the form changes a set in place. It travels with the set:
+     * devices replace whole sets and never merge them, so there is no rule here
+     * for two copies of a log -- see docs/BACKEND.md, where the one that would
+     * be needed is written down.
      *
-     * Absent until the first record, which reads as "nothing set yet" and is
-     * exactly that; no set written before this field existed has a record to
-     * lose. The caller saves -- this is always called just before a save the
-     * game makes anyway.
+     * Absent until the first entry, which reads as "nothing achieved yet" and is
+     * exactly that. No set by the id, no entry -- which is also all a run over
+     * every set at once gets: its id is 'all', and no set is called that. The
+     * caller saves -- these are always called just before a save the game makes
+     * anyway.
      */
-    function noteBest(setId, game, key, value) {
-        // No set by that id, no record -- which is also all a run over every
-        // set at once gets: its id is 'all', and no set is called that.
+    function logOf(set, game) {
+        if (!set.achievements) set.achievements = {};
+        if (!set.achievements[game]) set.achievements[game] = [];
+
+        return set.achievements[game];
+    }
+
+    // The log as it stands, for reading: empty where there is none.
+    function achievementsOf(setId, game) {
+        const set = sets.find(s => s.id === setId);
+        const log = set && set.achievements && set.achievements[game];
+
+        return Array.isArray(log) ? log : [];
+    }
+
+    // One thing achieved, added at the end.
+    function achieve(setId, game, name, value) {
         const set = sets.find(s => s.id === setId);
         if (!set) return false;
 
-        if (!set.achievements) set.achievements = {};
-        if (!set.achievements[game]) set.achievements[game] = {};
-
-        const held = set.achievements[game][key];
-        if (held && held.best >= value) return false;
-
-        set.achievements[game][key] = { best: value, at: Date.now() };
+        logOf(set, game).push({ [name]: value, at: Date.now() });
         touch(set);
         return true;
     }
 
-    // And the record read back, for a game that shows it while it is being
-    // played: 0 where none is held, which is also what a run over every set
-    // gets -- the same reason as above.
-    function bestOf(setId, game, key) {
+    // The largest a measure has come to in the log -- the record -- and 0
+    // where there is none.
+    function recordOf(setId, game, name) {
+        return achievementsOf(setId, game).reduce((most, entry) => Math.max(most, entry[name] || 0), 0);
+    }
+
+    /*
+     * A measure that may be setting a record while the run is still going --
+     * the snake's length, which is taken at every growth. True when it is a new
+     * record.
+     *
+     * One entry per run that beats the record, not one per growth: the first
+     * growth past the record adds it, and the ones after that raise the same
+     * entry -- `mine`, the moment it was last written, which the run keeps and
+     * hands back. Every other entry is an older record and is left alone.
+     * Written as it grows rather than at the end, so that a run that is never
+     * finished keeps the record it set.
+     *
+     * Told apart by that moment, and not by having been written since the run
+     * was dealt, which was the first way of telling: the moments in a log come
+     * from the clock of every device that has played the set, and a run dealt
+     * here can begin earlier, by this device's clock, than a record set on
+     * another and sent over since. Found that way, the older record was the
+     * one raised: a test that dealt its run a minute back did exactly that.
+     *
+     * Answers the moment the run's entry carries now, or null where this is
+     * no record.
+     */
+    function noteRecord(setId, game, name, value, mine) {
         const set = sets.find(s => s.id === setId);
-        const held = set && set.achievements && set.achievements[game] && set.achievements[game][key];
-        return held ? held.best : 0;
+        if (!set || value <= recordOf(setId, game, name)) return null;
+
+        const log = logOf(set, game);
+        const entry = mine ? log.find(e => name in e && e.at === mine) : null;
+        const at = Date.now();
+
+        if (entry) {
+            entry[name] = value;
+            entry.at = at;
+        } else {
+            log.push({ [name]: value, at });
+        }
+
+        touch(set);
+        return at;
     }
 
     store.load = load;
     store.save = save;
-    store.noteBest = noteBest;
-    store.bestOf = bestOf;
+    store.achievementsOf = achievementsOf;
+    store.achieve = achieve;
+    store.recordOf = recordOf;
+    store.noteRecord = noteRecord;
     store.sets = live;
     // The archived ones too, for the one reader that has to see them: the
     // copy of the list another device keeps -- see sync.js.

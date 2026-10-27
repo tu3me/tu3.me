@@ -13,19 +13,20 @@
  * catalog page loads it for now; the game page will want it the day the game
  * has something to show when a record falls.
  *
- * Drawn from the measurement and never from a stored achievement: `records` is
- * the game's own corner of `set.achievements`, and what is kept there is the
- * longest the snake has been -- see store.noteBest. Every number below that
- * turns that length into a picture lives in this file, so moving one of them
- * changes every tile at once and touches no saved data.
+ * Drawn from the measurement: `records` is the game's own corner of
+ * `set.achievements`, the log of what has been achieved in the set -- see
+ * store.achieve -- and what the ring is drawn from is the largest `maxLength`
+ * in it, the longest the snake has been. The star, the goblet and the crown in
+ * the same log are not drawn here yet (the owner's call, 27 October 2026).
+ * Every number below that turns the length into a picture lives in this file,
+ * so moving one of them changes every tile at once and touches no saved data.
  */
 function snakeCrest(tile, records) {
     const { size, radius, icon } = tile;
 
-    // `length` is the name of the measurement, not an array's length: records
-    // is the object { length: { best, at } }.
-    const longest = records && records.length;
-    if (!longest || !longest.best) return '';
+    const best = (Array.isArray(records) ? records : [])
+        .reduce((most, entry) => Math.max(most, entry.maxLength || 0), 0);
+    if (!best) return '';
 
     /*
      * How much of the ring a record fills, as stops along the way rather than
@@ -146,7 +147,6 @@ function snakeCrest(tile, records) {
         }
     };
 
-    const best = longest.best;
     const lit = Math.min(SLOTS, Math.max(1, Math.round(share(best) * SLOTS)));
     const ink = best >= GOLD_AT ? GOLD : 'currentColor';
 

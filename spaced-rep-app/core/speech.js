@@ -1280,7 +1280,20 @@ function speech() {
 
     speech.muted = () => muted;
 
-    speech.mute = (on) => { muted = !!on; };
+    /*
+     * Switched off, what is being said stops with it, on every screen: the
+     * owner's rule since 27 October 2026. Before, the sentence in the air went
+     * on to its end under a switch that already said off. Muted first and
+     * hushed after, because hushing hands the narration on -- the snake's
+     * reading of a line asks for its next word the moment the last one is cut
+     * short -- and that ask has to find the switch already off.
+     */
+    speech.mute = (on) => {
+        const was = muted;
+        muted = !!on;
+
+        if (muted && !was) speech.hush();
+    };
 
     /*
      * Muted, nothing is said and say() answers false — the same answer it gives
