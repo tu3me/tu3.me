@@ -1535,7 +1535,7 @@ function catalog(container) {
     /*
      * The help strip sent away by the cross on one of its cards: the card
      * shrinks into its own question mark, the mark flies into the gear, the
-     * gear swells three times as it lands, and the screen is drawn again
+     * gear swells twice as it lands, and the screen is drawn again
      * without the strip.
      *
      * The flight is the point of it. The strip used to end on a card saying it
@@ -1558,9 +1558,9 @@ function catalog(container) {
      * looking already -- to the left of it, by MARK_ASIDE, so that it is not
      * under the pointer or the finger that pressed.
      *
-     * Three swells rather than the two a silent bubble gets (pulseMute),
-     * asked for on 26 October 2026: the landing is the one moment that says
-     * where the strip went, and it should be hard to miss.
+     * Two swells, the same as a silent bubble gets (pulseMute). It was three
+     * for part of 26 October 2026, and back to two the same day, as the owner
+     * asked.
      *
      * Copies do the moving, not the card. The card is in the column, under the
      * sticky header and below the list's layer; the copies are fixed over all
@@ -1588,7 +1588,7 @@ function catalog(container) {
     // pointer, which hangs down and to the right of its point.
     const MARK_ASIDE = 40;
     const FLY = 420;
-    const LANDING_BECKONS = 3;
+    const LANDING_BECKONS = 2;
 
     // A fixed box at these layout pixels, put right by what it missed by.
     // Until 26 October 2026 the page outside the popup kept a gutter for its

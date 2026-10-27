@@ -892,8 +892,10 @@ function speech() {
      *
      * A path rather than an explanation: the way to a voice is a place in the
      * system's own settings, and the one thing a person needs is where that
-     * place is. Then the browser has to be started again, which is the step
-     * nobody guesses -- it does not see a voice added while it was running.
+     * place is. Then the app has to be started again, which is the step nobody
+     * guesses -- a voice added while it was running is not seen. Said as "the
+     * app" and not "the browser", as the owner asked on 26 October 2026: the
+     * reader knows this as an app, whatever it runs in.
      *
      * Read off the user agent, the client hint first: the platform is all that
      * is wanted, and a wrong guess costs a sentence about the wrong system,
@@ -972,13 +974,13 @@ function speech() {
 
         track('voice_hint', where, gap.why, gap.langs.join(','));
 
-        const title = gap.why === 'browser' ? 'This browser can’t read words aloud'
+        const title = gap.why === 'browser' ? 'Words can’t be read aloud here'
             : gap.why === 'none' ? 'No voices on this device'
                 : `No voice for ${namesOf(gap.langs)} on this device`;
 
         const fix = gap.why === 'browser'
             ? 'Open this page in Chrome, Edge or Safari.'
-            : `Add one in ${voicePath()}, then restart the browser.`;
+            : `Add one in ${voicePath()}, then restart the app.`;
 
         dropTip();
 

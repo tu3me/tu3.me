@@ -309,26 +309,36 @@ function onboarding() {
      * list is the strip becoming a thing in front of the cards rather than the
      * first of them.
      *
-     * The upward one rises from beside the written word to the New set button,
-     * and it is short and nearly upright. It used to be long and mostly
-     * sideways: the button was the third in from the right of the header, most
-     * of a hundred pixels left of the word, and the stroke ran across the top of
-     * the card to get there, turned up at the end by a quarter of a circle. On
-     * 26 October 2026 the sound switch went into the settings, the button moved
-     * right by the switch and the gap after it, and came to stand almost over
-     * the word. What had been a journey became a step up.
+     * The upward one comes out of the written word and goes up into the New set
+     * button, and it is short. It used to be long and mostly sideways: the
+     * button was the third in from the right of the header, most of a hundred
+     * pixels left of the word, and the stroke ran across the top of the card to
+     * get there, turned up at the end by a quarter of a circle. On 26 October
+     * 2026 the sound switch went into the settings, the button moved right by
+     * the switch and the gap after it, and came to stand almost over the word.
+     * What had been a journey became a step up.
      *
-     * So the word stands to the right of the stroke's foot, and the stroke leans
-     * into the button from there: it leaves at a slant and arrives upright,
-     * going straight at the middle of the button's lower edge. A stroke that
-     * ended on the slant it travelled would be pointing past the button rather
-     * than at it, and against a shaft still leaning in, the inner stroke of the
-     * head lies along it and disappears. The word keeps out of the card's top
-     * right corner, where the cross that sends the strip away is.
+     * It leaves from over the middle of "create". For a while it rose from
+     * beside the word instead, nine pixels left of its first letter, and read
+     * as an arrow starting from nowhere in particular with a word next to it;
+     * then it came out of the word as an S -- straight up, across, straight up
+     * again -- and two turns in twenty pixels are a squiggle, not an arrow
+     * (both reported 26 October 2026). Out of the top of the word, it is the
+     * word pointing.
      *
-     * It starts nine pixels short of the word it comes from. A stroke that
-     * touches what it was written beside is a correction; one that starts a
-     * little away from it is an aside.
+     * One gentle bow and no more: the word stands a little right of the
+     * button, so the stroke leaves it on a slant up and to the left and
+     * straightens as it goes, arriving at the middle of the button's lower
+     * edge all but upright -- a stroke that ended on the slant it set out on
+     * would be pointing past the button rather than at it. The head lies along
+     * the last of the shaft rather than square to the page, so its two strokes
+     * open evenly about the line they finish.
+     *
+     * The word sits a little lower than the line of the heading and left of
+     * the card's top right corner, where the cross that sends the strip away
+     * is. The foot stops a few pixels over the letters: a stroke that touches
+     * what it was written beside is a correction, and one that starts a little
+     * away from it is an aside.
      *
      * Where it ends is measured rather than chosen: the head is under the middle
      * of the New set button, which is the second button in from the right of a
@@ -406,11 +416,11 @@ function onboarding() {
      * reaches out of its card, and two stand above the list on purpose. See
      * onb-point in app.css.
      */
-    const POINT_UP = () => `<svg width="24" height="38" viewBox="0 0 24 38"
+    const POINT_UP = () => `<svg width="36" height="32" viewBox="0 0 36 32"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 63.5px; top: -12px;">
-        <path ${DRAW(300, 500)} d="M3.5 32.5C7 30 12 24 12 6.5" />
-        <path ${DRAW(170, 790)} d="M8.3 13.6 12 6.5 15.7 13.6" />
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 45.4px; top: -12px;">
+        <path ${DRAW(320, 500)} d="M19 26Q8 17 6 6.5" />
+        <path ${DRAW(170, 810)} d="M3.7 14.2 6 6.5 11 12.8" />
     </svg>`;
 
     /*
@@ -431,7 +441,7 @@ function onboarding() {
      */
     const LABEL = () => `<svg width="46" height="15" viewBox="0 0 62 20" fill="none"
         stroke="${look.body}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 30px; top: 13px; ${WORD_IN}">
+        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 39.4px; top: 17px; ${WORD_IN}">
         <g transform="rotate(-4 31 11)">
             <path d="M10 8C6 5.5 2 8 2 11.2 2 14.6 6 16.6 10 14.6" />
             <path d="M14.4 16 15.2 8.4" />
