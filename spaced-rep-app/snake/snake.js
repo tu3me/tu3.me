@@ -1520,7 +1520,6 @@ function snake(container) {
         const SOOT_EDGE = '#26262c';
 
         const PRIZE_BEAT = 500;     // "You won!" on its own, before the first prize
-        const PRIZE_REST = 300;     // after one prize is in, before the next sets off
         const ARRIVE = 1200;        // out of the header to the middle of the board
         const POP_IN = 520;         // or up in the middle of it
         const SHINE = 900;
@@ -1531,10 +1530,16 @@ function snake(container) {
         const CROWN_WAIT = 600;     // and crowns, before they go up
         const CROWN_GAP = 90;
         const CROWN_FLIGHT = 700;
-        const HEART_WAIT = 350;
-        const HEART_GAP = 260;
-        const HEART_FLIGHT = 650;
-        const BLACK_PAUSE = 800;    // before the black hearts: the owner's pause
+        /*
+         * The hearts into the goblet, about twice as fast as they were at first
+         * (350, 260 and 650, with 800 before the black ones) -- the owner's
+         * call, 28 October 2026: nine hearts took three seconds to pour, and
+         * the ending is no place to wait.
+         */
+        const HEART_WAIT = 150;
+        const HEART_GAP = 110;
+        const HEART_FLIGHT = 450;
+        const BLACK_PAUSE = 450;    // before the black hearts: the owner's pause
         const BLACKEN = 400;
         const SMOKE_AFTER = 300;    // the owner's number
         const BANNER_BEAT = 1600;
@@ -2162,14 +2167,19 @@ function snake(container) {
 
             const steps = { crown: crownIn, record: medalIn, star: starIn, goblet: gobletIn };
 
+            /*
+             * One prize straight after the one before it has landed in the
+             * banner -- the owner's call, 28 October 2026. There was a rest of
+             * 300 between them, which with four prizes was a second of the
+             * ending spent on nothing.
+             */
             let chain = wait(still() ? 0 : PRIZE_BEAT);
 
             prizes.forEach((prize, k) => {
                 chain = chain.then(() => {
                     if (!alive()) return null;
 
-                    return Promise.resolve(steps[prize.kind](places[k]))
-                        .then(() => alive() && !still() && wait(PRIZE_REST));
+                    return steps[prize.kind](places[k]);
                 });
             });
 
@@ -4259,9 +4269,9 @@ function snake(container) {
          * that went by in silence.
          *
          * The session is closed here too rather than with the ending: leaving the
-         * page during the wait has to leave a finished session behind, not one
-         * the "Continue" banner will offer to resume onto a board with nothing
-         * left on it.
+         * page while the ending is being told has to leave a finished session
+         * behind, not one the "Continue" banner will offer to resume onto a
+         * board with nothing left on it.
          */
         function stopPlaying() {
             clock.stop(true);
@@ -4273,15 +4283,18 @@ function snake(container) {
         }
 
         /*
-         * And the ending waits for the line to be read out.
+         * And the ending begins at once, while the last line is still being
+         * read out -- the owner's call, 28 October 2026: the win and what it
+         * won are what the player is waiting for, and the voice goes on
+         * reading under them.
          *
-         * It is told in the banner, over the bar — the banner is a fixed 88.8px
-         * and there is no room for both — so starting it while the line is still
-         * being narrated takes away the very thing the narration is pointing at,
-         * marks and all. The wait is however long the voice takes, which on a
-         * phrase is a couple of seconds and on a silent device is almost none.
-         * The crown does not wait: it ends a session as a word arrives, and that
-         * word is never spelled, so nothing is being read.
+         * It waited for the line until then. The ending is told in the banner,
+         * over the bar, so starting it took away the boxes the narration was
+         * marking; a mark asked for a box that is gone finds none and does
+         * nothing (see view.sayLetter), and the line is still heard to its end.
+         * The wait was however long the voice took, a couple of seconds on a
+         * phrase. The crown never waited: it ends a session as a word arrives,
+         * and that word is never spelled.
          */
         function showVictory(result) {
             view.victory(result);
@@ -4522,12 +4535,14 @@ function snake(container) {
                     state.savedSnake = null;
                     refreshDots();
 
-                    // The board stops now and the ending comes when the line
-                    // has been read out — see stopPlaying. What it achieved is
-                    // settled first, and saved by the end of the session.
+                    // The board stops now and the ending comes at once, the
+                    // line read out under it — see stopPlaying and showVictory.
+                    // What it achieved is settled first, and saved by the end
+                    // of the session.
                     const result = settle(false);
                     stopPlaying();
-                    sayProgress(() => showVictory(result));
+                    sayProgress();
+                    showVictory(result);
                     return;
                 }
 

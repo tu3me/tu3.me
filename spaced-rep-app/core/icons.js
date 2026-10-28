@@ -40,8 +40,8 @@
  *     only when to ask. The catalog asks for the plain face at once and the
  *     actual one at its turn as it opens (see growTiles in catalog.js), and
  *     for the actual one at once on every other draw. The owner's call,
- *     28 October 2026: the snake shows its record and then every prize there
- *     is before the ones won, and another game may grow some other way. A
+ *     28 October 2026: the snake shows its record first and then the prizes
+ *     won, and another game may grow some other way. A
  *     game that keeps no achievements draws the same tile whatever it is
  *     asked.
  *
