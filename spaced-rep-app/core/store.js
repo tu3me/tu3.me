@@ -301,8 +301,8 @@ function store() {
      * set only — the same word placed in two sets keeps independent histories.
      *
      * `result` is a number from 0 to 1 and only 1 is a success — srs.js reads
-     * it as `result === 1` and nothing else. Cards and quiz have nothing to
-     * say between the two and write one or the other; snake writes the share
+     * it as `result === 1` and nothing else. Flashcards and quiz have nothing
+     * to say between the two and write one or the other; snake writes the share
      * of the word the player had before asking to be shown it, which is a
      * mistake like any other and is a different mistake from having none of
      * it. Nothing downstream ranks the fractions yet; they are recorded
@@ -310,8 +310,8 @@ function store() {
      */
     /*
      * Which run of which game an answer belongs to, written onto the answer as
-     * one string: "cards|1791234567890|10" -- the game, the moment that run was
-     * dealt its words, and how many words it was dealt.
+     * one string: "flashcards|1791234567890|10" -- the game, the moment that run
+     * was dealt its words, and how many words it was dealt.
      *
      * The moment is both the time and the name: two runs cannot start in the
      * same millisecond, so the number tells them apart as well as any id would.

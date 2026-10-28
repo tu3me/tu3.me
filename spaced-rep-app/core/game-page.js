@@ -204,7 +204,7 @@ async function syncUnder(module) {
 /**
  * The boot every game page runs, as its own last line:
  *
- *     bootGame('cards', cards);
+ *     bootGame('flashcards', flashcards);
  *
  * MV3 forbids inline scripts, so the call cannot live in the HTML — but the
  * game file is loaded on its own page only, so there is nowhere else it could go.

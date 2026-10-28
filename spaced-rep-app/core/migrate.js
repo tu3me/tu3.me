@@ -23,7 +23,12 @@
  * arrive from the server, written by a device not yet updated, so this one
  * works a set at a time and sync.js calls it on what it is handed. The day
  * that was written about in docs/BACKEND.md ("Формат") is this one.
- * Anything older than it has nowhere to arrive from, and anything newer was
+ *
+ * A fourth, on 28 October 2026, is a game's new name: cards became flashcards,
+ * in the marks on its answers, in the games pinned to a set and in a round left
+ * open -- see renameGames. It goes the same way, a set at a time.
+ *
+ * Anything older than these has nowhere to arrive from, and anything newer was
  * only ever written here, by versions nobody was given. Three other
  * translations stood in this file and went with the databases they were for:
  * 0.1.2 → 0.2.0, which moved a language from the word to the set, split a set
@@ -219,28 +224,123 @@ function migrate() {
     }
 
     /*
+     * A game renamed after it was published: cards became flashcards on
+     * 28 October 2026, the owner's call -- "cards" is what the words of a set
+     * are called now, and a game by the same name was one word for two things.
+     *
+     * A set holds the id in two places: the mark on every answer the game wrote
+     * ("cards|1791...|10" -- see runMark in store.js), and the games pinned to
+     * the set's row (see pinGame in catalog.js). Both are translated. Nothing
+     * reads the marks of the old name today but analytics on the server; the
+     * pins are what would hurt -- a row pinned to "cards" would lose the game,
+     * because the catalog no longer knows one by that name.
+     *
+     * The check is the data, as above: an answer marked with the old name, or
+     * a pin of it. Nothing writes the old name any more, so a set passes
+     * through here once. One set at a time, for the same reason foldRecords is:
+     * a set from a device not yet updated arrives from the server with the old
+     * name in it -- see FORMAT in sync.js, which went to 3 with this.
+     */
+    const GAMES_RENAMED = { cards: 'flashcards' };
+
+    function renameGames(set) {
+        if (!set) return false;
+
+        let changed = false;
+
+        (set.words || []).forEach(word => (word.repetitions || []).forEach(rep => {
+            const parts = String(rep.run || '').split('|');
+            if (!GAMES_RENAMED[parts[0]]) return;
+
+            parts[0] = GAMES_RENAMED[parts[0]];
+            rep.run = parts.join('|');
+            changed = true;
+        }));
+
+        if (Array.isArray(set.pinned) && set.pinned.some(id => GAMES_RENAMED[id])) {
+            set.pinned = set.pinned.map(id => GAMES_RENAMED[id] || id);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    async function renameAllGames() {
+        const sets = await storage.get('word_sets');
+
+        if (!Array.isArray(sets) || sets.length === 0) return false;
+
+        // Every set, and not as soon as one has changed
+        const changed = sets.map(renameGames).some(Boolean);
+        if (!changed) return false;
+
+        await storage.set('word_sets', sets);
+
+        return true;
+    }
+
+    /*
+     * And the round of it left open, which is this device's alone and never
+     * travels: the game the catalog offers to continue, and the game's own
+     * saved state under its id. Moved rather than dropped -- a round of
+     * flashcards left half-way is as much the reader's as their answers are.
+     */
+    async function renameRounds() {
+        let changed = false;
+
+        const active = await storage.get('active_session');
+
+        if (active && GAMES_RENAMED[active.game]) {
+            active.game = GAMES_RENAMED[active.game];
+            await storage.set('active_session', active);
+            changed = true;
+        }
+
+        for (const old of Object.keys(GAMES_RENAMED)) {
+            const saved = await storage.get('session:' + old);
+            if (!saved) continue;
+
+            await storage.set('session:' + GAMES_RENAMED[old], saved);
+            await storage.remove('session:' + old);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /*
      * The translations, in order, and the answer is whether anything was done at
      * all. Nobody reads it yet.
      *
      * Each is a function that answers that question and knows nothing about its
      * neighbours, so adding one is a line here and taking one out is a line
      * here. They touch different keys or different parts of one -- the answers
-     * and the records of `word_sets`, and `settings` -- and none reads what
-     * another wrote, so the order between them is arbitrary; it is kept as the
-     * order they were written in, because an arbitrary order that is also
-     * stable is one less thing to think about when another arrives.
+     * and the records of `word_sets`, `settings`, the round left open -- and
+     * kept in the order they were written in, because an arbitrary order that
+     * is also stable is one less thing to think about when another arrives.
+     *
+     * One order is not arbitrary: renameGames after foldRuns, which writes the
+     * marks it reads. A 0.2.3 answer comes out of foldRuns marked "cards".
      */
     async function run() {
         const folded = await foldRuns();
         const marked = await foldMarks();
         const recorded = await foldAllRecords();
+        const renamed = await renameAllGames();
+        const moved = await renameRounds();
 
-        return folded || marked || recorded;
+        return folded || marked || recorded || renamed || moved;
     }
 
     migrate.run = run;
 
-    // One set, for what arrives from the server -- see foldRecords.
-    migrate.set = foldRecords;
+    // One set, for what arrives from the server -- see foldRecords and
+    // renameGames. Every translation of a set, whichever format it left in.
+    migrate.set = (set) => {
+        const folded = foldRecords(set);
+        const renamed = renameGames(set);
+
+        return folded || renamed;
+    };
 }
 migrate();

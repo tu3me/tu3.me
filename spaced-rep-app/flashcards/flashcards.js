@@ -1,9 +1,9 @@
 /**
- * "Cards" game. Owns its state, its palette and its own rule for picking
+ * The "Flashcards" game. Owns its state, its palette and its own rule for picking
  * words out of a set. Talks to the outside only through store, and through
  * app for navigation.
  */
-function cards(container) {
+function flashcards(container) {
     // How many words this game takes per session — its own decision
     const POOL_LIMIT = 10;
 
@@ -121,7 +121,7 @@ function cards(container) {
      * one.
      */
     function fitWord(face) {
-        const text = face && face.querySelector('.cards-word-text');
+        const text = face && face.querySelector('.flashcards-word-text');
         if (!text) return;
 
         const box = getComputedStyle(face);
@@ -187,7 +187,7 @@ function cards(container) {
      * being said: two marks up at once would be claiming both are, and only the
      * later one is.
      *
-     * Cards paints its own, rather than sharing with the quiz. The two started
+     * Flashcards paints its own, rather than sharing with the quiz. The two started
      * with the same behaviour and the quiz still has it; this screen went on to
      * three depths of tap, and a shared version would have had to keep doing
      * what the quiz needs while doing this as well.
@@ -487,20 +487,20 @@ function cards(container) {
             const isCurrent = idx === state.currentIndex;
             const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
 
-            return `<div class="cards-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return `<div class="flashcards-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
         // The dots are redrawn mid-card now, not only when the next card is rendered
         function refreshDots() {
-            const group = header.querySelector('.cards-dots-group');
+            const group = header.querySelector('.flashcards-dots-group');
             if (group) group.innerHTML = dotsHtml();
         }
 
-        const header = $(container, `<div class="cards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
-            <div class="cards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
+        const header = $(container, `<div class="flashcards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+            <div class="flashcards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="cards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">
+            <div class="flashcards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">
                 ${dotsHtml()}
             </div>
         </div>`);
@@ -511,21 +511,21 @@ function cards(container) {
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
-        const cardWrapper = $(container, `<div class="cards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
-            <div class="cards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
+        const cardWrapper = $(container, `<div class="flashcards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
+            <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
 
                 <div class="card-face-front" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
+                    <div class="flashcards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
                 </div>
 
                 <div class="card-face-back" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
-                    <div class="cards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
+                    <div class="flashcards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
                 </div>
 
             </div>
         </div>`);
 
-        const actionsContainer = $(container, `<div class="cards-actions-group"></div>`);
+        const actionsContainer = $(container, `<div class="flashcards-actions-group"></div>`);
 
         // Seeing the translation is the mistake itself, so it is recorded the
         // moment the card turns and shown on the dots there and then. Once, not
@@ -538,7 +538,7 @@ function cards(container) {
             if (state.hasBeenFlipped) return;
             state.hasBeenFlipped = true;
 
-            store.recordRepetition(currentItem, 0, 'cards', { at: state.sessionAt, size: state.sessionPool.length });
+            store.recordRepetition(currentItem, 0, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
             state.sessionResults[state.currentIndex] = 'wrong';
             store.save();
             refreshDots();
@@ -547,7 +547,7 @@ function cards(container) {
         // Moves on to the next word, or ends the session on the last one
         function advance(result, mark) {
             if (result !== undefined) {
-                store.recordRepetition(currentItem, result, 'cards', { at: state.sessionAt, size: state.sessionPool.length });
+                store.recordRepetition(currentItem, result, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
                 state.sessionResults[state.currentIndex] = mark;
             }
 
@@ -581,9 +581,9 @@ function cards(container) {
         function renderActionButtons() {
             actionsContainer.innerHTML = '';
 
-            const actionButtons = $(actionsContainer, `<div class="cards-buttons-row" style="display: flex; gap: 6.8px;">
-                <button class="cards-btn-flip" id="btn-flip" style="flex: 1; padding: 9.4px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">← Flip</button>
-                <button class="cards-btn-know" id="btn-know" style="flex: 1; padding: 9.4px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
+            const actionButtons = $(actionsContainer, `<div class="flashcards-buttons-row" style="display: flex; gap: 6.8px;">
+                <button class="flashcards-btn-flip" id="btn-flip" style="flex: 1; padding: 9.4px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">← Flip</button>
+                <button class="flashcards-btn-know" id="btn-know" style="flex: 1; padding: 9.4px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
             </div>`);
 
             // The card is turned by hand rather than by a redraw: the flip is a
@@ -656,9 +656,9 @@ function cards(container) {
         page.save();
     }
 
-    cards.render = render;
+    flashcards.render = render;
 
-    cards.setTheme = (isDark) => {
+    flashcards.setTheme = (isDark) => {
         const t = tokens.of(isDark);
 
         palette = {
@@ -708,12 +708,12 @@ function cards(container) {
 
     // The third argument is the previous session, handed over even on a fresh
     // start so a game can carry its own settings across. Progress never rides along.
-    cards.start = (setId, allowEarly) => {
+    flashcards.start = (setId, allowEarly) => {
         state.selectedSetId = setId;
         state.allowEarly = allowEarly;
     };
 
-    cards.getState = () => ({
+    flashcards.getState = () => ({
         selectedSetId: state.selectedSetId,
         currentIndex: state.currentIndex,
         isFlipped: state.isFlipped,
@@ -729,10 +729,10 @@ function cards(container) {
         allowEarly: state.allowEarly
     });
 
-    cards.setState = (snap) => {
+    flashcards.setState = (snap) => {
         if (!snap) return;
         state = { ...getEmptyState(), ...snap };
     };
 }
 
-bootGame('cards', cards);
+bootGame('flashcards', flashcards);

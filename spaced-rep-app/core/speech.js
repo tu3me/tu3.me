@@ -26,8 +26,8 @@
  *
  * The second half of the file is about showing a word rather than saying one:
  * a line drawn word by word, so a tap can land on one word of it, and a mark on
- * whatever is being said at that moment. Cards and quiz both draw lines that
- * way, which is why it is here and not in either of them.
+ * whatever is being said at that moment. Flashcards and quiz both draw lines
+ * that way, which is why it is here and not in either of them.
  */
 function speech() {
     /*
@@ -1355,8 +1355,8 @@ function speech() {
      * A line of text the player can tap to hear — the whole of it, or one word
      * of it.
      *
-     * Here rather than in a game because cards and quiz both show a word and
-     * both let it be tapped, and what they share is not the markup but the
+     * Here rather than in a game because flashcards and quiz both show a word
+     * and both let it be tapped, and what they share is not the markup but the
      * decisions underneath: where a word ends, what is marked while it is being
      * said, and for how long. Two copies of those would drift, and the copy
      * that drifted would be the one nobody was looking at.

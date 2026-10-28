@@ -17,13 +17,13 @@ function $(...parent_html) {
  * destroys the document together with any transaction still in flight.
  */
 function nav() {
-    // Every page of the app sits at the root — index.html next to cards.html and
-    // the rest — so a bare relative path resolves identically from all of them.
-    // Only the scripts live in folders, and nothing navigates to a script.
+    // Every page of the app sits at the root — index.html next to flashcards.html
+    // and the rest — so a bare relative path resolves identically from all of
+    // them. Only the scripts live in folders, and nothing navigates to a script.
 
     // The files are always .html. What differs is whether something on the other
-    // end will fill the name in: GitHub Pages resolves /cards to cards.html and /
-    // to index.html, so the site gets the tidy address.
+    // end will fill the name in: GitHub Pages resolves /flashcards to
+    // flashcards.html and / to index.html, so the site gets the tidy address.
     //
     // Everywhere else the full name is required, and that is two cases, not one.
     // The extension serves by exact path. And file:// has no server at all — the
@@ -56,18 +56,18 @@ function nav() {
 
     // Only the identifier travels in the URL. The words themselves are read back
     // from the store by the game, so recordRepetition() still resolves the live
-    // word inside its own set.
+    // word inside its own set. The page is the game's id -- see registry.js.
     nav.game = async (game, setId, allowEarly) => {
         await store.save();
         const early = allowEarly ? '&early=1' : '';
-        location.href = `${game.page}${PAGE_EXT}?set=${encodeURIComponent(setId)}${early}`;
+        location.href = `${game.id}${PAGE_EXT}?set=${encodeURIComponent(setId)}${early}`;
     };
 
     // Picking an unfinished session back up, as opposed to starting a fresh one
     // on the same set. Only this way in does the game restore its saved state.
     nav.resume = async (game, setId) => {
         await store.save();
-        location.href = `${game.page}${PAGE_EXT}?set=${encodeURIComponent(setId)}&resume=1`;
+        location.href = `${game.id}${PAGE_EXT}?set=${encodeURIComponent(setId)}&resume=1`;
     };
 }
 nav();
@@ -479,7 +479,7 @@ resizeGrip();
  * The hand that shows someone where to press.
  *
  * Yellow, and the same yellow in both themes. A colour that changes with the
- * theme is two colours — the rule the game colours in registry.js are kept by —
+ * theme is two colours — the rule the game colours are kept by (core/icons.js) —
  * and this one's whole job is to be the brightest thing on a screen nobody has
  * learned yet. The dark outline is what makes that work on the light theme,
  * where a flat yellow on a white card is 1.9 against it and would read as a

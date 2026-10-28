@@ -27,8 +27,13 @@ function sync() {
      * 2 since 27 October 2026: a game's records became a log -- see
      * store.achieve. A set of format 1 is still taken, and put into the
      * shape this code reads before anything else sees it (`current`).
+     *
+     * 3 since 28 October 2026: the game cards became flashcards, in the marks
+     * on its answers and in the games pinned to a set -- see renameGames in
+     * migrate.js. A device on 2 would not find the game in a set's row and
+     * would go on writing "cards" into a set that says "flashcards".
      */
-    const FORMAT = 2;
+    const FORMAT = 3;
 
     /*
      * A set from the server, in the shape this code reads. One written by a

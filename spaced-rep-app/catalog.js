@@ -1323,9 +1323,9 @@ function catalog(container) {
      *
      * A bubble is said whole and has nothing inside it to mark, so without this
      * a tap on one produces no visible answer at all — which on a phone reads as
-     * a tap that missed. Cards and the quiz have the mark on the word instead,
-     * and want none of this: growing a card would move the very line it is
-     * pointing at.
+     * a tap that missed. Flashcards and the quiz have the mark on the word
+     * instead, and want none of this: growing a card would move the very line
+     * it is pointing at.
      *
      * Here rather than in speech.js, which knows about voices and languages and
      * has no business knowing how this screen answers a finger. All it hands
@@ -1774,6 +1774,9 @@ function catalog(container) {
         const intro = introduce;
         introduce = false;
 
+        // Filled by the cards as they are drawn -- see growTiles
+        growing = [];
+
         // Every bubble on the screen is about to be thrown away, the swollen one
         // included. What is still being said goes on being said; there is just
         // nothing left to take back down afterwards.
@@ -1992,6 +1995,8 @@ function catalog(container) {
         // here rather than at the one entry the page calls, so that it comes back
         // from every way it can be taken away.
         showHint();
+
+        if (growing.length) growTiles(growing);
     }
 
     /*
@@ -3347,20 +3352,29 @@ function catalog(container) {
      * outline among them is a hole in it — the button was drawn that way first
      * and it read as something gone wrong rather than as something to come.
      *
-     * Blue, which is the one place left in the row: coral, gold and mint cover
-     * the warm half of the wheel and the green corner of the cool one, and this
-     * sits opposite all three. It was a warm greige first, and a neutral among
+     * Mint since 28 October 2026, the owner's call: the snake's tile turned
+     * blue, which was this one's, and two blue tiles in a row are one game
+     * twice. The mint was the snake's until then and is nobody's now.
+     *
+     * It was blue before that, the one place left in the row once coral, gold
+     * and mint covered the warm half of the wheel and the green corner of the
+     * cool one -- light enough to clear the card it lies on in the dark theme,
+     * which is itself blue. And a warm greige before that, and a neutral among
      * three colours is what a disabled button looks like — the slot is meant to
      * be inviting, not switched off.
      *
-     * Light enough to clear the card it lies on in the dark theme, which is
-     * itself blue: 3.2 against that surface, and 3.3 under the white label, so
-     * it neither sinks into the card nor swallows its own word.
-     *
-     * One value for both themes, like the game colours in registry.js: a block
-     * that changed colour with the theme would be two blocks.
+     * One value for both themes, like the game colours: a block that changed
+     * colour with the theme would be two blocks.
      */
-    const MORE_FILL = '#4a90d9';
+    const MORE_FILL = '#56c4a6';
+
+    /*
+     * The blue the onboarding strip is tinted with -- see onbBg -- which was
+     * MORE_FILL's until the slot went mint, and stays: the strip's contrasts
+     * were measured against it, and the pale bubbles of the colours card are
+     * greens among others, which a mint ground would swallow.
+     */
+    const STRIP_TINT = '#4a90d9';
 
     /*
      * The games, as a phone draws an app: a coloured tile with nothing in it but
@@ -3428,6 +3442,11 @@ function catalog(container) {
     const TILE_RADIUS = TILE / 3;
     const TILE_ICON = 28;
 
+    // The door to all games is not a game, and draws its own tile: the same
+    // square the plain games draw for themselves, in its own colour, with the
+    // three dots in white.
+    const MORE_TILE = `<span style="display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; background: ${MORE_FILL}; color: #ffffff; border-radius: ${TILE_RADIUS}px;">${chromeIcon(DOTS_BODY, TILE_ICON)}</span>`;
+
     /*
      * The games a set's row shows: the ones pinned to it.
      *
@@ -3439,8 +3458,8 @@ function catalog(container) {
      * play on every set, and pinned on the set itself so that it travels with
      * it to the person's other devices (see store.pinGames).
      *
-     * A set nobody has pinned anything on shows the games the registry does
-     * not mark `away` -- see registry.js -- and a game played on a set is
+     * A set nobody has pinned anything on shows the games that do not say
+     * `away` -- see core/icons.js -- and a game played on a set is
      * pinned to it by the playing: see beginSession. A game not written yet is
      * never on the row, pinned or not: there is nothing behind its tile.
      *
@@ -3584,24 +3603,68 @@ function catalog(container) {
      * it replaces.
      */
     /*
-     * What a game's tile shows in this set: its crest where it has set a
-     * record here, and its icon where it has not -- see `crest` in
-     * registry.js.
+     * What a game's tile shows in this set is the game's to draw -- see
+     * `show` in core/icons.js. The catalog makes the box, the size of a tile,
+     * and asks for one of two faces: the plain one, or the one the set's
+     * achievements make; and for the second, at once or grown into. What is
+     * on either, and what happens on the way, it does not know.
      *
-     * One or the other and never both. The crest is the tile's whole face,
-     * the icon placed in it wherever the crest wants it. It used to be a layer
-     * of its own under the faces, and while a round left open still swapped
-     * the tile's face for a play mark, the ring stayed on the screen through
-     * the swap: a play mark standing in the middle of a record.
+     * The face is the whole of the tile, the background included, and may
+     * stand out past the tile's edges: the snake's emblem has a crown over
+     * it and a star and a goblet at its sides. Since 28 October 2026; before
+     * that the catalog painted every tile its game's colour and a game could
+     * only decide what stood in it.
      *
-     * Asked of the game with its own corner of the set's records and nothing
-     * else: the rule that the catalog knows no game by name runs the other way
-     * too, and a game handed the whole set would be a game reading words it has
-     * no business with.
+     * Asked of the game with its own corner of the set's achievements and
+     * nothing else: the rule that the catalog knows no game by name runs the
+     * other way too, and a game handed the whole set would be a game reading
+     * words it has no business with.
      */
-    const tileArt = (game, set) => (game.crest && set
-        && game.crest({ size: TILE, radius: TILE_RADIUS, icon: game.icon }, set.achievements && set.achievements[game.id]))
-        || game.icon(TILE_ICON);
+    const tileSpec = () => ({ size: TILE, radius: TILE_RADIUS, icon: TILE_ICON, dark: theme.isDark() });
+
+    const logOf = (game, set) => (set && set.achievements && set.achievements[game.id]) || [];
+
+    /*
+     * The tiles growing what was achieved on their sets, one after another,
+     * as the catalog opens -- the owner's call, 28 October 2026: whoever
+     * comes in sees the tiles grow what they have already won, rather than
+     * finding it there. Drawn plain first, and each asked for its actual face
+     * with the growth when its turn comes; a game with nothing to grow on a
+     * set answers at once, and the next one does not wait. See `show` in
+     * core/icons.js.
+     *
+     * One at a time down the whole screen and not one per card: the point is
+     * to be watched, and two growing at once are two halves of a show.
+     *
+     * A tile out of sight when its turn comes is set to what it is at once
+     * and not waited for: a show nobody sees is a delay to the one after it.
+     * The ones below stay plain until their turn, so a reader who scrolls
+     * down early finds them still to come, and they grow when it does.
+     *
+     * Only on the draw that opens the catalog (see `introduce`), and never
+     * with motion turned down: then the tiles are drawn as they are. A draw
+     * that comes while they are growing throws the tiles away, and the ones
+     * left in the queue are skipped -- that draw drew them finished.
+     */
+    const GROW_AFTER = 400;
+
+    let growing = [];
+
+    const stillMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function growTiles(queue) {
+        const inView = (el) => {
+            const box = el.getBoundingClientRect();
+            return box.bottom > 0 && box.top < window.innerHeight;
+        };
+
+        const first = new Promise(resolve => setTimeout(resolve, GROW_AFTER));
+
+        queue.reduce((turn, { el, game, log }) => turn.catch(() => null).then(() => {
+            if (!el.isConnected) return null;
+            return game.show(el, tileSpec(), log, { actual: true, animate: inView(el) });
+        }), first);
+    }
 
     /*
      * The row's measure: five to a line, and a sixth starts the next one --
@@ -3617,15 +3680,20 @@ function catalog(container) {
     const ROW_PLACES = 5;
     const ROW_GAP = 5.1;
 
-    function tileBtn(cls, fill, icon, label, attrs, resuming) {
+    /*
+     * The face goes into a box the tile's size, and whatever it draws past the
+     * box -- the snake's crown, star and goblet -- is drawn over the row round
+     * it. A face keeps to its half of the gap on either side and to the room
+     * above the name, and is drawn to: the row has no other guard against two
+     * faces meeting, or a ribbon over a "Continue". See snake/icon.js.
+     */
+    function tileBtn(cls, face, label, attrs, resuming) {
         const swap = resuming ? ' set-tile-swap' : '';
 
         const CUT = 'max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
 
         return `<button class="${cls}" ${attrs} style="flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
-            <span class="set-tile" style="display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; flex: none; background: ${fill}; color: #ffffff; border-radius: ${TILE_RADIUS}px; transition: background 0.2s;">
-                <span style="display: flex;">${icon}</span>
-            </span>
+            <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
             <span class="set-tile-label${swap}" style="display: grid; justify-items: center; max-width: 100%; font-size: 10.8px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
                 <span class="set-tile-face" style="grid-area: 1 / 1; ${CUT}">${label}</span>
                 ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; ${CUT}">${CONTINUE}</span>` : ''}
@@ -4138,6 +4206,10 @@ function catalog(container) {
             const shelf = shelfOf(set);
             const offShelf = GAMES.filter(g => !g.soon && !shelf.includes(g));
 
+            // The tiles plain at first, to grow what the set has won -- see
+            // growTiles.
+            const growsTiles = grows && !stillMotion();
+
             $(card, `
                 <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
@@ -4157,8 +4229,8 @@ function catalog(container) {
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; margin-top: 15.4px;">
-                    ${shelf.map(g => tileBtn('set-play-btn', g.color, tileArt(g, set), g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
-                    ${tileBtn('set-more-btn', MORE_FILL, chromeIcon(DOTS_BODY, TILE_ICON), 'All games', '', offShelf.some(unfinished))}
+                    ${shelf.map(g => tileBtn('set-play-btn', '', g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
+                    ${tileBtn('set-more-btn', MORE_TILE, 'All games', '', offShelf.some(unfinished))}
                 </div>
             `);
 
@@ -4212,6 +4284,13 @@ function catalog(container) {
 
             card.querySelectorAll('.set-play-btn').forEach(btn => {
                 const game = shelf.find(g => g.id === btn.dataset.game);
+
+                // Its face, drawn by the game into the box the row left for it
+                const tile = btn.querySelector('.set-tile');
+                const log = logOf(game, set);
+
+                game.show(tile, tileSpec(), log, { actual: !growsTiles, animate: false });
+                if (growsTiles) growing.push({ el: tile, game, log });
 
                 // The marked tile goes back into the session rather than asking
                 // for a new one: resume keeps the pool, the dots and the place
@@ -4276,7 +4355,7 @@ function catalog(container) {
 
         // Flashcards where the set still has it, the first game on the row
         // where somebody took it off.
-        pointingHand.at(container.querySelector('.set-play-btn[data-game="cards"]')
+        pointingHand.at(container.querySelector('.set-play-btn[data-game="flashcards"]')
             || container.querySelector('.set-play-btn'));
     }
 
@@ -4362,13 +4441,18 @@ function catalog(container) {
             // row replaced.
             themeIcon: isDark ? MOON : SUN,
 
-            // The logo takes the Cards button's own colour rather than the accent.
-            // The game colours do not follow the theme, the accent does, so in
-            // the light theme the two would sit side by side as a pair of
-            // near-identical corals — which reads as a mistake rather than as a
-            // pair. It is the one warm thing in the header now that the New Set
-            // button has given the colour up.
-            logo: (GAMES.find(g => g.id === 'cards') || {}).color || t.accent,
+            // The logo takes the Flashcards tile's own coral rather than the
+            // accent. The game colours do not follow the theme, the accent
+            // does, so in the light theme the two would sit side by side as a
+            // pair of near-identical corals — which reads as a mistake rather
+            // than as a pair. It is the one warm thing in the header now that
+            // the New Set button has given the colour up.
+            //
+            // Written out here, the same value as in flashcards/icon.js and in
+            // the store icon (see docs/PROMO.md): since 28 October 2026 a
+            // game's colour is its own and is not said to anybody, so there is
+            // nothing to read it from.
+            logo: '#ef6f5a',
             softBg: t.soft,
             softColor: t.muted,
             softBorder: t.border,
@@ -4479,11 +4563,11 @@ function catalog(container) {
          * surface the sets wear it was a set whose words had not loaded; in blue
          * it is the app talking, which is what it is.
          *
-         * Blue because the app already has one: the last tile on every card,
-         * the one that is not a game -- see MORE_FILL, where the reason that
-         * corner of the wheel was free is written down. Taken from that constant
-         * rather than written again here, so the two cannot drift apart; the
-         * last card of the strip is the dialog behind that tile, word for word.
+         * Blue because the app had one: the last tile on every card, the one
+         * that is not a game, was blue until 28 October 2026 -- the last card
+         * of the strip is the dialog behind that tile, word for word. The tile
+         * went mint when the snake took the blue, and the strip kept it -- see
+         * STRIP_TINT.
          *
          * A third of the way to it in the dark theme and a fifth in the light,
          * which is where each stops being a tinted surface and becomes a colour.
@@ -4500,8 +4584,8 @@ function catalog(container) {
          * went wrong and the tempo of the hop included -- the colours card is a
          * legend for bubbles, and those are defined beside the bubbles.
          */
-        const onbBg = blend(t.surface, MORE_FILL, isDark ? 0.34 : 0.2);
-        const onbEdge = blend(t.surface, MORE_FILL, isDark ? 0.62 : 0.46);
+        const onbBg = blend(t.surface, STRIP_TINT, isDark ? 0.34 : 0.2);
+        const onbEdge = blend(t.surface, STRIP_TINT, isDark ? 0.62 : 0.46);
 
         onboarding.setLook({
             cardBg: onbBg,
@@ -5175,7 +5259,6 @@ function catalog(container) {
          * that must not start the game.
          */
         const ROW = `display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; background: none; border: none; font-family: inherit; text-align: left;`;
-        const SQUARE = `display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; flex: none; box-sizing: border-box; border-radius: ${TILE_RADIUS}px;`;
         const NAME = `font-size: 12.8px; font-weight: 700; line-height: 1.2; color: ${palette.dialogText};`;
 
         // The tile, then the name and the sentence under it. What a game that
@@ -5217,7 +5300,7 @@ function catalog(container) {
         };
 
         /*
-         * The plate beside the name of a game marked `fresh` in registry.js:
+         * The plate beside the name of a game marked `fresh` (core/icons.js):
          * "New", in the accent and its white -- the brightest pair the app has,
          * and the same in both themes. On the name and not on the tile, so the
          * tile stays the picture the row shows; it goes with the name while the
@@ -5254,9 +5337,7 @@ function catalog(container) {
             // would come out with its name on the end -- see track.js.
             return `<div class="more-dialog-line" style="display: flex; align-items: center; gap: 6.8px;">
                 <button class="more-dialog-game" data-game="${game.id}" style="${ROW} cursor: pointer;">${body(
-                    `<span class="set-tile" style="${SQUARE} background: ${game.color}; color: #ffffff;">
-                        <span style="display: flex;">${tileArt(game, set)}</span>
-                    </span>`,
+                    `<span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;"></span>`,
                     `<span class="set-tile-label${swap}" style="display: grid; ${NAME}">
                         ${face(game.title + (game.fresh && !played.has(game.id) ? NEW_BADGE : ''))}
                         ${resuming ? face(CONTINUE, true) : ''}
@@ -5268,7 +5349,7 @@ function catalog(container) {
 
         /*
          * A game that is not written yet, drawn and not offered -- see `soon` in
-         * registry.js.
+         * core/icons.js.
          *
          * A div and not a button, because there is nothing behind it: a press
          * that does nothing is worse than no press, and a cursor that changes
@@ -5290,7 +5371,7 @@ function catalog(container) {
          */
         const coming = (game) => `<div class="more-dialog-line" style="display: flex; align-items: center; gap: 6.8px;">
                 <div class="more-dialog-soon" data-press="${game.id}" style="${ROW}">${body(
-                    `<span style="${SQUARE} border: 2px solid ${palette.dialogBody}; color: ${palette.dialogBody};">${game.icon(TILE_ICON)}</span>`,
+                    `<span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none; color: ${palette.dialogBody};"></span>`,
                     `<span style="display: block; ${NAME}">${game.title} <span style="font-weight: 600; color: ${palette.dialogBody};">(coming soon)</span></span>`,
                     game)}</div>
                 <span aria-hidden="true" style="width: 34px; flex: none;"></span>
@@ -5326,8 +5407,19 @@ function catalog(container) {
 
         overlay.querySelector('.more-dialog-close').addEventListener('click', close);
 
+        // A game not written yet draws its tile too, in the dialog's muted ink
+        // -- an outline, see `coming` above.
+        overlay.querySelectorAll('.more-dialog-soon').forEach(line => {
+            const game = GAMES.find(g => g.id === line.dataset.press);
+            game.show(line.querySelector('.set-tile'), tileSpec(), [], { actual: true, animate: false });
+        });
+
         overlay.querySelectorAll('.more-dialog-game').forEach(btn => {
             const game = GAMES.find(g => g.id === btn.dataset.game);
+
+            // Its face as the set has it, at once: the dialog is opened to
+            // pick a game, and nothing in it is a show.
+            game.show(btn.querySelector('.set-tile'), tileSpec(), logOf(game, set), { actual: true, animate: false });
 
             // Gone before it starts anything, because starting can put another
             // dialog on the screen — launch asks first on a set whose timers
@@ -5598,10 +5690,40 @@ async function syncCatalog() {
     await refreshCatalog(true);
 }
 
+/*
+ * Each game's icon.js laid onto its line of the list, so that the catalog
+ * reads `game.title` where it reads `game.pitch` -- see GAME_FACES in
+ * core/icons.js.
+ *
+ * A game whose file did not come is taken off the list rather than left on it
+ * nameless: a tile with no face and no title is worse than a game missing
+ * from a row, and the rest of the catalog has to go on working either way.
+ * The service worker holds every one of these files (see sw.js), so on the
+ * site this is a broken build and not a bad connection.
+ */
+function takeFaces() {
+    for (let i = GAMES.length - 1; i >= 0; i--) {
+        const face = GAME_FACES[GAMES[i].id];
+
+        if (face) {
+            Object.assign(GAMES[i], face);
+            continue;
+        }
+
+        console.error(`${GAMES[i].id}/icon.js did not load`);
+        GAMES.splice(i, 1);
+    }
+}
+
 async function bootCatalog() {
     // Said before anything is drawn, because the browser restores the offset as
     // soon as the page is tall enough to carry it — see showFromTop.
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+    // Each game's name and tile, from its own folder -- see loadFaces in
+    // core/icons.js. Asked for first and waited for last, so the files arrive
+    // while the database is being read.
+    const faces = loadFaces(GAMES.map(game => game.id));
 
     spacedRepetitions();
     storage();
@@ -5643,6 +5765,11 @@ async function bootCatalog() {
     // Speaking unless the player has turned the sound off. An absent setting
     // means the default, and the default is on -- see speech.js.
     speech.mute(!!(settings && settings.muted));
+
+    // Before the catalog is made: which games a set's row starts with is
+    // worked out when it is, from what the games say about themselves.
+    await faces;
+    takeFaces();
 
     const container = $(`<div class="app-main-content"></div>`);
     catalog(container);
