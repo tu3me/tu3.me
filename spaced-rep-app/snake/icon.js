@@ -12,7 +12,8 @@
  *       silhouette with a gold edge, in its place round the shield.
  *   64, 65  the second and the third time: gold to 30 and to 60 per cent.
  *       The fourth fills it -- four wins to a whole one, the owner's count.
- *   66  all three whole: a gold rim round the shield, and sparks.
+ *   66  all three whole: a gold rim round the shield, and sparks -- and,
+ *       here and not in the drafts, a light that runs across the gold.
  *
  * Each prize counts its own wins and is drawn by its own count, so a crown won
  * once stands as a silhouette beside a star won four times -- and a prize
@@ -189,6 +190,10 @@
         return { record, levels };
     }
 
+    // The light across a finished emblem: a run of this long, every this long
+    const SHEEN_RUN = 1100;
+    const SHEEN_EVERY = 3600;
+
     // Ids for the gradient, the masks and the ribbon's curve, one set per
     // drawing: there are as many snake tiles on the page as sets, and a
     // second gradient by the same id is a gradient nobody draws with.
@@ -260,6 +265,38 @@
             ? SPARKS(gold, tile.dark).map(spark => `<g data-part="spark" style="${ORIGIN} ${pose('opacity: 0; transform: scale(0);', '')}">${spark}</g>`).join('')
             : '';
 
+        /*
+         * And a finished emblem shimmers: a band of light runs across its gold
+         * -- the prizes, the ribbon, the rim -- every few seconds, for as long
+         * as it is on the screen. The owner's call, 28 October 2026: all four
+         * whole is the most there is, and it should look it.
+         *
+         * A gradient drawn through a mask of the gold, and moved by SMIL rather
+         * than by script: the face is markup the catalog draws again whenever
+         * it likes, and the light goes with it without anybody keeping it
+         * going. Not with motion turned down.
+         */
+        const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const shimmers = done && !start && !calm;
+
+        const sheen = shimmers
+            ? `<linearGradient id="${id('sheen')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-40" x2="40" y2="80">
+                <stop offset="0.3" stop-color="#ffffff" stop-opacity="0" />
+                <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.9" />
+                <stop offset="0.7" stop-color="#ffffff" stop-opacity="0" />
+                <animateTransform attributeName="gradientTransform" type="translate" values="-120 -120; 560 560; 560 560" keyTimes="0; ${SHEEN_RUN / SHEEN_EVERY}; 1" dur="${SHEEN_EVERY}ms" repeatCount="indefinite" />
+            </linearGradient>
+            <mask id="${id('lit')}" maskUnits="userSpaceOnUse" x="${VIEW.x}" y="${VIEW.y}" width="${VIEW.width}" height="${VIEW.height}">
+                ${won.map(prize => `<g transform="${prize.frame}">${prize.whole('#ffffff', tile.dark)}</g>`).join('')}
+                ${record ? `<path d="${BANNER}" fill="#ffffff" />` : ''}
+                <path d="${RIM_PATH}" fill="none" stroke="#ffffff" stroke-width="7" />
+            </mask>`
+            : '';
+
+        const shine = shimmers
+            ? `<rect x="${VIEW.x}" y="${VIEW.y}" width="${VIEW.width}" height="${VIEW.height}" fill="url(#${id('sheen')})" mask="url(#${id('lit')})" />`
+            : '';
+
         // The square stays in the start of a tile that will be a shield, for
         // the shield to take its place.
         const square = !shield || start ? `<g data-part="square">${SQUARE}</g>` : '';
@@ -272,8 +309,9 @@
                     ${GOLD_STOPS.map(([at, colour]) => `<stop offset="${at}" stop-color="${colour}" />`).join('')}
                 </linearGradient>
                 ${masks}
+                ${sheen}
             </defs>
-            ${rim}${square}${shieldPart}${SNAKE}${ribbon}${prizes}${sparks}
+            ${rim}${square}${shieldPart}${SNAKE}${ribbon}${prizes}${sparks}${shine}
         </svg>`;
     }
 
