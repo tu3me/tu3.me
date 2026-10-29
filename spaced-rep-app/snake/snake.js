@@ -92,18 +92,23 @@ function snake(container) {
     const GRID_COUNT = 12;
 
     /*
-     * How many pieces a line is laid out on the board in, by the word's stage
-     * (see srs.js): stage² + stage + 3 -- three, five, nine, fifteen,
-     * twenty-three -- and never more than it has letters. The letters of a
-     * piece lie side by side, each next to the one eaten before it, and the
-     * pieces lie wherever chance puts them. So a word just met is three runs
-     * to find and follow, and by the fourth stage or so most lines come apart
-     * into single letters scattered at random, the board as it always was.
-     * The owner's formula, 29 October 2026; until then every stage scattered
-     * the letters one by one. Wordcraft cuts its tiles by the stage the same
-     * way, with a formula of its own.
+     * How many pieces each word of a line is laid out on the board in, by the
+     * line's stage (see srs.js): round(stage + letters^0.4 + 0.3 / words), and
+     * never more than the word has letters -- so every word is a piece of its
+     * own at the least and comes apart into single letters at the most. The
+     * letters of a piece lie side by side, each next to the one eaten before
+     * it, and the pieces lie wherever chance puts them. So a line just met is
+     * a few runs to find and follow, and a stage or two on its words come
+     * apart into single letters scattered at random, the board as it always
+     * was.
+     *
+     * The owner's formula, 29 October 2026. The first that day counted the
+     * pieces of the whole line, stage² + stage + 3, and a phrase of more words
+     * than that ran several words to a piece; until then every stage
+     * scattered the letters one by one. Wordcraft cuts its tiles by the stage
+     * the same way, with a formula of its own.
      */
-    const piecesFor = (stage) => stage * stage + stage + 3;
+    const piecesFor = (stage, letters, words) => Math.min(letters, Math.round(stage + letters ** 0.4 + 0.3 / words));
 
     /*
      * A word's letters, as the person reading it would count them.
@@ -2758,19 +2763,12 @@ function snake(container) {
         }
 
         /*
-         * The line's letters cut into `count` pieces (see piecesFor), each a
-         * run of indices into `letters`, the blanks left out.
-         *
-         * Cut at the spaces first, the way wordcraft cuts its tiles (shareOut
-         * there): every word of a phrase has a piece of its own, the pieces
-         * over go one at a time to the word with the most letters to a piece,
-         * and each word is sliced as evenly as it divides. A phrase of more
-         * words than pieces is cut at spaces only, whole words to a piece, as
-         * near even in letters as its words allow. Wordcraft never has fewer
-         * pieces than words; here the count is the owner's formula, and three
-         * pieces of a phrase of five words are three runs of words.
+         * The line's letters cut into pieces at this stage, each a run of
+         * indices into `letters`, the blanks left out: every word on its own,
+         * into as many pieces as piecesFor gives it, sliced as evenly as it
+         * divides.
          */
-        function piecesOf(letters, count) {
+        function piecesOf(letters, stage) {
             const words = [];
             let word = [];
 
@@ -2782,57 +2780,13 @@ function snake(container) {
             });
             if (word.length) words.push(word);
 
-            const total = words.reduce((sum, w) => sum + w.length, 0);
-            count = Math.min(count, total);
-
-            if (count < words.length) {
-                const pieces = [];
-                let piece = [];
-                let done = 0;
-
-                // A cut after this word if the share it closes is nearer even
-                // with it than with the next one, or if every word left is
-                // needed for a piece of its own
-                words.forEach((w, at) => {
-                    piece = piece.concat(w);
-                    done += w.length;
-
-                    const owed = count - pieces.length - 1;
-                    if (owed === 0 || at === words.length - 1) return;
-
-                    const mark = (pieces.length + 1) * total / count;
-                    const next = done + words[at + 1].length;
-
-                    if (words.length - at - 1 === owed || Math.abs(done - mark) <= Math.abs(next - mark)) {
-                        pieces.push(piece);
-                        piece = [];
-                    }
-                });
-                pieces.push(piece);
-
-                return pieces;
-            }
-
-            const share = words.map(() => 1);
-            const load = (at) => words[at].length / share[at];
-
-            for (let left = count - words.length; left > 0; left--) {
-                let best = -1;
-
-                words.forEach((w, at) => {
-                    if (share[at] >= w.length) return;
-                    if (best < 0 || load(at) > load(best)) best = at;
-                });
-
-                share[best] += 1;
-            }
-
-            return words.flatMap((w, at) => {
+            return words.flatMap(w => {
+                const count = piecesFor(stage, w.length, words.length);
                 const pieces = [];
                 let from = 0;
 
-                for (let i = 1; i <= share[at]; i++) {
-                    const to = Math.floor((i * w.length) / share[at]);
+                for (let i = 1; i <= count; i++) {
+                    const to = Math.floor((i * w.length) / count);
 
                     pieces.push(w.slice(from, to));
                     from = to;
@@ -2845,7 +2799,7 @@ function snake(container) {
         // The word to play, its letters and its pieces at this stage
         function readWord(word, stage) {
             targetLetters = lettersOf(word).map(shownAs);
-            targetPieces = piecesOf(targetLetters, piecesFor(stage));
+            targetPieces = piecesOf(targetLetters, stage);
         }
 
         // One of the cells at random, out of those that meet the wishes, the
@@ -2876,22 +2830,23 @@ function snake(container) {
          *
          * A piece at a time (see piecesOf), its letters one after another in
          * the order they are eaten: the first on a free cell at random, and
-         * each after it in the next cell along or the one below, at random --
-         * the way the line reads, rightwards or leftwards with it (see isRtl).
-         * So a piece reads as a piece of the word, and the snake eats it
-         * straight through: it never doubles back on itself, so its next letter
-         * is never under the snake eating it. Laid in any direction, pieces
-         * read backwards as often as not: the first board tried had "ADO" in
-         * a row for the "ODA" of "TODAY". Where the board leaves neither cell
-         * free, the next letter goes as near the last as there is room for.
+         * each after it on a free cell beside the one before, on any of its
+         * four sides, at random. So a piece may read along or back, up or
+         * down, and turn as it goes, and the snake takes it from whichever
+         * side it starts -- the owner's call, 29 October 2026, the day pieces
+         * came in: the first of them went only the way the line reads (see
+         * isRtl) or down, because "ADO" in a row read like nothing where it
+         * stood for the "ODA" of "TODAY". The next letter is never where the
+         * snake came into the last one from, so it is never a turn back the
+         * snake cannot make. Where the board leaves no cell beside the last
+         * free, the next letter goes as near it as there is room for.
          *
          * And a piece keeps a cell clear all round from the others, diagonals
          * included, where the board has room for it. The letters are drawn
          * bare, with no tile behind them, and pieces that touch read as one
-         * heap: on that same board all three ran into one another. So a piece
-         * is laid whole or not at all, from a first letter where the rest of
-         * it fits before the edge, and tried LAY_TRIES ways before it goes
-         * down the best way the board allows.
+         * heap: on the first board tried all three ran into one another. So a
+         * piece is laid whole or not at all, and tried LAY_TRIES ways before
+         * it goes down the best way the board allows.
          *
          * With a piece to every letter -- every line from the fourth stage or
          * so -- there is nothing to keep together or apart, and that is the
@@ -2916,12 +2871,12 @@ function snake(container) {
             }
 
             const apart = targetPieces.some(piece => piece.length > 1);
-            const ahead = isRtl(targetLetters.join('')) ? -1 : 1;
 
-            // Laid one way only, one board in six to one in two had pieces
-            // touching with the snake a single cell long. Twenty ways, none in
-            // five hundred, and one in a hundred at most with the snake forty
-            // long; only a snake over most of the board leaves them no room
+            // Laid one way only, up to one board in fifty had pieces touching
+            // with the snake a single cell long, and one in five with it forty
+            // long. Twenty ways, none in five hundred, and one in ten at most
+            // with the snake forty long and a phrase of eight words in nineteen
+            // pieces: past that it is room that runs out, not ways to try
             const LAY_TRIES = 20;
 
             // Which piece each letter laid so far is in, by its cell
@@ -2942,18 +2897,15 @@ function snake(container) {
                     return true;
                 };
 
-                // Room before the edge for the rest of the piece, going along and down
-                const room = (pos) => (ahead > 0 ? GRID_COUNT - 1 - pos.x : pos.x) + (GRID_COUNT - 1 - pos.y) >= piece.length - 1;
-
-                // The next cell along or the one below, the way the line reads
-                const along = (cell, last) =>
-                    (cell.x === last.x + ahead && cell.y === last.y) || (cell.x === last.x && cell.y === last.y + 1);
+                // A cell on one of the four sides of the last, on the board as
+                // drawn and not through the wrap (see nearestFree)
+                const beside = (cell, last) => Math.abs(cell.x - last.x) + Math.abs(cell.y - last.y) === 1;
 
                 /*
                  * A cell for each of the piece's letters, in order. `strict`
-                 * lays it along and down and clear of the others all the way,
-                 * or not at all (null); otherwise it goes the best way the
-                 * board allows.
+                 * lays it a letter beside the last and clear of the others all
+                 * the way, or not at all (null); otherwise it goes the best way
+                 * the board allows.
                  */
                 const walk = (strict) => {
                     const path = [];
@@ -2963,15 +2915,15 @@ function snake(container) {
                         if (!open.length) break;
 
                         const last = path[k - 1];
-                        const next = last ? open.filter(cell => along(cell, last)) : open;
+                        const next = last ? open.filter(cell => beside(cell, last)) : open;
 
                         if (strict) {
-                            const fit = next.filter(cell => clear(cell) && (last || room(cell)));
+                            const fit = next.filter(clear);
                             if (!fit.length) return null;
 
                             path.push(pick(fit));
                         } else {
-                            path.push(last ? pick(next.length ? next : nearestFree(open, last), clear) : pick(open, clear, room));
+                            path.push(last ? pick(next.length ? next : nearestFree(open, last), clear) : pick(open, clear));
                         }
                     }
 
