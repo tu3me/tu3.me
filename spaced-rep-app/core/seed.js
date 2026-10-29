@@ -15,7 +15,7 @@ function seed() {
         return [
             {
                 /*
-                 * Spanish read by an English speaker, and the plainest eight
+                 * Spanish read by an English speaker, and the plainest ten
                  * words that pair can have.
                  *
                  * It used to be one set in eight languages — a line of Greek, a
@@ -31,9 +31,18 @@ function seed() {
                  * because the accents and the ñ make it visibly another language
                  * at a glance, which a first screen has to do in no time at all.
                  *
-                 * Two of the eight are phrases rather than words: a set that is
+                 * Three of the ten are phrases rather than words: a set that is
                  * all single nouns teaches somebody to name things they cannot
                  * ask for, and the first screen should not promise that.
+                 *
+                 * Ten, because a session of snake is ten words at the most and
+                 * deals a heart after every one but the last, and nine hearts
+                 * are what fill its goblet -- see GOBLET_SHARE in snake.js.
+                 * With eight the goblet could not be won on the first set
+                 * there is; the last two were added for that on 29 October
+                 * 2026, at the owner's word. A set already made keeps the
+                 * eight it was made with: this is only ever read for a first
+                 * run.
                  *
                  * Nothing has been played. Every word starts on stage 0, which
                  * is where a word with no history belongs — the sets that used
@@ -69,7 +78,9 @@ function seed() {
                     { original: 'calle', translation: 'street', repetitions: [] },
                     { original: 'llave', translation: 'key', repetitions: [] },
                     { original: 'mañana', translation: 'morning', repetitions: [] },
-                    { original: 'cuánto cuesta', translation: 'how much', repetitions: [] }
+                    { original: 'cuánto cuesta', translation: 'how much', repetitions: [] },
+                    { original: 'casa', translation: 'house', repetitions: [] },
+                    { original: 'por favor', translation: 'please', repetitions: [] }
                 ]
             }
         ];

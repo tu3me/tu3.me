@@ -179,7 +179,7 @@ function onboarding() {
      * question nobody has asked yet and dilutes the one thing that card is for.
      */
     const PROMISE = [
-        'Congratulations — you are one of the first to install this app, so it stays free for you whatever it charges later.',
+        'Congratulations — you are one of the first to install this app.',
         'More games to help you remember words are coming soon.'
     ];
 
@@ -773,7 +773,7 @@ function onboarding() {
              */
             id: 'free',
             moment: () => true,
-            title: () => `Forever <span style="color: ${look.ok};">free</span> for early adopters`,
+            title: () => `<span style="color: ${look.ok};">Free</span> for early adopters`,
             body: () => text(PROMISE[0])
         }
     ];

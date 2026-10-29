@@ -445,15 +445,18 @@ function store() {
 
     /*
      * A measure that may be setting a record while the run is still going --
-     * the snake's length, which is taken at every growth. True when it is a new
-     * record.
+     * the snake's length, which is taken at every growth.
      *
-     * One entry per run that beats the record, not one per growth: the first
-     * growth past the record adds it, and the ones after that raise the same
+     * One entry per run that reaches the record, not one per growth: the
+     * first growth to the record adds it, and the ones past it raise the same
      * entry -- `mine`, the moment it was last written, which the run keeps and
      * hands back. Every other entry is an older record and is left alone.
      * Written as it grows rather than at the end, so that a run that is never
      * finished keeps the record it set.
+     *
+     * Reaching it is enough, the owner's call of 29 October 2026: a run as
+     * long as the record and no longer has an entry of its own at the record's
+     * value, and takes the record's medal home. Until then it had to pass it.
      *
      * Told apart by that moment, and not by having been written since the run
      * was dealt, which was the first way of telling: the moments in a log come
@@ -467,10 +470,15 @@ function store() {
      */
     function noteRecord(setId, game, name, value, mine) {
         const set = sets.find(s => s.id === setId);
-        if (!set || value <= recordOf(setId, game, name)) return null;
+        if (!set || value < recordOf(setId, game, name)) return null;
 
         const log = logOf(set, game);
         const entry = mine ? log.find(e => name in e && e.at === mine) : null;
+
+        // Back at its own record after a fall: nothing to write, nor a date to
+        // send to the other devices
+        if (entry && entry[name] >= value) return mine;
+
         const at = Date.now();
 
         if (entry) {

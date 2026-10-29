@@ -1430,6 +1430,7 @@ function catalog(container) {
         `;
 
         const bubble = $(parent, bubbleHtml);
+        looks.set(bubble, JSON.stringify(bubbleData));
 
         // Tapping a word says it. The original rather than the translation, for
         // the same reason the cards do it that way: the translation is in a
@@ -1455,6 +1456,52 @@ function catalog(container) {
 
         return bubble;
     }
+
+    /*
+     * The bubbles brought up to the clock, every BUBBLE_TICK: a badge that
+     * reads "5m" should not still read it five minutes on, and a word whose
+     * time has come should start asking. The owner's call, 29 October 2026;
+     * until then a bubble was as old as the last draw of the screen, which in
+     * an installed app left open could be hours.
+     *
+     * Bubble by bubble, and only the ones whose look has changed (`looks`),
+     * rather than the screen drawn again. A draw puts everything back the way
+     * the state says it is, and whoever is in the middle of something would
+     * feel it: the settings open, a form being typed into, the list scrolled.
+     * A bubble that looks the same is left alone, so its hop goes on from
+     * where it was; the one being said is left for the next tick, and so is a
+     * card whose words no longer match its bubbles -- a draw of its own is
+     * on the way for that.
+     */
+    const BUBBLE_TICK = 30 * 1000;
+
+    // What each bubble on the screen was drawn from, to tell whether it is due
+    // a new look
+    const looks = new WeakMap();
+
+    function refreshBubbles() {
+        if (document.hidden) return;
+
+        container.querySelectorAll('.set-card[data-set-id]').forEach(card => {
+            const set = store.sets().find(s => String(s.id) === card.dataset.setId);
+            const row = card.querySelector('.set-words-bubbles');
+            if (!set || !row) return;
+
+            const bubbles = row.querySelectorAll('.word-bubble-card');
+            if (bubbles.length !== set.words.length) return;
+
+            set.words.forEach((w, order) => {
+                const old = bubbles[order];
+                const data = buildBubbleData(w, set.originalLang);
+                if (old === swollen || looks.get(old) === JSON.stringify(data)) return;
+
+                old.replaceWith(createBubble(data, document.createElement('div'), order));
+            });
+        });
+    }
+
+    setInterval(refreshBubbles, BUBBLE_TICK);
+    document.addEventListener('visibilitychange', refreshBubbles);
 
     /*
      * The way to the sound switch, saying that the switch is the reason a
@@ -5396,7 +5443,7 @@ function catalog(container) {
                     <button class="more-dialog-close" title="Close" aria-label="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};">${CROSS}</button>
                 </div>
                 <div class="more-dialog-games" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 17.1px;">${GAMES.map(line).join('')}</div>
-                <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Forever free for early adopters</div>
+                <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Free for early adopters</div>
                 <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
                     ${onboarding.promise().map((line, i) => `<p style="margin: 0 0 ${i ? 0 : 8.5}px;">${line}</p>`).join('')}
                 </div>

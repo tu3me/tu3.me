@@ -93,22 +93,22 @@ function snake(container) {
 
     /*
      * How many pieces each word of a line is laid out on the board in, by the
-     * line's stage (see srs.js): round(stage + letters^0.4 + 0.3 / words), and
-     * never more than the word has letters -- so every word is a piece of its
-     * own at the least and comes apart into single letters at the most. The
-     * letters of a piece lie side by side, each next to the one eaten before
-     * it, and the pieces lie wherever chance puts them. So a line just met is
-     * a few runs to find and follow, and a stage or two on its words come
-     * apart into single letters scattered at random, the board as it always
-     * was.
+     * line's stage (see srs.js): the stage, but one at the least, and never
+     * more than the word has letters. So a line lies a word to a piece at the
+     * first two stages, and from the second each word comes apart a piece
+     * further with every stage, until it is single letters scattered at
+     * random, the board as it always was. The letters of a piece lie side by
+     * side, each next to the one eaten before it, and the pieces lie wherever
+     * chance puts them.
      *
-     * The owner's formula, 29 October 2026. The first that day counted the
-     * pieces of the whole line, stage² + stage + 3, and a phrase of more words
-     * than that ran several words to a piece; until then every stage
-     * scattered the letters one by one. Wordcraft cuts its tiles by the stage
-     * the same way, with a formula of its own.
+     * The owner's formula, 29 October 2026, and the fourth that day: the
+     * first counted the pieces of the whole line, stage² + stage + 3, and a
+     * phrase of more words than that ran several words to a piece; the second
+     * gave a word round(stage + letters^0.4 + 0.3 / words), the third
+     * stage + 1. Until then every stage scattered the letters one by one.
+     * Wordcraft cuts a word into stage + 1 tiles, but never fewer than two.
      */
-    const piecesFor = (stage, letters, words) => Math.min(letters, Math.round(stage + letters ** 0.4 + 0.3 / words));
+    const piecesFor = (stage, letters) => Math.min(letters, Math.max(stage, 1));
 
     /*
      * A word's letters, as the person reading it would count them.
@@ -308,13 +308,16 @@ function snake(container) {
          * session is won, nothing that would draw the word's row of letters
          * into it again -- a voice list arriving late, say -- may do so.
          * `showing` numbers the ending, so a screen built again in the middle
-         * of one leaves the rest of it undone.
+         * of one leaves the rest of it undone. `medalGone`: the record's medal
+         * has left the header for the banner, and the header shows the length
+         * again -- see medalIn.
          */
         let flown = new Set();
         let crowned = false;
         let crownsGone = new Set();
         let won = false;
         let showing = 0;
+        let medalGone = false;
 
         // The last frame drawn, so that the board can be drawn again from the
         // view when one of the above changes and the game has stopped
@@ -703,6 +706,7 @@ function snake(container) {
             crowned = false;
             crownsGone = new Set();
             won = false;
+            medalGone = false;
             showing += 1;
             lastFrame = null;
             controlMode = opts.controlMode || 0;
@@ -766,12 +770,8 @@ function snake(container) {
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
-                    <span class="snake-length" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; align-items: center; gap: 5.1px; margin-left: auto; margin-right: 8.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: ${palette.backBtn};">
-                        <span class="snake-length-plain" style="display: inline-flex; flex-direction: column; align-items: center; gap: 1.7px;">
-                            <span style="display: inline-flex; align-items: center; gap: 2.6px; font-size: 12.3px;"><span class="snake-length-count"></span><span aria-hidden="true" style="width: 7px; height: 7px; flex: none; background: currentColor; border-radius: 1.7px;"></span></span>
-                            <span class="snake-length-max" style="font-size: 8.2px; letter-spacing: 0.3px;">MAX <span class="snake-length-best"></span></span>
-                        </span>
-                        <span class="snake-length-medal" aria-hidden="true" style="display: none; width: ${MEDAL_IN_HEADER}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
+                    <span class="snake-length" role="img" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; align-items: center; margin-left: auto; margin-right: 8.5px; line-height: 1;">
+                        <span class="snake-length-medal" aria-hidden="true" style="display: block; width: ${MEDAL_IN_HEADER}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
                     </span>
                 </div>
                 <div class="snake-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center;">
@@ -1574,8 +1574,9 @@ function snake(container) {
         const HEART_GAP = 110;
         const HEART_FLIGHT = 450;
         const BLACK_PAUSE = 450;    // before the black hearts: the owner's pause
-        const BLACKEN = 400;
-        const SMOKE_AFTER = 300;    // the owner's number
+        const BLACKEN = 700;        // the fill going black, top to bottom
+        const SMOKE_AFTER = 300;    // the owner's number, where nothing went black
+        const EVAPORATE = 900;      // and the goblet gone, top to bottom
         const BANNER_BEAT = 1600;
 
         /*
@@ -1642,9 +1643,10 @@ function snake(container) {
         /*
          * A badge, gold to `level` from the bottom up -- see starHtml, and why
          * the gold is a clipped rectangle. Under the gold, the soot a goblet
-         * that was not won fills with (see darkTo), and over it the glint a
-         * prize shines with in the middle of the board. `quiet` leaves the
-         * plate out of sight: the star has none while it is in the header.
+         * that was not won fills with (see darkTo); over it the black the
+         * whole of its fill then goes (see blacken), and the glint a prize
+         * shines with in the middle of the board. `quiet` leaves the plate
+         * out of sight: the star has none while it is in the header.
          */
         function badgeSvg(kind, level, quiet) {
             const shape = SHAPES[kind];
@@ -1663,7 +1665,8 @@ function snake(container) {
                 <g transform="translate(${SHAPE_LEFT} 0) scale(${SHAPE_SCALE})">
                     <g clip-path="url(#${id}-shape)">
                         <rect class="snake-won-soot" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-soot)" style="${RISES} transform: scaleY(0); transition: transform 0.45s ease-out;" />
-                        <rect class="snake-won-fill" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-gold)" style="${RISES} transform: scaleY(${level}); transition: transform 0.3s ease-out, opacity ${BLACKEN}ms ease-in-out;" />
+                        <rect class="snake-won-fill" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-gold)" style="${RISES} transform: scaleY(${level}); transition: transform 0.3s ease-out;" />
+                        <rect class="snake-won-char" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-soot)" style="transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0);" />
                         <rect class="snake-won-glint" data-travel="${width + 12}" x="${x - 8}" y="${y - 4}" width="6" height="${height + 8}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
                     </g>
                     <path class="snake-won-edge" d="${shape.path}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round" style="${fades}" />
@@ -1677,10 +1680,11 @@ function snake(container) {
         }
 
         /*
-         * The record's medal: MAX and the number under it, the way the header
-         * and the tile in the catalog say it, on a square of the prize gold.
-         * Three figures come down a size to stay inside it. The same drawing in
-         * the header once the record is beaten, in flight, and in the banner.
+         * The record's medal: MAX and the number under it, the way the tile in
+         * the catalog says it, on a square of the prize gold. Three figures
+         * come down a size to stay inside it. The same drawing in the header
+         * while the snake is as long as the record, in flight, and in the
+         * banner.
          */
         function medalSvg(value) {
             const id = 'snake-won-' + (++drawn);
@@ -1870,13 +1874,28 @@ function snake(container) {
                 .then(() => { at.el.remove(); arrive(place); }, () => at.el.remove());
         }
 
-        // Going up in smoke where it stands: it swells, blurs and fades.
-        function dissolve(at) {
-            return at.el.animate([
-                { opacity: 1, scale: 1, filter: 'blur(0px)' },
-                { opacity: 0, scale: 1.5, filter: 'blur(4px)' }
-            ], { duration: 520, easing: 'ease-in', fill: 'forwards' }).finished
-                .then(() => at.el.remove(), () => at.el.remove());
+        /*
+         * Going up in smoke where it stands: gone from the top down, the edge
+         * of what is left soft and coming down through it, the whole of it
+         * lifting and blurring a little as it goes -- the owner's call,
+         * 29 October 2026. Until then it swelled to half as big again,
+         * blurred and faded all at once.
+         *
+         * A mask two and a half times its height, clear above and solid
+         * below, slid up through it: at the start the box sees the solid
+         * part, at the end the clear one.
+         */
+        function evaporate(at) {
+            const el = at.el;
+            el.style.maskImage = 'linear-gradient(to bottom, transparent 40%, #000 60%)';
+            el.style.maskSize = '100% 250%';
+            el.style.maskRepeat = 'no-repeat';
+
+            return el.animate([
+                { maskPosition: '0 100%', translate: '0 0', filter: 'blur(0px)' },
+                { maskPosition: '0 0%', translate: '0 -6px', filter: 'blur(1.5px)' }
+            ], { duration: EVAPORATE, easing: 'linear', fill: 'forwards' }).finished
+                .then(() => el.remove(), () => el.remove());
         }
 
         // A pause in the ending, on the clock that owns every wait the game
@@ -1901,11 +1920,22 @@ function snake(container) {
             if (soot) soot.style.transform = `scaleY(${level})`;
         }
 
-        // And all of it black: the gold fades off the soot under it, and the
-        // edges go dark with it.
-        function blacken(el) {
-            const gold = el.querySelector('.snake-won-fill');
-            if (gold) gold.style.opacity = '0';
+        /*
+         * And all of the fill black, `level` of it from the bottom: the black
+         * comes down over the gold and the soot from the top of the fill to
+         * the bottom of it, and the edges go dark with it -- the owner's call,
+         * 29 October 2026. Until then the gold faded off the soot under it,
+         * all of it at once.
+         */
+        function blacken(el, level) {
+            const char = el.querySelector('.snake-won-char');
+            const { y, height } = GOBLET.box;
+
+            if (char && level > 0) {
+                char.setAttribute('y', y + height * (1 - level));
+                char.setAttribute('height', height * level);
+                char.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: BLACKEN, easing: 'ease-in', fill: 'forwards' });
+            }
 
             el.querySelectorAll('.snake-won-edge').forEach(edge => { edge.style.stroke = SOOT_EDGE; });
         }
@@ -1954,7 +1984,10 @@ function snake(container) {
 
         view.victory = (result) => {
             const mine = ++showing;
-            const alive = () => mine === showing;
+
+            // `skipped`: a press brought every prize in at once -- see finish
+            let skipped = false;
+            const alive = () => mine === showing && !skipped;
 
             won = true;
             controlsRetired = true;
@@ -1977,16 +2010,85 @@ function snake(container) {
                     ${prizes.map(p => `<span class="snake-won-prize" style="display: block; flex: none; width: ${p.width}px; height: ${p.height}px; visibility: hidden;">${p.html}</span>`).join('')}
                 </div>` : '');
 
-            // The whole banner is the way out. data-press, because a press on
-            // a plain block is otherwise not written down -- see track.js:
-            // `snake-hint-banner`, the class it has had all along.
-            hintBanner.dataset.press = '';
-            hintBanner.title = 'Dictionary';
-            hintBanner.style.cursor = 'pointer';
-            hintBanner.style.userSelect = 'none';
-            hintBanner.addEventListener('click', () => cb.onGoDictionary());
-
             const places = [...hintBanner.querySelectorAll('.snake-won-prize')];
+
+            /*
+             * The whole screen is pressed, wherever: a press while the prizes
+             * are still coming brings them all in at once (finish), and the
+             * press after that is the way out -- the owner's call, 29 October
+             * 2026. Until then the banner alone was the way out, at any
+             * moment, and a press on it in the middle of the prizes left
+             * before they were in.
+             *
+             * Not the buttons in the header, which do what they always do:
+             * the way back is a way out anyway, and the sound is not the
+             * ending's to switch.
+             *
+             * Written down by hand, as `snake-won` and what the press did --
+             * see ANALYTICS.md: a press anywhere has no one element to be
+             * named after, and the board's own name is a press in the game,
+             * so the board stops being written down as one.
+             */
+            let done = false;
+
+            svg.removeAttribute('data-press');
+            host.style.cursor = 'pointer';
+            hintBanner.style.userSelect = 'none';
+
+            const press = (e) => {
+                if (mine !== showing) return document.removeEventListener('click', press);
+                if (e.target instanceof Element && e.target.closest('button, a')) return;
+
+                track('click', 'snake-won', '', '', done ? 'exit' : 'skip');
+
+                if (done) return cb.onGoDictionary();
+                finish();
+            };
+            document.addEventListener('click', press);
+
+            /*
+             * Every prize where the ending leaves it, at once: the ones still
+             * to come and the one on its way. What is in the air is taken
+             * away, and the chain stops at its next step (`alive`), which
+             * every step asks after each wait.
+             *
+             * The board as it is left: the crowns gone up, the hearts gone
+             * out of the snake; the header without the medal and the star; a
+             * goblet that was not won taken out of the row, as closePlace
+             * does it, without the closing.
+             */
+            function finish() {
+                skipped = true;
+
+                host.querySelectorAll('.snake-flyer, .snake-won-stage').forEach(el => el.remove());
+
+                if (result.crown && lastFrame) {
+                    crowned = true;
+                    lastFrame.s.lettersOnBoard.forEach((letter, k) => crownsGone.add(k));
+                }
+                if (hearts) hearts.red.concat(hearts.black).forEach(link => flown.add(link));
+                if (result.record) medalGone = true;
+                redraw();
+
+                const star = header && header.querySelector('.snake-star');
+                if (result.star && star) star.style.visibility = 'hidden';
+
+                prizes.forEach((prize, k) => {
+                    const place = places[k];
+                    if (!place.isConnected) return;
+
+                    if (prize.kind !== 'goblet' || full) {
+                        place.style.visibility = 'visible';
+                        return;
+                    }
+
+                    const row = place.parentNode;
+                    (row.children.length === 1 ? row : place).remove();
+                });
+
+                done = true;
+                beckonBanner();
+            }
 
             async function crownIn(place) {
                 if (still()) {
@@ -2053,12 +2155,11 @@ function snake(container) {
 
                 const flight = arriveFrom(at, from, 0, MEDAL_FIT);
 
-                // And the length back in its place, where the medal stood in
-                // for it -- see showMedal.
-                from.style.display = 'none';
-                const plain = header.querySelector('.snake-length-plain');
-                plain.style.display = 'inline-flex';
-                plain.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
+                // And the outline it was filled in, back in the header with
+                // the length in it -- see showLength.
+                medalGone = true;
+                redraw();
+                from.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
 
                 await flight;
                 if (!alive()) return;
@@ -2162,14 +2263,16 @@ function snake(container) {
                 /*
                  * The black ones fill on with black, a share each like the red
                  * -- to the brim when there were hearts enough to fill it --
-                 * and the gold goes black with them.
+                 * and then the whole of the fill goes black from the top down,
+                 * the gold with it.
                  *
                  * None black -- the snake lost its hearts with its length,
                  * starting a round over, or too few were dealt to fill it --
                  * and nothing more comes: the goblet goes up in smoke as it
-                 * stands, short of full. It was topped up with black by itself
-                 * for a while, as if the lost hearts had been black ones; the
-                 * owner would rather it stayed unfilled (27 October 2026).
+                 * stands, short of full and as gold as it was. It was topped
+                 * up with black by itself for a while, as if the lost hearts
+                 * had been black ones; the owner would rather it stayed
+                 * unfilled (27 October 2026).
                  */
                 const black = hearts.black;
 
@@ -2186,15 +2289,21 @@ function snake(container) {
                     if (!alive()) return;
 
                     await wait(FILLED_REST);
-                    blacken(at.el);
+                    if (!alive()) return;
 
+                    blacken(at.el, Math.min(1, gold + hearts.share * black.length));
+
+                    // Gone the moment it is black, with no pause between: the
+                    // owner's call, 29 October 2026. The black came down
+                    // easing out and the smoke went up easing in, with
+                    // SMOKE_AFTER between them, and that was read as a stall.
                     await wait(BLACKEN);
+                } else {
+                    await wait(SMOKE_AFTER);
                 }
-
-                await wait(SMOKE_AFTER);
                 if (!alive()) return;
 
-                await dissolve(at);
+                await evaporate(at);
                 if (!alive()) return;
 
                 await closePlace(place);
@@ -2218,7 +2327,12 @@ function snake(container) {
                 });
             });
 
-            chain.then(() => { if (alive()) beckonBanner(); });
+            chain.then(() => {
+                if (!alive()) return;
+
+                done = true;
+                beckonBanner();
+            });
 
             // Last, so the burst is measured against the board as it now stands
             // and lands on a screen that has finished changing.
@@ -2252,25 +2366,33 @@ function snake(container) {
         }
 
         /*
-         * The record, once it is this session's, as the medal the ending flies
-         * rather than a line of small print -- the owner's call, 27 October
-         * 2026. It turns into the medal the moment the record the set held
-         * falls (in a set's first session, at the first growth -- see
-         * recordBeaten), stays one for the rest of the session, and swells each
-         * time the number on it goes up. At the end this is the medal that
-         * leaves the header -- see view.victory.
+         * The length and the record, in the corner of the header, as the
+         * record's medal from the first frame -- the owner's call, 29 October
+         * 2026.
          *
-         * In place of the length, which is not shown while the medal is up --
-         * the owner's call. It stood beside the length at first, on the grounds
-         * that after a crash that starts the round over the length is a long
-         * way below the record; the two together were one number too many for
-         * the corner of a header. The length comes back when the medal flies
-         * at the end -- see medalIn -- so the corner is not left empty.
+         * Short of the record it is the medal's outline, empty, with the two
+         * numbers in it: the length on top and the record under it. The
+         * outline is the star's (see starHtml), which is drawn the same way
+         * before the answers fill it. As long as the record -- matching it
+         * counts, see store.noteRecord -- it fills with the gold and is the
+         * medal the ending flies: MAX and the one number, which is both. A
+         * crash that starts the round over empties it again, and growing back
+         * to the record fills it again.
          *
-         * Not on the first frame of a screen: a session coming back already
-         * holding a beaten record shows the medal, and has nothing to turn.
+         * It filled with the medal turning up out of nothing, and swells each
+         * time the number on it goes up; not on the first frame of a screen,
+         * where a session coming back as long as its record has nothing to
+         * turn. At the end the gold leaves for the banner and the outline
+         * stays -- see medalIn.
+         *
+         * Until then the corner was two lines of small print, the length with
+         * a square for a link and "MAX" with the record under it, which turned
+         * into the medal only once the session beat the record (27 October
+         * 2026), and stayed one to the end of it.
          */
-        const MEDAL_IN_HEADER = 26;
+        // The size of the buttons either side of the header, the way back and
+        // the sound: the owner's call, 29 October 2026 (it was 26)
+        const MEDAL_IN_HEADER = 29;
         const MEDAL_TURNS = [
             { scale: 0.3, opacity: 0 },
             { scale: 1.3, opacity: 1, offset: 0.55 },
@@ -2278,20 +2400,41 @@ function snake(container) {
             { scale: 1 }
         ];
 
-        function showMedal(most, seen) {
+        /*
+         * The medal's square, empty: the edge alone, and the two numbers in
+         * the header's own ink. Three figures a size down, as on the medal.
+         *
+         * The record under the length nearly as large as the length: at 12.5
+         * of the 44 it was eight pixels in the header and hard to read (the
+         * owner, 29 October 2026). What tells the two apart is the weight and
+         * the ink, a little lighter for the record.
+         */
+        function lengthSvg(now, most) {
+            const three = String(most).length > 2;
+
+            return `<svg viewBox="0 0 ${MEDAL} ${MEDAL}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible; font-variant-numeric: tabular-nums;">
+                <rect x="2.5" y="2.5" width="39" height="39" rx="11" fill="none" stroke="${palette.starEdge}" stroke-width="2" />
+                <text x="22" y="15" text-anchor="middle" dominant-baseline="central" font-size="${three ? 14.5 : 18}" font-weight="800" fill="${palette.backBtn}">${now}</text>
+                <text x="22" y="30.5" text-anchor="middle" dominant-baseline="central" font-size="${three ? 13 : 16}" font-weight="700" fill="${palette.backBtn}" opacity="0.85">${most}</text>
+            </svg>`;
+        }
+
+        function showLength(now, most, full, seen) {
             const medal = header.querySelector('.snake-length-medal');
-            if (!medal || medal.dataset.value === most) return;
+            if (!medal) return;
 
-            const first = !medal.dataset.value;
+            const look = full ? `${most}` : `${now}/${most}`;
+            if (medal.dataset.look === look) return;
 
-            medal.dataset.value = most;
-            medal.innerHTML = medalSvg(most);
-            medal.style.display = 'block';
-            header.querySelector('.snake-length-plain').style.display = 'none';
+            const filling = full && !/^\d+$/.test(medal.dataset.look || '');
 
-            if (!seen || still()) return;
+            medal.dataset.look = look;
+            medal.innerHTML = full ? medalSvg(most) : lengthSvg(now, most);
+            header.querySelector('.snake-length').setAttribute('aria-label', `Length ${now}, record ${most}`);
 
-            medal.animate(first ? MEDAL_TURNS : beckon(1.3), { duration: first ? 560 : BECKON_MS, easing: 'ease-out' });
+            if (!full || !seen || still()) return;
+
+            medal.animate(filling ? MEDAL_TURNS : beckon(1.3), { duration: filling ? 560 : BECKON_MS, easing: 'ease-out' });
         }
 
         /*
@@ -2327,43 +2470,33 @@ function snake(container) {
             lastFrame = { s, record, beaten };
 
             /*
-             * How long the snake is, in links, at the dots' left: the number
-             * and a square, and no word. The square is one link, so "12" and a
-             * square read as twelve of them -- a caption would need a language
-             * and room, and this header has neither to spare.
+             * How long the snake is, in links, at the dots' left, and the
+             * longest it has been in this set -- the number on the game's tile
+             * in the catalog, the one the player came in to beat. Both in the
+             * record's medal, see showLength.
              *
-             * It is the measure the set keeps a record of -- see noteLength --
-             * and a record of something the player was never shown would be a
-             * number arriving from nowhere.
-             *
-             * And under it, small, the record itself: "MAX" and the longest the
-             * snake has been in this set, which is the number on the game's tile
-             * in the catalog -- the one the player came in to beat. Two lines in
-             * the height the buttons beside them already give the header, so
-             * the header is no taller for it.
+             * The length is the measure the set keeps a record of -- see
+             * noteLength -- and a record of something the player was never
+             * shown would be a number arriving from nowhere.
              *
              * The record is never shown below the length. The two are written
              * by the same call, so a snake that is setting a record grows both
              * numbers in the same frame rather than one after the other; and
              * where nothing is held yet -- a set's first game, or a run over
              * every set, which keeps no records -- the record on show is the
-             * length itself, which is true of this run at least.
+             * length itself, which is true of this run at least. The gold is
+             * only for a record that is this session's (`beaten`), as long as
+             * the snake is as long as it.
              *
              * Written here because every frame comes through here, and only
              * when it differs, so a frame that changes nothing touches nothing.
              * Compared against the element rather than remembered, because the
              * header can be built again under a running game.
              */
-            const now = String(s.snakeBody.length);
-            const most = String(Math.max(record || 0, s.snakeBody.length));
+            const now = s.snakeBody.length;
+            const most = Math.max(record || 0, now);
 
-            const length = header.querySelector('.snake-length-count');
-            if (length && length.textContent !== now) length.textContent = now;
-
-            const best = header.querySelector('.snake-length-best');
-            if (best && best.textContent !== most) best.textContent = most;
-
-            if (beaten) showMedal(most, seen);
+            showLength(now, most, beaten && now === most && !medalGone, seen);
 
             let out = '';
 
@@ -2781,7 +2914,7 @@ function snake(container) {
             if (word.length) words.push(word);
 
             return words.flatMap(w => {
-                const count = piecesFor(stage, w.length, words.length);
+                const count = piecesFor(stage, w.length);
                 const pieces = [];
                 let from = 0;
 
@@ -2831,7 +2964,8 @@ function snake(container) {
          * A piece at a time (see piecesOf), its letters one after another in
          * the order they are eaten: the first on a free cell at random, and
          * each after it on a free cell beside the one before, on any of its
-         * four sides, at random. So a piece may read along or back, up or
+         * four sides, at random, and beside no other letter of its own piece
+         * (see loose). So a piece may read along or back, up or
          * down, and turn as it goes, and the snake takes it from whichever
          * side it starts -- the owner's call, 29 October 2026, the day pieces
          * came in: the first of them went only the way the line reads (see
@@ -2848,9 +2982,9 @@ function snake(container) {
          * piece is laid whole or not at all, and tried LAY_TRIES ways before
          * it goes down the best way the board allows.
          *
-         * With a piece to every letter -- every line from the fourth stage or
-         * so -- there is nothing to keep together or apart, and that is the
-         * old board exactly: every letter on a free cell at random.
+         * With a piece to every letter -- a word of n letters from stage n --
+         * there is nothing to keep together or apart, and that is the old
+         * board exactly: every letter on a free cell at random.
          *
          * Drawn from the cells that are free rather than tried at random until
          * one is. It made no difference while the snake was short; a snake
@@ -2872,7 +3006,7 @@ function snake(container) {
 
             const apart = targetPieces.some(piece => piece.length > 1);
 
-            // Laid one way only, up to one board in fifty had pieces touching
+            // Laid one way only, up to one board in thirty had pieces touching
             // with the snake a single cell long, and one in five with it forty
             // long. Twenty ways, none in five hundred, and one in ten at most
             // with the snake forty long and a phrase of eight words in nineteen
@@ -2901,11 +3035,18 @@ function snake(container) {
                 // drawn and not through the wrap (see nearestFree)
                 const beside = (cell, last) => Math.abs(cell.x - last.x) + Math.abs(cell.y - last.y) === 1;
 
+                // Beside no letter of the piece but the last: a whole word to
+                // a piece coiled into itself, every "congratulations" but one
+                // in twenty-five, and read two ways where it touched itself;
+                // one in fifty closed round its last letter, and the snake
+                // eating it had nowhere to go but into its own body
+                const loose = (cell, path) => path.slice(0, -1).every(pos => !beside(cell, pos));
+
                 /*
                  * A cell for each of the piece's letters, in order. `strict`
-                 * lays it a letter beside the last and clear of the others all
-                 * the way, or not at all (null); otherwise it goes the best way
-                 * the board allows.
+                 * lays it a letter beside the last, loose and clear of the
+                 * others all the way, or not at all (null); otherwise it goes
+                 * the best way the board allows.
                  */
                 const walk = (strict) => {
                     const path = [];
@@ -2917,13 +3058,15 @@ function snake(container) {
                         const last = path[k - 1];
                         const next = last ? open.filter(cell => beside(cell, last)) : open;
 
+                        const unwound = (cell) => loose(cell, path);
+
                         if (strict) {
-                            const fit = next.filter(clear);
+                            const fit = next.filter(cell => clear(cell) && unwound(cell));
                             if (!fit.length) return null;
 
                             path.push(pick(fit));
                         } else {
-                            path.push(last ? pick(next.length ? next : nearestFree(open, last), clear) : pick(open, clear));
+                            path.push(last ? pick(next.length ? next : nearestFree(open, last), clear, unwound) : pick(open, clear));
                         }
                     }
 

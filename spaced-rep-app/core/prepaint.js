@@ -66,4 +66,29 @@
         // prefers-color-scheme and to no reservation, which is merely the old
         // behaviour rather than a broken one.
     }
+
+    /*
+     * The slide from one screen to the next (@view-transition in app.css) is
+     * the browser's, and so are the promises it hands the page on each side
+     * of it. A slide the browser gives up on -- the window hidden, a second
+     * navigation before the first has landed -- rejects them, nobody was
+     * waiting on them, and each came out as an uncaught error: five of them
+     * in the console of the first test, and every one would have gone into
+     * the analytics' count of errors (see track.js). Waited on here, so a
+     * slide that does not happen is a page that simply appears.
+     *
+     * Here because the arriving page's event comes with its first frame, and
+     * this is the only script that runs before that.
+     */
+    const settle = (e) => {
+        const slide = e.viewTransition;
+        if (!slide) return;
+
+        slide.ready.catch(() => { });
+        slide.updateCallbackDone.catch(() => { });
+        slide.finished.catch(() => { });
+    };
+
+    window.addEventListener('pageswap', settle);
+    window.addEventListener('pagereveal', settle);
 })();
