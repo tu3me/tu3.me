@@ -24,52 +24,6 @@
 }
 
 /*
- * From one screen to the next, sideways: into a game the catalog goes off to
- * the left and the game comes in from the right, and back out of one the game
- * goes off to the right and the catalog comes in from the left -- the owner's
- * call, 29 October 2026. Until then a page simply replaced the one before.
- *
- * The browser's own transition between documents, which every page of the
- * app asks for here. Which way it runs is the arriving page's to say, because
- * the transition is drawn in the arriving document: a game page (the class
- * above) arrives from the right, the catalog from the left. That is the whole
- * of the bookkeeping -- the catalog and a game are the only two kinds of
- * screen, and nothing goes from one game straight to another.
- *
- * The arriving page is drawn live while it slides, and it is built by script
- * after reads from the database, so its content can land a moment into the
- * slide rather than with it. Nothing waits for it: holding the old page still
- * until then would be the old stall with a slide added.
- *
- * A browser without it -- Firefox, for now -- goes on changing the page the
- * way it always did, and so does anybody who asked for less motion.
- */
-@media (prefers-reduced-motion: no-preference) {
-    @view-transition {
-        navigation: auto;
-    }
-}
-
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation-duration: 320ms;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    animation-fill-mode: both;
-    /* Side by side the whole way, never over one another */
-    mix-blend-mode: normal;
-}
-
-:root.game-page::view-transition-old(root) { animation-name: screen-off-left; }
-:root.game-page::view-transition-new(root) { animation-name: screen-in-right; }
-:root:not(.game-page)::view-transition-old(root) { animation-name: screen-off-right; }
-:root:not(.game-page)::view-transition-new(root) { animation-name: screen-in-left; }
-
-@keyframes screen-off-left { to { translate: -100% 0; } }
-@keyframes screen-in-right { from { translate: 100% 0; } }
-@keyframes screen-off-right { to { translate: 100% 0; } }
-@keyframes screen-in-left { from { translate: -100% 0; } }
-
-/*
  * Double tap: a gesture this app has its own use for.
  *
  * A phone reads two quick taps as "zoom in", and to be able to it holds the
