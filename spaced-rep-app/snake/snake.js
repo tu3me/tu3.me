@@ -2021,8 +2021,15 @@ function snake(container) {
          * The letters go in no order the word has, and from the middle of the
          * cloud: a letter that left first would say it is the first to be
          * eaten, which is the one thing the board asks. They come out from
-         * behind it, and the cloud starts at each, which is what makes them
-         * shot rather than dropped.
+         * behind it, which is what makes them shot rather than dropped.
+         *
+         * The cloud billows all the way, and its words keep still: the puffs
+         * swell each on its own, and nothing that moves the words but the
+         * flight itself -- the owner's call, 30 October 2026. For a while the
+         * whole of it, words and all, started at every letter it shot, which
+         * on the way up was words shaking; and for an hour after that it was
+         * kept still on the way up altogether, which took the billowing away
+         * with the shaking.
          *
          * `done` once every letter is down; at once with reduced motion, where
          * the letters are there from the start. The board is held until then
@@ -2030,7 +2037,9 @@ function snake(container) {
          * still in the air is a step on a board nobody can see yet.
          */
         const CLOUD_FORM = 520;
-        const CLOUD_READ = 400;
+        // The pause between the cloud being whole and its setting off: 400
+        // until the owner asked for less, the same day
+        const CLOUD_READ = 150;
         const CLOUD_RISE = 1000;
         const CLOUD_SHED = 200;
         const DEAL_FLY = 480;
@@ -2194,7 +2203,6 @@ function snake(container) {
                 </div>
             </div>`);
 
-            const body = cloud.querySelector('.snake-deal-body');
             const words = cloud.querySelector('.snake-deal-text');
             const puffs = [...cloud.querySelectorAll('.snake-deal-puff')];
 
@@ -2203,8 +2211,10 @@ function snake(container) {
             /*
              * Billowing up: each puff out of nothing at a moment of its own,
              * and then swelling and settling, out of step with the others, for
-             * as long as the cloud is up. The swell is on `scale` and the
-             * coming in on `transform`, so the one adds to the other.
+             * as long as the cloud is up -- four turns of a swell outlast it.
+             * The swell is on `scale` and the coming in on `transform`, so the
+             * one adds to the other. The puffs alone: the words are not in
+             * what swells.
              */
             puffs.forEach((puff, k) => {
                 puff.animate([
@@ -2283,8 +2293,6 @@ function snake(container) {
 
                     const from = centreOf(cloud);
                     const cell = cellAt(letters[at]);
-
-                    body.animate([{ scale: 1 }, { scale: 1.1 }, { scale: 1 }], { duration: 180, easing: 'ease-out' });
 
                     return launch(letterSvg(letters[at].char), cell.width, [
                         { x: from.x, y: from.y, scale: 0.4, easing: 'cubic-bezier(0.15, 0.7, 0.3, 1)' },
