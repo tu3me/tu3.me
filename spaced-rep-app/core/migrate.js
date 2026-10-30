@@ -230,10 +230,12 @@ function migrate() {
      *
      * A set holds the id in two places: the mark on every answer the game wrote
      * ("cards|1791...|10" -- see runMark in store.js), and the games pinned to
-     * the set's row (see pinGame in catalog.js). Both are translated. Nothing
-     * reads the marks of the old name today but analytics on the server; the
-     * pins are what would hurt -- a row pinned to "cards" would lose the game,
-     * because the catalog no longer knows one by that name.
+     * the set's row (`pinned`). Both are translated. Nothing reads the marks of
+     * the old name today but analytics on the server; the pins were what would
+     * hurt -- a row pinned to "cards" would lose the game, because the catalog
+     * no longer knows one by that name. Since 29 October 2026 nothing reads the
+     * pins either: every game is on every row (see ROW_GAMES in catalog.js),
+     * and the field is left on the sets that have it.
      *
      * The check is the data, as above: an answer marked with the old name, or
      * a pin of it. Nothing writes the old name any more, so a set passes

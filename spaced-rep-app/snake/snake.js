@@ -319,6 +319,11 @@ function snake(container) {
         let showing = 0;
         let medalGone = false;
 
+        // The letters of a new word not yet on their cells, by their place on
+        // the board: in the banner, or on their way out of it -- see view.deal.
+        // Display state like the rest: the board has them where they are going.
+        let undealt = new Set();
+
         // The last frame drawn, so that the board can be drawn again from the
         // view when one of the above changes and the game has stopped
         // drawing it.
@@ -707,6 +712,7 @@ function snake(container) {
             crownsGone = new Set();
             won = false;
             medalGone = false;
+            undealt = new Set();
             showing += 1;
             lastFrame = null;
             controlMode = opts.controlMode || 0;
@@ -1982,6 +1988,327 @@ function snake(container) {
             ], { duration: BANNER_BEAT, iterations: Infinity, easing: 'ease-in-out' });
         }
 
+        /*
+         * A new word, dealt onto the board out of a cloud -- the owner's call,
+         * 30 October 2026. A cloud with the translation in it billows up in
+         * the middle of the board and flies up to the banner, getting smaller
+         * as it goes and shooting the word's letters out to their cells; at
+         * the banner it melts away and leaves the translation there as the
+         * banner's own text. The point is where the translation is first
+         * seen: on the board, which is where the eye is, rather than above
+         * it, where it changed while the eye was on the snake. Until then the
+         * letters were simply there.
+         *
+         * The same day, before the cloud, it was the banner itself that came
+         * down to the middle of the board and went back up with the letters
+         * coming out of it. It covered most of the board for a second and a
+         * half, which grated, and the eye went past the words in it all the
+         * same (the owner). The cloud is a third of that, and it is moving
+         * nearly all the time it is up.
+         *
+         * In the banner's colours, so that what arrives there reads as a
+         * piece of it coming home; and its text is the banner's, the same
+         * size and wrapped at the same width -- grown at the start and
+         * brought down on the way -- so that it lands as the very text it
+         * turns into, which has been waiting under it unseen.
+         *
+         * The banner is empty while the cloud is up, the row of "?" and its
+         * speaker included, and the cloud loses its edges as its words pass
+         * the middle of the banner: over a banner of its own colour it is
+         * then the words alone coming in to land. Once they have, the row
+         * comes back a piece at a time -- the owner's call, the same day.
+         *
+         * The letters go in no order the word has, and from the middle of the
+         * cloud: a letter that left first would say it is the first to be
+         * eaten, which is the one thing the board asks. They come out from
+         * behind it, and the cloud starts at each, which is what makes them
+         * shot rather than dropped.
+         *
+         * `done` once every letter is down; at once with reduced motion, where
+         * the letters are there from the start. The board is held until then
+         * -- see `dealing` in render -- because a step taken under letters
+         * still in the air is a step on a board nobody can see yet.
+         */
+        const CLOUD_FORM = 520;
+        const CLOUD_READ = 400;
+        const CLOUD_RISE = 1000;
+        const CLOUD_SHED = 200;
+        const DEAL_FLY = 480;
+
+        // The way up, eased, as the four numbers of its cubic-bezier: the
+        // moment the words pass the middle of the banner is worked out from
+        // them -- see easedAt
+        const RISE_EASE = [0.45, 0, 0.25, 1];
+
+        // The row of the banner coming back after the words: a piece every
+        // BAR_STEP, each swelling in over BAR_POP
+        const BAR_STEP = 70;
+        const BAR_POP = 260;
+
+        /*
+         * The share of the way up the letters are shot over, one after
+         * another: the first third, so that the last of them is down, and the
+         * board is let go (see view.deal), while the cloud is still on its
+         * way. It was 0.7 to begin with, and the board was held through the
+         * whole of the way up and a little past it -- too long, the owner
+         * said, 30 October 2026.
+         */
+        const DEAL_SPREAD = 0.35;
+
+        // How much bigger than the banner's text the cloud's starts out, and
+        // how much of the board's width the cloud may take while it is
+        const CLOUD_GROWN = 1.5;
+        const CLOUD_ROOM = 0.8;
+
+        // The air round the text, inside the cloud's body
+        const CLOUD_PAD_X = 16;
+        const CLOUD_PAD_Y = 10;
+
+        // A letter flying, drawn the way the board draws it on a cell
+        const letterSvg = (char) => `<svg viewBox="0 0 ${cellSize} ${cellSize}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">${glyph(char, cellSize / 2, cellSize / 2, LETTER_PX, palette.boardLetter, 'bold')}</svg>`;
+
+        function shuffled(list) {
+            const out = list.slice();
+
+            for (let i = out.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [out[i], out[j]] = [out[j], out[i]];
+            }
+
+            return out;
+        }
+
+        /*
+         * The cloud's shape, in a box `w` by `h` round its text: a pill the
+         * size of the box, and puffs standing out of it -- along the top,
+         * smaller along the bottom, and one at each end. A little different
+         * every time, as a cloud is.
+         */
+        function puffsOf(w, h) {
+            const out = [{ x: 0, y: 0, w, h }];
+            const puff = (cx, cy, d) => out.push({ x: cx - d / 2, y: cy - d / 2, w: d, h: d });
+            const jitter = () => (Math.random() - 0.5) * h * 0.2;
+
+            const across = Math.max(2, Math.round(w / (h * 0.9)));
+
+            for (let i = 0; i < across; i++) puff(w * (i + 0.5) / across + jitter(), h * 0.28, h * (0.85 + Math.random() * 0.35));
+            for (let i = 1; i < across; i++) puff(w * i / across + jitter(), h * 0.8, h * (0.6 + Math.random() * 0.2));
+
+            puff(h * 0.3, h * 0.55, h * 0.9);
+            puff(w - h * 0.3, h * 0.55, h * 0.9);
+
+            return out;
+        }
+
+        /*
+         * When an animation eased by `ease` has gone `share` of its way, as a
+         * share of its time. The curve runs from 0,0 to 1,1 through the two
+         * points it is given; it goes one way only, so halving finds the
+         * point on it at that height, and the time is how far along it is.
+         */
+        function easedAt(share, ease) {
+            const [x1, y1, x2, y2] = ease;
+            const along = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
+
+            let low = 0;
+            let high = 1;
+
+            for (let i = 0; i < 30; i++) {
+                const mid = (low + high) / 2;
+                if (along(y1, y2, mid) < share) low = mid;
+                else high = mid;
+            }
+
+            return along(x1, x2, (low + high) / 2);
+        }
+
+        // The banner's row, back a piece at a time once the words are in
+        function barIn() {
+            const pieces = [...gatheredBar.children];
+
+            gatheredBar.style.visibility = '';
+            pieces.forEach((piece, k) => piece.animate([
+                { opacity: 0, scale: 0.4 },
+                { opacity: 1, scale: 1.15, offset: 0.6 },
+                { opacity: 1, scale: 1 }
+            ], { duration: BAR_POP, delay: k * BAR_STEP, easing: 'ease-out', fill: 'backwards' }));
+        }
+
+        // Numbers the deals, so that only the latest has a say -- see view.deal
+        let deals = 0;
+
+        view.deal = (letters, done) => {
+            const coming = letters.map((letter, at) => at).filter(at => !letters[at].isEaten);
+            const text = translationEl();
+            if (still() || won || !coming.length || !text) return done();
+
+            /*
+             * Still the screen it was dealt on, and still the latest deal on
+             * it. The board is let go with the letters down and the cloud
+             * still on its way up, and a word can be won in that time -- the
+             * session with it, or the next word dealt -- which must not have
+             * its banner shown, its letters let out or its board let go by a
+             * cloud that belongs to the word before. That cloud goes all the
+             * same (see land).
+             */
+            const mine = showing;
+            const dealt = ++deals;
+            const alive = () => mine === showing && dealt === deals;
+
+            undealt = new Set(coming);
+            redraw();
+
+            // What the cloud turns into, waiting under where it will land, and
+            // the rest of the banner gone until it has -- see barIn. Hidden
+            // on the bar rather than on its pieces, because the bar is built
+            // again whenever the voices arrive, and on the first word of a
+            // session that can be while the cloud is up.
+            text.style.opacity = '0';
+            gatheredBar.style.visibility = 'hidden';
+
+            // To the fraction of a pixel, and a hair over: offsetWidth rounds,
+            // and "thank you" in a box the fraction narrower than its own
+            // wrapped to "thank" with "you" cut off under it. The hair is for
+            // the zoom the rect is divided back out of, which can leave it a
+            // rounding short of the same thing again.
+            const box = appRect(text);
+            const tw = box.width + 0.25;
+            const th = box.height;
+            const w = tw + 2 * CLOUD_PAD_X;
+            const h = th + 2 * CLOUD_PAD_Y;
+
+            const board = appRect(svg);
+            const origin = fixedOrigin();
+            const centre = { x: board.left + board.width / 2, y: board.top + board.height / 2 };
+
+            // The puffs at the ends stand out of the box by a sixth of its
+            // height on each side
+            const grown = Math.max(1, Math.min(CLOUD_GROWN, board.width * CLOUD_ROOM / (w + h * 0.3)));
+
+            const cloud = $(host, `<div class="snake-deal-cloud" aria-hidden="true" style="position: fixed; z-index: 8; left: ${centre.x - origin.left - w / 2}px; top: ${centre.y - origin.top - h / 2}px; width: ${w}px; height: ${h}px; pointer-events: none; transform: scale(${grown}); will-change: transform;">
+                <div class="snake-deal-body" style="position: absolute; inset: 0;">
+                    <div class="snake-deal-edges" style="position: absolute; inset: 0; filter: drop-shadow(0 0 1px ${palette.boardBorder});">
+                        ${puffsOf(w, h).map(p => `<span class="snake-deal-puff" style="position: absolute; left: ${p.x}px; top: ${p.y}px; width: ${p.w}px; height: ${p.h}px; border-radius: ${Math.min(p.w, p.h) / 2}px; background: ${palette.hintBg};"></span>`).join('')}
+                    </div>
+                    <div class="snake-deal-text" style="position: absolute; left: ${CLOUD_PAD_X}px; top: ${CLOUD_PAD_Y}px; width: ${tw}px; height: ${th}px; overflow: hidden; font-size: ${text.style.fontSize}; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere;"></div>
+                </div>
+            </div>`);
+
+            const body = cloud.querySelector('.snake-deal-body');
+            const words = cloud.querySelector('.snake-deal-text');
+            const puffs = [...cloud.querySelectorAll('.snake-deal-puff')];
+
+            words.textContent = text.textContent;
+
+            /*
+             * Billowing up: each puff out of nothing at a moment of its own,
+             * and then swelling and settling, out of step with the others, for
+             * as long as the cloud is up. The swell is on `scale` and the
+             * coming in on `transform`, so the one adds to the other.
+             */
+            puffs.forEach((puff, k) => {
+                puff.animate([
+                    { transform: 'scale(0)', opacity: 0 },
+                    { transform: 'scale(1.15)', opacity: 1, offset: 0.6 },
+                    { transform: 'scale(1)', opacity: 1 }
+                ], { duration: CLOUD_FORM * 0.65, delay: k ? Math.random() * CLOUD_FORM * 0.35 : 0, easing: 'ease-out', fill: 'backwards' });
+
+                puff.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 700 + Math.random() * 300, delay: Math.random() * 300, iterations: 4, easing: 'ease-in-out' });
+            });
+
+            const formed = words.animate([
+                { opacity: 0, transform: 'scale(0.8)' },
+                { opacity: 1, transform: 'scale(1)' }
+            ], { duration: CLOUD_FORM / 2, delay: CLOUD_FORM / 2, easing: 'ease-out', fill: 'backwards' }).finished;
+
+            /*
+             * Landed: the words are standing exactly over the banner's own,
+             * which are shown, and the row comes back. The cloud goes once its
+             * edges have -- they are gone by now or nearly, and without them
+             * there is nothing of it the banner is not showing already.
+             */
+            function land(shed) {
+                const gone = () => cloud.remove();
+                shed.then(gone, gone);
+
+                if (!alive()) return;
+
+                text.style.opacity = '';
+                barIn();
+            }
+
+            /*
+             * The way up starts from the cloud having formed rather than at a
+             * time worked out beforehand, and the letters with it. An
+             * animation starts on the first frame after it is asked for, and
+             * a timer does not wait for one: on a page slow to draw that
+             * frame, letters timed from the start came out of a cloud that
+             * was not there yet.
+             */
+            formed.catch(() => null).then(() => wait(CLOUD_READ)).then(() => {
+                if (!alive()) {
+                    cloud.remove();
+                    return null;
+                }
+
+                const to = centreOf(text);
+
+                const rise = cloud.animate([
+                    { transform: `translate(0px, 0px) scale(${grown})` },
+                    { transform: `translate(${to.x - centre.x}px, ${to.y - centre.y}px) scale(1)` }
+                ], { duration: CLOUD_RISE, easing: `cubic-bezier(${RISE_EASE.join(', ')})`, fill: 'forwards' });
+
+                /*
+                 * The edges go as the words pass the middle of the banner: by
+                 * a delay on the same clock the way up runs on, worked out
+                 * from how far up the middle is and how the way up is eased,
+                 * so the two cannot drift apart the way a timer can.
+                 */
+                const middle = centreOf(hintBanner).y;
+                const share = Math.min(1, Math.max(0, (centre.y - middle) / (centre.y - to.y)));
+
+                const shed = cloud.querySelector('.snake-deal-edges').animate([{ opacity: 1 }, { opacity: 0 }], {
+                    duration: CLOUD_SHED,
+                    delay: easedAt(share, RISE_EASE) * CLOUD_RISE,
+                    easing: 'ease-out',
+                    fill: 'forwards'
+                }).finished;
+
+                const gap = coming.length > 1 ? CLOUD_RISE * DEAL_SPREAD / (coming.length - 1) : 0;
+
+                // Each from where the cloud is when it is shot, somewhere on
+                // its way up, and a little past its size as it lands
+                const flights = shuffled(coming).map((at, k) => wait(k * gap).then(() => {
+                    if (!alive()) return null;
+
+                    const from = centreOf(cloud);
+                    const cell = cellAt(letters[at]);
+
+                    body.animate([{ scale: 1 }, { scale: 1.1 }, { scale: 1 }], { duration: 180, easing: 'ease-out' });
+
+                    return launch(letterSvg(letters[at].char), cell.width, [
+                        { x: from.x, y: from.y, scale: 0.4, easing: 'cubic-bezier(0.15, 0.7, 0.3, 1)' },
+                        { x: cell.x, y: cell.y, scale: 1.2, offset: 0.82 },
+                        { x: cell.x, y: cell.y, scale: 1 }
+                    ], DEAL_FLY).then(() => {
+                        if (!alive()) return;
+
+                        undealt.delete(at);
+                        redraw();
+                    });
+                }));
+
+                // The board goes on the letters alone: the cloud has nothing
+                // left to do with it once they are down
+                const landed = () => land(shed);
+                rise.finished.then(landed, landed);
+
+                return Promise.all(flights);
+            }).then(() => {
+                if (alive()) done();
+            });
+        };
+
         view.victory = (result) => {
             const mine = ++showing;
 
@@ -2355,6 +2682,10 @@ function snake(container) {
             return (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 || 0;
         }
 
+        // A letter out on the board, and the same letter flying in -- see
+        // view.deal
+        const LETTER_PX = 25.6;
+
         function glyph(char, cx, cy, px, fill, weight) {
             const font = fontOf(px, weight);
             const size = fitSize(char, px, font);
@@ -2509,14 +2840,15 @@ function snake(container) {
             // Every letter out there is one to be read and gone for. The blanks
             // are not among them — see BLANK. On a board filled to the last
             // cell they are crowns at the end, and then not there at all as
-            // the crowns go up to the banner — see view.victory.
+            // the crowns go up to the banner — see view.victory. A new word's
+            // are not there until they have flown in — see view.deal.
             s.lettersOnBoard.forEach((l, at) => {
-                if (l.isEaten || crownsGone.has(at)) return;
+                if (l.isEaten || crownsGone.has(at) || undealt.has(at)) return;
 
                 const cx = (l.x + 0.5) * cellSize;
                 const cy = (l.y + 0.5) * cellSize;
 
-                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, 25.6, palette.boardLetter, 'bold');
+                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, LETTER_PX, palette.boardLetter, 'bold');
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -4265,7 +4597,8 @@ function snake(container) {
         refreshDots();
         view.star(0, state.starLevel);
 
-        if (board.load(state, targetWord, stageOf(currentItem))) board.spawnLetters();
+        const fresh = board.load(state, targetWord, stageOf(currentItem));
+        if (fresh) board.spawnLetters();
 
         // The board that was just built, written into the state the snapshot is
         // taken from. Every later board change persists itself from the tick
@@ -4275,7 +4608,29 @@ function snake(container) {
         // somewhere else.
         board.persistTo(state);
 
-        clock.attach({ onTick: onTick, blocked: () => board.isFrozen() });
+        /*
+         * A new word's letters on their way out of the cloud -- see
+         * view.deal -- and the board held while they are: a press is not
+         * taken, and a direction held down stops and walks on once they are
+         * down.
+         *
+         * A new word only, the first of the session and each after a heart.
+         * A round started over after a crash keeps a word whose translation
+         * has been read, and puts its letters down at once; a session coming
+         * back from storage has its letters where they were.
+         */
+        let dealing = false;
+
+        function deal() {
+            dealing = true;
+
+            view.deal(board.snapshot().lettersOnBoard, () => {
+                dealing = false;
+                clock.schedule();
+            });
+        }
+
+        clock.attach({ onTick: onTick, blocked: () => board.isFrozen() || dealing });
         input.attach({
             onDirection: (reqDir, isNewPress) => handleInput(reqDir, isNewPress),
             onPause: () => halt(),
@@ -4348,7 +4703,7 @@ function snake(container) {
         }
 
         function handleInput(reqDir, isNewPress) {
-            if (!reqDir) return;
+            if (!reqDir || dealing) return;
             if (!board.acceptsInput()) return;
 
             const wasFrozenOrPaused = (board.isFrozen() || clock.isPaused());
@@ -4584,6 +4939,7 @@ function snake(container) {
             refreshGathered();
             board.persistTo(state);
             page.save();
+            deal();
         }
 
         /*
@@ -4921,6 +5277,7 @@ function snake(container) {
         speech.onVoices(refreshGathered);
 
         view.banner(currentItem.word.translation);
+        if (fresh) deal();
         paint();
         board.persistTo(state);
 

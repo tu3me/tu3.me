@@ -23,7 +23,7 @@
  * the list, so that it reads `game.title` where it reads `game.pitch` -- see
  * takeFaces in catalog.js.
  *
- *   - `title` is the name under the tile and in the dialog.
+ *   - `title` is the name under the tile.
  *   - `show(el, tile, log, { actual, animate })` draws the tile's whole face,
  *     the background included, into `el` -- an empty element the size of the
  *     tile, which whoever asks puts where the tile is to be. `tile` is its
@@ -54,26 +54,18 @@
  *     in currentColor on a 24-unit grid, the grid and the 2-unit stroke of the
  *     pencil and shuffle icons in the catalog.
  *
- * And three words about where the game stands, none of them a state the game
- * is in:
+ * And one word about where the game stands, which is not a state the game
+ * is in: `soon` says the game is not written yet. There is no page to go to,
+ * so its tile, last in every set's row, starts nothing: it is an outline, and
+ * a press on it says "Coming soon". It is temporary by nature: it comes off
+ * in the commit that adds the game's page. `wordcraft` wore it until exactly
+ * that commit.
  *
- *   - `away` keeps it off the row of a set nobody has pinned anything on. A set
- *     starts with the games that do not carry it; the rest are a pin away in
- *     the dialog, and a game played on a set is pinned to it by the playing.
- *     Nothing about the game itself is different -- it is finished, it is
- *     played, and an unfinished round of it resumes. Until 26 October 2026 it
- *     meant off the row for good: the row had four fixed places, the fourth
- *     was the door to the dialog, and the game that did not fit was played
- *     from there.
- *   - `soon` says the game is not written yet. There is no page to go to, so
- *     it is never on a row, and in the dialog it is not a press at all -- an
- *     outlined tile and a line of what the game will be for, with no pin. It is
- *     the one word here that is temporary by nature: it comes off in the commit
- *     that adds the game's page. `wordcraft` wore it until exactly that commit.
- *   - `fresh` puts a "New" plate beside the name in that dialog, for as long
- *     as the game has not been played -- see allGames in catalog.js, which asks
- *     the answers. The word itself comes off by hand, once the game is no
- *     longer new to anybody arriving either.
+ * There were two more until 29 October 2026, when every game went on every
+ * set's row and the "All games" dialog went: `away`, which kept a game off
+ * the row of a set nobody had pinned it to (the snake, and before 26 October
+ * a game that did not fit the row's four places), and `fresh`, a "New" plate
+ * beside the name in the dialog until the game was first played.
  */
 const GAME_FACES = {};
 

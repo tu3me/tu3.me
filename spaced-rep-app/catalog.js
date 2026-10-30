@@ -439,16 +439,6 @@ function catalog(container) {
      * the machine it is opened on, and a globe would have said "the web", which
      * is what all three are.
      */
-    // Three dots on the last tile of a set's row, the door to all the games,
-    // so that it is built like the games beside it — a picture with a word
-    // under it — and not a lone label in a row of them.
-    const DOTS_BODY = `
-        <circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none" />
-        <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
-        <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none" />`;
-
-    const DOTS = chromeIcon(DOTS_BODY, 24);
-
     const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
 
     const DESKTOP = chromeIcon(`
@@ -1030,24 +1020,26 @@ function catalog(container) {
      * So a set fills in twice over, and a segment has three states it passes
      * through in order:
      *
-     *   waiting  the thinnest pill, in the resting colour — see stepIdle;
-     *   lit      a little taller, and in the colour of its stage;
-     *   grown    taller again, and the tallest the row goes.
+     *   waiting  a dot, in the resting colour — see stepIdle;
+     *   lit      the same dot in the colour of its stage;
+     *   grown    a bar the full width of its share of the row, as tall as
+     *            the dot is round.
      *
-     * Height is the whole of it, and that is the second attempt. The first
-     * built the same three states out of a border and a fill — a thick
-     * transparent edge that the colour later filled in — and it was wrong in
-     * two ways at once. A transparent edge insets the strip sideways as well,
-     * so the small state sat in a gap three pixels wider at each end than the
-     * one the flex row gives, and a row of short dashes drifted apart. And a
-     * background is painted under the border unless it is clipped, so the
-     * small state was not small at all until background-clip was set — a fix
-     * for a problem the design did not need to have.
+     * Dots since 29 October 2026, the owner's call. Until then all three
+     * were bars the width of their share, told apart by height alone -- a
+     * thin pill, a taller one and the full height (3.4, 5.1 and 9.4) -- and
+     * the two thin ones were hard to tell apart. Height came after a first
+     * attempt built of a border and a fill -- a thick transparent edge that
+     * the colour later filled in -- which was wrong in two ways at once. A
+     * transparent edge insets the strip sideways as well, so the small state
+     * sat in a gap three pixels wider at each end than the one the flex row
+     * gives, and a row of short dashes drifted apart. And a background is
+     * painted under the border unless it is clipped, so the small state was
+     * not small at all until background-clip was set.
      *
-     * Nothing moves sideways now. Every segment is the full width of its
-     * share of the row in all three states, the gaps between them are the
-     * row's own, and what changes is how tall the strip is and whether its
-     * ends are round.
+     * Every segment still has the same share of the row in all three states,
+     * a dot standing in the middle of its share, so nothing moves sideways
+     * when one grows into a bar; the gaps between them are the row's own.
      *
      * The gap between the passes is the spread of the set, which is worth
      * seeing and which one number for the whole set can never show.
@@ -1060,15 +1052,9 @@ function catalog(container) {
     const SEGMENTS = 13;
     const FIRST_RUNG = 2;
 
-    // Three states, three heights, and every one of them a pill: the radius
-    // is always half the height, so what changes down the row is size and
-    // nothing else. Four, six and eleven — the first step small enough to
-    // read as the same thing lit, the second big enough to read as the thing
-    // finished, and neither needs comparing to see, which is the whole job of
-    // a bar read at a glance.
-    const STEP_WAIT = 3.4;
-    const STEP_LIT = 5.1;
-    const STEP_TALL = 9.4;
+    // The dot's diameter and the bar's height, one number for both: a bar is
+    // a dot drawn out to the width of its share
+    const STEP_SIZE = 9.4;
 
     /*
      * The same colour with the light turned down a notch.
@@ -1575,15 +1561,16 @@ function catalog(container) {
     }
 
     // The swell a button makes to be found, twice over, and what it does
-    // instead where motion is turned down -- see pulseMute and flyToGear.
+    // instead where motion is turned down -- see pulseMute. The second is
+    // what the gear does in flyToGear too, where motion is turned down.
     const BECKON = [{ scale: 1 }, { scale: 1.3, offset: 0.3 }, { scale: 0.94, offset: 0.65 }, { scale: 1 }];
     const BECKON_STILL = [{ opacity: 1 }, { opacity: 0.3 }, { opacity: 1 }];
 
     /*
      * The help strip sent away by the cross on one of its cards: the card
-     * shrinks into its own question mark, the mark flies into the gear, the
-     * gear swells twice as it lands, and the screen is drawn again
-     * without the strip.
+     * shrinks into its own question mark, the mark flies onto the gear, and
+     * as it lands the screen is drawn again without the strip and the button
+     * turns over to the mark and back to the gear -- see flipThrough.
      *
      * The flight is the point of it. The strip used to end on a card saying it
      * could be had back in the settings, with an arrow to the gear; that card
@@ -1605,9 +1592,12 @@ function catalog(container) {
      * looking already -- to the left of it, by MARK_ASIDE, so that it is not
      * under the pointer or the finger that pressed.
      *
-     * Two swells, the same as a silent bubble gets (pulseMute). It was three
-     * for part of 26 October 2026, and back to two the same day, as the owner
-     * asked.
+     * Landing, it turns the button over, the owner's call of 29 October 2026:
+     * the mark takes the gear's place on its back, and the button turns back
+     * to the gear. Until then the mark fell into the gear, shrinking and
+     * fading, and the button swelled twice, the same as for a silent bubble
+     * (pulseMute) -- three times for part of 26 October 2026, and back to two
+     * the same day, as the owner asked.
      *
      * Copies do the moving, not the card. The card is in the column, under the
      * sticky header and below the list's layer; the copies are fixed over all
@@ -1635,7 +1625,59 @@ function catalog(container) {
     // pointer, which hangs down and to the right of its point.
     const MARK_ASIDE = 40;
     const FLY = 420;
-    const LANDING_BECKONS = 2;
+
+    // Half a turn of the button, and how long it shows the mark between its
+    // two turns
+    const FLIP = 160;
+    const FLIP_HOLD = 600;
+
+    /*
+     * The settings button turned over to the onboarding's mark and back: a
+     * quarter turn, the gear swapped for the mark edge-on where neither is
+     * seen, a quarter turn back with the mark on its face; a pause; and the
+     * same again with the gear. Turned about its upright with a little
+     * perspective, so it reads as a tile turning and not as a squeeze.
+     *
+     * Over the gear rather than in its place, in a box of its own inside the
+     * button, the way pulseMute lays the speaker over it: the button and its
+     * gear are the header's, and drawn again by every render.
+     */
+    function flipThrough(btn) {
+        const gear = btn.querySelector('svg');
+        if (!gear) return;
+
+        const mark = $(btn, `<span class="dict-settings-sign" aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${onboarding.sign()}</span>`);
+
+        const total = 4 * FLIP + FLIP_HOLD;
+        const at = (ms) => ms / total;
+        const turn = (deg) => `perspective(90px) rotateY(${deg}deg)`;
+
+        const over = at(FLIP);
+        const back = at(3 * FLIP + FLIP_HOLD);
+
+        btn.animate([
+            { transform: turn(0), easing: 'ease-in' },
+            { transform: turn(90), offset: over },
+            { transform: turn(-90), offset: over + 0.0001, easing: 'ease-out' },
+            { transform: turn(0), offset: at(2 * FLIP) },
+            { transform: turn(0), offset: at(2 * FLIP + FLIP_HOLD), easing: 'ease-in' },
+            { transform: turn(90), offset: back },
+            { transform: turn(-90), offset: back + 0.0001, easing: 'ease-out' },
+            { transform: turn(0) }
+        ], total);
+
+        const shows = (from) => [
+            { opacity: from },
+            { opacity: from, offset: over },
+            { opacity: 1 - from, offset: over + 0.0001 },
+            { opacity: 1 - from, offset: back },
+            { opacity: from, offset: back + 0.0001 },
+            { opacity: from }
+        ];
+
+        gear.animate(shows(1), total);
+        mark.animate(shows(0), total).onfinish = () => mark.remove();
+    }
 
     // A fixed box at these layout pixels, put right by what it missed by.
     // Until 26 October 2026 the page outside the popup kept a gutter for its
@@ -1683,7 +1725,10 @@ function catalog(container) {
             render();
 
             const settled = container.querySelector('#settings-btn');
-            if (settled) settled.animate(still ? BECKON_STILL : BECKON, { duration: PULSE, iterations: LANDING_BECKONS, easing: 'ease-out' });
+            if (!settled) return;
+
+            if (still) settled.animate(BECKON_STILL, { duration: PULSE, iterations: 2, easing: 'ease-out' });
+            else flipThrough(settled);
         };
 
         if (still) {
@@ -1732,16 +1777,15 @@ function catalog(container) {
             { height: '0px', marginTop: '0px' }
         ], { duration: FLY, delay: away, easing: 'ease-in-out', fill: 'forwards' });
 
-        // Into the middle of the gear, a little smaller than it came, and faster
-        // as it goes, the way a thing falls into something.
+        // Onto the middle of the gear, faster as it goes, the way a thing
+        // falls onto something, and still whole when it gets there: the
+        // button turns over to it as it lands -- see flipThrough.
         const dx = (to.left + to.width / 2) - (sign.left + sign.width / 2);
         const dy = (to.top + to.height / 2) - (sign.top + sign.height / 2);
-        const there = `translate(${dx}px, ${dy}px)`;
 
         mark.animate([
-            { transform: 'none', opacity: 1, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' },
-            { transform: `${there} scale(0.8)`, opacity: 1, offset: 0.88 },
-            { transform: `${there} scale(0.6)`, opacity: 0 }
+            { transform: 'none', easing: 'cubic-bezier(0.5, 0, 0.75, 0)' },
+            { transform: `translate(${dx}px, ${dy}px)` }
         ], { duration: FLY, delay: away, fill: 'forwards' }).onfinish = () => {
             mark.remove();
             landing();
@@ -3393,33 +3437,11 @@ function catalog(container) {
     }
 
     /*
-     * The colour of the slot where the next game goes.
-     *
-     * Filled like the three beside it, because the row is four blocks and an
-     * outline among them is a hole in it — the button was drawn that way first
-     * and it read as something gone wrong rather than as something to come.
-     *
-     * Mint since 28 October 2026, the owner's call: the snake's tile turned
-     * blue, which was this one's, and two blue tiles in a row are one game
-     * twice. The mint was the snake's until then and is nobody's now.
-     *
-     * It was blue before that, the one place left in the row once coral, gold
-     * and mint covered the warm half of the wheel and the green corner of the
-     * cool one -- light enough to clear the card it lies on in the dark theme,
-     * which is itself blue. And a warm greige before that, and a neutral among
-     * three colours is what a disabled button looks like — the slot is meant to
-     * be inviting, not switched off.
-     *
-     * One value for both themes, like the game colours: a block that changed
-     * colour with the theme would be two blocks.
-     */
-    const MORE_FILL = '#56c4a6';
-
-    /*
      * The blue the onboarding strip is tinted with -- see onbBg -- which was
-     * MORE_FILL's until the slot went mint, and stays: the strip's contrasts
-     * were measured against it, and the pale bubbles of the colours card are
-     * greens among others, which a mint ground would swallow.
+     * the "All games" tile's until that went mint (and then went altogether,
+     * 29 October 2026), and stays: the strip's contrasts were measured against
+     * it, and the pale bubbles of the colours card are greens among others,
+     * which a mint ground would swallow.
      */
     const STRIP_TINT = '#4a90d9';
 
@@ -3477,11 +3499,11 @@ function catalog(container) {
 
     /*
      * The tile's side, its corner and the drawing in it -- 57.6, 19.2 and 32
-     * until 26 October 2026, when the row stopped being four places and became
-     * as many as the set has games pinned to it (see pinnedOn). Five have to
-     * stand in one row of a card -- four games and the door to the rest -- and
-     * a fifth of the row is 57.4 with the gaps taken out: room for a 57.6 tile
-     * and nothing on either side of it, and the names under them touching.
+     * until 26 October 2026, when the row stopped being four places. Five have
+     * to stand in one row of a card -- four games and the one to come (the
+     * door to the rest of the games, until it went) -- and a fifth of the row
+     * is 57.4 with the gaps taken out: room for a 57.6 tile and nothing on
+     * either side of it, and the names under them touching.
      * Fifty leaves the tiles their air; the corner stays a third of the side
      * and the drawing keeps its share of it.
      */
@@ -3489,64 +3511,23 @@ function catalog(container) {
     const TILE_RADIUS = TILE / 3;
     const TILE_ICON = 28;
 
-    // The door to all games is not a game, and draws its own tile: the same
-    // square the plain games draw for themselves, in its own colour, with the
-    // three dots in white.
-    const MORE_TILE = `<span style="display: grid; place-items: center; width: ${TILE}px; height: ${TILE}px; background: ${MORE_FILL}; color: #ffffff; border-radius: ${TILE_RADIUS}px;">${chromeIcon(DOTS_BODY, TILE_ICON)}</span>`;
-
     /*
-     * The games a set's row shows: the ones pinned to it.
+     * The games a set's row shows: all of them, the one still to come last --
+     * the owner's call, 29 October 2026.
      *
-     * The row held four tiles once, and the fourth was not a game, so the
-     * third game was the last that fitted and the next one was played from the
-     * dialog behind the fourth tile. Since 26 October 2026 every game is in
-     * that dialog with a pin beside it, and the row is whatever is pinned --
-     * per set, because the game somebody plays on one set is not the one they
-     * play on every set, and pinned on the set itself so that it travels with
-     * it to the person's other devices (see store.pinGames).
-     *
-     * A set nobody has pinned anything on shows the games that do not say
-     * `away` -- see core/icons.js -- and a game played on a set is
-     * pinned to it by the playing: see beginSession. A game not written yet is
-     * never on the row, pinned or not: there is nothing behind its tile.
-     *
-     * In the registry's order rather than the order of pinning, so that a game
-     * keeps its place in the row whatever was pinned before it.
+     * In the registry's order otherwise, so that a game keeps its place in the
+     * row. From 26 October 2026 until then the row was the games pinned to the
+     * set, and the rest were in a dialog behind a last tile, "All games",
+     * which held a line on what each is for and a pin beside it; the lines
+     * are the tiles' hints now (`title`, from `pitch` in registry.js), and
+     * what was pinned (`pinned` on a set) is left where it is and read by
+     * nothing -- see docs/ARCHITECTURE.md, "Список — не полка".
      */
-    const DEFAULT_PINS = GAMES.filter(g => !g.away && !g.soon).map(g => g.id);
-
-    const pinnedOn = (set) => (set && set.pinned) || DEFAULT_PINS;
-
-    const shelfOf = (set) => {
-        const pinned = pinnedOn(set);
-        return GAMES.filter(g => !g.soon && pinned.includes(g.id));
-    };
-
-    /*
-     * A pin put in or taken out, by hand from the dialog or by playing: true
-     * when it changed anything. The caller saves.
-     *
-     * Written down as the whole list rather than as a change to the default:
-     * once a person has said anything about a set's row, the row is theirs,
-     * and a game the registry later adds unpinned does not turn up on it.
-     *
-     * Counted as `pin` with what it came to and how, for the analytics: the
-     * press alone says a pin was pressed, not whether it went in or came out
-     * -- see docs/ANALYTICS.md.
-     */
-    function pinGame(set, gameId, on, how) {
-        const pinned = pinnedOn(set);
-        if (pinned.includes(gameId) === on) return false;
-
-        store.pinGames(set.id, on ? pinned.concat(gameId) : pinned.filter(id => id !== gameId));
-        track('pin', gameId, on ? 'on' : 'off', how);
-        return true;
-    }
+    const ROW_GAMES = GAMES.filter(g => !g.soon).concat(GAMES.filter(g => g.soon));
 
     // Whether a game was left unfinished on a set, which is a question about
     // both halves of it: the same game on another set is a game that was never
-    // started. Asked of the tiles on the shelf and of the tiles in the dialog,
-    // which is why it stands outside both.
+    // started.
     const openOn = (game, setId) => !!session && session.game === game.id
         && String(session.setId) === String(setId);
 
@@ -3667,7 +3648,7 @@ function catalog(container) {
      * other way too, and a game handed the whole set would be a game reading
      * words it has no business with.
      */
-    const tileSpec = () => ({ size: TILE, radius: TILE_RADIUS, icon: TILE_ICON, dark: theme.isDark() });
+    const tileSpec = () => ({ size: TILE, radius: TILE_RADIUS, icon: TILE_ICON });
 
     const logOf = (game, set) => (set && set.achievements && set.achievements[game.id]) || [];
 
@@ -4206,38 +4187,41 @@ function catalog(container) {
             // the bar up when the catalog opens, so there is one description
             // of what a segment looks like rather than two that must agree.
             const stepLook = (i) => {
-                const height = i < ladder.grown ? STEP_TALL : (i < ladder.lit ? STEP_LIT : STEP_WAIT);
                 const lit = i < ladder.lit;
                 const colour = lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle;
 
                 return {
                     colour,
                     edge: (lit && palette.stepEdge) ? shade(colour, palette.stepEdge) : '',
-                    height,
-                    radius: height / 2
+                    width: i < ladder.grown ? '100%' : `${STEP_SIZE}px`
                 };
             };
 
-            const waiting = { colour: palette.stepIdle, edge: '', height: STEP_WAIT, radius: STEP_WAIT / 2 };
+            const waiting = { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px` };
 
             /*
              * Nothing here eases. A segment arrives at its state the moment
              * its turn comes, whole.
              *
-             * Height cannot ease: four pixels to eleven is seven pixels of
-             * change and a screen can only show it seven ways, so half a
-             * second of it is a strip climbing a staircase. Colour could —
+             * The shape did not ease when it was a height -- four pixels to
+             * eleven is seven pixels of change, and a screen can only show it
+             * seven ways, so half a second of it was a strip climbing a
+             * staircase -- and a dot drawing out into a bar keeps the same
+             * snap, so a row read at a glance has nothing half-made in it.
+             * Colour could —
              * two hundred and fifty-six levels a channel is smooth enough —
              * and it was fading for a while, but a fade under a snap reads as
              * the segment arriving twice. The wave below is the animation;
              * each segment is one beat of it.
              */
             // The hairline is a shadow rather than a border: a border would eat
-            // into a strip that is four pixels tall to begin with, and half a
-            // pixel of one is not a thing the box model can hold. A spread
-            // shadow sits outside the box, follows the rounding and costs the
-            // layout nothing.
-            const stepStyle = (look) => `flex: 1; height: ${look.height}px; border-radius: ${look.radius}px;`
+            // into a dot nine pixels across, and half a pixel of one is not a
+            // thing the box model can hold. A spread shadow sits outside the
+            // box, follows the rounding and costs the layout nothing.
+            //
+            // Each segment is a share of the row with the dot or the bar in
+            // the middle of it -- see SEGMENTS.
+            const stepStyle = (look) => `flex: none; width: ${look.width}; height: ${STEP_SIZE}px; border-radius: ${STEP_SIZE / 2}px;`
                 + ` background-color: ${look.colour};`
                 + (look.edge ? ` box-shadow: 0 0 0 0.5px ${look.edge};` : '');
 
@@ -4246,12 +4230,6 @@ function catalog(container) {
             // redraws the screen does to itself skip that and draw the end
             // state — see the timeout below.
             const grows = intro;
-
-            // The games on this set's row, and the ones only the dialog holds
-            // -- an unfinished round of one of those is shown on the door to
-            // them, see the last button below.
-            const shelf = shelfOf(set);
-            const offShelf = GAMES.filter(g => !g.soon && !shelf.includes(g));
 
             // The tiles plain at first, to grow what the set has won -- see
             // growTiles.
@@ -4268,16 +4246,15 @@ function catalog(container) {
                     </div>
                 </div>
 
-                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_TALL}px; margin-bottom: 12px;">
-                    ${Array.from({ length: SEGMENTS }, (_, i) => `<div class="set-progress-step"
-                        style="${stepStyle(grows ? waiting : stepLook(i))}"></div>`).join('')}
+                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_SIZE}px; margin-bottom: 12px;">
+                    ${Array.from({ length: SEGMENTS }, (_, i) => `<div style="flex: 1; display: flex; justify-content: center;"><div class="set-progress-step"
+                        style="${stepStyle(grows ? waiting : stepLook(i))}"></div></div>`).join('')}
                 </div>
 
                 <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
 
                 <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; margin-top: 15.4px;">
-                    ${shelf.map(g => tileBtn('set-play-btn', '', g.title, `data-game="${g.id}"`, unfinished(g))).join('')}
-                    ${tileBtn('set-more-btn', MORE_TILE, 'All games', '', offShelf.some(unfinished))}
+                    ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${g.pitch}"`, unfinished(g))).join('')}
                 </div>
             `);
 
@@ -4323,14 +4300,13 @@ function catalog(container) {
 
                         step.style.backgroundColor = look.colour;
                         step.style.boxShadow = look.edge ? `0 0 0 0.5px ${look.edge}` : '';
-                        step.style.height = `${look.height}px`;
-                        step.style.borderRadius = `${look.radius}px`;
+                        step.style.width = look.width;
                     }, 150 + i * STEP_WAVE_MS);
                 });
             }
 
             card.querySelectorAll('.set-play-btn').forEach(btn => {
-                const game = shelf.find(g => g.id === btn.dataset.game);
+                const game = GAMES.find(g => g.id === btn.dataset.game);
 
                 // Its face, drawn by the game into the box the row left for it
                 const tile = btn.querySelector('.set-tile');
@@ -4349,13 +4325,41 @@ function catalog(container) {
                 });
             });
 
-            // The last button is not a game, it is the door to all of them:
-            // MORE_FILL says what it is painted in, allGames what is behind it.
-            // It wears the Continue face when a game off the row was left
-            // unfinished, because the promise that face makes is that the way
-            // back in is where the player would have pressed — and for a game
-            // off the row, that is this button.
-            card.querySelector('.set-more-btn').addEventListener('click', () => allGames(set.id));
+            /*
+             * The game still to come -- see `soon` in core/icons.js: its tile
+             * an outline in the card's muted ink, and a press that starts
+             * nothing but says so. "Coming soon" takes the place of its name,
+             * or, where a fifth of the row is too narrow for the words, goes
+             * on the tile over the drawing -- the owner's call, 29 October
+             * 2026. Measured rather than assumed: the row's width is the
+             * app's, and the app's width is whatever the corner was dragged
+             * to.
+             *
+             * Written down as `set-soon-btn` all the same: a press on a game
+             * that is not there yet is the one measure of how much it is
+             * wanted -- see docs/ANALYTICS.md.
+             */
+            card.querySelectorAll('.set-soon-btn').forEach(btn => {
+                const game = GAMES.find(g => g.id === btn.dataset.game);
+                const tile = btn.querySelector('.set-tile');
+
+                tile.style.color = palette.hint;
+                game.show(tile, tileSpec(), [], { actual: true, animate: false });
+
+                let said = false;
+
+                btn.addEventListener('click', () => {
+                    if (said) return;
+                    said = true;
+
+                    const name = btn.querySelector('.set-tile-face');
+                    name.textContent = 'Coming soon';
+                    if (name.scrollWidth <= name.clientWidth) return;
+
+                    name.textContent = game.title;
+                    $(tile, `<span class="set-tile-soon" style="position: absolute; inset: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
+                });
+            });
 
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
@@ -4611,10 +4615,11 @@ function catalog(container) {
          * it is the app talking, which is what it is.
          *
          * Blue because the app had one: the last tile on every card, the one
-         * that is not a game, was blue until 28 October 2026 -- the last card
-         * of the strip is the dialog behind that tile, word for word. The tile
-         * went mint when the snake took the blue, and the strip kept it -- see
-         * STRIP_TINT.
+         * that was not a game, was blue until 28 October 2026 -- the last card
+         * of the strip said what the dialog behind that tile did, word for
+         * word. The tile went mint when the snake took the blue, and went
+         * altogether with its dialog on 29 October 2026; the strip kept the
+         * blue -- see STRIP_TINT.
          *
          * A third of the way to it in the dark theme and a fifth in the light,
          * which is where each stops being a tinted surface and becomes a colour.
@@ -5224,291 +5229,12 @@ function catalog(container) {
         // when the press went to one of the others.
         pointingHand.clear();
 
-        // A game played on a set is a game that set has, from now on: pinned
-        // to its row, so that the next round of it is not a trip through the
-        // dialog. Saved before leaving, because leaving takes the page with
-        // it; the catalog this returns to sends it on.
-        const set = store.sets().find(s => s.id === setId);
-        if (set && pinGame(set, game.id, true, 'auto')) await store.save();
-
         await storage.set('active_session', {
             game: game.id,
             setId: setId,
             startedAt: Date.now()
         });
         await nav.game(game, setId, allowEarly);
-    }
-
-    /*
-     * Every game, with what each is for and a pin to put it on the set's row --
-     * the dialog behind the last button.
-     *
-     * It began as what the fourth button had to say, which was more than a
-     * button can hold: that the row is not finished, and that finishing it will
-     * cost the people here now nothing. Then it was where a game off the shelf
-     * was played from -- the row ran out of places, and what moved out of it went
-     * in here with the tile it had. Since 26 October 2026 it holds all of them:
-     * the row is what is pinned to the set (see pinnedOn), and this is where a
-     * pin is put in or taken out, beside every game there is.
-     *
-     * The promise moved under the games, heading and all. It is still the half
-     * worth interrupting someone for -- an app with a few games and no reason
-     * to keep it is an app that goes when the phone runs short of room -- but
-     * the dialog is opened to find a game now, and the games are what it opens
-     * on.
-     *
-     * No "Got it" button. A dialog with something to press in it does not need
-     * a second thing whose only job is to be pressed, and of the two it is the
-     * wrong one that draws the hand. What dismisses it is the backdrop, and the
-     * cross beside the heading: a dialog this tall fills a popup to its edges,
-     * and the backdrop left round it is a strip somebody has to aim at.
-     *
-     * The heading says what the dialog is for, which since the games came in is
-     * finding one -- "Learn words through games" -- and the promise keeps its
-     * own heading under them.
-     *
-     * The words of the promise are not written here. The onboarding card makes
-     * the same one, and two copies of a promise is one promise and one mistake
-     * waiting -- so both read it from onboarding.promise().
-     *
-     * Built like the early-play dialog below, because it is the same kind of
-     * thing: something said in the middle of the catalog that the catalog goes
-     * back to being once it is read. Wider than that one, because every line
-     * here carries a sentence beside a tile and a pin.
-     */
-    function allGames(setId) {
-        const set = store.sets().find(s => s.id === setId);
-
-        /*
-         * A game drawn as a line of its own: its tile on the left, its name and
-         * what it is for beside it, its pin on the right.
-         *
-         * The same tile the row draws -- same size, same colour, the same name
-         * turning into "Continue" when a round of it was left open. A smaller
-         * or plainer picture here would be a second way of saying "Snake", and
-         * what this has to do is hand back the one thing the player knows by
-         * sight.
-         *
-         * A line rather than the column the row stands its tiles in, because
-         * this is the one place a game gets a sentence. Under a tile there is
-         * room for a name and nothing else, and on the row that is all a game
-         * needs: those are in front of the player every day. Beside the tile
-         * there is a column of room for the line that says why anybody would
-         * open it -- see `pitch` in registry.js.
-         *
-         * Written out here rather than handed to tileBtn, which builds the
-         * other shape: a tile with its name under it, for a row of equal
-         * columns. The two share the classes the name's swap is keyed to
-         * instead -- see .set-tile-swap in app.css.
-         *
-         * The line is two presses side by side and not one with another inside
-         * it: a button cannot hold a button, and the pin is a press of its own
-         * that must not start the game.
-         */
-        const ROW = `display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; background: none; border: none; font-family: inherit; text-align: left;`;
-        const NAME = `font-size: 12.8px; font-weight: 700; line-height: 1.2; color: ${palette.dialogText};`;
-
-        // The tile, then the name and the sentence under it. What a game that
-        // is written and a game that is not have in common is exactly this
-        // much, so the two that differ -- the tile and the name -- are handed
-        // in.
-        const body = (tile, name, game) => `${tile}
-            <span style="min-width: 0;">
-                ${name}
-                ${game.pitch ? `<span style="display: block; margin-top: 3.4px; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.dialogBody};">${game.pitch}</span>` : ''}
-            </span>`;
-
-        /*
-         * The pin: a pushpin drawn in the chrome's own stroke, standing up and
-         * filled where the game is on the row, an outline where it is not.
-         *
-         * Filled and in the dialog's ink for pinned, outlined in its muted ink
-         * for not: two states of one switch, told apart by weight the way the
-         * sound switch tells its two apart by a stroke, and neither of them in
-         * the accent -- the accent is for the thing to press, and on this line
-         * that is the game.
-         *
-         * A target of thirty-four for a mark of twenty: it is pressed with a
-         * thumb as often as with a pointer, and the tile beside it is a target
-         * a game starts from.
-         */
-        const PIN = (on) => chromeIcon(`<path d="M9 3h6" /><path d="M10 3v5.5L7 13h10l-3-4.5V3" fill="${on ? 'currentColor' : 'none'}" /><path d="M12 13v8" />`, 20);
-
-        const pinLook = (on) => ({
-            title: on ? 'Unpin from this set' : 'Pin to this set',
-            colour: on ? palette.dialogText : palette.dialogBody
-        });
-
-        const pinBtn = (game) => {
-            const on = pinnedOn(set).includes(game.id);
-            const look = pinLook(on);
-
-            return `<button class="more-dialog-pin" data-game="${game.id}" aria-pressed="${on}" title="${look.title}" aria-label="${look.title}" style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; padding: 0; background: transparent; border: none; border-radius: 10.2px; color: ${look.colour}; cursor: pointer;">${PIN(on)}</button>`;
-        };
-
-        /*
-         * The plate beside the name of a game marked `fresh` (core/icons.js):
-         * "New", in the accent and its white -- the brightest pair the app has,
-         * and the same in both themes. On the name and not on the tile, so the
-         * tile stays the picture the row shows; it goes with the name while the
-         * name says "Continue", since an unfinished round is not news.
-         *
-         * And only until the game has been played: until some set holds an
-         * answer marked with it -- see store.gameOf. Asked of the answers
-         * because every game writes them, and writes them with its name, from
-         * the first word it settles; they go wherever the sets go, so a game
-         * played on another device is not news here either. The archived sets
-         * are asked too: deleting a set does not unplay its games. A game
-         * opened and left before its first word was settled leaves nothing to
-         * ask, and keeps the plate -- it has not really been played.
-         *
-         * Records were the other trace, and an earlier one for the snake, whose
-         * length is written from the first letter it eats; they were left out
-         * on purpose, because not every game keeps one, and the rule is to be
-         * the same for all of them.
-         */
-        const played = new Set();
-        store.allSets().forEach(s => (s.words || []).forEach(w =>
-            (w.repetitions || []).forEach(rep => played.add(store.gameOf(rep)))));
-
-        const NEW_BADGE = `<span style="display: inline-block; margin-left: 5.1px; padding: 1.7px 5.1px; vertical-align: 1px; background: ${palette.accent}; color: ${palette.onAccent}; border-radius: 999px; font-size: 9.7px; font-weight: 800; line-height: 1.2; letter-spacing: 0.02em;">New</span>`;
-
-        const playable = (game) => {
-            const resuming = openOn(game, setId);
-            const swap = resuming ? ' set-tile-swap' : '';
-
-            const face = (html, alt) => `<span class="set-tile-face${alt ? ' set-tile-face-alt' : ''}" style="grid-area: 1 / 1; display: block;">${html}</span>`;
-
-            // The line itself carries no game: a container with one would count
-            // as a press of its own to the analytics, and both presses in it
-            // would come out with its name on the end -- see track.js.
-            return `<div class="more-dialog-line" style="display: flex; align-items: center; gap: 6.8px;">
-                <button class="more-dialog-game" data-game="${game.id}" style="${ROW} cursor: pointer;">${body(
-                    `<span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;"></span>`,
-                    `<span class="set-tile-label${swap}" style="display: grid; ${NAME}">
-                        ${face(game.title + (game.fresh && !played.has(game.id) ? NEW_BADGE : ''))}
-                        ${resuming ? face(CONTINUE, true) : ''}
-                    </span>`,
-                    game)}</button>
-                ${pinBtn(game)}
-            </div>`;
-        };
-
-        /*
-         * A game that is not written yet, drawn and not offered -- see `soon` in
-         * core/icons.js.
-         *
-         * A div and not a button, because there is nothing behind it: a press
-         * that does nothing is worse than no press, and a cursor that changes
-         * over it is a promise the row cannot keep. What says so without a word
-         * is the tile -- an outline in the dialog's own muted ink where every
-         * finished game is a solid colour -- and what says it in words is the
-         * two beside the name, which are the only thing here the app has to add
-         * to what the registry holds: the game's own line says what it will be
-         * for, and the saying when is this dialog's job.
-         *
-         * No pin either: there is no tile for it to put on the row. The place a
-         * pin would stand is left empty, so its sentence lines up with the
-         * sentences of the games above it.
-         *
-         * Marked for the analytics all the same, with the game in the mark: a
-         * press here does nothing, and is the one measure there is of how many
-         * people want the game -- measured: two taps on it in the scenario run,
-         * and not one of them in the data.
-         */
-        const coming = (game) => `<div class="more-dialog-line" style="display: flex; align-items: center; gap: 6.8px;">
-                <div class="more-dialog-soon" data-press="${game.id}" style="${ROW}">${body(
-                    `<span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none; color: ${palette.dialogBody};"></span>`,
-                    `<span style="display: block; ${NAME}">${game.title} <span style="font-weight: 600; color: ${palette.dialogBody};">(coming soon)</span></span>`,
-                    game)}</div>
-                <span aria-hidden="true" style="width: 34px; flex: none;"></span>
-            </div>`;
-
-        const line = (game) => (game.soon ? coming : playable)(game);
-
-        /*
-         * Allowed the height of the window and no more, scrolling inside
-         * itself past that: five games with a sentence each and the promise
-         * under them come close to the six hundred a popup may be.
-         *
-         * Scrolling with no bar drawn, like everything in the app -- see the
-         * scrollbar rule in app.css. Here it was asked for first: on Windows
-         * the bar is fifteen pixels wide, and they came out of every sentence
-         * beside a tile.
-         */
-        const overlay = $(`<div class="more-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
-            <div class="more-dialog" style="box-sizing: border-box; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 320px; width: 100%; max-height: 100%; overflow-y: auto;">
-                <div class="more-dialog-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 13.7px;">
-                    <div class="more-dialog-heading" style="font-size: 14.3px; font-weight: 700; line-height: 1.2;">Learn words through games</div>
-                    <button class="more-dialog-close" title="Close" aria-label="Close" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};">${CROSS}</button>
-                </div>
-                <div class="more-dialog-games" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 17.1px;">${GAMES.map(line).join('')}</div>
-                <div class="more-dialog-title" style="font-size: 14.3px; font-weight: 700; margin-bottom: 6.8px;">Free for early adopters</div>
-                <div class="more-dialog-text" style="font-size: 12.8px; line-height: 1.4; color: ${palette.dialogBody};">
-                    ${onboarding.promise().map((line, i) => `<p style="margin: 0 0 ${i ? 0 : 8.5}px;">${line}</p>`).join('')}
-                </div>
-            </div>
-        </div>`);
-
-        const close = () => overlay.remove();
-
-        overlay.querySelector('.more-dialog-close').addEventListener('click', close);
-
-        // A game not written yet draws its tile too, in the dialog's muted ink
-        // -- an outline, see `coming` above.
-        overlay.querySelectorAll('.more-dialog-soon').forEach(line => {
-            const game = GAMES.find(g => g.id === line.dataset.press);
-            game.show(line.querySelector('.set-tile'), tileSpec(), [], { actual: true, animate: false });
-        });
-
-        overlay.querySelectorAll('.more-dialog-game').forEach(btn => {
-            const game = GAMES.find(g => g.id === btn.dataset.game);
-
-            // Its face as the set has it, at once: the dialog is opened to
-            // pick a game, and nothing in it is a show.
-            game.show(btn.querySelector('.set-tile'), tileSpec(), logOf(game, set), { actual: true, animate: false });
-
-            // Gone before it starts anything, because starting can put another
-            // dialog on the screen — launch asks first on a set whose timers
-            // have not run out — and a question asked from behind the thing that
-            // asked it is a question with two backdrops to click.
-            btn.addEventListener('click', () => {
-                close();
-
-                if (openOn(game, setId)) nav.resume(game, setId);
-                else launch(game, setId);
-            });
-        });
-
-        /*
-         * A pin put in or taken out. The row behind the dialog is drawn again
-         * at once, so the tile is seen arriving or leaving over the backdrop,
-         * and the pin itself turns where it is: the dialog stays, because a
-         * reader setting up their row pins several in one go.
-         *
-         * Saved and sent at once, the way every other change to a set made here
-         * is -- see syncCatalog.
-         */
-        overlay.querySelectorAll('.more-dialog-pin').forEach(btn => {
-            const gameId = btn.dataset.game;
-
-            btn.addEventListener('click', () => {
-                const on = !pinnedOn(set).includes(gameId);
-                if (!pinGame(set, gameId, on, 'hand')) return;
-
-                const look = pinLook(on);
-                btn.innerHTML = PIN(on);
-                btn.title = look.title;
-                btn.setAttribute('aria-label', look.title);
-                btn.setAttribute('aria-pressed', String(on));
-                btn.style.color = look.colour;
-
-                render();
-                store.save().then(syncCatalog);
-            });
-        });
-
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
     /*

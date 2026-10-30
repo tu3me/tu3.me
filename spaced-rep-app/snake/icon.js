@@ -12,8 +12,12 @@
  *       silhouette with a gold edge, in its place round the shield.
  *   64, 65  the second and the third time: gold to 30 and to 60 per cent.
  *       The fourth fills it -- four wins to a whole one, the owner's count.
- *   66  all three whole: a gold rim round the shield, and sparks -- and,
- *       here and not in the drafts, a light that runs across the gold.
+ *   66  all three whole: sparks -- and, here and not in the drafts, a light
+ *       that runs across the gold.
+ *
+ * And from 62 on, a rim round the shield that runs as far round it as the
+ * set has come to 66, and closes there (snake-wavy-rim/95 in the drafts) --
+ * see RIM_TIP.
  *
  * Each prize counts its own wins and is drawn by its own count, so a crown won
  * once stands as a silhouette beside a star won four times -- and a prize
@@ -46,18 +50,25 @@
     const BLUE = '#4a90d9';
     const NAVY = '#16323f';    // a silhouette's body
     const EDGE = '#c98414';    // the gold edge on everything gold
-    const RIM = '#b8780f';     // the rim round the shield, all three whole
+    /*
+     * The amber of the rim round the shield (see RIM_TIP), of the crown's
+     * jewels and of the sparks, the same on both themes: the tile is one
+     * picture whatever the theme -- the owner's call, 30 October 2026. It is
+     * bright and holds on the white card as well as on the navy one: 2.6
+     * against the white and 4.2 against the dark card.
+     *
+     * The same day the rim was the prizes' gold on the dark theme and this
+     * amber on the light one, and until then #b8780f on both, the drafts'
+     * colour, a brown rather than a gold beside the prizes. The jewels and
+     * the sparks were a light gold on the dark theme and a deep amber on
+     * the light one, as in drafts 66 and 72.
+     */
+    const AMBER = '#dc920e';
 
     // The gold the drafts fill with, and the gold of the medal at the end of
     // a game is a sibling of it rather than the same -- see goldStops in
     // snake.js, which is drawn for a larger badge.
     const GOLD_STOPS = [[0, '#ffe680'], [0.55, '#f6c232'], [1, '#d9921a']];
-
-    // The crown's jewels and the sparks: light on the dark theme, and a dark
-    // amber on the light one, where the light gold is lost on the ground
-    // (drafts 66 and 72).
-    const SPARK = (dark) => dark ? '#ffd34d' : '#a86d0c';
-    const SPARK_EDGE = (dark) => dark ? EDGE : '#a86d0c';
 
     // The square the tile is, and the box everything is drawn in round it:
     // from the sparks over the crown to the tails of the ribbon, and from the
@@ -68,8 +79,129 @@
     const VIEW = { x: -50, y: -50, width: 500, height: 510 };
 
     const SQUARE = `<rect x="30" y="30" width="340" height="340" rx="113" fill="${BLUE}" />`;
-    const SHIELD = `<path d="M143 30 H257 A113 113 0 0 1 370 143 V226 Q370 316 200 386 Q30 316 30 226 V143 A113 113 0 0 1 143 30 Z" fill="${BLUE}" />`;
-    const RIM_PATH = 'M143 16 H257 A127 127 0 0 1 384 143 V226 Q384 324 200 396 Q16 324 16 226 V143 A127 127 0 0 1 143 16 Z';
+    const SHIELD_PATH = 'M143 30 H257 A113 113 0 0 1 370 143 V226 Q370 316 200 386 Q30 316 30 226 V143 A113 113 0 0 1 143 30 Z';
+    const SHIELD = `<path d="${SHIELD_PATH}" fill="${BLUE}" />`;
+    /*
+     * The rim: how far the set has come to the finished emblem, from its
+     * first record -- the owner's call, 30 October 2026, from the drafts'
+     * icon drafts/snake-wavy-rim, variant 95. A thin line round the shield,
+     * the track, and over it a wavy band, drawn clockwise from the middle of
+     * the top as far as the set has come (see progressOf) and closed all the
+     * way round when it has come all the way. Both under the shield, which
+     * hides the inside of the band: what shows is a lace edge, off the
+     * shield where the wave goes out and tucked under it where it comes in.
+     *
+     * The drafts' numbers: the band 20 wide, its wave about 40 long and 6.8
+     * in and out of the track, the track 3 wide, both in AMBER.
+     *
+     * Not where the drafts have it at the point. The track runs 14 off the
+     * shield at the sides and the top, as there; but nothing may go under
+     * 400 (the name starts at 404, see the header), and the band reaches
+     * 16.8 out of its track -- half its width and the wave -- so the track's
+     * point is lifted to RIM_TIP, the lowest the band clears 400 from
+     * (399.9), worked out by walking the wave. That is 0.8 under the
+     * shield's own point: the track closes on the shield's edge towards the
+     * point, and the band shows narrower there, as much as the room allows.
+     *
+     * Until then the rim came only with the emblem finished: a line seven
+     * wide round the shield, and for a day of 30 October 2026 a ring twice
+     * that.
+     */
+    const RIM_TIP = 386.8;
+    const RIM_BAND = 20;
+    const RIM_WAVE = 40;
+    const RIM_SWELL = 6.8;
+    const RIM_TRACK = 3;
+
+    // The track, clockwise from the middle of the top, as pieces: a point on
+    // each at t from 0 to 1
+    const RIM_PIECES = (() => {
+        const line = (a, b) => (t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        const arc = (cx, cy, r, from, to) => (t) => {
+            const angle = (from + (to - from) * t) * Math.PI / 180;
+            return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+        };
+        const quad = (p0, p1, p2) => (t) => [0, 1].map(i => (1 - t) ** 2 * p0[i] + 2 * (1 - t) * t * p1[i] + t * t * p2[i]);
+
+        return [
+            line([200, 16], [257, 16]), arc(257, 143, 127, -90, 0), line([384, 143], [384, 226]),
+            quad([384, 226], [384, RIM_TIP - 72], [200, RIM_TIP]), quad([200, RIM_TIP], [16, RIM_TIP - 72], [16, 226]),
+            line([16, 226], [16, 143]), arc(143, 143, 127, 180, 270), line([143, 16], [200, 16])
+        ];
+    })();
+
+    const RIM_TRACK_PATH = `M200 16 H257 A127 127 0 0 1 384 143 V226 Q384 ${RIM_TIP - 72} 200 ${RIM_TIP} Q16 ${RIM_TIP - 72} 16 226 V143 A127 127 0 0 1 143 16 Z`;
+
+    /*
+     * The band: the track walked by length and pushed in and out along its
+     * normal by a sine whose period divides the length, so the wave closes
+     * on itself with no seam; then drawn in cubic curves, one to a quarter
+     * of a wave, their ends and slopes taken from the wave itself. Worked
+     * out here, once, the way the drafts' gen.js does it, so that the wave
+     * stays three numbers to change rather than a path to draw again.
+     */
+    const RIM_BAND_PATH = (() => {
+        const points = [];
+        let length = 0;
+
+        RIM_PIECES.forEach(piece => {
+            for (let i = 0; i <= 200; i++) {
+                const p = piece(i / 200);
+                const last = points[points.length - 1];
+                if (last) length += Math.hypot(p[0] - last.p[0], p[1] - last.p[1]);
+                points.push({ p, s: length });
+            }
+        });
+
+        const along = (s) => {
+            const at = ((s % length) + length) % length;
+            let low = 0;
+            let high = points.length - 1;
+
+            while (high - low > 1) {
+                const mid = (low + high) >> 1;
+                if (points[mid].s <= at) low = mid;
+                else high = mid;
+            }
+
+            const u = (at - points[low].s) / ((points[high].s - points[low].s) || 1);
+            return [0, 1].map(i => points[low].p[i] + (points[high].p[i] - points[low].p[i]) * u);
+        };
+
+        const waves = Math.round(length / RIM_WAVE);
+
+        const pushed = (s) => {
+            const p = along(s);
+            const a = along(s - 0.5);
+            const b = along(s + 0.5);
+            const n = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+            const by = RIM_SWELL * Math.sin(2 * Math.PI * waves * s / length);
+
+            return [p[0] - (b[1] - a[1]) / n * by, p[1] + (b[0] - a[0]) / n * by];
+        };
+
+        const count = 4 * waves;
+        const step = length / count;
+        const node = (k) => {
+            const s = k * step;
+            const a = pushed(s - 0.5);
+            const b = pushed(s + 0.5);
+            return { p: pushed(s), t: [(b[0] - a[0]) * step / 3, (b[1] - a[1]) * step / 3] };
+        };
+
+        const xy = (x, y) => `${+x.toFixed(1)} ${+y.toFixed(1)}`;
+
+        let from = node(0);
+        let d = `M${xy(...from.p)}`;
+
+        for (let k = 1; k <= count; k++) {
+            const to = node(k % count);
+            d += `C${xy(from.p[0] + from.t[0], from.p[1] + from.t[1])} ${xy(to.p[0] - to.t[0], to.p[1] - to.t[1])} ${xy(...to.p)}`;
+            from = to;
+        }
+
+        return d + 'Z';
+    })();
 
     // The snake, white with its eyes cut out of it in the tile's own blue, and
     // a white glint in each, up and to the right -- the owner's drafts, where
@@ -122,10 +254,10 @@
             mask: `<g fill="#ffffff">${CROWN}</g>`,
             box: { x: -100, y: -82, width: 200, height: 102 },
             over: '',
-            whole: (gold, dark) => `<g stroke="${EDGE}" stroke-width="3.5" stroke-linejoin="round">
+            whole: (gold) => `<g stroke="${EDGE}" stroke-width="3.5" stroke-linejoin="round">
                 <path d="M-62 0 L-72 -58 L-34 -30 L0 -76 L34 -30 L72 -58 L62 0 Z" fill="${gold}" />
                 <rect x="-64" y="0" width="128" height="16" rx="6" fill="#e3a21c" />
-                <g fill="${SPARK(dark)}" stroke="none"><circle cx="-72" cy="-62" r="7" /><circle cx="0" cy="-82" r="7" /><circle cx="72" cy="-62" r="7" /></g>
+                <g fill="${AMBER}" stroke="none"><circle cx="-72" cy="-62" r="7" /><circle cx="0" cy="-82" r="7" /><circle cx="72" cy="-62" r="7" /></g>
             </g>`
         },
         {
@@ -165,15 +297,15 @@
     // The sparks round the finished emblem: two stars, a glint and five dots.
     // The ones by the star moved with it, the glint in from the side, and the
     // two dots that were under the shield up out of the name's way.
-    const SPARKS = (gold, dark) => [
-        `<polygon points="13,121 16.9,129.6 26.3,130.7 19.4,137.1 21.2,146.3 13,141.7 4.8,146.3 6.6,137.1 -0.3,130.7 9.1,129.6" fill="${gold}" stroke="${SPARK_EDGE(dark)}" stroke-width="1.3" stroke-linejoin="round" />`,
-        `<polygon points="378,-16 384.2,-2.5 398.9,-0.8 388,9.3 390.9,23.8 378,16.6 365.1,23.8 368,9.3 357.1,-0.8 371.8,-2.5" fill="${gold}" stroke="${SPARK_EDGE(dark)}" stroke-width="2" stroke-linejoin="round" />`,
-        `<path d="M394 69 Q396.2 77.8 405 80 Q396.2 82.2 394 91 Q391.8 82.2 383 80 Q391.8 77.8 394 69 Z" fill="${SPARK(dark)}" />`,
-        `<circle cx="392" cy="140" r="4" fill="${SPARK(dark)}" />`,
-        `<circle cx="25" cy="208" r="4.5" fill="${SPARK(dark)}" />`,
-        `<circle cx="104" cy="392" r="5" fill="${SPARK(dark)}" />`,
-        `<circle cx="296" cy="390" r="5" fill="${SPARK(dark)}" />`,
-        `<circle cx="312" cy="-4" r="4" fill="${SPARK(dark)}" />`
+    const SPARKS = (gold) => [
+        `<polygon points="13,121 16.9,129.6 26.3,130.7 19.4,137.1 21.2,146.3 13,141.7 4.8,146.3 6.6,137.1 -0.3,130.7 9.1,129.6" fill="${gold}" stroke="${AMBER}" stroke-width="1.3" stroke-linejoin="round" />`,
+        `<polygon points="378,-16 384.2,-2.5 398.9,-0.8 388,9.3 390.9,23.8 378,16.6 365.1,23.8 368,9.3 357.1,-0.8 371.8,-2.5" fill="${gold}" stroke="${AMBER}" stroke-width="2" stroke-linejoin="round" />`,
+        `<path d="M394 69 Q396.2 77.8 405 80 Q396.2 82.2 394 91 Q391.8 82.2 383 80 Q391.8 77.8 394 69 Z" fill="${AMBER}" />`,
+        `<circle cx="392" cy="140" r="4" fill="${AMBER}" />`,
+        `<circle cx="25" cy="208" r="4.5" fill="${AMBER}" />`,
+        `<circle cx="104" cy="392" r="5" fill="${AMBER}" />`,
+        `<circle cx="296" cy="390" r="5" fill="${AMBER}" />`,
+        `<circle cx="312" cy="-4" r="4" fill="${AMBER}" />`
     ];
 
     // What a set's log comes to: the record, and each prize's level, or
@@ -188,6 +320,23 @@
         });
 
         return { record, levels };
+    }
+
+    /*
+     * How far the set has come to the finished emblem, from 0 to 1, for the
+     * rim to be drawn to -- the owner's count, 30 October 2026: a quarter for
+     * a record, which there is or is not, and a quarter for each prize, a
+     * step of it at every stage the prize has come to (STEPS): the
+     * silhouette is the first of four, then 30, 60 and 100 per cent gold.
+     *
+     * For an hour the prize counted by its gold alone, and a silhouette for
+     * nothing; the owner put that right the same day -- a prize won is
+     * progress whether or not any of it is gold yet.
+     */
+    function progressOf(record, levels) {
+        const stage = (level) => (level === null ? 0 : (STEPS.indexOf(level) + 1) / STEPS.length);
+
+        return (record > 0 ? 0.25 : 0) + PRIZES.reduce((sum, prize) => sum + 0.25 * stage(levels[prize.name]), 0);
     }
 
     // The light across a finished emblem: a run of this long, every this long
@@ -242,7 +391,7 @@
                 : '';
 
             const finished = whole
-                ? `<g data-part="whole" style="opacity: ${pose(0, 1)};">${prize.whole(gold, tile.dark)}</g>`
+                ? `<g data-part="whole" style="opacity: ${pose(0, 1)};">${prize.whole(gold)}</g>`
                 : '';
 
             return `<g data-prize="${prize.name}" data-level="${level}" style="${ORIGIN} ${pose('opacity: 0; transform: scale(0);', '')}">
@@ -259,10 +408,29 @@
             </g>`
             : '';
 
-        const rim = done ? `<path data-part="rim" d="${RIM_PATH}" fill="none" stroke="${RIM}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" style="${ORIGIN} ${pose('opacity: 0;', '')}" />` : '';
+        /*
+         * The rim, with the shield: the track all round, and the band over it
+         * as far as the set has come -- see RIM_TIP and progressOf. A dash in
+         * percent of the band's length (pathLength), with a gap after it
+         * longer than the rest of the way, so that nothing comes round again
+         * past the start; none at all once the way is whole. Drawn from
+         * nothing as the tile grows (see grow), and out of sight until then:
+         * a dash of nothing still has its round ends, a dot at the top.
+         */
+        const share = progressOf(record, levels);
+        const dash = (part) => `${100 * part} 200`;
+
+        const band = share > 0
+            ? `<path data-part="rim" data-share="${share}" d="${RIM_BAND_PATH}" pathLength="100" fill="none" stroke="${AMBER}" stroke-width="${RIM_BAND}" stroke-linecap="round" stroke-linejoin="round"
+                style="${pose(`opacity: 0; stroke-dasharray: ${dash(0)};`, share < 1 ? `stroke-dasharray: ${dash(share)};` : '')}" />`
+            : '';
+
+        const rim = shield
+            ? `<path data-part="track" d="${RIM_TRACK_PATH}" fill="none" stroke="${AMBER}" stroke-width="${RIM_TRACK}" style="${pose('opacity: 0;', '')}" />${band}`
+            : '';
 
         const sparks = done
-            ? SPARKS(gold, tile.dark).map(spark => `<g data-part="spark" style="${ORIGIN} ${pose('opacity: 0; transform: scale(0);', '')}">${spark}</g>`).join('')
+            ? SPARKS(gold).map(spark => `<g data-part="spark" style="${ORIGIN} ${pose('opacity: 0; transform: scale(0);', '')}">${spark}</g>`).join('')
             : '';
 
         /*
@@ -270,6 +438,10 @@
          * -- the prizes, the ribbon, the rim -- every few seconds, for as long
          * as it is on the screen. The owner's call, 28 October 2026: all four
          * whole is the most there is, and it should look it.
+         *
+         * The rim goes under the shield (see RIM_TIP), so its mask has the
+         * shield taken out of it: the light would otherwise run across the
+         * blue where the band is hidden.
          *
          * A gradient drawn through a mask of the gold, and moved by SMIL rather
          * than by script: the face is markup the catalog draws again whenever
@@ -287,9 +459,10 @@
                 <animateTransform attributeName="gradientTransform" type="translate" values="-120 -120; 560 560; 560 560" keyTimes="0; ${SHEEN_RUN / SHEEN_EVERY}; 1" dur="${SHEEN_EVERY}ms" repeatCount="indefinite" />
             </linearGradient>
             <mask id="${id('lit')}" maskUnits="userSpaceOnUse" x="${VIEW.x}" y="${VIEW.y}" width="${VIEW.width}" height="${VIEW.height}">
-                ${won.map(prize => `<g transform="${prize.frame}">${prize.whole('#ffffff', tile.dark)}</g>`).join('')}
+                <path d="${RIM_BAND_PATH}" fill="none" stroke="#ffffff" stroke-width="${RIM_BAND}" stroke-linejoin="round" />
+                <path d="${SHIELD_PATH}" fill="#000000" />
+                ${won.map(prize => `<g transform="${prize.frame}">${prize.whole('#ffffff')}</g>`).join('')}
                 ${record ? `<path d="${BANNER}" fill="#ffffff" />` : ''}
-                <path d="${RIM_PATH}" fill="none" stroke="#ffffff" stroke-width="7" />
             </mask>`
             : '';
 
@@ -324,18 +497,22 @@
 
     /*
      * The tile growing from the plain one to what it is -- the owner's order,
-     * 28 October 2026:
+     * 28 October 2026, with the rim put first on 30 October:
      *
-     *   1. The shield takes the square's place, and the ribbon comes in with
-     *      the record counting up on it.
-     *   2. The crown, the star and the goblet that have been won come in one
+     *   1. The shield takes the square's place, the rim's track with it, and
+     *      the band runs round the track as far as the set has come.
+     *   2. The ribbon comes in with the record counting up on it.
+     *   3. The crown, the star and the goblet that have been won come in one
      *      after another as silhouettes. The ones never won do not come at all.
-     *   3. The gold rises in them, a stage at a time; the whole ones turn gold
-     *      through; and last, all three whole, the rim and the sparks.
+     *   4. The gold rises in them, a stage at a time; the whole ones turn gold
+     *      through; and last, all three whole, the sparks.
      *
-     * A record and nothing else is over in half a second, a finished emblem
-     * takes three and a half or so. A tile with nothing on it does not grow at all: it is
-     * the plain one, and stays so.
+     * The band goes at one pace whatever its length, the drafts' 2.2 seconds
+     * for the whole way round (RIM_ROUND), so the further the set has come
+     * the longer the tile takes to say so. A record and nothing else is over
+     * in a little over a second, a finished emblem takes six or so. A
+     * tile with nothing on it does not grow at all: it is the plain one, and
+     * stays so.
      *
      * For a day the ones never won came in too, as silhouettes among the
      * others, and went again -- to show there was more to win; first before
@@ -343,8 +520,9 @@
      * owner took them out on 28 October 2026: the tile is what was won.
      *
      * And the whole tile beats once as each thing won comes in -- the record,
-     * each prize, the rim. The prizes come in far enough apart for one beat to
-     * be over before the next.
+     * each prize. The prizes come in far enough apart for one beat to be over
+     * before the next. The rim is no thing won, and does not beat: until 30
+     * October 2026 it came in last, with the emblem finished, and did.
      *
      * The shield comes in over the square while the square is still all
      * there, and the square goes after it. The two faded at once to begin
@@ -376,7 +554,8 @@
     const STAGE_REST = 90;
     const TURN = 260;
     const SWELL = 380;
-    const RIM_IN = 360;
+    const RIM_ROUND = 2200;
+    const RIM_EASE = 'cubic-bezier(0.45, 0.05, 0.35, 1)';
     const SPARK_IN = 300;
     const SPARK_GAP = 50;
 
@@ -425,32 +604,52 @@
         // The moments the whole tile beats, as the peaks of the things won
         const beats = [];
 
-        // 1. The shield taking the square's place, and the ribbon with the record
+        // 1. The shield taking the square's place, the track with it, and the
+        // band run round to how far the set has come
         run(part('shield'), [[0, { opacity: 0 }], [SHIELD_IN, { opacity: 1 }]]);
         run(part('square'), [[0, { opacity: 1 }], [SHIELD_IN, { opacity: 1 }], [SHIELD_IN + SQUARE_OUT, { opacity: 0 }]]);
+        run(part('track'), [[0, { opacity: 0 }], [SHIELD_IN, { opacity: 1 }]]);
 
         let at = SHIELD_IN;
 
-        const ribbon = part('ribbon');
-        if (ribbon) {
-            run(ribbon, [
-                [0, { opacity: 0, transform: 'scale(0.3)' }],
-                [RIBBON_AT, { opacity: 0, transform: 'scale(0.3)', easing: ease }],
-                [RIBBON_AT + RIBBON_IN * 0.65, { opacity: 1, transform: 'scale(1.08)' }],
-                [RIBBON_AT + RIBBON_IN, { opacity: 1, transform: 'scale(1)' }]
+        const rim = part('rim');
+        if (rim) {
+            const share = Number(rim.dataset.share);
+            const round = RIM_ROUND * share;
+
+            run(rim, [
+                [0, { opacity: 0, strokeDasharray: '0 200' }],
+                [at, { opacity: 0, strokeDasharray: '0 200' }],
+                [at, { opacity: 1, strokeDasharray: '0 200', easing: RIM_EASE }],
+                [at + round, { opacity: 1, strokeDasharray: `${100 * share} 200` }]
             ]);
-            countUp(part('record'), RIBBON_AT);
-            beats.push(RIBBON_AT + RIBBON_IN * 0.65);
-            at = RIBBON_AT + RIBBON_IN;
+            at += round;
         }
 
-        // 2. The prizes won, as silhouettes, one after another
+        // 2. The ribbon with the record -- under way with the shield when
+        // there is no band to wait for
+        const ribbon = part('ribbon');
+        if (ribbon) {
+            const from = rim ? at : RIBBON_AT;
+
+            run(ribbon, [
+                [0, { opacity: 0, transform: 'scale(0.3)' }],
+                [from, { opacity: 0, transform: 'scale(0.3)', easing: ease }],
+                [from + RIBBON_IN * 0.65, { opacity: 1, transform: 'scale(1.08)' }],
+                [from + RIBBON_IN, { opacity: 1, transform: 'scale(1)' }]
+            ]);
+            countUp(part('record'), from);
+            beats.push(from + RIBBON_IN * 0.65);
+            at = from + RIBBON_IN;
+        }
+
+        // 3. The prizes won, as silhouettes, one after another
         const prizes = [...svg.querySelectorAll('[data-prize]')];
         const arrived = prizes.map((prize, i) => at + i * PRIZE_GAP);
 
         if (prizes.length) at = arrived[arrived.length - 1] + PRIZE_IN;
 
-        // 3. The gold, a stage at a time, in every prize that has that far to go
+        // 4. The gold, a stage at a time, in every prize that has that far to go
         const rises = new Map(prizes.map(prize => [prize, [[0, { transform: 'scaleY(0)' }]]]));
 
         let below = 0;
@@ -495,11 +694,7 @@
             run(prize, points);
         });
 
-        // All three whole: the rim, and the sparks one after another
-        const rim = part('rim');
-        run(rim, [[0, { opacity: 0 }], [at, { opacity: 0 }], [at + RIM_IN, { opacity: 1 }]]);
-        if (rim) beats.push(at + RIM_IN * 0.6);
-
+        // All three whole: the sparks one after another
         svg.querySelectorAll('[data-part="spark"]').forEach((spark, i) => {
             const from = at + i * SPARK_GAP;
             run(spark, [
@@ -559,17 +754,6 @@
 
     GAME_FACES.snake = {
         title: 'Snake',
-
-        // Off the row of a set until it is pinned there or played there, since
-        // Wordcraft took the place it had -- see `away` in core/icons.js, and
-        // allGames in catalog.js.
-        away: true,
-
-        // A "New" plate beside its name in the dialog until it is played,
-        // asked for on 26 October 2026 when the dialog came to hold every
-        // game: the one most people have not opened yet.
-        fresh: true,
-
         show: show
     };
 })();

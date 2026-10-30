@@ -66,19 +66,14 @@
     GAME_FACES.search = {
         title: 'Word search',
 
-        /*
-         * Not written yet, and under the games that are: see `soon` and `away`
-         * in core/icons.js. Both words, because the two halves of where it
-         * stands are separate questions -- `away` says it is not on the shelf,
-         * `soon` says there is nothing behind it yet.
-         */
-        away: true,
+        // Not written yet: last in every set's row, and a press on it says
+        // so -- see `soon` in core/icons.js
         soon: true,
 
         /*
          * An outline in whatever ink it is drawn in, and no colour. A game that
-         * is not written has no colour of its own; the ink is the dialog's
-         * muted one, which the catalog sets on the element (see `coming` in
+         * is not written has no colour of its own; the ink is the card's muted
+         * one, which the catalog sets on the element (see `set-soon-btn` in
          * catalog.js). The colours in the drawing are not the game's either --
          * they are two struck-through words in a picture of a puzzle.
          */

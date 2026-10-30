@@ -207,8 +207,9 @@ function store() {
      * synchronisation compares -- see sync.js and docs/BACKEND.md.
      *
      * Every change a person makes to a set comes through here: an answer, a
-     * record, a set written by hand, an edit, an archive and a return from it,
-     * a game pinned to its row or taken off it.
+     * record, a set written by hand, an edit, an archive and a return from it
+     * -- and, from 26 to 29 October 2026, a game pinned to its row or taken off
+     * it (see docs/ARCHITECTURE.md, "Список — не полка").
      * One place, because a change that forgot to write the date is a change
      * that never leaves the device -- nothing else tells sync it happened.
      *
@@ -252,32 +253,6 @@ function store() {
         if (!set || !set.archived) return;
 
         delete set.archived;
-        touch(set);
-    }
-
-    /*
-     * The games a set keeps on its row, by id: `pinned` on the set.
-     *
-     * On the set, because the row is a set's own -- the game somebody plays on
-     * one set is not the one they play on every set -- and because a set is
-     * what travels between a person's devices: the pins go wherever the set
-     * goes, in the same whole-set send, with nothing added to the protocol.
-     *
-     * A person's change, dated like the rest -- see touch. A pin the app puts
-     * in when a game is played on a set is dated too: it follows from a game
-     * somebody chose to start.
-     *
-     * Absent until the first pin is touched, and absent reads as the games the
-     * registry puts on every row by itself -- see pinnedOn in catalog.js. So no
-     * set saved before the field existed needs translating in migrate.js, and
-     * an older version of the app, which edits a set in place, carries the
-     * field it does not read along with the rest.
-     */
-    function pinGames(setId, ids) {
-        const set = sets.find(s => s.id === setId);
-        if (!set) return;
-
-        set.pinned = ids.slice();
         touch(set);
     }
 
@@ -508,7 +483,6 @@ function store() {
     store.touch = touch;
     store.archive = archive;
     store.restore = restore;
-    store.pinGames = pinGames;
     store.put = put;
     // Everything at once, for a device taking on another one's sets whole.
     store.replaceAll = (list) => { sets = list.slice(); };

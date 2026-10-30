@@ -167,21 +167,13 @@ function onboarding() {
     let sendAway = null;
 
     /*
-     * What the app promises the people who are here now, in the words the More
-     * games dialog says it in — the catalog reads them from here rather than
-     * keeping a second copy, because two copies of a promise is one promise and
-     * one mistake waiting.
-     *
-     * The dialog says both. The card says the first alone: the second is about
-     * games that are coming, and the place a reader asks that question is the
-     * dialog they opened to see what there is to play -- where the game that is
-     * coming is drawn a line above the sentence. On the strip it answers a
-     * question nobody has asked yet and dilutes the one thing that card is for.
+     * What the app promises the people who are here now. Said in the "All
+     * games" dialog as well until 29 October 2026, when the dialog went, with
+     * a second line after it -- "More games to help you remember words are
+     * coming soon" -- that the card left out: it is about games that are
+     * coming, and the game that is coming is a tile on every set's row now.
      */
-    const PROMISE = [
-        'Congratulations — you are one of the first to install this app.',
-        'More games to help you remember words are coming soon.'
-    ];
+    const PROMISE = 'Congratulations — you are one of the first to install this app.';
 
     // Has anything, anywhere, ever been answered. Asked of the words rather than
     // kept as a flag, so it answers itself: the first repetition ever recorded
@@ -774,7 +766,7 @@ function onboarding() {
             id: 'free',
             moment: () => true,
             title: () => `<span style="color: ${look.ok};">Free</span> for early adopters`,
-            body: () => text(PROMISE[0])
+            body: () => text(PROMISE)
         }
     ];
 
@@ -1175,8 +1167,6 @@ function onboarding() {
 
         return want;
     };
-
-    onboarding.promise = () => PROMISE;
 
     /*
      * The mark itself, for the catalog to send the strip away as: a card sent

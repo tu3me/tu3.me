@@ -31,9 +31,12 @@ function seed() {
                  * because the accents and the ñ make it visibly another language
                  * at a glance, which a first screen has to do in no time at all.
                  *
-                 * Three of the ten are phrases rather than words: a set that is
+                 * Five of the ten are phrases rather than words: a set that is
                  * all single nouns teaches somebody to name things they cannot
-                 * ask for, and the first screen should not promise that.
+                 * ask for, and the first screen should not promise that. Two
+                 * of them were the bare nouns they are built on until
+                 * 29 October 2026, "agua" and "pan": the owner wanted more in
+                 * the first set for a game to be made of.
                  *
                  * Ten, because a session of snake is ten words at the most and
                  * deals a heart after every one but the last, and nine hearts
@@ -43,6 +46,17 @@ function seed() {
                  * 2026, at the owner's word. A set already made keeps the
                  * eight it was made with: this is only ever read for a first
                  * run.
+                 *
+                 * In this order so that the ten bubbles lie in three rows on
+                 * the card (the owner's call, 29 October 2026; in the order
+                 * they were written they took four). Measured in the layout's
+                 * pixels, a row of the card is 307 wide and the bubbles 47 to
+                 * 126; the rows come to 252, 249 and 272. Each row also ends
+                 * where the next bubble cannot fit by twenty pixels and more,
+                 * because the bubbles are as wide as the font the device
+                 * draws them in, and a narrower one moving a bubble up a row
+                 * should not be what decides the count. The bubbles wrap in
+                 * the order of the words, so what is moved here is the row.
                  *
                  * Nothing has been played. Every word starts on stage 0, which
                  * is where a word with no history belongs — the sets that used
@@ -72,15 +86,15 @@ function seed() {
                 translationLang: 'en',
                 words: [
                     { original: 'hola', translation: 'hello', repetitions: [] },
-                    { original: 'gracias', translation: 'thank you', repetitions: [] },
-                    { original: 'agua', translation: 'water', repetitions: [] },
-                    { original: 'pan', translation: 'bread', repetitions: [] },
-                    { original: 'calle', translation: 'street', repetitions: [] },
-                    { original: 'llave', translation: 'key', repetitions: [] },
+                    { original: 'pan con queso', translation: 'bread with cheese', repetitions: [] },
                     { original: 'mañana', translation: 'morning', repetitions: [] },
                     { original: 'cuánto cuesta', translation: 'how much', repetitions: [] },
+                    { original: 'agua fría', translation: 'cold water', repetitions: [] },
+                    { original: 'calle', translation: 'street', repetitions: [] },
+                    { original: 'gracias', translation: 'thank you', repetitions: [] },
+                    { original: 'por favor', translation: 'please', repetitions: [] },
                     { original: 'casa', translation: 'house', repetitions: [] },
-                    { original: 'por favor', translation: 'please', repetitions: [] }
+                    { original: 'llave', translation: 'key', repetitions: [] }
                 ]
             }
         ];
