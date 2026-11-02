@@ -144,8 +144,11 @@ function snake(container) {
      * used; a set with none of those gives none (see decoysFor in render).
      * Wordcraft puts strangers among its pieces the same way, from a lower
      * stage -- see DECOYS_FROM there.
+     *
+     * Past 9, so from stage 10 -- the owner's call the same day, after a
+     * first go from stage 9 (past 8).
      */
-    const DECOYS_FROM = 8;
+    const DECOYS_FROM = 9;
 
     /*
      * A word's letters, as the person reading it would count them.
