@@ -6,18 +6,21 @@
  * numbered as they are there:
  *
  *   61  the snake on a blue tile: nothing achieved yet.
- *   62  a record for length -- the tile becomes a shield, with a ribbon across
- *       it and the record on the ribbon.
+ *   62  a record for length -- a ribbon across the tile, and on it, like a
+ *       buckle on a belt, the record's medal. The tile stays the square it
+ *       is (the owner's call, 2 November 2026); in the drafts and until then
+ *       it became a shield.
  *   63  the crown, the star or the goblet the first time it is won: a dark
- *       silhouette with a gold edge, in its place round the shield.
+ *       silhouette with a gold edge, in its place round the tile.
  *   64, 65  the second and the third time: gold to 30 and to 60 per cent.
  *       The fourth fills it -- four wins to a whole one, the owner's count.
- *   66  all three whole: sparks -- and, here and not in the drafts, a light
- *       that runs across the gold.
+ *   66  a record, and the star and the goblet whole: sparks -- and, here
+ *       and not in the drafts, a light that runs across the gold. The crown
+ *       is a prize over and above, and is not asked for -- see GOALS.
  *
- * And from 62 on, a rim round the shield that runs as far round it as the
+ * And from 62 on, a rim round the tile that runs as far round it as the
  * set has come to 66, and closes there (snake-wavy-rim/95 in the drafts) --
- * see RIM_TIP.
+ * see RIM_GAP.
  *
  * Each prize counts its own wins and is drawn by its own count, so a crown won
  * once stands as a silhouette beside a star won four times -- and a prize
@@ -40,7 +43,8 @@
  * to 438. Everything stays within 36 of the tile's sides now. And the name
  * starts 34 under the tile, at 404, where the drafts' ribbon hung to 444: the
  * ribbon was raised 18, its tails cut shorter and level, and the shield's point
- * and the rim round it lifted, so that nothing goes below 400.
+ * and the rim round it lifted, so that nothing goes below 400. The shield has
+ * gone since, and the rim keeps to 400 by its gap -- see RIM_GAP.
  *
  * Until 28 October 2026 the face was a ring of a second snake round the tile,
  * as long as the record, closing into an ouroboros at fifty (snake/crest.js).
@@ -51,7 +55,7 @@
     const NAVY = '#16323f';    // a silhouette's body
     const EDGE = '#c98414';    // the gold edge on everything gold
     /*
-     * The amber of the rim round the shield (see RIM_TIP), of the crown's
+     * The amber of the rim round the tile (see RIM_GAP), of the crown's
      * jewels and of the sparks, the same on both themes: the tile is one
      * picture whatever the theme -- the owner's call, 30 October 2026. It is
      * bright and holds on the white card as well as on the navy one: 2.6
@@ -78,40 +82,51 @@
     const TILE_SIDE = 340;
     const VIEW = { x: -50, y: -50, width: 500, height: 510 };
 
-    const SQUARE = `<rect x="30" y="30" width="340" height="340" rx="113" fill="${BLUE}" />`;
-    const SHIELD_PATH = 'M143 30 H257 A113 113 0 0 1 370 143 V226 Q370 316 200 386 Q30 316 30 226 V143 A113 113 0 0 1 143 30 Z';
-    const SHIELD = `<path d="${SHIELD_PATH}" fill="${BLUE}" />`;
+    // The tile: a square with its corners rounded, the same whatever has
+    // been won -- see the header
+    const TILE_ROUND = 113;
+    const TILE_FACE = `x="${TILE_AT}" y="${TILE_AT}" width="${TILE_SIDE}" height="${TILE_SIDE}" rx="${TILE_ROUND}"`;
+    const SQUARE = `<rect ${TILE_FACE} fill="${BLUE}" />`;
+
     /*
      * The rim: how far the set has come to the finished emblem, from its
      * first record -- the owner's call, 30 October 2026, from the drafts'
-     * icon drafts/snake-wavy-rim, variant 95. A thin line round the shield,
+     * icon drafts/snake-wavy-rim, variant 95. A thin line round the tile,
      * the track, and over it a wavy band, drawn clockwise from the middle of
      * the top as far as the set has come (see progressOf) and closed all the
-     * way round when it has come all the way. Both under the shield, which
-     * hides the inside of the band: what shows is a lace edge, off the
-     * shield where the wave goes out and tucked under it where it comes in.
+     * way round when it has come all the way. Both under the tile, which
+     * hides the inside of the band: what shows is a lace edge, off the tile
+     * where the wave goes out and tucked under it where it comes in.
      *
      * The drafts' numbers: the band 20 wide, its wave about 40 long and 6.8
      * in and out of the track, the track 3 wide, both in AMBER.
      *
-     * Not where the drafts have it at the point. The track runs 14 off the
-     * shield at the sides and the top, as there; but nothing may go under
-     * 400 (the name starts at 404, see the header), and the band reaches
-     * 16.8 out of its track -- half its width and the wave -- so the track's
-     * point is lifted to RIM_TIP, the lowest the band clears 400 from
-     * (399.9), worked out by walking the wave. That is 0.8 under the
-     * shield's own point: the track closes on the shield's edge towards the
-     * point, and the band shows narrower there, as much as the room allows.
+     * The track runs RIM_GAP off the tile all the way round, its foot as
+     * much as its top: the band reaches 16.8 out of its track -- half its
+     * width and the wave -- nothing may go under 400 (the name starts at
+     * 404, see the header), and the tile's foot is at 370, so 13 is as far
+     * as it can stand, its band down to 399.8. Until 2 November 2026 it ran
+     * round the shield the tile then became, 14 off it, and closed on the
+     * shield's point, where the room under it was too little to keep it off
+     * -- the owner asked for the tile square again and the rim not to cling
+     * to it at the foot.
      *
-     * Until then the rim came only with the emblem finished: a line seven
-     * wide round the shield, and for a day of 30 October 2026 a ring twice
-     * that.
+     * Until 30 October 2026 the rim came only with the emblem finished: a line
+     * seven wide round the shield, and for a day a ring twice that.
      */
-    const RIM_TIP = 386.8;
+    const RIM_GAP = 13;
     const RIM_BAND = 20;
     const RIM_WAVE = 40;
     const RIM_SWELL = 6.8;
     const RIM_TRACK = 3;
+
+    // The track's own lines and corners: its edges, and the middles of the
+    // tile's corners, which its corners are drawn round
+    const RIM_IN = TILE_AT - RIM_GAP;
+    const RIM_OUT = TILE_AT + TILE_SIDE + RIM_GAP;
+    const RIM_CORNER = TILE_ROUND + RIM_GAP;
+    const NEAR = TILE_AT + TILE_ROUND;
+    const FAR = TILE_AT + TILE_SIDE - TILE_ROUND;
 
     // The track, clockwise from the middle of the top, as pieces: a point on
     // each at t from 0 to 1
@@ -121,16 +136,18 @@
             const angle = (from + (to - from) * t) * Math.PI / 180;
             return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
         };
-        const quad = (p0, p1, p2) => (t) => [0, 1].map(i => (1 - t) ** 2 * p0[i] + 2 * (1 - t) * t * p1[i] + t * t * p2[i]);
 
         return [
-            line([200, 16], [257, 16]), arc(257, 143, 127, -90, 0), line([384, 143], [384, 226]),
-            quad([384, 226], [384, RIM_TIP - 72], [200, RIM_TIP]), quad([200, RIM_TIP], [16, RIM_TIP - 72], [16, 226]),
-            line([16, 226], [16, 143]), arc(143, 143, 127, 180, 270), line([143, 16], [200, 16])
+            line([200, RIM_IN], [FAR, RIM_IN]), arc(FAR, NEAR, RIM_CORNER, -90, 0),
+            line([RIM_OUT, NEAR], [RIM_OUT, FAR]), arc(FAR, FAR, RIM_CORNER, 0, 90),
+            line([FAR, RIM_OUT], [NEAR, RIM_OUT]), arc(NEAR, FAR, RIM_CORNER, 90, 180),
+            line([RIM_IN, FAR], [RIM_IN, NEAR]), arc(NEAR, NEAR, RIM_CORNER, 180, 270),
+            line([NEAR, RIM_IN], [200, RIM_IN])
         ];
     })();
 
-    const RIM_TRACK_PATH = `M200 16 H257 A127 127 0 0 1 384 143 V226 Q384 ${RIM_TIP - 72} 200 ${RIM_TIP} Q16 ${RIM_TIP - 72} 16 226 V143 A127 127 0 0 1 143 16 Z`;
+    const RIM_TRACK_PATH = `M200 ${RIM_IN} H${FAR} A${RIM_CORNER} ${RIM_CORNER} 0 0 1 ${RIM_OUT} ${NEAR} V${FAR} A${RIM_CORNER} ${RIM_CORNER} 0 0 1 ${FAR} ${RIM_OUT}`
+        + ` H${NEAR} A${RIM_CORNER} ${RIM_CORNER} 0 0 1 ${RIM_IN} ${FAR} V${NEAR} A${RIM_CORNER} ${RIM_CORNER} 0 0 1 ${NEAR} ${RIM_IN} Z`;
 
     /*
      * The band: the track walked by length and pushed in and out along its
@@ -214,23 +231,43 @@
 
     // The ribbon's tails, behind it, and their folds. The drafts' tails hung
     // 60 under the ribbon's ends and spread as they went; these end level
-    // with the folds, 10 under the ends -- see the header.
+    // with the folds, 10 under the ends -- see the header. Shorter, and up
+    // with the ends, since the ribbon went narrow -- see BANNER.
     const TAILS = `<g fill="#d9921a" stroke="#8a560a" stroke-width="3" stroke-linejoin="round">
-            <polygon points="75.4,334 14.7,348 31,369 14.7,390 78.6,390" />
-            <polygon points="324.6,334 385.3,348 369,369 385.3,390 321.4,390" />
+            <polygon points="75.4,314 14.7,326 31,344 14.7,362 78.6,362" />
+            <polygon points="324.6,314 385.3,326 369,344 385.3,362 321.4,362" />
         </g>
         <g fill="#7a4a07">
-            <polygon points="60.6,370 81.9,380 81.9,392 60.6,382" />
-            <polygon points="339.4,370 318.1,380 318.1,392 339.4,382" />
+            <polygon points="60.6,340 81.9,350 81.9,362 60.6,352" />
+            <polygon points="339.4,340 318.1,350 318.1,362 339.4,352" />
         </g>`;
 
-    // The ribbon itself and the curve its record is written along, 18 higher
-    // than in the drafts.
-    const BANNER = 'M60.6 282 Q200 218 339.4 282 L339.4 382 Q200 318 60.6 382 Z';
-    const BANNER_LINE = 'M72.1 362 Q200 298 327.9 362';
+    /*
+     * The ribbon itself: a band 50 across, curved as the drafts' was, and
+     * running through the middle of the medal like a belt through its
+     * buckle -- the owner's call, 2 November 2026. It was twice as wide
+     * until then, from the medal's top to below its middle.
+     */
+    const BANNER = 'M60.6 302 Q200 238 339.4 302 L339.4 352 Q200 288 60.6 352 Z';
 
     /*
-     * The three prizes, each in its place round the shield: the crown on top,
+     * The record's medal on the ribbon: the medal the game has in its header,
+     * a square of the gold with its corners rounded (the same corners for its
+     * size), and the record on it with MAX under it, as it says it there --
+     * the owner's call, 2 November 2026. Until then the record was written
+     * along the ribbon, and for part of that day the ribbon was the foot of
+     * the shield with MAX under the record, which did not sit well.
+     *
+     * Its middle on the ribbon's (see BANNER), and its foot 10 short of the
+     * tile's, so that the rim under the tile is left clear of it. While the
+     * tile was a shield it went down to the point and covered the rim there
+     * for an hour of 2 November 2026, and then stood 18 short of the point.
+     */
+    const MEDAL = { x: 135, y: 230, size: 130, round: 36.7 };
+    const MEDAL_FACE = `x="${MEDAL.x}" y="${MEDAL.y}" width="${MEDAL.size}" height="${MEDAL.size}" rx="${MEDAL.round}"`;
+
+    /*
+     * The three prizes, each in its place round the tile: the crown on top,
      * the star leaning out on the left, the goblet on the right.
      *
      * `frame` puts the prize in its place, and everything else is drawn in
@@ -323,11 +360,22 @@
     }
 
     /*
+     * The prizes the finished emblem is made of, with the record: the star
+     * and the goblet. Not the crown -- the owner's call, 2 November 2026: it
+     * is won only on a board a long enough word can fill, and a set of short
+     * words would never have finished. It is drawn as ever, a prize over and
+     * above, and takes nothing from the rim or the finish when it is not.
+     */
+    const GOALS = PRIZES.filter(prize => prize.name !== 'crown');
+
+    /*
      * How far the set has come to the finished emblem, from 0 to 1, for the
-     * rim to be drawn to -- the owner's count, 30 October 2026: a quarter for
-     * a record, which there is or is not, and a quarter for each prize, a
-     * step of it at every stage the prize has come to (STEPS): the
-     * silhouette is the first of four, then 30, 60 and 100 per cent gold.
+     * rim to be drawn to -- the owner's count, 30 October 2026, the crown
+     * left out of it on 2 November (see GOALS): a share for a record, which
+     * there is or is not, and a share for each of the GOALS, a step of it at
+     * every stage the prize has come to (STEPS): the silhouette is the first
+     * of four, then 30, 60 and 100 per cent gold. A third each, now; a
+     * quarter each while the crown counted.
      *
      * For an hour the prize counted by its gold alone, and a silhouette for
      * nothing; the owner put that right the same day -- a prize won is
@@ -335,15 +383,16 @@
      */
     function progressOf(record, levels) {
         const stage = (level) => (level === null ? 0 : (STEPS.indexOf(level) + 1) / STEPS.length);
+        const part = 1 / (GOALS.length + 1);
 
-        return (record > 0 ? 0.25 : 0) + PRIZES.reduce((sum, prize) => sum + 0.25 * stage(levels[prize.name]), 0);
+        return (record > 0 ? part : 0) + GOALS.reduce((sum, prize) => sum + part * stage(levels[prize.name]), 0);
     }
 
     // The light across a finished emblem: a run of this long, every this long
     const SHEEN_RUN = 1100;
     const SHEEN_EVERY = 3600;
 
-    // Ids for the gradient, the masks and the ribbon's curve, one set per
+    // Ids for the gradient and the masks, one set per
     // drawing: there are as many snake tiles on the page as sets, and a
     // second gradient by the same id is a gradient nobody draws with.
     let faces = 0;
@@ -356,8 +405,10 @@
     function face(tile, log, start) {
         const { record, levels } = reckon(log);
         const won = PRIZES.filter(prize => levels[prize.name] !== null);
-        const shield = record > 0 || won.length > 0;
-        const done = won.length === PRIZES.length && won.every(prize => levels[prize.name] === 1);
+        // Anything won at all, which is what the rim comes with
+        const decorated = record > 0 || won.length > 0;
+        // Finished: the record, and the GOALS whole -- the crown or not
+        const done = record > 0 && GOALS.every(prize => levels[prize.name] === 1);
 
         const n = ++faces;
         const id = (name) => `snake-${name}-${n}`;
@@ -399,18 +450,23 @@
             </g>`;
         }).join('');
 
+        // Three figures a size down, to stay inside the medal
+        const figure = String(record).length > 2 ? 50 : 64;
+        const middle = MEDAL.x + MEDAL.size / 2;
+
         const ribbon = record
             ? `<g data-part="ribbon" style="${ORIGIN} ${pose('opacity: 0; transform: scale(0.3);', '')}">
                 ${TAILS}
                 <path d="${BANNER}" fill="${gold}" stroke="#9c650c" stroke-width="5" stroke-linejoin="round" />
-                <path id="${id('curve')}" d="${BANNER_LINE}" fill="none" />
-                <text font-weight="900" font-size="88" fill="#14202b" text-anchor="middle"><textPath data-part="record" data-value="${record}" href="#${id('curve')}" startOffset="50%">${record}</textPath></text>
+                <rect ${MEDAL_FACE} fill="${gold}" stroke="#9c650c" stroke-width="5" />
+                <text data-part="record" data-value="${record}" x="${middle}" y="${MEDAL.y + 50}" font-weight="900" font-size="${figure}" fill="#14202b" text-anchor="middle" dominant-baseline="central">${record}</text>
+                <text x="${middle}" y="${MEDAL.y + 101}" font-weight="900" font-size="28" letter-spacing="2" fill="#14202b" text-anchor="middle" dominant-baseline="central">MAX</text>
             </g>`
             : '';
 
         /*
-         * The rim, with the shield: the track all round, and the band over it
-         * as far as the set has come -- see RIM_TIP and progressOf. A dash in
+         * The rim, with anything won: the track all round, and the band over
+         * it as far as the set has come -- see RIM_GAP and progressOf. A dash in
          * percent of the band's length (pathLength), with a gap after it
          * longer than the rest of the way, so that nothing comes round again
          * past the start; none at all once the way is whole. Drawn from
@@ -425,7 +481,7 @@
                 style="${pose(`opacity: 0; stroke-dasharray: ${dash(0)};`, share < 1 ? `stroke-dasharray: ${dash(share)};` : '')}" />`
             : '';
 
-        const rim = shield
+        const rim = decorated
             ? `<path data-part="track" d="${RIM_TRACK_PATH}" fill="none" stroke="${AMBER}" stroke-width="${RIM_TRACK}" style="${pose('opacity: 0;', '')}" />${band}`
             : '';
 
@@ -439,8 +495,8 @@
          * as it is on the screen. The owner's call, 28 October 2026: all four
          * whole is the most there is, and it should look it.
          *
-         * The rim goes under the shield (see RIM_TIP), so its mask has the
-         * shield taken out of it: the light would otherwise run across the
+         * The rim goes under the tile (see RIM_GAP), so its mask has the
+         * tile taken out of it: the light would otherwise run across the
          * blue where the band is hidden.
          *
          * A gradient drawn through a mask of the gold, and moved by SMIL rather
@@ -460,9 +516,9 @@
             </linearGradient>
             <mask id="${id('lit')}" maskUnits="userSpaceOnUse" x="${VIEW.x}" y="${VIEW.y}" width="${VIEW.width}" height="${VIEW.height}">
                 <path d="${RIM_BAND_PATH}" fill="none" stroke="#ffffff" stroke-width="${RIM_BAND}" stroke-linejoin="round" />
-                <path d="${SHIELD_PATH}" fill="#000000" />
+                <rect ${TILE_FACE} fill="#000000" />
                 ${won.map(prize => `<g transform="${prize.frame}">${prize.whole('#ffffff')}</g>`).join('')}
-                ${record ? `<path d="${BANNER}" fill="#ffffff" />` : ''}
+                ${record ? `<path d="${BANNER}" fill="#ffffff" /><rect ${MEDAL_FACE} fill="#ffffff" />` : ''}
             </mask>`
             : '';
 
@@ -470,10 +526,7 @@
             ? `<rect x="${VIEW.x}" y="${VIEW.y}" width="${VIEW.width}" height="${VIEW.height}" fill="url(#${id('sheen')})" mask="url(#${id('lit')})" />`
             : '';
 
-        // The square stays in the start of a tile that will be a shield, for
-        // the shield to take its place.
-        const square = !shield || start ? `<g data-part="square">${SQUARE}</g>` : '';
-        const shieldPart = shield ? `<g data-part="shield" style="${pose('opacity: 0;', '')}">${SHIELD}</g>` : '';
+        const square = `<g data-part="square">${SQUARE}</g>`;
 
         return `<svg class="snake-tile" width="${VIEW.width * k}" height="${VIEW.height * k}"
             viewBox="${VIEW.x} ${VIEW.y} ${VIEW.width} ${VIEW.height}" aria-hidden="true" style="${box}">
@@ -484,7 +537,7 @@
                 ${masks}
                 ${sheen}
             </defs>
-            ${rim}${square}${shieldPart}${SNAKE}${ribbon}${prizes}${sparks}${shine}
+            ${rim}${square}${SNAKE}${ribbon}${prizes}${sparks}${shine}
         </svg>`;
     }
 
@@ -499,8 +552,9 @@
      * The tile growing from the plain one to what it is -- the owner's order,
      * 28 October 2026, with the rim put first on 30 October:
      *
-     *   1. The shield takes the square's place, the rim's track with it, and
-     *      the band runs round the track as far as the set has come.
+     *   1. The rim's track comes up round the tile, and the band runs round
+     *      it as far as the set has come. Until 2 November 2026 a shield
+     *      took the square's place first, and the track came with it.
      *   2. The ribbon comes in with the record counting up on it.
      *   3. The crown, the star and the goblet that have been won come in one
      *      after another as silhouettes. The ones never won do not come at all.
@@ -524,12 +578,11 @@
      * before the next. The rim is no thing won, and does not beat: until 30
      * October 2026 it came in last, with the emblem finished, and did.
      *
-     * The shield comes in over the square while the square is still all
-     * there, and the square goes after it. The two faded at once to begin
-     * with, the one out as the other came in, and half-way through each was
-     * half there: the blue of the tile let a quarter of the card through, and
-     * the tile flickered dark at the start of every growth (reported by the
-     * owner, 28 October 2026).
+     * While there was a shield, it came in over the square while the square
+     * was still all there, and the square went after it: the two faded at
+     * once to begin with, and half-way through each was half there -- the
+     * tile flickered dark at the start of every growth (the owner, 28
+     * October 2026).
      *
      * Each part is one animation over the whole of its course, from the
      * start of the growth to its own last change, with its stages at offsets
@@ -541,8 +594,7 @@
      * animation left on it -- the last frame of the growth and the face are
      * the same picture.
      */
-    const SHIELD_IN = 260;
-    const SQUARE_OUT = 200;
+    const TRACK_IN = 260;
     const RIBBON_AT = 130;
     const RIBBON_IN = 420;
     const PRIZE_IN = 340;
@@ -604,13 +656,11 @@
         // The moments the whole tile beats, as the peaks of the things won
         const beats = [];
 
-        // 1. The shield taking the square's place, the track with it, and the
-        // band run round to how far the set has come
-        run(part('shield'), [[0, { opacity: 0 }], [SHIELD_IN, { opacity: 1 }]]);
-        run(part('square'), [[0, { opacity: 1 }], [SHIELD_IN, { opacity: 1 }], [SHIELD_IN + SQUARE_OUT, { opacity: 0 }]]);
-        run(part('track'), [[0, { opacity: 0 }], [SHIELD_IN, { opacity: 1 }]]);
+        // 1. The track round the tile, and the band run round to how far the
+        // set has come
+        run(part('track'), [[0, { opacity: 0 }], [TRACK_IN, { opacity: 1 }]]);
 
-        let at = SHIELD_IN;
+        let at = TRACK_IN;
 
         const rim = part('rim');
         if (rim) {
@@ -626,7 +676,7 @@
             at += round;
         }
 
-        // 2. The ribbon with the record -- under way with the shield when
+        // 2. The ribbon with the record -- under way with the track when
         // there is no band to wait for
         const ribbon = part('ribbon');
         if (ribbon) {

@@ -92,6 +92,31 @@ function snake(container) {
     const GRID_COUNT = 12;
 
     /*
+     * The snake running into itself, on trial -- the owner's call, 2 November
+     * 2026, made knowing it may well be taken out again: false puts it back
+     * as it was, a crash like any other.
+     *
+     * With it on, running into itself costs no heart. The snake stops where
+     * it is, and the links from the one its head ran into to the tail come
+     * off where they lie: their letters go back on the board as letters, in
+     * blue, and their hearts as hearts. The game goes back to the word the
+     * snake ran into -- the banner shows it, with what the snake still
+     * carries of it -- and the words from there on are collected again in
+     * order, a heart that came off caught between each, up to the session's
+     * own word. A word gone back over was answered already, and is not
+     * answered again. See shed and resumeWord in board, goToWord in render.
+     * A dead end is then something to get out of at a price, and not a heart
+     * and the goblet with it. Running into the wrong letter is a crash still,
+     * and so is a letter of another word, or a heart that came off, taken out
+     * of turn.
+     *
+     * Its first form, the same day: the letters of the word in play went back
+     * on the board and the rest lay as links come loose, to be taken back in
+     * any order. The owner wanted the order of the words kept instead.
+     */
+    const SHED_ON_SELF = true;
+
+    /*
      * How many pieces each word of a line is laid out on the board in, by the
      * line's stage (see srs.js): the stage, but one at the least, and never
      * more than the word has letters. So a line lies a word to a piece at the
@@ -109,6 +134,18 @@ function snake(container) {
      * Wordcraft cuts a word into stage + 1 tiles, but never fewer than two.
      */
     const piecesFor = (stage, letters) => Math.min(letters, Math.max(stage, 1));
+
+    /*
+     * The stage past which a word's letters have strangers among them on the
+     * board, as many as the stage -- the owner's call, 2 November 2026: a word
+     * that well known is a word that can be made harder to collect. Letters
+     * out of the set's other words that the word itself does not have, so a
+     * stranger is always wrong to eat and never a letter the word could have
+     * used; a set with none of those gives none (see decoysFor in render).
+     * Wordcraft puts strangers among its pieces the same way, from a lower
+     * stage -- see DECOYS_FROM there.
+     */
+    const DECOYS_FROM = 8;
 
     /*
      * A word's letters, as the person reading it would count them.
@@ -323,6 +360,10 @@ function snake(container) {
         // the board: in the banner, or on their way out of it -- see view.deal.
         // Display state like the rest: the board has them where they are going.
         let undealt = new Set();
+
+        // The cells of what has just come off the snake, trembling, and since
+        // when -- see view.shudder
+        let shudder = null;
 
         // The last frame drawn, so that the board can be drawn again from the
         // view when one of the above changes and the game has stopped
@@ -713,6 +754,7 @@ function snake(container) {
             won = false;
             medalGone = false;
             undealt = new Set();
+            shudder = null;
             showing += 1;
             lastFrame = null;
             controlMode = opts.controlMode || 0;
@@ -777,13 +819,12 @@ function snake(container) {
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                     <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
                     <span class="snake-length" role="img" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; align-items: center; margin-left: auto; margin-right: 8.5px; line-height: 1;">
-                        <span class="snake-length-medal" aria-hidden="true" style="display: block; width: ${MEDAL_IN_HEADER}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
+                        <span class="snake-length-medal" aria-hidden="true" style="display: block; width: ${MEDAL_IN_HEADER * MEDAL_W / MEDAL_H}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
                     </span>
                 </div>
                 <div class="snake-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center;">
-                    <div class="snake-dots-row" style="position: relative; display: flex; align-items: center;">
+                    <div class="snake-dots-row" style="display: flex; align-items: center;">
                         <div class="snake-dots" id="snake-dots" style="display: flex; align-items: center; gap: 5px;"></div>
-                        ${starHtml()}
                     </div>
                 </div>
             </div>`);
@@ -793,6 +834,11 @@ function snake(container) {
                 cb.onBack();
             });
             page.muteButton(header, palette.backBtn, palette.chromeBorder);
+
+            // The star at the head of the sound's third, as the medal stands
+            // at the end of the way out's -- see starHtml
+            const end = header.querySelector('.game-header-end');
+            if (end) end.insertAdjacentHTML('afterbegin', starHtml());
 
             hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 8.5px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${opts.translation}</div>
@@ -865,12 +911,41 @@ function snake(container) {
          * been answered also changes colour through its transition instead of
          * all at once.
          */
+        // A dot, and the dot of the word in play, grown to hold its stage
+        const DOT = 8;
+        const DOT_NOW = 15;
+
+        // The dot the word in play is at, and whether it is still waiting for
+        // its answer -- see stageInDot
+        let dotNow = -1;
+        let dotWaiting = true;
+
+        /*
+         * The stage of the word in play in its dot (see STAGE_HINT), and in
+         * no other, while the dot is still waiting for its answer: once it
+         * takes the colour of one, the figure goes -- the owner's call, 2
+         * November 2026. In the page's ink, which stands out against the
+         * theme either way, on the dot's own colour.
+         */
+        function stageInDot() {
+            const dotsEl = header && header.querySelector('#snake-dots');
+            if (!dotsEl) return;
+
+            [...dotsEl.children].forEach((dot, idx) => {
+                const here = idx === dotNow && dotWaiting && stageNow !== null;
+
+                dot.textContent = here ? String(stageNow) : '';
+                dot.title = here ? STAGE_HINT : '';
+                dot.style.color = palette.stageInk;
+            });
+        }
+
         view.dots = (pool, results, currentIndex, heard) => {
             const dotsEl = header.querySelector('#snake-dots');
             if (!dotsEl) return;
 
             if (dotsEl.children.length !== pool.length) {
-                dotsEl.innerHTML = pool.map(() => '<div class="snake-dot" style="width: 8px; height: 8px; border-radius: 50%; transition: all 0.2s; flex-shrink: 0;"></div>').join('');
+                dotsEl.innerHTML = pool.map(() => `<div class="snake-dot" style="display: flex; align-items: center; justify-content: center; width: ${DOT}px; height: ${DOT}px; border-radius: 50%; transition: all 0.2s; flex-shrink: 0; font-size: 9.5px; font-weight: 800; line-height: 1; overflow: hidden; cursor: default; font-variant-numeric: tabular-nums;"></div>`).join('');
             }
 
             pool.forEach((_, idx) => {
@@ -900,19 +975,36 @@ function snake(container) {
 
                 dot.style.background = bg;
                 dot.style.outline = isCurrent ? `1px solid ${palette.cursor}` : '';
-                dot.style.transform = isCurrent ? 'scale(1.15)' : '';
+
+                // Grown rather than scaled, as it was until it held a figure
+                // (scale 1.15): a figure has to be its own size to be read
+                const size = isCurrent ? DOT_NOW : DOT;
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+
+                // Waiting, it holds the stage -- see stageInDot
+                if (isCurrent) dotWaiting = bg === palette.dotIdle;
             });
+
+            dotNow = currentIndex;
+            stageInDot();
         };
 
         /*
-         * The star, hung off the end of the row of dots rather than set in it.
+         * The star, at the head of the third the sound is at the end of, the
+         * size of the record's medal at the end of the other third and as far
+         * from the dots -- the two stand either side of them, the same size,
+         * the owner's call, 2 November 2026. Until then it was fifteen pixels
+         * and hung off the end of the row of dots, seven from the last.
          *
-         * In the row it would be one more thing to centre, and the dots would
-         * stand half a star to the left of the middle of the header — and move
-         * there and back as it came and went. Hung off the end, it takes
-         * nothing from the row and nothing from the groups either side: the
-         * sound is pushed to the far end of its own, and what it stands in is
-         * the empty part of that third.
+         * Not in the row of dots: there it would be one more thing to centre,
+         * and the dots would stand half a star to the left of the middle of
+         * the header -- and move there and back as it came and went. In the
+         * third beside them it takes nothing from the row, and the sound is
+         * pushed to the far end of it.
+         *
+         * Its edge a little finer than the drawing's own, so that at this
+         * size it is the medal's edge.
          *
          * The gold is a rectangle clipped to the star and scaled up from its
          * foot. Clipped on a group around it and not on the rectangle itself:
@@ -985,12 +1077,12 @@ function snake(container) {
         })();
 
         function starHtml() {
-            return `<svg class="snake-star" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" style="position: absolute; left: 100%; top: 50%; margin: -7.5px 0 0 7px; overflow: visible; opacity: 0;">
+            return `<svg class="snake-star" viewBox="0 0 24 24" width="${MEDAL_IN_HEADER}" height="${MEDAL_IN_HEADER}" aria-hidden="true" style="display: block; flex: none; margin: 0 auto 0 8.5px; overflow: visible; opacity: 0;">
                 <defs><clipPath id="snake-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
                 <g clip-path="url(#snake-star-shape)">
                     <rect class="snake-star-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="${palette.star}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0);" />
                 </g>
-                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.8" stroke-linejoin="round" />
+                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.1" stroke-linejoin="round" />
             </svg>`;
         }
 
@@ -1090,7 +1182,24 @@ function snake(container) {
             ], timing);
         };
 
-        view.banner = (text) => {
+        /*
+         * The stage of the word in play, in its dot -- the owner's call, 2
+         * November 2026: the figure alone, and what it is in the tooltip.
+         * The dot of the word in play is grown to hold it (see view.dots).
+         * For most of that day the figure stood over the middle of the
+         * banner's top edge, on a box round the banner of its own.
+         */
+        const STAGE_HINT = 'The stage of this word: how well you know it. The higher it is, the more pieces the word is laid out in.';
+
+        let stageNow = null;
+
+        // The translation, and the stage of the word it is of when given
+        view.banner = (text, stage) => {
+            if (!won && stage !== undefined) {
+                stageNow = stage;
+                stageInDot();
+            }
+
             if (won) return;
 
             const el = translationEl();
@@ -1422,6 +1531,39 @@ function snake(container) {
         const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         /*
+         * The snake ran into itself and its back end came off (see
+         * SHED_ON_SELF): the whole board starts, once, and what came off
+         * trembles where it fell and comes to rest -- the owner's call, 2
+         * November 2026.
+         *
+         * The board is the svg, which stays put while the scene in it is
+         * drawn again; the trembling is on the letters and hearts, which are
+         * drawn again with every frame -- the blink alone redraws them every
+         * few seconds. So they tremble by a stylesheet animation started as
+         * far back as the time gone since the snake ran into itself (see
+         * trembling in view.draw), and one drawn again goes on from where the
+         * one before it was rather than starting over.
+         */
+        const SHUDDER = 360;
+        const TREMBLE = 1000;
+
+        view.shudder = (cells) => {
+            if (still() || !svg) return;
+
+            shudder = { cells: new Set(cells.map(c => c.x + ',' + c.y)), at: performance.now() };
+
+            svg.animate([
+                { translate: '0 0' },
+                { translate: '-6px 2px', offset: 0.15 },
+                { translate: '5px -2px', offset: 0.32 },
+                { translate: '-4px 1px', offset: 0.5 },
+                { translate: '3px -1px', offset: 0.68 },
+                { translate: '-1px 0', offset: 0.85 },
+                { translate: '0 0' }
+            ], { duration: SHUDDER, easing: 'ease-out' });
+        };
+
+        /*
          * The end of the session, told on the dots: a crest of gold runs along
          * them and back — for as long as the screen is up when the star came
          * out full, and SWAY_PLAIN times there and back when it did not. A
@@ -1541,8 +1683,25 @@ function snake(container) {
         const SHAPE_SCALE = 1.4;
         const SHAPE_LEFT = (BADGE_W - 24 * SHAPE_SCALE) / 2;
 
-        // The record's medal, square, the size it always was in the banner.
-        const MEDAL = 44;
+        /*
+         * The record's medal: a square of the prize gold with its corners
+         * rounded, the shape it has had from the first -- the owner's call,
+         * 2 November 2026, after most of a day of the foot of the tile's
+         * shield instead (its ribbon without the tails, a guitar pick to look
+         * at): first a pick of its own, then the tile's very shape, and
+         * neither sat well. The tile in the catalog carries the same medal
+         * since, on its ribbon -- see snake/icon.js. Drawn on 44 by 44, its
+         * size in the banner.
+         */
+        const MEDAL_W = 44;
+        const MEDAL_H = 44;
+        const MEDAL_FACE = 'x="2.5" y="2.5" width="39" height="39" rx="11"';
+
+        // Where its two lines stand, and how big their figures are -- three
+        // figures a size down
+        const MEDAL_TOP = 15;
+        const MEDAL_FOOT = 30.5;
+        const medalFigure = (value, two, three) => (String(value).length > 2 ? three : two);
 
         const PRIZE_GAP = 10.2;
 
@@ -1617,7 +1776,7 @@ function snake(container) {
          * one it leaves, and the badge's middle that far below it.
          */
         const STAR_FIT = { size: 24 * SHAPE_SCALE, dy: BADGE_H / 2 - 12 * SHAPE_SCALE, total: BADGE_H };
-        const MEDAL_FIT = { size: MEDAL, dy: 0, total: MEDAL };
+        const MEDAL_FIT = { size: MEDAL_W, dy: 0, total: MEDAL_H };
 
         // The medal's gold, which every prize is filled with: pale at the
         // top, the star's own gold, deeper at the foot.
@@ -1686,30 +1845,26 @@ function snake(container) {
         }
 
         /*
-         * The record's medal: MAX and the number under it, the way the tile in
-         * the catalog says it, on a square of the prize gold. Three figures
-         * come down a size to stay inside it. The same drawing in the header
-         * while the snake is as long as the record, in flight, and in the
-         * banner.
+         * The record's medal, in the prize gold: the length on top and MAX
+         * under it, the way the medal on the tile in the catalog says it --
+         * the owner's call, 2 November 2026; MAX was on top and the figure
+         * under it until then. The same drawing in the header while the snake
+         * is as long as the record, in flight, and in the banner.
          */
         function medalSvg(value) {
             const id = 'snake-won-' + (++drawn);
-            // MAX up near the top edge and the figure as large as the square
-            // holds, the owner's call: the figure is what is read, and at the
-            // header's 26 pixels it was small. Three figures a size down.
-            const figure = String(value).length > 2 ? 18 : 22;
 
-            return `<svg viewBox="0 0 ${MEDAL} ${MEDAL}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
+            return `<svg viewBox="0 0 ${MEDAL_W} ${MEDAL_H}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
                 <defs>
                     <linearGradient id="${id}-gold" x1="0" y1="0" x2="0" y2="1">${goldStops()}</linearGradient>
                     <linearGradient id="${id}-glint" x1="0" y1="0" x2="1" y2="0">${GLINT_STOPS}</linearGradient>
-                    <clipPath id="${id}-face"><rect x="2.5" y="2.5" width="39" height="39" rx="11" /></clipPath>
+                    <clipPath id="${id}-face"><rect ${MEDAL_FACE} /></clipPath>
                 </defs>
-                <rect x="2.5" y="2.5" width="39" height="39" rx="11" fill="url(#${id}-gold)" stroke="${palette.starEdge}" stroke-width="1.6" />
-                <text x="22" y="11.6" text-anchor="middle" dominant-baseline="central" font-size="8.6" font-weight="800" letter-spacing="0.6" fill="${MEDAL_INK}">MAX</text>
-                <text x="22" y="27" text-anchor="middle" dominant-baseline="central" font-size="${figure}" font-weight="800" fill="${MEDAL_INK}" style="font-variant-numeric: tabular-nums;">${value}</text>
+                <rect ${MEDAL_FACE} fill="url(#${id}-gold)" stroke="${palette.starEdge}" stroke-width="1.6" />
+                <text x="22" y="${MEDAL_TOP}" text-anchor="middle" dominant-baseline="central" font-size="${medalFigure(value, 18, 14.5)}" font-weight="800" fill="${MEDAL_INK}" style="font-variant-numeric: tabular-nums;">${value}</text>
+                <text x="22" y="${MEDAL_FOOT}" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="800" letter-spacing="0.6" fill="${MEDAL_INK}">MAX</text>
                 <g clip-path="url(#${id}-face)">
-                    <rect class="snake-won-glint" data-travel="${MEDAL + 12}" x="-6" y="-2" width="8" height="${MEDAL + 4}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+                    <rect class="snake-won-glint" data-travel="${MEDAL_W + 12}" x="-6" y="-2" width="8" height="${MEDAL_H + 4}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
                 </g>
             </svg>`;
         }
@@ -2013,10 +2168,15 @@ function snake(container) {
          * turns into, which has been waiting under it unseen.
          *
          * The banner is empty while the cloud is up, the row of "?" and its
-         * speaker included, and the cloud loses its edges as its words pass
-         * the middle of the banner: over a banner of its own colour it is
-         * then the words alone coming in to land. Once they have, the row
-         * comes back a piece at a time -- the owner's call, the same day.
+         * speaker included, and the cloud's puffs fade as its words pass the
+         * middle of the banner: over a banner of its own colour it is then
+         * the words alone coming in to land. Once they have, the row comes
+         * back a piece at a time -- the owner's call, the same day.
+         *
+         * No outline round the puffs: the owner took it off on 2 November
+         * 2026. It was a hairline of the board's border colour, drawn as a
+         * shadow round the whole of them so that it did not cross where they
+         * overlap.
          *
          * The letters go in no order the word has, and from the middle of the
          * cloud: a letter that left first would say it is the first to be
@@ -2196,7 +2356,7 @@ function snake(container) {
 
             const cloud = $(host, `<div class="snake-deal-cloud" aria-hidden="true" style="position: fixed; z-index: 8; left: ${centre.x - origin.left - w / 2}px; top: ${centre.y - origin.top - h / 2}px; width: ${w}px; height: ${h}px; pointer-events: none; transform: scale(${grown}); will-change: transform;">
                 <div class="snake-deal-body" style="position: absolute; inset: 0;">
-                    <div class="snake-deal-edges" style="position: absolute; inset: 0; filter: drop-shadow(0 0 1px ${palette.boardBorder});">
+                    <div class="snake-deal-edges" style="position: absolute; inset: 0;">
                         ${puffsOf(w, h).map(p => `<span class="snake-deal-puff" style="position: absolute; left: ${p.x}px; top: ${p.y}px; width: ${p.w}px; height: ${p.h}px; border-radius: ${Math.min(p.w, p.h) / 2}px; background: ${palette.hintBg};"></span>`).join('')}
                     </div>
                     <div class="snake-deal-text" style="position: absolute; left: ${CLOUD_PAD_X}px; top: ${CLOUD_PAD_Y}px; width: ${tw}px; height: ${th}px; overflow: hidden; font-size: ${text.style.fontSize}; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere;"></div>
@@ -2335,7 +2495,7 @@ function snake(container) {
 
             const prizes = [
                 result.crown && { kind: 'crown', html: badgeSvg('crown', 1), width: BADGE_W, height: BADGE_H },
-                result.record && { kind: 'record', html: medalSvg(result.record), width: MEDAL, height: MEDAL },
+                result.record && { kind: 'record', html: medalSvg(result.record), width: MEDAL_W, height: MEDAL_H },
                 result.star && { kind: 'star', html: badgeSvg('star', 1), width: BADGE_W, height: BADGE_H },
                 hearts && (full || !still()) && { kind: 'goblet', html: badgeSvg('goblet', 1), width: BADGE_W, height: BADGE_H }
             ].filter(Boolean);
@@ -2486,7 +2646,7 @@ function snake(container) {
                 if (still() || !from) return arrive(place);
 
                 const size = appRect(svg).width * MEDAL_SHARE;
-                const at = stage(medalSvg(result.record), size, size);
+                const at = stage(medalSvg(result.record), size, size * MEDAL_H / MEDAL_W);
 
                 const flight = arriveFrom(at, from, 0, MEDAL_FIT);
 
@@ -2714,7 +2874,8 @@ function snake(container) {
          * outline is the star's (see starHtml), which is drawn the same way
          * before the answers fill it. As long as the record -- matching it
          * counts, see store.noteRecord -- it fills with the gold and is the
-         * medal the ending flies: MAX and the one number, which is both. A
+         * medal the ending flies: the length on top and MAX under it, since
+         * 2 November 2026 (MAX was on top and the figure under it). A
          * crash that starts the round over empties it again, and growing back
          * to the record fills it again.
          *
@@ -2740,8 +2901,8 @@ function snake(container) {
         ];
 
         /*
-         * The medal's square, empty: the edge alone, and the two numbers in
-         * the header's own ink. Three figures a size down, as on the medal.
+         * The medal, empty: the edge alone, and the two numbers in the
+         * header's own ink. Three figures a size down, as on the medal.
          *
          * The record under the length nearly as large as the length: at 12.5
          * of the 44 it was eight pixels in the header and hard to read (the
@@ -2749,12 +2910,10 @@ function snake(container) {
          * the ink, a little lighter for the record.
          */
         function lengthSvg(now, most) {
-            const three = String(most).length > 2;
-
-            return `<svg viewBox="0 0 ${MEDAL} ${MEDAL}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible; font-variant-numeric: tabular-nums;">
-                <rect x="2.5" y="2.5" width="39" height="39" rx="11" fill="none" stroke="${palette.starEdge}" stroke-width="2" />
-                <text x="22" y="15" text-anchor="middle" dominant-baseline="central" font-size="${three ? 14.5 : 18}" font-weight="800" fill="${palette.backBtn}">${now}</text>
-                <text x="22" y="30.5" text-anchor="middle" dominant-baseline="central" font-size="${three ? 13 : 16}" font-weight="700" fill="${palette.backBtn}" opacity="0.85">${most}</text>
+            return `<svg viewBox="0 0 ${MEDAL_W} ${MEDAL_H}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible; font-variant-numeric: tabular-nums;">
+                <rect ${MEDAL_FACE} fill="none" stroke="${palette.starEdge}" stroke-width="2" />
+                <text x="22" y="${MEDAL_TOP}" text-anchor="middle" dominant-baseline="central" font-size="${medalFigure(most, 18, 14.5)}" font-weight="800" fill="${palette.backBtn}">${now}</text>
+                <text x="22" y="${MEDAL_FOOT}" text-anchor="middle" dominant-baseline="central" font-size="${medalFigure(most, 16, 13)}" font-weight="700" fill="${palette.backBtn}" opacity="0.85">${most}</text>
             </svg>`;
         }
 
@@ -2849,14 +3008,23 @@ function snake(container) {
             // are not among them — see BLANK. On a board filled to the last
             // cell they are crowns at the end, and then not there at all as
             // the crowns go up to the banner — see view.victory. A new word's
-            // are not there until they have flown in — see view.deal.
+            // are not there until they have flown in — see view.deal. Those
+            // that came off the snake are blue -- see SHED_ON_SELF -- and
+            // tremble for a moment where they fell (view.shudder).
+            const since = shudder ? performance.now() - shudder.at : TREMBLE;
+            if (since >= TREMBLE) shudder = null;
+
+            const trembling = (cell, drawn) => (shudder && shudder.cells.has(cell.x + ',' + cell.y)
+                ? `<g style="transform-box: fill-box; transform-origin: center; animation: snake-tremble ${TREMBLE}ms linear ${-Math.round(since)}ms both;">${drawn}</g>`
+                : drawn);
+
             s.lettersOnBoard.forEach((l, at) => {
                 if (l.isEaten || crownsGone.has(at) || undealt.has(at)) return;
 
                 const cx = (l.x + 0.5) * cellSize;
                 const cy = (l.y + 0.5) * cellSize;
 
-                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, LETTER_PX, palette.boardLetter, 'bold');
+                out += crowned ? crownOn(cx, cy) : trembling(l, glyph(l.char, cx, cy, LETTER_PX, l.fallen ? palette.fallenLetter : palette.boardLetter, 'bold'));
             });
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
@@ -2932,6 +3100,14 @@ function snake(container) {
                         width="${jointWidth}" height="${jointReach * 2}" fill="${fill}" />`;
                 }
             }
+
+            // The hearts that came off the snake, as the heart to catch is
+            // drawn -- see SHED_ON_SELF
+            (s.looseHearts || []).forEach(heart => {
+                out += trembling(heart, `<text x="${(heart.x + 0.5) * cellSize}" y="${(heart.y + 0.5) * cellSize}"
+                    font-family="${LETTER_FONT}" font-size="16.4" text-anchor="middle"
+                    dominant-baseline="central">${heart.char}</text>`);
+            });
 
             /*
              * The face, and it is the app's own: the two rings of the mark in
@@ -3183,6 +3359,7 @@ function snake(container) {
      *
      * step() reports what happened and lets the session decide what it means:
      *   'moved' | 'letter' | 'wordDone' | 'heart' | 'crashHeart' | 'crashRestart'
+     *   | 'shed' -- see SHED_ON_SELF
      */
     function board() {
         let snakeBody = [];
@@ -3198,6 +3375,29 @@ function snake(container) {
         let inputCooldown = false;
         let crashPhase = 0;
         let newTail = null;
+
+        /*
+         * The words gone back over after the snake ran into itself -- see
+         * shed. `behind` is how many words the one in play is behind the
+         * live word, the one the session has come to: 0 the rest of the time.
+         * The letters of a word behind it lie on the board with `behind` on
+         * them; the live word's have none, as they always had.
+         *
+         * `looseHearts`: the hearts that came off, {x, y, char}, lying where
+         * they did. One is caught after each word gone back over, in place of
+         * a heart put out new.
+         */
+        let behind = 0;
+        let looseHearts = [];
+
+        // The strangers put out with the live word's letters -- see
+        // DECOYS_FROM -- told by the session, which knows the set they come
+        // out of
+        let decoys = [];
+        board.setDecoys = (list) => { decoys = list; };
+
+        // What the last run into itself came to -- see shed
+        let shedTo = null;
 
         // The word as a list of letters, segmented and cased once. Every rule
         // that counts letters counts these; the word itself the board has no
@@ -3334,13 +3534,16 @@ function snake(container) {
          * letters, the letters take every one of them, and those that do not
          * fit are not put out at all.
          */
+        // A cell taken by the snake or by a link lying loose
+        const taken = (x, y) => snakeBody.some(s => s.x === x && s.y === y) || looseHearts.some(s => s.x === x && s.y === y);
+
         function spawnLetters() {
             lettersOnBoard = [];
 
             const free = [];
             for (let y = 0; y < GRID_COUNT; y++) {
                 for (let x = 0; x < GRID_COUNT; x++) {
-                    if (!snakeBody.some(s => s.x === x && s.y === y)) free.push({ x, y });
+                    if (!taken(x, y)) free.push({ x, y });
                 }
             }
 
@@ -3430,7 +3633,33 @@ function snake(container) {
                 });
             });
 
-            return free.length === 0;
+            // The crown is a board the word's own letters fill -- the
+            // strangers below only take what is left over
+            const full = free.length === 0;
+
+            /*
+             * And the strangers, for a word well known -- see DECOYS_FROM:
+             * each on a free cell clear of every letter laid, diagonals and
+             * all, as a piece is kept clear of the others, so that none of
+             * them reads as the end of a piece. Where the board has no such
+             * cell, on any free one; where it has none at all, not put out.
+             */
+            decoys.forEach(char => {
+                if (!free.length) return;
+
+                const near = (pos) => [...laid.keys()].some(cell => {
+                    const [x, y] = cell.split(',').map(Number);
+                    return Math.abs(x - pos.x) <= 1 && Math.abs(y - pos.y) <= 1;
+                });
+                const pos = pick(free, cell => !near(cell));
+
+                free.splice(free.indexOf(pos), 1);
+                laid.set(key(pos), -1);
+
+                lettersOnBoard.push({ char, index: -1, x: pos.x, y: pos.y, isEaten: false, decoy: true });
+            });
+
+            return full;
         }
 
         function spawnHeart() {
@@ -3438,7 +3667,7 @@ function snake(container) {
             while (attempts < 500) {
                 attempts++;
                 const pos = randomCell();
-                if (!snakeBody.some(s => s.x === pos.x && s.y === pos.y)) {
+                if (!taken(pos.x, pos.y)) {
                     heartPos = pos;
                     break;
                 }
@@ -3460,6 +3689,91 @@ function snake(container) {
             const oldTailPos = { x: snakeBody[snakeBody.length - 1].x, y: snakeBody[snakeBody.length - 1].y };
             advance(x, y);
             snakeBody.push({ x: oldTailPos.x, y: oldTailPos.y, char });
+        }
+
+        const isHeart = (char) => char === '\u2764\ufe0f' || char === '\ud83d\udda4';
+
+        /*
+         * Which word each link carries a letter of, and which letter of it,
+         * read off the body itself: after the head come the words collected,
+         * one after another, a heart after each but the last, and the last is
+         * the word in play. So a word is known by how many hearts stand
+         * between it and the tail, and a link by its place among its word's
+         * links -- the letters of a word are eaten in order. A heart is told
+         * as the heart after its word.
+         */
+        function wordsOnBody() {
+            const hearts = snakeBody.filter(link => isHeart(link.char)).length;
+            let word = 0;
+            let nth = 0;
+
+            return snakeBody.map((link, i) => {
+                if (i === 0) return null;
+
+                const back = behind + hearts - word;
+                if (!isHeart(link.char)) return { behind: back, nth: nth++ };
+
+                word += 1;
+                nth = 0;
+                return { behind: back, heart: true };
+            });
+        }
+
+        // Where in the word in play the nth letter of it stands, blanks and all
+        function letterIndex(nth) {
+            let seen = -1;
+            return targetLetters.findIndex(char => !BLANK.test(char) && ++seen === nth);
+        }
+
+        /*
+         * The snake ran into itself at (x, y), with SHED_ON_SELF: it stays
+         * where it is, and every link from the one it ran into to the tail
+         * comes off where it lies. Every letter goes back on the board as a
+         * letter of its word, where its link was, and every heart lies there
+         * loose; and the game goes back to the word the snake ran into, with
+         * what the snake still carries of it -- or, run into the heart after
+         * a word, to the catching of that heart. The words from there on are
+         * gone over again in order (see board.resumeWord), the session's own
+         * word last.
+         *
+         * Returns null when the link is not one that can come off, and the run
+         * into it is a crash as ever. Only the head is one.
+         */
+        function shed(x, y, grows) {
+            const after = grows ? snakeBody : snakeBody.slice(0, -1);
+            const cut = after.findIndex(s => s.x === x && s.y === y);
+            if (cut < 1) return null;
+
+            const tags = wordsOnBody();
+            const hit = tags[cut];
+            const fallen = snakeBody.slice(cut);
+
+            snakeBody = snakeBody.slice(0, cut);
+            inputQueue = [];
+            heartPos = null;
+
+            fallen.forEach((link, i) => {
+                const tag = tags[cut + i];
+                if (tag.heart) return void looseHearts.push({ x: link.x, y: link.y, char: link.char });
+
+                // The live word's letters are known by their place in it, as
+                // they were put out; a word behind it only needs the order
+                const live = tag.behind === 0;
+                const index = live ? letterIndex(tag.nth) : tag.nth;
+                const own = (l) => (l.behind || 0) === tag.behind && l.index === index;
+
+                lettersOnBoard = lettersOnBoard.filter(l => !own(l));
+                lettersOnBoard.push(Object.assign({ char: link.char, index, x: link.x, y: link.y, isEaten: false, fallen: true }, live ? {} : { behind: tag.behind }));
+            });
+
+            // And where it all came off, for the view to shake -- see view.shudder
+            shedTo = { behind: hit.behind, kept: hit.heart ? 0 : hit.nth, heart: !!hit.heart, cells: fallen.map(link => ({ x: link.x, y: link.y })) };
+            return 'shed';
+        }
+
+        // The run into itself: shed with SHED_ON_SELF, a crash without
+        function selfHit(x, y, grows, prev) {
+            return (SHED_ON_SELF && shed(x, y, grows)) || crash(prev);
         }
 
         /*
@@ -3514,10 +3828,14 @@ function snake(container) {
                 inputCooldown = false;
                 crashPhase = saved.savedCrashPhase || 0;
                 newTail = saved.savedNewTail ? clone(saved.savedNewTail) : null;
+                behind = saved.savedBehind || 0;
+                looseHearts = clone(saved.savedLooseHearts || []);
                 return false;
             }
 
             placeSnake();
+            behind = 0;
+            looseHearts = [];
             dir = { x: 0, y: -1 };
             inputQueue = [];
             nextLetterIndex = 0;
@@ -3550,11 +3868,13 @@ function snake(container) {
             saved.savedCrashPhase = crashPhase;
             saved.c_new_tail = newTail;
             saved.savedNewTail = newTail ? clone(newTail) : null;
+            saved.savedBehind = behind;
+            saved.savedLooseHearts = clone(looseHearts);
         };
 
         board.snapshot = () => ({
             snakeBody, lettersOnBoard, phase, heartPos,
-            isFrozen, losingHeartIdx, blinkVisible, crashPhase, dir
+            isFrozen, losingHeartIdx, blinkVisible, crashPhase, dir, looseHearts
         });
 
         board.phase = () => phase;
@@ -3583,10 +3903,55 @@ function snake(container) {
             return spawnLetters();
         };
 
+        // The word's letters, all eaten, go; those of the words still to be
+        // gone back over stay. A heart that came off is the one to catch if
+        // there is one -- see looseHearts -- and a new one is put out if not.
         board.beginHeartPhase = () => {
             phase = 'HEART';
-            lettersOnBoard = [];
-            spawnHeart();
+            lettersOnBoard = lettersOnBoard.filter(l => (l.behind || 0) !== behind);
+
+            if (looseHearts.length) heartPos = null;
+            else spawnHeart();
+        };
+
+        board.behind = () => behind;
+        board.shedTo = () => shedTo;
+
+        /*
+         * The word in play, gone back to or come on to after the snake ran
+         * into itself -- see shed: `back` words behind the live one, with the
+         * first `kept` of its letters on the snake, or all of them and its
+         * heart to catch (`heart`). Its letters are on the board already, and
+         * nothing is put out.
+         */
+        board.resumeWord = (word, stage, back, kept, heart) => {
+            readWord(word, stage);
+            behind = back;
+
+            nextLetterIndex = 0;
+            skipBlanks();
+
+            if (heart) {
+                nextLetterIndex = targetLetters.length;
+            } else {
+                for (let n = 0; n < kept; n++) {
+                    nextLetterIndex++;
+                    skipBlanks();
+                }
+            }
+
+            phase = heart ? 'HEART' : 'WORD';
+            heartPos = null;
+            if (heart && !looseHearts.length) spawnHeart();
+        };
+
+        // Gone back over no more: the hearts that came off go, and the live
+        // word is the word in play -- for a round started over, which puts
+        // its letters out new
+        board.leaveWordsBehind = (word, stage) => {
+            readWord(word, stage);
+            behind = 0;
+            looseHearts = [];
         };
 
         board.restartRound = () => {
@@ -3690,12 +4055,21 @@ function snake(container) {
             const headY = (snakeBody[0].y + dir.y + GRID_COUNT) % GRID_COUNT;
             const prev = snakeBody.map(s => ({ ...s }));
 
+            // A heart that came off, where the head goes -- see looseHearts --
+            // and a letter, of whichever word
+            const loose = looseHearts.find(h => h.x === headX && h.y === headY);
+            const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
+
             if (phase === 'HEART') {
-                const onHeart = !!heartPos && headX === heartPos.x && headY === heartPos.y;
-                if (hits(headX, headY, onHeart)) return crash(prev);
+                const onHeart = (!!heartPos && headX === heartPos.x && headY === heartPos.y) || !!loose;
+                if (hits(headX, headY, onHeart || !!touched)) return selfHit(headX, headY, onHeart || !!touched, prev);
+
+                // A letter of a word still to be gone back over is not for now
+                if (touched) return crash(prev);
 
                 if (onHeart) {
-                    grow(headX, headY, '❤️');
+                    if (loose) looseHearts = looseHearts.filter(h => h !== loose);
+                    grow(headX, headY, loose ? loose.char : '\u2764\ufe0f');
                     return 'heart';
                 }
 
@@ -3703,12 +4077,14 @@ function snake(container) {
                 return 'moved';
             }
 
-            const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
+            if (hits(headX, headY, !!touched || !!loose)) return selfHit(headX, headY, !!touched || !!loose, prev);
 
-            if (hits(headX, headY, !!touched)) return crash(prev);
+            // A heart that came off is caught between words, not in one
+            if (loose) return crash(prev);
 
             if (touched) {
-                if (touched.char !== targetLetters[nextLetterIndex]) {
+                // A letter of another word is as wrong as a letter out of turn
+                if ((touched.behind || 0) !== behind || touched.char !== targetLetters[nextLetterIndex]) {
                     wrongLetter = true;
                     return crash(prev);
                 }
@@ -3784,7 +4160,7 @@ function snake(container) {
             hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, starLevel: 0, recordAt: null, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
-            savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null
+            savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null, savedBehind: 0, savedLooseHearts: null
         };
     }
 
@@ -4189,13 +4565,40 @@ function snake(container) {
             return;
         }
 
-        let currentItem = pool[state.currentIndex];
+        // The word in play: the session's own, or one before it while the
+        // words are gone back over after the snake ran into itself -- see
+        // SHED_ON_SELF. Only a round under way can be one of those.
+        let currentItem = pool[state.currentIndex - (state.savedSnake ? state.savedBehind || 0 : 0)];
         let targetWord = currentItem.word.original.toLowerCase();
         sayLang = currentItem.originalLang;
 
         // Where the word stands on the ladder, which is what the board lays its
         // letters out by -- see piecesFor
         const stageOf = (item) => spacedRepetitions.getWordStats(item.word).stage || 0;
+
+        /*
+         * The strangers for a word -- see DECOYS_FROM: past that stage, as
+         * many as the stage, drawn at random out of the letters of the set's
+         * other words that this word does not have; the same letter twice
+         * where the set has fewer than that. Letters only: a mark is nothing
+         * to mistake for one.
+         */
+        function decoysFor(item) {
+            const stage = stageOf(item);
+            if (stage <= DECOYS_FROM) return [];
+
+            const lettersIn = (text) => lettersOf(text.toLowerCase()).map(shownAs);
+            const own = new Set(lettersIn(item.word.original));
+
+            const strangers = [...new Set(store.wordsOf(item.setId)
+                .filter(entry => entry.word.original !== item.word.original)
+                .flatMap(entry => lettersIn(entry.word.original)))]
+                .filter(char => /\p{L}/u.test(char) && !own.has(char));
+
+            if (!strangers.length) return [];
+
+            return Array.from({ length: stage }, () => strangers[Math.floor(Math.random() * strangers.length)]);
+        }
 
         view.mount({
             translation: currentItem.word.translation,
@@ -4238,7 +4641,7 @@ function snake(container) {
              */
             onLetterClick: (index) => {
                 const letters = board.letters();
-                const isShown = (at) => state.showHint || at < board.progress();
+                const isShown = (at) => opened() || at < board.progress();
 
                 if (!isShown(index)) {
                     forgetTaps();
@@ -4303,7 +4706,9 @@ function snake(container) {
                 const letters = board.letters();
                 const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)), speaker);
 
-                if (said) hearWord();
+                // A word gone back over was answered already, and costs
+                // nothing to hear
+                if (said && !replaying()) hearWord();
             },
 
             // A tap on the board stops the snake -- a panel that arrives while
@@ -4333,8 +4738,11 @@ function snake(container) {
             }
         });
 
+        // The dot of the word in play -- one before the session's own while
+        // the words are gone back over (see SHED_ON_SELF), and nothing heard
+        // of it then
         function refreshDots() {
-            view.dots(pool, state.sessionResults, state.currentIndex, state.heardThisRound);
+            view.dots(pool, state.sessionResults, state.currentIndex - board.behind(), state.heardThisRound && !replaying());
         }
 
         /*
@@ -4420,8 +4828,41 @@ function snake(container) {
             // stop existing, and whatever was said over them is over too.
             forgetTaps();
             dropMark();
-            view.gathered(board.letters(), board.progress(), state.showHint);
+            view.gathered(board.letters(), board.progress(), opened());
             offerReveal();
+        }
+
+        /*
+         * Going back over the words after the snake ran into itself -- see
+         * SHED_ON_SELF. The session stays where it is (state.currentIndex)
+         * and the word in play is `behind` words before it: answered already,
+         * so it is collected again and nothing more, not scored again, not
+         * charged for hearing, and its "?" open for nothing (`replayOpen`,
+         * for this screen only) -- what was paid for it was paid the first
+         * time round.
+         */
+        const replaying = () => board.behind() > 0;
+
+        let replayOpen = false;
+        const opened = () => (replaying() ? replayOpen : state.showHint);
+
+        // The word in play, `back` words behind the session's own, with
+        // `kept` of its letters on the snake, or all of them and its heart
+        // to catch -- see board.resumeWord
+        function goToWord(back, kept, heart) {
+            narration += 1;
+            speech.hush();
+
+            currentItem = pool[state.currentIndex - back];
+            targetWord = currentItem.word.original.toLowerCase();
+            sayLang = currentItem.originalLang;
+            replayOpen = false;
+
+            board.resumeWord(targetWord, stageOf(currentItem), back, kept, heart);
+
+            view.banner(currentItem.word.translation, stageOf(currentItem));
+            refreshGathered();
+            refreshDots();
         }
 
         /*
@@ -4538,6 +4979,11 @@ function snake(container) {
         // Showing the answer, which is only ever asked for by clicking a letter
         // that is still hidden
         function revealHint() {
+            if (replaying()) {
+                replayOpen = true;
+                return refreshGathered();
+            }
+
             if (state.showHint) return;
 
             state.showHint = true;
@@ -4602,11 +5048,17 @@ function snake(container) {
                 .some(entry => 'maxLength' in entry && entry.at === state.recordAt);
         }
 
-        refreshDots();
-        view.star(0, state.starLevel);
+        // The strangers are the live word's, whatever word is in play -- a
+        // round started over puts them out again with its letters
+        board.setDecoys(decoysFor(pool[state.currentIndex]));
 
         const fresh = board.load(state, targetWord, stageOf(currentItem));
         if (fresh) board.spawnLetters();
+
+        // After the board, which knows whether the word in play is the
+        // session's own -- see refreshDots
+        refreshDots();
+        view.star(0, state.starLevel);
 
         // The board that was just built, written into the state the snapshot is
         // taken from. Every later board change persists itself from the tick
@@ -4697,7 +5149,7 @@ function snake(container) {
 
             if (clock.isPaused()) {
                 clock.resume();
-                view.banner(currentItem.word.translation);
+                view.banner(currentItem.word.translation, stageOf(currentItem));
                 clock.schedule();
                 board.persistTo(state);
             }
@@ -4887,12 +5339,19 @@ function snake(container) {
             clock.after(gap(), shut);
         }
 
-        // Restarts the round after the crash animation has played out
+        /*
+         * Restarts the round after the crash animation has played out.
+         *
+         * Saved at once on both paths: until the crash is over the session
+         * saved is one frozen in the middle of it -- see the end of render,
+         * which finishes a crash a session comes back in.
+         */
         function afterCrash(event) {
             if (event === 'crashHeart') {
                 if (!board.headToTail()) return;
                 paint();
                 board.persistTo(state);
+                page.save();
                 clock.after(500, () => board.releaseInput());
                 blinkLostHeart();
 
@@ -4905,8 +5364,25 @@ function snake(container) {
 
             clock.pause();
             clock.cancelAccel();
+
+            /*
+             * Started over in the middle of going back over the words (see
+             * SHED_ON_SELF): what came off goes with everything else the
+             * snake had, and the round is the session's own word again, as a
+             * round started over always was.
+             */
+            if (replaying()) {
+                currentItem = pool[state.currentIndex];
+                targetWord = currentItem.word.original.toLowerCase();
+                sayLang = currentItem.originalLang;
+                replayOpen = false;
+
+                board.leaveWordsBehind(targetWord, stageOf(currentItem));
+                refreshDots();
+            }
+
             board.restartRound();
-            view.banner(currentItem.word.translation);
+            view.banner(currentItem.word.translation, stageOf(currentItem));
 
             // After restartRound, so the bar it reads is the one with everything
             // closed again and the hand goes under the first letter.
@@ -4914,6 +5390,7 @@ function snake(container) {
 
             board.persistTo(state);
             paint();
+            page.save();
         }
 
         function moveToNextWord() {
@@ -4941,9 +5418,10 @@ function snake(container) {
             state.showHint = false;
             state.heardThisRound = false;
 
+            board.setDecoys(decoysFor(currentItem));
             if (board.setWord(targetWord, stageOf(currentItem))) return crownSession();
 
-            view.banner(currentItem.word.translation);
+            view.banner(currentItem.word.translation, stageOf(currentItem));
             refreshGathered();
             board.persistTo(state);
             page.save();
@@ -5134,6 +5612,11 @@ function snake(container) {
              */
             if (board.crashedOnLetter()) {
                 missedLetter = true;
+
+                // The board starts, as it does when the snake runs into
+                // itself -- the owner's call, 2 November 2026; nothing came
+                // off, so nothing trembles
+                view.shudder([]);
             } else if (event === 'letter' || event === 'wordDone') {
                 missedLetter = false;
                 offerReveal();
@@ -5155,7 +5638,42 @@ function snake(container) {
                 return;
             }
 
+            /*
+             * The snake ran into itself and its back end came off -- see
+             * SHED_ON_SELF. The game goes back to the word it ran into, the
+             * banner with it: its translation, and what the snake still
+             * carries of it. It stands still until the next press, held key
+             * or not: the step it was taking went nowhere, and the eye wants
+             * a moment to see what came off.
+             */
+            if (event === 'shed') {
+                clock.pause();
+                clock.cancelAccel();
+                clock.setAcceleration(false);
+
+                const to = board.shedTo();
+                goToWord(to.behind, to.kept, to.heart);
+
+                // Before the paint, which draws what came off trembling
+                view.shudder(to.cells);
+
+                board.persistTo(state);
+                paint();
+                page.save();
+                return;
+            }
+
             if (wasHeartPhase) {
+                // A heart caught while going back over the words: on to the
+                // next of them, whose letters are on the board already
+                if (event === 'heart' && replaying()) {
+                    goToWord(board.behind() - 1, 0, false);
+                    board.persistTo(state);
+                    paint();
+                    page.save();
+                    return;
+                }
+
                 if (event === 'heart') {
                     state.currentIndex++;
                     state.savedSnake = null;
@@ -5193,7 +5711,10 @@ function snake(container) {
                 // Redrawn before it is narrated — same reason as above.
                 refreshGathered();
 
-                const lastOfSession = state.currentIndex >= pool.length - 1;
+                // Going back over the words, the word done is not the session's
+                // own, and was answered already -- see goToWord
+                const live = !replaying();
+                const lastOfSession = live && state.currentIndex >= pool.length - 1;
 
                 if (!lastOfSession) sayProgress();
 
@@ -5216,7 +5737,7 @@ function snake(container) {
                  */
                 const clean = !state.hadErrorThisRound;
 
-                if (clean) scoreRound(1);
+                if (clean && live) scoreRound(1);
 
                 /*
                  * And the dot says so now, with the last letter, rather than
@@ -5284,10 +5805,27 @@ function snake(container) {
          */
         speech.onVoices(refreshGathered);
 
-        view.banner(currentItem.word.translation);
+        view.banner(currentItem.word.translation, stageOf(currentItem));
         if (fresh) deal();
         paint();
         board.persistTo(state);
+
+        /*
+         * A session that comes back in the middle of a crash: frozen in its
+         * first moment, the spark on, with the rest of it -- the turn round,
+         * or the round started over -- on a timer of the screen that was
+         * left, and gone with it. Nothing finished it, and the first moment
+         * takes no presses (see board.acceptsInput), so the game stood frozen
+         * for good: the popup closed in the second after a crash, and opened
+         * again (found 2 November 2026). It is finished here the way it would
+         * have been: turned round if it cost a heart, the heart it cost black
+         * in the body, and started over if there was none to spend.
+         *
+         * At the end, after everything the crash calls on has been set up.
+         */
+        if (board.isFrozen() && board.crashPhase() === 1) {
+            afterCrash(board.snapshot().losingHeartIdx >= 0 ? 'crashHeart' : 'crashRestart');
+        }
 
         // Started once, here, and it runs until the screen goes.
         blinkEyes();
@@ -5309,6 +5847,10 @@ function snake(container) {
             // The quiet ink of the line under the board and of the cross that
             // puts the d-pad away.
             panelMuted: t.muted,
+            // The stage in the dot of the word in play (see stageInDot): the
+            // page's own ink, light on the dark theme and dark on the light
+            // one, on the waiting dot's own colour
+            stageInk: t.ink,
             ring: t.accent,
             // Marks where you are right now — the dot you are on, and in quiz
             // the option under the keyboard cursor. Its own token rather than
@@ -5379,6 +5921,10 @@ function snake(container) {
             // from the thing you steer at, and far enough from the body's blues
             // and violets to stay legible against every segment behind it.
             boardLetter: isDark ? t.progress : t.progressFill,
+            // A letter that came off the snake (see SHED_ON_SELF): blue, the
+            // owner's word, 2 November 2026 -- Snake's own blue, the tile's,
+            // the same on both themes like the head's coral
+            fallenLetter: '#4a90d9',
             head: t.accent,
             /*
              * The body, along its length.
@@ -5463,7 +6009,12 @@ function snake(container) {
         savedLosingHeartIdx: state.savedLosingHeartIdx,
         savedBlinkVisible: state.savedBlinkVisible,
         savedCrashPhase: state.crashPhase,
-        savedNewTail: state.c_new_tail
+        savedNewTail: state.c_new_tail,
+
+        // The words gone back over, and the hearts that came off -- see
+        // SHED_ON_SELF
+        savedBehind: state.savedBehind,
+        savedLooseHearts: state.savedLooseHearts
     });
 
     snake.setState = (snap) => {
