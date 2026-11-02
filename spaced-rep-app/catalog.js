@@ -3026,6 +3026,24 @@ function catalog(container) {
         status.textContent = joinNote;
     }
 
+    /*
+     * The foot of the settings, at the bottom of Advanced in small type: the
+     * version, and when its code was last changed (see remote.codeDate) --
+     * the owner's call, 2 November 2026. In the device's own time, written
+     * year first, which reads the same whatever language the device is in.
+     * Without a build there is no date, and the version is "dev".
+     */
+    function buildLine() {
+        const at = remote.codeDate() ? new Date(remote.codeDate()) : null;
+        const pad = (n) => String(n).padStart(2, '0');
+
+        const when = at && !isNaN(at)
+            ? ` · updated ${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`
+            : '';
+
+        return `Version ${remote.version()}${when}`;
+    }
+
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
@@ -3070,6 +3088,7 @@ function catalog(container) {
                 </button>
                 <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
                 <div class="dict-settings-body" style="margin-top: 12px;"></div>
+                <div class="dict-build-line" style="margin-top: 10.2px; font-size: 9.7px; font-weight: 600; line-height: 1.4; color: ${palette.hint}; font-variant-numeric: tabular-nums;">${buildLine()}</div>
                 </div>
                 </div>
             </div>

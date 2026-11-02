@@ -71,6 +71,20 @@ function remote() {
     }
 
     /*
+     * When the code was last changed, for the foot of the settings (see
+     * buildLine in catalog.js): the moment of the last commit to it, as an
+     * ISO date with its offset, written in over the placeholder below by the
+     * build -- build.sh for the site, build-min.sh for the extension. The
+     * commit and not the build, because the same code built again later is
+     * no newer. Unbuilt there is none, and the answer is null.
+     */
+    const BUILD_CODE_DATE = '2026-11-02T18:57:34+05:00';
+
+    function codeDate() {
+        return BUILD_CODE_DATE.startsWith('__') ? null : (BUILD_CODE_DATE || null);
+    }
+
+    /*
      * The two ids: one for the device, one for the profile its sets belong to.
      *
      * Twelve characters of Crockford's base32, which is sixty bits: the
@@ -250,5 +264,6 @@ function remote() {
     remote.grouped = grouped;
     remote.platform = platform;
     remote.version = version;
+    remote.codeDate = codeDate;
 }
 remote();
