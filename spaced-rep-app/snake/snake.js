@@ -365,6 +365,10 @@ function snake(container) {
         // when -- see view.shudder
         let shudder = null;
 
+        // The strangers on their way off the board once their word is
+        // collected, and since when -- see view.sweep
+        let sweep = null;
+
         // The last frame drawn, so that the board can be drawn again from the
         // view when one of the above changes and the game has stopped
         // drawing it.
@@ -539,6 +543,18 @@ function snake(container) {
         const SAY_SCALE = Math.round((CAP_HEIGHT / SAY_INK) * 1000) / 1000;
         const SAY_LEAD = `margin-top: 0; margin-inline-end: ${WORD_SPACE / SAY_SCALE}em; font-size: ${BOX_SIZE * SAY_SCALE}px; flex: none;`;
 
+        /*
+         * The empty heart at the other end of the line once it is collected
+         * (see view.gathered), sized and spaced as the speaker is, by the same
+         * reckoning. Its drawing is out of the speaker's set and is taller in
+         * its square: from y=3 to y=21.2 of the 24.
+         */
+        const HEART_INK = 18.2 / 24;
+        const HEART_SCALE = Math.round((CAP_HEIGHT / HEART_INK) * 1000) / 1000;
+        const HEART_PATH = 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z';
+
+        const heartToCatchHtml = () => `<span class="snake-gathered-heart" aria-hidden="true" title="Catch a heart for the next word" style="display: inline-flex; flex: none; margin-inline-start: ${WORD_SPACE / HEART_SCALE}em; font-size: ${BOX_SIZE * HEART_SCALE}px; color: ${palette.heartToCatch};"><svg viewBox="0 0 24 24" style="width: 1em; height: 1em; display: block;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${HEART_PATH}" /></svg></span>`;
+
         function fitGathered() {
             // The gaps standing in for the blanks are measured and sized with
             // the letters: their width is in em, so a gap left at the starting
@@ -549,14 +565,17 @@ function snake(container) {
 
             // The speaker comes down with them, at its own fraction of the size:
             // it is a letter's worth of icon, and a letter's worth of anything
-            // has to keep being that once the letters have shrunk.
+            // has to keep being that once the letters have shrunk. The heart
+            // at the other end too.
             const say = gatheredBar.querySelector('.say-all');
+            const heart = gatheredBar.querySelector('.snake-gathered-heart');
 
             const wear = (size) => {
                 boxes.forEach(b => {
                     b.style.fontSize = size + 'px';
                 });
                 if (say) say.style.fontSize = (size * SAY_SCALE) + 'px';
+                if (heart) heart.style.fontSize = (size * HEART_SCALE) + 'px';
             };
 
             let size = BOX_SIZE;
@@ -755,6 +774,7 @@ function snake(container) {
             medalGone = false;
             undealt = new Set();
             shudder = null;
+            sweep = null;
             showing += 1;
             lastFrame = null;
             controlMode = opts.controlMode || 0;
@@ -1240,6 +1260,9 @@ function snake(container) {
         view.gathered = (targetLetters, collected, showHint) => {
             if (won) return;
 
+            // Whether the heart at the end was there already -- see below
+            const hadHeart = !!gatheredBar.querySelector('.snake-gathered-heart');
+
             gatheredBar.innerHTML = '';
             firstClosed = null;
 
@@ -1350,6 +1373,29 @@ function snake(container) {
                 if (!shown && !firstClosed) firstClosed = box;
 
                 gatheredBar.appendChild(box);
+            }
+
+            /*
+             * And the line collected to its last letter has an empty heart
+             * after it, the speaker's opposite number at the other end: the
+             * heart to catch before the next word -- the owner's call, 2
+             * November 2026. Every time the line is whole, the first time
+             * round and when it is gone back over after the snake ran into
+             * itself. Collected, and not opened: a line shown under its "?"
+             * is still out there to be eaten. It swells in as it comes, as the
+             * row does after the cloud (see barIn), and only then -- the bar
+             * is built again for the voices arriving, and it is not new then.
+             */
+            if (collected >= targetLetters.length) {
+                const heart = $(gatheredBar, heartToCatchHtml());
+
+                if (!hadHeart && !still()) {
+                    heart.animate([
+                        { opacity: 0, scale: 0.4 },
+                        { opacity: 1, scale: 1.15, offset: 0.6 },
+                        { opacity: 1, scale: 1 }
+                    ], { duration: BAR_POP, easing: 'ease-out' });
+                }
             }
 
             fitGathered();
@@ -1561,6 +1607,37 @@ function snake(container) {
                 { translate: '-1px 0', offset: 0.85 },
                 { translate: '0 0' }
             ], { duration: SHUDDER, easing: 'ease-out' });
+        };
+
+        /*
+         * The strangers put out with a word (see DECOYS_FROM) going once it
+         * is collected: one after another and quickly, the nearest the head
+         * first, each swelling a little and shrinking away -- the owner's
+         * call, 2 November 2026; until then they went all in the one frame.
+         * The board has done with them already, and this is the view drawing
+         * them a moment longer, the way the trembling is drawn (see
+         * view.shudder): by a stylesheet animation started as far back as the
+         * time gone, so one drawn again goes on from where it was.
+         *
+         * The gap between two shortens with more of them, so that however
+         * many the stage put out they are all gone in well under a second.
+         */
+        const SWEEP_STEP = 45;
+        const SWEEP_SPAN = 540;
+        const SWEEP_FADE = 240;
+
+        view.sweep = (letters, head) => {
+            if (still() || !letters.length) return;
+
+            const away = (l) => Math.hypot(l.x - head.x, l.y - head.y);
+            const step = Math.min(SWEEP_STEP, SWEEP_SPAN / Math.max(1, letters.length - 1));
+            const order = [...letters].sort((a, b) => away(a) - away(b));
+
+            sweep = {
+                letters: order.map((l, k) => ({ char: l.char, x: l.x, y: l.y, after: k * step })),
+                at: performance.now(),
+                lasts: (order.length - 1) * step + SWEEP_FADE
+            };
         };
 
         /*
@@ -3027,6 +3104,18 @@ function snake(container) {
                 out += crowned ? crownOn(cx, cy) : trembling(l, glyph(l.char, cx, cy, LETTER_PX, l.fallen ? palette.fallenLetter : palette.boardLetter, 'bold'));
             });
 
+            // The strangers of the word just collected, going one after
+            // another -- see view.sweep
+            const swept = sweep ? performance.now() - sweep.at : 0;
+            if (sweep && swept >= sweep.lasts) sweep = null;
+
+            if (sweep) {
+                sweep.letters.forEach(l => {
+                    const drawn = glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, LETTER_PX, palette.boardLetter, 'bold');
+                    out += `<g style="transform-box: fill-box; transform-origin: center; animation: snake-sweep ${SWEEP_FADE}ms ease-in ${Math.round(l.after - swept)}ms both;">${drawn}</g>`;
+                });
+            }
+
             // The head has its own colour; the body runs along a hue ramp and goes deeper
             // wherever a letter is being carried
             const segmentColor = (idx) => {
@@ -3663,11 +3752,13 @@ function snake(container) {
         }
 
         function spawnHeart() {
+            const lettered = (pos) => lettersOnBoard.some(l => !l.isEaten && l.x === pos.x && l.y === pos.y);
+
             let attempts = 0;
             while (attempts < 500) {
                 attempts++;
                 const pos = randomCell();
-                if (!taken(pos.x, pos.y)) {
+                if (!taken(pos.x, pos.y) && !lettered(pos)) {
                     heartPos = pos;
                     break;
                 }
@@ -3719,12 +3810,6 @@ function snake(container) {
             });
         }
 
-        // Where in the word in play the nth letter of it stands, blanks and all
-        function letterIndex(nth) {
-            let seen = -1;
-            return targetLetters.findIndex(char => !BLANK.test(char) && ++seen === nth);
-        }
-
         /*
          * The snake ran into itself at (x, y), with SHED_ON_SELF: it stays
          * where it is, and every link from the one it ran into to the tail
@@ -3752,18 +3837,25 @@ function snake(container) {
             inputQueue = [];
             heartPos = null;
 
+            /*
+             * The letters eaten so far go off the board for good, and those
+             * that came off are put out new where their links were. Eaten,
+             * a letter is of no more use there: nothing goes for it or draws
+             * it. They were once taken off one by one, each in place of the
+             * letter that came off, found by its place in the word -- and a
+             * word with a letter in it twice is eaten in any order of the
+             * two, since only the letter is asked for. So the letter found
+             * was at times the other one, not eaten yet, and that went off
+             * the board: an E short of a phrase with four of them (reported
+             * by the owner, 2 November 2026).
+             */
+            lettersOnBoard = lettersOnBoard.filter(l => !l.isEaten);
+
             fallen.forEach((link, i) => {
                 const tag = tags[cut + i];
                 if (tag.heart) return void looseHearts.push({ x: link.x, y: link.y, char: link.char });
 
-                // The live word's letters are known by their place in it, as
-                // they were put out; a word behind it only needs the order
-                const live = tag.behind === 0;
-                const index = live ? letterIndex(tag.nth) : tag.nth;
-                const own = (l) => (l.behind || 0) === tag.behind && l.index === index;
-
-                lettersOnBoard = lettersOnBoard.filter(l => !own(l));
-                lettersOnBoard.push(Object.assign({ char: link.char, index, x: link.x, y: link.y, isEaten: false, fallen: true }, live ? {} : { behind: tag.behind }));
+                lettersOnBoard.push(Object.assign({ char: link.char, x: link.x, y: link.y, isEaten: false, fallen: true }, tag.behind ? { behind: tag.behind } : {}));
             });
 
             // And where it all came off, for the view to shake -- see view.shudder
@@ -3903,15 +3995,27 @@ function snake(container) {
             return spawnLetters();
         };
 
-        // The word's letters, all eaten, go; those of the words still to be
-        // gone back over stay. A heart that came off is the one to catch if
-        // there is one -- see looseHearts -- and a new one is put out if not.
+        // The word's letters, all eaten, go, and the strangers put out with
+        // it if it is the live word (see decoys); those of the words still to
+        // be gone back over stay. Answers the ones still lying there, which
+        // the view sees off -- see view.sweep.
+        board.clearWord = () => {
+            const going = lettersOnBoard.filter(l => !l.isEaten && (l.behind || 0) === behind);
+            lettersOnBoard = lettersOnBoard.filter(l => (l.behind || 0) !== behind);
+            return going;
+        };
+
+        // And the heart after it: one that came off is the one to catch if
+        // there is one -- see looseHearts -- and a new one is put out if not,
+        // while the strangers are still on the board, so not on a cell one of
+        // them is still being seen off from.
         board.beginHeartPhase = () => {
             phase = 'HEART';
-            lettersOnBoard = lettersOnBoard.filter(l => (l.behind || 0) !== behind);
 
             if (looseHearts.length) heartPos = null;
             else spawnHeart();
+
+            return board.clearWord();
         };
 
         board.behind = () => behind;
@@ -5759,6 +5863,10 @@ function snake(container) {
                     state.savedSnake = null;
                     refreshDots();
 
+                    // The strangers go as they go after any word -- see
+                    // view.sweep -- with the board still drawn under the ending
+                    view.sweep(board.clearWord(), board.snapshot().snakeBody[0]);
+
                     // The board stops now and the ending comes at once, the
                     // line read out under it — see stopPlaying and showVictory.
                     // What it achieved is settled first, and saved by the end
@@ -5775,7 +5883,7 @@ function snake(container) {
                 // nothing the board was not already saying — there is a heart on
                 // it to be caught — and took away the one thing worth reading at
                 // that moment: the word just spelled out, next to what it means.
-                board.beginHeartPhase();
+                view.sweep(board.beginHeartPhase(), board.snapshot().snakeBody[0]);
                 board.persistTo(state);
                 paint();
                 page.save();
@@ -5925,6 +6033,9 @@ function snake(container) {
             // owner's word, 2 November 2026 -- Snake's own blue, the tile's,
             // the same on both themes like the head's coral
             fallenLetter: '#4a90d9',
+            // The empty heart after a line collected (see view.gathered): the
+            // red of the heart on the board, the same on both themes
+            heartToCatch: '#e5364b',
             head: t.accent,
             /*
              * The body, along its length.

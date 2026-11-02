@@ -698,6 +698,16 @@ body {
 }
 
 /*
+ * A stranger put out with a word, going once the word is collected -- see
+ * view.sweep in snake.js: a little swell, and shrunk away to nothing.
+ */
+@keyframes snake-sweep {
+    0% { transform: scale(1); opacity: 1; }
+    30% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.2); opacity: 0; }
+}
+
+/*
  * Motion that never stops is exactly what this setting is set for, and a screen
  * of bubbles all moving at once is the worst of it. The colours and the badge
  * carry the same information standing still.
