@@ -601,64 +601,14 @@ function snake(container) {
 
         /*
          * Three equal columns, two equal rows, and a height the row heights are
-         * taken from rather than added up to: the height fitPad gives it.
+         * taken from rather than added up to.
+         *
+         * The pad is what gives when the window is too short -- see mount, where
+         * the page is capped -- so its own height is whatever is left rather
+         * than 47.8 twice over. The cap keeps it from growing past the size it
+         * was drawn at when there is room to spare.
          */
-        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6.8px; width: 100%; align-self: stretch; flex: none;';
-
-        /*
-         * The d-pad's height, worked out every time it comes up, and again
-         * whenever the window or the app's width changes under it.
-         *
-         * The board is drawn square at the app's width, and the board, the
-         * band above it and the d-pad below come to more than a short window
-         * holds: Chrome stops a popup at 600, and at the 380 the app opens at,
-         * 600 screen pixels are 552.6 of these. What gives is the d-pad, the
-         * only thing here anyone can do without: the board is the game, and a
-         * board shown smaller than the band above it reads as a mistake. So
-         * the pad is as tall as what the window has left below the rest, up
-         * to PAD_MOST, the size it was drawn at; it keeps its shape and loses
-         * height, and the arrows are paths in per cent of their buttons for
-         * exactly this reason.
-         *
-         * Not below PAD_LEAST, two rows of 17 pixels: a pad thinner than that
-         * is a strip nobody can aim at, and then the page scrolls instead.
-         *
-         * It was a cap on the page's height in the stylesheet, and the pad
-         * the part of the page that shrank under it. The cap read the window
-         * as 100vh, which on a phone is the screen without the browser's bar,
-         * the bar still standing over the bottom of the pad; and with the app
-         * wide it shrank the pad to a sliver of seven pixels, or to nothing
-         * (the owner, 3 November 2026: the d-pad should fit without a scroll
-         * where there is room for it).
-         *
-         * The room is the window's own height, in the layout's pixels -- the
-         * window speaks the screen's, see appScale. In the popup it is 600:
-         * a popup is as tall as its page and grows with it, so the height it
-         * has now is no measure of the height it may reach. Chrome's number,
-         * which is a fact about the platform and not about this app; .in-popup
-         * in app.css caps the page at the same 600.
-         */
-        const PAD_MOST = 102.4;
-        const PAD_LEAST = 40.8;
-        const POPUP_CEILING = 600;
-
-        function fitPad() {
-            const pad = controlsArea && controlsArea.querySelector('.snake-dpad');
-            if (!pad) return;
-
-            const popup = document.documentElement.classList.contains('in-popup');
-            const room = (popup ? POPUP_CEILING : window.innerHeight) / appScale();
-            const rest = document.body.scrollHeight - pad.offsetHeight;
-
-            pad.style.height = `${Math.max(PAD_LEAST, Math.min(PAD_MOST, Math.floor(room - rest)))}px`;
-        }
-
-        // Asked again when the window changes its height -- a phone's bar
-        // coming and going -- or the app its width, which in a tab moves no
-        // window at all and only rewrites --app-width on the root (see
-        // base.js). Once for the page: the view outlives every mount.
-        window.addEventListener('resize', fitPad);
-        new MutationObserver(fitPad).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6.8px; width: 100%; align-self: stretch; min-height: 0; max-height: 102.4px;';
 
         /*
          * The arrow on a pad button, drawn rather than typed.
@@ -783,8 +733,6 @@ function snake(container) {
             bindPad(dPad, 'dpad-right', () => cb.onDirection(1, 0));
 
             dPad.querySelector('#dpad-hide').addEventListener('click', () => cb.onHideControls());
-
-            fitPad();
         }
 
         /*
@@ -836,15 +784,48 @@ function snake(container) {
             controlMode = opts.controlMode || 0;
 
             /*
-             * The page is a column, and nothing in it is capped. It was: at
-             * the window's height, with the d-pad as the part that gave. The
-             * pad is now given its height when it comes up -- see fitPad, and
-             * what the cap got wrong.
+             * The page is a column that may not grow past the window.
+             *
+             * It has to be told that, because it does not fit. The board is
+             * drawn square at the width it is given, and width plus the band
+             * above it plus the d-pad below comes to more than a popup is
+             * allowed to be: Chrome stops at 600, and at the 400 the app now
+             * opens at, 600 screen pixels are 525 of these. The page wanted 596
+             * and got a scrollbar -- in a window the size of a playing card, on
+             * a game played by watching the whole board at once.
+             *
+             * What gives is the d-pad, which is the only thing here anyone can
+             * do without: the board is the game, and a board shown smaller than
+             * the band above it reads as a mistake. The pad keeps its shape and
+             * loses its height -- see PAD_GRID and the arrow it is drawn with,
+             * which is a path and not a letter for exactly this reason.
+             *
+             * Written in layout pixels, which is what everything else here is in
+             * and what the window is not: 100vh is screen pixels, and inside the
+             * zoom that is a different unit. --app-unscale is the one that
+             * converts -- see app.css, where it exists for exactly this.
+             *
+             * The 600 is why this is not 100vh alone, and the reason is worth
+             * keeping: a popup is as tall as its contents, so 100vh there is
+             * the height the page already has. Capping a page at the height it
+             * has is forbidding it to grow -- press the board and the line that
+             * should appear under it is given nought to stand in, press again
+             * and the d-pad it offers never arrives either. The window cannot
+             * grow because the page will not, and the page will not because the
+             * window has not. 600 is the height a popup is allowed to reach --
+             * Chrome's number, which is a fact about the platform and not about
+             * this app -- so the cap is that, and a window taller than it caps
+             * nothing at all.
+             *
+             * Nothing asks what is running this. A popup, a tab and a phone all
+             * answer the same question the same way, and the answer changes by
+             * itself when the handle on the left edge changes the zoom.
              */
             host.style.boxSizing = 'border-box';
             host.style.cursor = '';
             host.style.display = 'flex';
             host.style.flexDirection = 'column';
+            host.style.maxHeight = 'calc(max(100vh, 600px) * var(--app-unscale))';
 
             /*
              * Three groups of one third each: the way out, the dots, and the
@@ -939,8 +920,8 @@ function snake(container) {
             cellSize = side / GRID_COUNT;
             boardSide = side;
 
-            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: none;">
-                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: none; align-items: stretch;"></div>
+            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: 0 1 auto; min-height: 0; overflow: hidden;">
+                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: 1 1 auto; min-height: 0; align-items: stretch;"></div>
                 <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ↑ ↓ ← → W A S D or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
             </div>`);
 
