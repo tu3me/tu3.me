@@ -1238,11 +1238,64 @@ function speech() {
         }, guardMs(text, again.rate));
 
         pending = watcher;
-
-        speechSynthesis.cancel();
-        speechSynthesis.speak(line);
+        cutAndSpeak(line, watcher);
 
         return true;
+    }
+
+    /*
+     * The line before this one is stopped at once, and this one starts when
+     * the voice says the old one has stopped.
+     *
+     * cancel() and speak() used to go one straight after the other, and on
+     * most voices that is the same thing. Not on all of them: on one of the
+     * owner's devices the snake's letters, eaten one after another, came out
+     * on top of each other (3 November 2026). That voice took the cancel as
+     * an order to stop some time soon, and by then the next letter was already
+     * talking. The same pair, back to back, is also what is reported to leave
+     * Chrome's network voices silent -- see ANALYTICS.md, 23 October 2026.
+     *
+     * The voice says it has stopped by ending the old line, with an end or an
+     * error event. Not every voice sends either, so it is waited for CUT_WAIT
+     * and no longer. Listened for before the cancel, because some voices end
+     * the line inside cancel() itself. With nothing being said, nothing is
+     * waited for. A newer line asked for in the meantime takes the place of
+     * this one, and this one is never said -- see pending; so is a hush.
+     */
+    const CUT_WAIT = 200;
+
+    // The line last handed to the voice: the one a cancel stops
+    let voiced = null;
+
+    function cutAndSpeak(line, watcher) {
+        const go = () => {
+            if (pending !== watcher || voiced === line) return;
+
+            voiced = line;
+            speechSynthesis.speak(line);
+        };
+
+        const was = voiced;
+
+        if (!was || !(speechSynthesis.speaking || speechSynthesis.pending)) {
+            speechSynthesis.cancel();
+            return go();
+        }
+
+        let timer = 0;
+
+        const stopped = () => {
+            clearTimeout(timer);
+            was.removeEventListener('end', stopped);
+            was.removeEventListener('error', stopped);
+            go();
+        };
+
+        was.addEventListener('end', stopped);
+        was.addEventListener('error', stopped);
+        timer = setTimeout(stopped, CUT_WAIT);
+
+        speechSynthesis.cancel();
     }
 
     speech.available = () => typeof speechSynthesis !== 'undefined';

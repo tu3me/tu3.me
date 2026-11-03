@@ -287,6 +287,11 @@ function wordcraft(container) {
      * star waits for itself to have finished filling first: the last answer
      * is what fills it, and Next can come before it has.
      *
+     * The voice is left to finish: the last word is said as it is spelled,
+     * and the star coming out is no reason to cut it short. It was hushed
+     * here until 3 November 2026, and the last word of a session was never
+     * heard to its end.
+     *
      * With reduced motion nothing flies or shines: the star is simply there.
      *
      * The press is written down as `wordcraft-won` -- see ANALYTICS.md: the veil is
@@ -299,7 +304,6 @@ function wordcraft(container) {
     async function winStar() {
         store.achieve(state.selectedSetId, 'wordcraft', 'star', state.sessionResults.filter(r => r === 'correct').length);
         page.endSession();
-        speech.hush();
 
         const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const small = container.querySelector('.wordcraft-star');
@@ -321,7 +325,12 @@ function wordcraft(container) {
             </svg>
         </div>`);
 
-        veil.addEventListener('click', () => page.home());
+        // Whatever is still being said goes with the screen, as by the way
+        // back in the header
+        veil.addEventListener('click', () => {
+            speech.hush();
+            page.home();
+        });
 
         if (small) small.style.visibility = 'hidden';
         if (still) return;

@@ -697,25 +697,9 @@ body {
  * also the loudest thing in the app, so it goes as well. Nothing is lost with
  * it: the banner says Victory in words.
  */
-/*
- * The light across the mark and the name after an update -- see sheenHtml in
- * catalog.js. A band in a mask three times as wide as the title, slid from
- * the right end of it to the left, which runs the band over the title from
- * left to right; the last quarter of each pass is the band gone past, a
- * breath before the second.
- */
-@keyframes title-sheen {
-    0% { mask-position: 100% 0; }
-    75%, 100% { mask-position: 0% 0; }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .word-bubble-card {
         animation: none !important;
-    }
-
-    .dict-title-sheen {
-        display: none !important;
     }
 
     /* The badge in the early dialog, which breathes. The one in a bubble has no

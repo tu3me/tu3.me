@@ -1,6 +1,6 @@
 /*
  * The version, and when the code was last changed -- written by stamp.py
- * after every change, never by hand. See there, and buildLine and sheenHtml
+ * after every change, never by hand. See there, and buildLine and updated
  * in catalog.js.
  */
-const CODE_STAMP = { version: '0.2.8', changed: '2026-11-03T15:53:07+05:00' };
+const CODE_STAMP = { version: '0.2.8', changed: '2026-11-03T19:38:25+05:00' };

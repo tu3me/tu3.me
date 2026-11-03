@@ -221,7 +221,7 @@ function catalog(container) {
 
     /*
      * The two rings of the mark, which are eyes: a dark pupil inside a thin
-     * white ring, the same face the snake's head wears — see faceOn in
+     * white ring, the same face the snake's head wears — see EYES in
      * snake.js. They were hollow outlines once, and a press on the mark
      * switched between the two; the switch is gone and the eyes stayed.
      *
@@ -266,20 +266,18 @@ function catalog(container) {
                     stroke="#ffffff" stroke-width="${ring.eye - ring.pupil}" />`).join('');
     }
 
-    // `bare`: the card alone, with no eyes -- the light that runs over the
-    // mark, see sheenHtml
-    function logoSvg(fill, size, bare) {
-        return `<svg${bare ? '' : ' class="dict-logo"'} width="${size}" height="${size}" viewBox="0 0 32 32"
+    // The eyes are glad ones once the app has been updated -- see updated
+    function logoSvg(fill, size) {
+        return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
             aria-hidden="true" style="display: block; flex-shrink: 0;">
             <g transform="rotate(-7 16 16)">
                 <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
-                ${bare ? '' : `<g class="dict-logo-eyes">${ringsSvg()}</g>`}
+                <g class="dict-logo-eyes">${updated ? GLAD_EYES : ringsSvg()}</g>
             </g>
         </svg>`;
     }
 
-    // The name beside the mark, in two lines -- and the same again in the
-    // light that runs over it, see sheenHtml
+    // The name beside the mark, in two lines
     const WORDMARK = `<span class="dict-wordmark" style="display: block; line-height: 1.06;">
             <span class="dict-wordmark-top" style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
             <span class="dict-wordmark-bottom" style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
@@ -313,8 +311,9 @@ function catalog(container) {
     let blinkTimer = null;
     let blinking = false;
 
+    // Not at all with the glad eyes of an update, which are shut already
     function startBlinking() {
-        if (blinking) return;
+        if (blinking || updated) return;
 
         blinking = true;
         blinkLogo();
@@ -343,59 +342,57 @@ function catalog(container) {
     }
 
     /*
-     * The app has just been updated: the mark and the name beside it shine,
-     * a band of light running across them twice -- the owner's call, 3
-     * November 2026. A copy of the two in gold lies over them, seen only
-     * through a band slid across it (`title-sheen` in app.css), so the light
-     * is on the card and the letters and not on the page between them.
+     * The app has just been updated: until the page is loaded again the mark
+     * is the updated one -- a size smaller, its eyes shut in two glad arcs --
+     * and over it a note says "Updated", tilted, in the ink of the buttons
+     * across the header. The owner's call, 3 November 2026: draft 130 in
+     * icon drafts/logo-updated/note-lower.html, the eyes of draft 116. Earlier
+     * the same day it was a band of gold run twice across the mark and the
+     * name, and it went for this.
      *
      * Updated is the stamp in the code -- the version, and when the code was
      * last changed, see core/stamp.js -- against the one this device saw
-     * last. The time changes with every change, so every deploy shines, and
-     * every change while testing; the version alone stayed the same across
-     * deploys (the owner's call the same day). Kept in localStorage -- this
-     * device's own, and wanted before the first drawing -- and written at
-     * once, so that the next page with the same code does not shine. A
-     * device's first visit has nothing to compare and is not an update.
+     * last. The time changes with every change, so every deploy is an update,
+     * and every change while testing; the version alone stayed the same across
+     * deploys. Kept in localStorage -- this device's own, and wanted before
+     * the first drawing -- and written at once, so that the next page with the
+     * same code shows the mark as it always is. A device's first visit has
+     * nothing to compare and is not an update.
      *
-     * Timed from the page and not from a drawing: the catalog is drawn again
-     * for many reasons -- a sync landing, a press -- and a sheen drawn again
-     * goes on from where it was, by a negative delay, rather than starting
-     * over. Not at all with reduced motion -- see app.css.
+     * Asked once for the page and not at each drawing: the catalog is drawn
+     * again for many reasons -- a sync landing, a press -- and the mark stays
+     * the updated one through all of them, to the end of the page.
      */
     const SEEN_STAMP_KEY = 'seen-stamp';
-    const SHEEN_WAIT = 400;     // the page settling, before the first pass
-    const SHEEN_MS = 1600;      // a pass, with the pause after it
-    const SHEEN_PASSES = 2;
-    const SHEEN_INK = '#ffd65c';
 
-    // Not quite solid, so that the eyes still show through the light on the
-    // card -- the gold copy of it has none
-    const SHEEN_STRENGTH = 0.8;
-
-    const sheenFrom = (() => {
+    const updated = (() => {
         const stamp = CODE_STAMP.version + ' ' + CODE_STAMP.changed;
 
         try {
             const seen = localStorage.getItem(SEEN_STAMP_KEY);
             localStorage.setItem(SEEN_STAMP_KEY, stamp);
 
-            return seen !== null && seen !== stamp ? performance.now() + SHEEN_WAIT : null;
+            return seen !== null && seen !== stamp;
         } catch (e) {
-            return null;
+            return false;
         }
     })();
 
-    function sheenHtml() {
-        if (sheenFrom === null) return '';
+    // A size under LOGO_SIZE, in a header that keeps its height (see the
+    // header in render): the room it leaves over the mark is the note's
+    const UPDATED_LOGO_SIZE = 31;
 
-        const after = Math.round(sheenFrom - performance.now());
-        if (after + SHEEN_MS * SHEEN_PASSES <= 0) return '';
+    // Shut in two arcs, the left the larger, as the left ring is. They do not
+    // blink -- see startBlinking.
+    const GLAD_EYES = `<path d="M6.88 18.24 Q11.37 9.55 15.86 18.24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M20.01 17.5 Q23.02 11.68 26.03 17.5" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
 
-        return `<span class="dict-title-sheen" aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; gap: 7.7px; color: ${SHEEN_INK}; opacity: ${SHEEN_STRENGTH}; pointer-events: none; mask-image: linear-gradient(105deg, transparent 40%, #000 50%, transparent 60%); mask-size: 300% 100%; mask-repeat: no-repeat; animation: title-sheen ${SHEEN_MS}ms ease-in-out ${after}ms ${SHEEN_PASSES} both;">
-                ${logoSvg('currentColor', LOGO_SIZE, true)}
-                ${WORDMARK}
-            </span>`;
+    // Over the mark and to the right of the corner the width is dragged by,
+    // no nearer than 2px to the top of the page
+    function updatedNote() {
+        if (!updated) return '';
+
+        return `<span class="dict-updated-note" style="position: absolute; top: 3.5px; left: 17px; white-space: nowrap; pointer-events: none; transform: rotate(-4deg); transform-origin: left bottom; font: italic 600 7px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.03em; color: ${palette.softColor};">Updated</span>`;
     }
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
@@ -1975,13 +1972,17 @@ function catalog(container) {
          * whatever stands outside the header is what decides whether they look
          * centred. At 10.2 below they had 9.35 of air above and 12.75 under,
          * which is a row of buttons sitting high in its own strip.
+         *
+         * The title is held at LOGO_SIZE tall whatever mark is in it: the mark
+         * of an update is smaller (see updated), and the header keeps the
+         * height it always has, with the mark in the middle of it.
          */
         const header = $(container, `<div class="dict-header" style="position: sticky; top: 0; z-index: 6; margin: -6.8px -6.8px 0; padding: 6.8px; background: ${palette.pageBg}; box-shadow: 0 -2px 0 ${palette.pageBg}; display: flex; justify-content: space-between; align-items: center;">
-            <h1 class="dict-title" style="position: relative; margin: 0; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
-                ${logoSvg(palette.logo, LOGO_SIZE)}
+            <h1 class="dict-title" style="margin: 0; min-height: ${LOGO_SIZE}px; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
+                ${logoSvg(palette.logo, updated ? UPDATED_LOGO_SIZE : LOGO_SIZE)}
                 ${WORDMARK}
-                ${sheenHtml()}
             </h1>
+            ${updatedNote()}
             <div class="dict-header-actions" style="display: flex; align-items: center; gap: 6.8px;">
                 ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="New card set">+ New set</button>` : ''}
                 <button class="dict-settings-btn" id="settings-btn" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s; will-change: scale;" title="Settings">${GEAR}</button>
@@ -1999,12 +2000,9 @@ function catalog(container) {
         if (addSetBtn) addSetBtn.addEventListener('click', toggleNewSet);
 
         // The mark is a picture and nothing else now: no press, no state. The
-        // one thing it does, it does on its own — see blinkLogo. And once
-        // after an update, it shines -- see sheenHtml.
+        // one thing it does, it does on its own — see blinkLogo. After an
+        // update it is another picture to the end of the page -- see updated.
         startBlinking();
-
-        const sheen = header.querySelector('.dict-title-sheen');
-        if (sheen) sheen.addEventListener('animationend', () => sheen.remove());
 
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press

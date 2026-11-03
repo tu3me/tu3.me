@@ -3,8 +3,8 @@
  * letter or a self-collision costs a heart. The round state is persisted on
  * every step, so closing the popup mid-game loses at most the last move.
  *
- * The board is an SVG, rebuilt from scratch on every frame. It was a canvas
- * first, and for a while both renderers were kept side by side to be measured
+ * The board is an SVG, kept from frame to frame: a frame writes only what has
+ * changed since the one before -- see put in view. It was a canvas first, and for a while both renderers were kept side by side to be measured
  * against each other: canvas carries a complex scene more cheaply, but it pays
  * for resolution and SVG does not — and resolution is the thing a phone screen
  * has a great deal of. The canvas twin has been removed; what it measured is
@@ -327,10 +327,14 @@ function snake(container) {
 
         // Whether the eyes are shut this frame — the blink, and nothing else.
         // Display state like headRun: it is never saved, and a round resumed
-        // from storage opens its eyes.
+        // from storage opens its eyes. Written straight into the face, which
+        // is all a blink changes -- see put.
         let eyesShut = false;
 
-        view.eyesShut = (on) => { eyesShut = on; };
+        view.eyesShut = (on) => {
+            eyesShut = on;
+            if (layers) put(layers.face, 'html', eyesOf(on));
+        };
 
         /*
          * What the end of the session has taken off the board, display state
@@ -597,14 +601,64 @@ function snake(container) {
 
         /*
          * Three equal columns, two equal rows, and a height the row heights are
-         * taken from rather than added up to.
-         *
-         * The pad is what gives when the window is too short -- see mount, where
-         * the page is capped -- so its own height is whatever is left rather
-         * than 47.8 twice over. The cap keeps it from growing past the size it
-         * was drawn at when there is room to spare.
+         * taken from rather than added up to: the height fitPad gives it.
          */
-        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6.8px; width: 100%; align-self: stretch; min-height: 0; max-height: 102.4px;';
+        const PAD_GRID = 'display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6.8px; width: 100%; align-self: stretch; flex: none;';
+
+        /*
+         * The d-pad's height, worked out every time it comes up, and again
+         * whenever the window or the app's width changes under it.
+         *
+         * The board is drawn square at the app's width, and the board, the
+         * band above it and the d-pad below come to more than a short window
+         * holds: Chrome stops a popup at 600, and at the 380 the app opens at,
+         * 600 screen pixels are 552.6 of these. What gives is the d-pad, the
+         * only thing here anyone can do without: the board is the game, and a
+         * board shown smaller than the band above it reads as a mistake. So
+         * the pad is as tall as what the window has left below the rest, up
+         * to PAD_MOST, the size it was drawn at; it keeps its shape and loses
+         * height, and the arrows are paths in per cent of their buttons for
+         * exactly this reason.
+         *
+         * Not below PAD_LEAST, two rows of 17 pixels: a pad thinner than that
+         * is a strip nobody can aim at, and then the page scrolls instead.
+         *
+         * It was a cap on the page's height in the stylesheet, and the pad
+         * the part of the page that shrank under it. The cap read the window
+         * as 100vh, which on a phone is the screen without the browser's bar,
+         * the bar still standing over the bottom of the pad; and with the app
+         * wide it shrank the pad to a sliver of seven pixels, or to nothing
+         * (the owner, 3 November 2026: the d-pad should fit without a scroll
+         * where there is room for it).
+         *
+         * The room is the window's own height, in the layout's pixels -- the
+         * window speaks the screen's, see appScale. In the popup it is 600:
+         * a popup is as tall as its page and grows with it, so the height it
+         * has now is no measure of the height it may reach. Chrome's number,
+         * which is a fact about the platform and not about this app; .in-popup
+         * in app.css caps the page at the same 600.
+         */
+        const PAD_MOST = 102.4;
+        const PAD_LEAST = 40.8;
+        const POPUP_CEILING = 600;
+
+        function fitPad() {
+            const pad = controlsArea && controlsArea.querySelector('.snake-dpad');
+            if (!pad) return;
+
+            const popup = document.documentElement.classList.contains('in-popup');
+            const room = (popup ? POPUP_CEILING : window.innerHeight) / appScale();
+            const rest = document.body.scrollHeight - pad.offsetHeight;
+
+            pad.style.height = `${Math.max(PAD_LEAST, Math.min(PAD_MOST, Math.floor(room - rest)))}px`;
+        }
+
+        // Asked again when the window changes its height -- a phone's bar
+        // coming and going -- or the app its width, which in a tab moves no
+        // window at all and only rewrites --app-width on the root (see
+        // base.js). Once for the page: the view outlives every mount.
+        window.addEventListener('resize', fitPad);
+        new MutationObserver(fitPad).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
         /*
          * The arrow on a pad button, drawn rather than typed.
@@ -729,6 +783,8 @@ function snake(container) {
             bindPad(dPad, 'dpad-right', () => cb.onDirection(1, 0));
 
             dPad.querySelector('#dpad-hide').addEventListener('click', () => cb.onHideControls());
+
+            fitPad();
         }
 
         /*
@@ -780,48 +836,15 @@ function snake(container) {
             controlMode = opts.controlMode || 0;
 
             /*
-             * The page is a column that may not grow past the window.
-             *
-             * It has to be told that, because it does not fit. The board is
-             * drawn square at the width it is given, and width plus the band
-             * above it plus the d-pad below comes to more than a popup is
-             * allowed to be: Chrome stops at 600, and at the 400 the app now
-             * opens at, 600 screen pixels are 525 of these. The page wanted 596
-             * and got a scrollbar -- in a window the size of a playing card, on
-             * a game played by watching the whole board at once.
-             *
-             * What gives is the d-pad, which is the only thing here anyone can
-             * do without: the board is the game, and a board shown smaller than
-             * the band above it reads as a mistake. The pad keeps its shape and
-             * loses its height -- see PAD_GRID and the arrow it is drawn with,
-             * which is a path and not a letter for exactly this reason.
-             *
-             * Written in layout pixels, which is what everything else here is in
-             * and what the window is not: 100vh is screen pixels, and inside the
-             * zoom that is a different unit. --app-unscale is the one that
-             * converts -- see app.css, where it exists for exactly this.
-             *
-             * The 600 is why this is not 100vh alone, and the reason is worth
-             * keeping: a popup is as tall as its contents, so 100vh there is
-             * the height the page already has. Capping a page at the height it
-             * has is forbidding it to grow -- press the board and the line that
-             * should appear under it is given nought to stand in, press again
-             * and the d-pad it offers never arrives either. The window cannot
-             * grow because the page will not, and the page will not because the
-             * window has not. 600 is the height a popup is allowed to reach --
-             * Chrome's number, which is a fact about the platform and not about
-             * this app -- so the cap is that, and a window taller than it caps
-             * nothing at all.
-             *
-             * Nothing asks what is running this. A popup, a tab and a phone all
-             * answer the same question the same way, and the answer changes by
-             * itself when the handle on the left edge changes the zoom.
+             * The page is a column, and nothing in it is capped. It was: at
+             * the window's height, with the d-pad as the part that gave. The
+             * pad is now given its height when it comes up -- see fitPad, and
+             * what the cap got wrong.
              */
             host.style.boxSizing = 'border-box';
             host.style.cursor = '';
             host.style.display = 'flex';
             host.style.flexDirection = 'column';
-            host.style.maxHeight = 'calc(max(100vh, 600px) * var(--app-unscale))';
 
             /*
              * Three groups of one third each: the way out, the dots, and the
@@ -900,17 +923,24 @@ function snake(container) {
 
             scene = svg.querySelector('.snake-svg-scene');
 
+            // The board's layers, in the order they are painted -- see put
+            layers = {};
+            ['heart', 'letters', 'sweep', 'joints', 'links', 'lost', 'face', 'carried', 'spark'].forEach(name => {
+                layers[name] = scene.appendChild(document.createElementNS(SVG_NS, 'g'));
+            });
+
             // SVG can measure text only once it is in the document and laid
             // out, which is the thing this renderer is trying not to do twice
             // per glyph. A canvas measures without drawing, so one is kept here
             // for that alone — it paints nothing.
             measure = document.createElement('canvas').getContext('2d');
+            fits = new Map();
 
             cellSize = side / GRID_COUNT;
             boardSide = side;
 
-            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: 0 1 auto; min-height: 0; overflow: hidden;">
-                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: 1 1 auto; min-height: 0; align-items: stretch;"></div>
+            controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: none;">
+                <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: none; align-items: stretch;"></div>
                 <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ↑ ↓ ← → W A S D or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
             </div>`);
 
@@ -945,8 +975,8 @@ function snake(container) {
          * The stage of the word in play in its dot (see STAGE_HINT), and in
          * no other, while the dot is still waiting for its answer: once it
          * takes the colour of one, the figure goes -- the owner's call, 2
-         * November 2026. In the page's ink, which stands out against the
-         * theme either way, on the dot's own colour.
+         * November 2026. In the page's quiet ink, on the dot's own colour --
+         * see stageInk.
          */
         function stageInDot() {
             const dotsEl = header && header.querySelector('#snake-dots');
@@ -1612,10 +1642,9 @@ function snake(container) {
          * first, each swelling a little and shrinking away -- the owner's
          * call, 2 November 2026; until then they went all in the one frame.
          * The board has done with them already, and this is the view drawing
-         * them a moment longer. The scene is drawn again with every frame --
-         * the blink alone redraws it every few seconds -- so they go by a
-         * stylesheet animation started as far back as the time gone, and one
-         * drawn again goes on from where it was rather than starting over.
+         * them a moment longer: written once, by the first frame after this,
+         * and left to a stylesheet animation -- see view.draw. Started as far
+         * back as the time gone by then, which is next to none.
          *
          * The gap between two shortens with more of them, so that however
          * many the stage put out they are all gone in well under a second.
@@ -1817,15 +1846,21 @@ function snake(container) {
         const HEARTS_SPAN = 1600;
         const BANNER_BEAT = 1600;
 
-        // How see-through a prize short of full stands in the row, from and
-        // to as it flickers, and how long one flicker takes
-        const DIM_LOW = 0.25;
-        const DIM_HIGH = 0.6;
-        const DIM_BEAT = 1700;
-
         // How long the hand stays on one of the two buttons before it goes to
         // the other: one nudge of it -- see hand-nudge in app.css
         const CHOICE_TURN = 1500;
+
+        /*
+         * How see-through a prize short of full stands in the row, from and
+         * to as it flickers, and how long one flicker takes: down once and up
+         * once, evenly, in the time the hand stays on a button -- the row
+         * keeps one beat. It went down twice in a beat of 1700, a deep dip and
+         * a shallow one, and read as blinking in pairs; then once in 2400; then
+         * in step with the hand (the owner, all on 3 November 2026).
+         */
+        const DIM_LOW = 0.25;
+        const DIM_HIGH = 0.6;
+        const DIM_BEAT = CHOICE_TURN;
 
         // The two buttons, one either end of the row: the same size and the
         // same coral, so that the row stands even about the prizes -- the
@@ -2156,9 +2191,7 @@ function snake(container) {
 
             place.animate([
                 { opacity: DIM_HIGH },
-                { opacity: DIM_LOW, offset: 0.35 },
-                { opacity: DIM_HIGH * 0.9, offset: 0.5 },
-                { opacity: DIM_LOW * 1.3, offset: 0.7 },
+                { opacity: DIM_LOW },
                 { opacity: DIM_HIGH }
             ], { duration: DIM_BEAT, iterations: Infinity, easing: 'ease-in-out' });
         }
@@ -2894,13 +2927,37 @@ function snake(container) {
         // view.deal
         const LETTER_PX = 25.6;
 
-        function glyph(char, cx, cy, px, fill, weight) {
-            const font = fontOf(px, weight);
-            const size = fitSize(char, px, font);
-            const shown = size === px ? font : fontOf(size, weight);
+        /*
+         * The size a letter is drawn at in its cell and how far its baseline
+         * drops from the middle of the cell. Measured once for each letter,
+         * size and weight rather than on every frame: two measurements a
+         * letter, every letter on the board and on the snake, was most of what
+         * a frame cost in script. Forgotten at mount, with the canvas that
+         * measured them.
+         */
+        let fits = new Map();
 
-            return `<text x="${cx}" y="${cy + inkOffset(char, shown)}" fill="${fill}"
-                font-family="${LETTER_FONT}" font-size="${size}" font-weight="${weight || 'normal'}"
+        function fitOf(char, px, weight) {
+            const key = `${char}\n${px}\n${weight}`;
+            let fit = fits.get(key);
+
+            if (!fit) {
+                const font = fontOf(px, weight);
+                const size = fitSize(char, px, font);
+                const shown = size === px ? font : fontOf(size, weight);
+
+                fit = { size, drop: inkOffset(char, shown) };
+                fits.set(key, fit);
+            }
+
+            return fit;
+        }
+
+        function glyph(char, cx, cy, px, fill, weight) {
+            const fit = fitOf(char, px, weight);
+
+            return `<text x="${cx}" y="${cy + fit.drop}" fill="${fill}"
+                font-family="${LETTER_FONT}" font-size="${fit.size}" font-weight="${weight || 'normal'}"
                 text-anchor="middle">${esc(char)}</text>`;
         }
 
@@ -3003,6 +3060,122 @@ function snake(container) {
             return Math.max(10, Math.floor(nominal * room / ink));
         }
 
+        /*
+         * The board is drawn into elements kept from frame to frame, and a
+         * frame writes only what differs from the frame before it.
+         *
+         * It used to be written out whole as markup on every frame, and the
+         * browser built every element of it again: every link, and every
+         * letter, each a piece of text to be shaped anew. All of that for a
+         * blink of the eyes, and the whole snake once more for every link the
+         * flash ran along after a crash. A step of the snake moves its links
+         * and shifts their colours, and nothing else on the board changes. The
+         * owner asked for a game that leaves room on a weak phone, for the
+         * sounds still to come (3 November 2026).
+         *
+         * Each kind of thing has a layer of its own, in the order they are
+         * painted -- see view.mount. The links, their joints and the letters
+         * they carry are an element per link, given their places and colours
+         * attribute by attribute. The rest -- the heart, the letters on the
+         * board, the strangers going, the lost heart, the spark -- change
+         * seldom and are written as markup, when it differs. The face is one
+         * group that goes where the head goes; its eyes are written only when
+         * they open or shut -- see view.eyesShut.
+         */
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+
+        let layers = null;
+
+        // What every element of the board was given last -- see put
+        let given = new WeakMap();
+
+        // An attribute of an element, or its markup ('html') or its text
+        // ('text'), written only when it differs from what it was given last
+        function put(el, name, value) {
+            let was = given.get(el);
+            if (!was) given.set(el, was = {});
+            if (was[name] === value) return;
+
+            was[name] = value;
+
+            if (name === 'html') el.innerHTML = value;
+            else if (name === 'text') el.textContent = value;
+            else el.setAttribute(name, value);
+        }
+
+        // The first `count` elements of a layer, made or taken away to that
+        // many: one for each link of the snake, or each pair of them
+        function kids(layer, tag, count) {
+            while (layer.childElementCount < count) layer.appendChild(document.createElementNS(SVG_NS, tag));
+            while (layer.childElementCount > count) layer.lastElementChild.remove();
+
+            return layer.children;
+        }
+
+        // How far a link is drawn in from the edges of its cell
+        const SEG_INSET = 2.6;
+
+        /*
+         * The face, and it is the app's own: the two rings of the mark in
+         * the header, the left one larger, which is what gives it the
+         * puzzled look — see logoSvg in catalog.js.
+         *
+         * The numbers are that drawing's, divided by the width of the
+         * card it sits on, so the face keeps its proportions on a head of
+         * any size.
+         *
+         * The offsets centre the pair by its edges, not by its centres.
+         * Two eyes of different sizes with their middles the same
+         * distance out have their ink further out on the big side, and
+         * the face ends up leaning that way — a snake looking slightly
+         * left of where it is going. Placed so the outer edge of each eye
+         * is the same distance from the middle of the head, at -0.388 and
+         * +0.388, the pair sits in the middle and the big eye simply
+         * reaches closer to it.
+         *
+         * Turned to face where the snake is going. The pair is laid out
+         * along x across the middle of the head, which is the snake
+         * heading down the screen; every other heading is that picture
+         * rotated. atan2(-dx, dy) is the angle that does it — zero for
+         * down, 180 for up, ±90 for the sides.
+         *
+         * Filled inside the white ring, which is the mark's other look —
+         * the one the logo in the header takes when it is pressed. An open
+         * ring on a coral square reads as a hole in the head; a dark
+         * centre reads as a pupil, and a pupil is what makes the thing
+         * look back at you.
+         *
+         * The fill is the dark theme's ground, the same value the logo's
+         * pupil takes, and fixed in both themes for the same reason the
+         * game colours are. Black was tried and is a hole punched in the
+         * head; this is the navy the app is built on, and it reads as a
+         * dark that belongs here.
+         *
+         * Shut is a line where the ring was, the length of its diameter and
+         * the thickness of its stroke: the same eye with the lid down. A
+         * closed eye drawn any other way stops being the same eye.
+         */
+        const EYES = [
+            { off: -0.164, r: 0.173, width: 0.101 },
+            { off: 0.250, r: 0.107, width: 0.062 }
+        ];
+
+        function eyesOf(shut) {
+            const size = cellSize - SEG_INSET * 2;
+
+            return EYES.map(eye => {
+                const x = eye.off * size;
+                const r = eye.r * size;
+                const width = eye.width * size;
+
+                return shut
+                    ? `<path d="M${x - r} 0H${x + r}" stroke="#ffffff"
+                        stroke-width="${width}" stroke-linecap="round" fill="none" />`
+                    : `<circle cx="${x}" cy="0" r="${r}" fill="#0f2b3c"
+                        stroke="#ffffff" stroke-width="${width}" />`;
+            }).join('');
+        }
+
         view.draw = (s, record, beaten) => {
             const seen = !!lastFrame;
             lastFrame = { s, record, beaten };
@@ -3036,39 +3209,48 @@ function snake(container) {
 
             showLength(now, most, beaten && now === most && !medalGone, seen);
 
-            let out = '';
-
-            if (s.phase === 'HEART' && s.heartPos) {
-                out += `<text x="${(s.heartPos.x + 0.5) * cellSize}" y="${(s.heartPos.y + 0.5) * cellSize}"
+            put(layers.heart, 'html', s.phase === 'HEART' && s.heartPos
+                ? `<text x="${(s.heartPos.x + 0.5) * cellSize}" y="${(s.heartPos.y + 0.5) * cellSize}"
                     font-family="${LETTER_FONT}" font-size="16.4" text-anchor="middle"
-                    dominant-baseline="central">\u2764\ufe0f</text>`;
-            }
+                    dominant-baseline="central">❤️</text>`
+                : '');
 
             // Every letter out there is one to be read and gone for. The blanks
             // are not among them — see BLANK. On a board filled to the last
             // cell they are crowns at the end, and then not there at all as
             // the crowns go up to the banner — see view.victory. A new word's
             // are not there until they have flown in — see view.deal.
+            //
+            // Written as one piece, and only when one of them has come or
+            // gone: a letter stands still until it is eaten.
+            let letters = '';
+
             s.lettersOnBoard.forEach((l, at) => {
                 if (l.isEaten || crownsGone.has(at) || undealt.has(at)) return;
 
                 const cx = (l.x + 0.5) * cellSize;
                 const cy = (l.y + 0.5) * cellSize;
 
-                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, LETTER_PX, palette.boardLetter, 'bold');
+                letters += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, LETTER_PX, palette.boardLetter, 'bold');
             });
 
+            put(layers.letters, 'html', letters);
+
             // The strangers of the word just collected, going one after
-            // another -- see view.sweep
+            // another -- see view.sweep. Written once for the sweep and left
+            // to the stylesheet's animation, which the frames after it do not
+            // touch.
             const swept = sweep ? performance.now() - sweep.at : 0;
             if (sweep && swept >= sweep.lasts) sweep = null;
 
-            if (sweep) {
-                sweep.letters.forEach(l => {
+            if (sweep && !sweep.drawn) {
+                sweep.drawn = sweep.letters.map(l => {
                     const drawn = glyph(l.char, (l.x + 0.5) * cellSize, (l.y + 0.5) * cellSize, LETTER_PX, palette.boardLetter, 'bold');
-                    out += `<g style="transform-box: fill-box; transform-origin: center; animation: snake-sweep ${SWEEP_FADE}ms ease-in ${Math.round(l.after - swept)}ms both;">${drawn}</g>`;
-                });
+                    return `<g style="transform-box: fill-box; transform-origin: center; animation: snake-sweep ${SWEEP_FADE}ms ease-in ${Math.round(l.after - swept)}ms both;">${drawn}</g>`;
+                }).join('');
             }
+
+            put(layers.sweep, 'html', sweep ? sweep.drawn : '');
 
             // The head has its own colour; the body runs along a hue ramp and goes deeper
             // wherever a letter is being carried
@@ -3120,157 +3302,142 @@ function snake(container) {
             // is otherwise one blob: a neighbouring cell looks the same whether it is the
             // next segment or another coil lying alongside, and the path cannot be read.
             // The segments are inset far enough that only a real joint bridges the gap.
-            // Pairs split by the wrap around the board edge are skipped — on screen those
-            // two cells are on opposite sides and there is nothing to bridge.
-            const SEG_INSET = 2.6;
+            // Pairs split by the wrap around the board edge are hidden — on screen those
+            // two cells are on opposite sides and there is nothing to bridge. Hidden
+            // rather than taken out, so that every pair keeps its element.
             const jointReach = SEG_INSET + 1;   // 1px into each segment, so no seam shows
             const jointWidth = cellSize * 0.42;
 
-            for (let i = 0; i < s.snakeBody.length - 1; i++) {
+            const joints = kids(layers.joints, 'rect', Math.max(0, total - 1));
+
+            for (let i = 0; i < total - 1; i++) {
+                const joint = joints[i];
                 const a = s.snakeBody[i];
                 const b = s.snakeBody[i + 1];
-                if (Math.abs(b.x - a.x) + Math.abs(b.y - a.y) !== 1) continue;
 
-                const fill = colourAt(i + 1);
+                if (Math.abs(b.x - a.x) + Math.abs(b.y - a.y) !== 1) {
+                    put(joint, 'display', 'none');
+                    continue;
+                }
+
+                put(joint, 'display', 'inline');
+                put(joint, 'fill', colourAt(i + 1));
 
                 if (a.y === b.y) {
                     const edge = Math.max(a.x, b.x) * cellSize;
-                    out += `<rect x="${edge - jointReach}" y="${(a.y + 0.5) * cellSize - jointWidth / 2}"
-                        width="${jointReach * 2}" height="${jointWidth}" fill="${fill}" />`;
+                    put(joint, 'x', edge - jointReach);
+                    put(joint, 'y', (a.y + 0.5) * cellSize - jointWidth / 2);
+                    put(joint, 'width', jointReach * 2);
+                    put(joint, 'height', jointWidth);
                 } else {
                     const edge = Math.max(a.y, b.y) * cellSize;
-                    out += `<rect x="${(a.x + 0.5) * cellSize - jointWidth / 2}" y="${edge - jointReach}"
-                        width="${jointWidth}" height="${jointReach * 2}" fill="${fill}" />`;
+                    put(joint, 'x', (a.x + 0.5) * cellSize - jointWidth / 2);
+                    put(joint, 'y', edge - jointReach);
+                    put(joint, 'width', jointWidth);
+                    put(joint, 'height', jointReach * 2);
                 }
             }
 
-            /*
-             * The face, and it is the app's own: the two rings of the mark in
-             * the header, the left one larger, which is what gives it the
-             * puzzled look — see logoSvg in catalog.js.
-             *
-             * The numbers are that drawing's, divided by the width of the
-             * card it sits on, so the face keeps its proportions on a head of
-             * any size.
-             *
-             * The offsets centre the pair by its edges, not by its centres.
-             * Two eyes of different sizes with their middles the same
-             * distance out have their ink further out on the big side, and
-             * the face ends up leaning that way — a snake looking slightly
-             * left of where it is going. Placed so the outer edge of each eye
-             * is the same distance from the middle of the head, at -0.388 and
-             * +0.388, the pair sits in the middle and the big eye simply
-             * reaches closer to it.
-             *
-             * Turned to face where the snake is going. The pair is laid out
-             * along x across the middle of the head, which is the snake
-             * heading down the screen; every other heading is that picture
-             * rotated. atan2(-dx, dy) is the angle that does it — zero for
-             * down, 180 for up, ±90 for the sides.
-             *
-             * Filled inside the white ring, which is the mark's other look —
-             * the one the logo in the header takes when it is pressed. An open
-             * ring on a coral square reads as a hole in the head; a dark
-             * centre reads as a pupil, and a pupil is what makes the thing
-             * look back at you.
-             *
-             * The fill is the dark theme's ground, the same value the logo's
-             * pupil takes, and fixed in both themes for the same reason the
-             * game colours are. Black was tried and is a hole punched in the
-             * head; this is the navy the app is built on, and it reads as a
-             * dark that belongs here.
-             *
-             * Shut is a line where the ring was, the length of its diameter and
-             * the thickness of its stroke: the same eye with the lid down. A
-             * closed eye drawn any other way stops being the same eye.
-             */
-            const EYES = [
-                { off: -0.164, r: 0.173, width: 0.101 },
-                { off: 0.250, r: 0.107, width: 0.062 }
-            ];
+            // The heart a crash is taking, blinking where it lies -- drawn on
+            // its own below, in place of its link and of what the link carries
+            const lostAt = s.isFrozen && s.losingHeartIdx != null ? s.losingHeartIdx : -1;
+            const lost = lostAt >= 0 ? s.snakeBody[lostAt] : null;
 
-            const faceOn = (part, shut) => {
-                const size = cellSize - SEG_INSET * 2;
-                const turn = Math.atan2(-s.dir.x, s.dir.y) * 180 / Math.PI;
-
-                const pair = EYES.map(eye => {
-                    const x = eye.off * size;
-                    const r = eye.r * size;
-                    const width = eye.width * size;
-
-                    return shut
-                        ? `<path d="M${x - r} 0H${x + r}" stroke="#ffffff"
-                            stroke-width="${width}" stroke-linecap="round" fill="none" />`
-                        : `<circle cx="${x}" cy="0" r="${r}" fill="#0f2b3c"
-                            stroke="#ffffff" stroke-width="${width}" />`;
-                }).join('');
-
-                return `<g transform="translate(${(part.x + 0.5) * cellSize} ${(part.y + 0.5) * cellSize})
-                    rotate(${turn})">${pair}</g>`;
-            };
+            const links = kids(layers.links, 'rect', total);
+            const carried = kids(layers.carried, 'text', total);
 
             s.snakeBody.forEach((part, idx) => {
-                const partColor = colourAt(idx);
-                const radius = idx === 0 ? 6 : 4;
+                const link = links[idx];
+                const letter = carried[idx];
 
-                if (s.isFrozen && idx === s.losingHeartIdx) {
-                    const centerX = (part.x + 0.5) * cellSize;
-                    const centerY = (part.y + 0.5) * cellSize;
-                    const heartChar = s.blinkVisible ? '\u2764\ufe0f' : '\ud83d\udda4';
-
-                    // Drawn as a group because the glyph has to sit on its own
-                    // square, not because it is any bigger than its neighbours —
-                    // it used to be scaled half again, which made the loss look
-                    // like an event happening to the board rather than to one
-                    // link of the snake.
-                    out += `<g transform="translate(${centerX} ${centerY})">
-                        <rect x="${-cellSize / 2 + 1}" y="${-cellSize / 2 + 1}"
-                            width="${cellSize - 2}" height="${cellSize - 2}" rx="${radius}" fill="${partColor}" />
-                        <text x="0" y="0" font-family="${LETTER_FONT}" font-size="15.6" font-weight="bold"
-                            text-anchor="middle" dominant-baseline="central">${heartChar}</text>
-                    </g>`;
+                if (part === lost) {
+                    put(link, 'display', 'none');
+                    put(letter, 'display', 'none');
                     return;
                 }
 
-                out += `<rect x="${part.x * cellSize + SEG_INSET}" y="${part.y * cellSize + SEG_INSET}"
-                    width="${cellSize - SEG_INSET * 2}" height="${cellSize - SEG_INSET * 2}"
-                    rx="${radius}" fill="${partColor}" />`;
-
-                // Only while there is a head to put them on: during the run
-                // down the body the head has gone out, and a face on a link
-                // that is only borrowing the colour would be a second snake.
-                if (idx === 0 && headRun === null) out += faceOn(part, eyesShut);
+                put(link, 'display', 'inline');
+                put(link, 'x', part.x * cellSize + SEG_INSET);
+                put(link, 'y', part.y * cellSize + SEG_INSET);
+                put(link, 'width', cellSize - SEG_INSET * 2);
+                put(link, 'height', cellSize - SEG_INSET * 2);
+                put(link, 'rx', idx === 0 ? 6 : 4);
+                put(link, 'fill', colourAt(idx));
 
                 // A heart that has flown to the goblet leaves the link it
                 // was carried on, and the link stays -- see view.victory.
-                if (!part.char || flown.has(idx)) return;
+                if (!part.char || flown.has(idx)) {
+                    put(letter, 'display', 'none');
+                    return;
+                }
 
-                out += glyph(part.char, (part.x + 0.5) * cellSize, (part.y + 0.5) * cellSize, 12.3, '#ffffff', 'bold');
+                const fit = fitOf(part.char, 12.3, 'bold');
+
+                put(letter, 'display', 'inline');
+                put(letter, 'x', (part.x + 0.5) * cellSize);
+                put(letter, 'y', (part.y + 0.5) * cellSize + fit.drop);
+                put(letter, 'fill', '#ffffff');
+                put(letter, 'font-family', LETTER_FONT);
+                put(letter, 'font-size', fit.size);
+                put(letter, 'font-weight', 'bold');
+                put(letter, 'text-anchor', 'middle');
+                put(letter, 'text', part.char);
             });
+
+            // Drawn as a group because the glyph has to sit on its own
+            // square, not because it is any bigger than its neighbours —
+            // it used to be scaled half again, which made the loss look
+            // like an event happening to the board rather than to one
+            // link of the snake.
+            put(layers.lost, 'html', lost
+                ? `<g transform="translate(${(lost.x + 0.5) * cellSize} ${(lost.y + 0.5) * cellSize})">
+                    <rect x="${-cellSize / 2 + 1}" y="${-cellSize / 2 + 1}"
+                        width="${cellSize - 2}" height="${cellSize - 2}" rx="${lostAt === 0 ? 6 : 4}" fill="${colourAt(lostAt)}" />
+                    <text x="0" y="0" font-family="${LETTER_FONT}" font-size="15.6" font-weight="bold"
+                        text-anchor="middle" dominant-baseline="central">${s.blinkVisible ? '❤️' : '🖤'}</text>
+                </g>`
+                : '');
+
+            // Only while there is a head to put them on: during the run
+            // down the body the head has gone out, and a face on a link
+            // that is only borrowing the colour would be a second snake.
+            // Turned to face where the snake is going -- see EYES.
+            const head = s.snakeBody[0];
+            const faced = !!head && head !== lost && headRun === null;
+
+            put(layers.face, 'display', faced ? 'inline' : 'none');
+
+            if (faced) {
+                const turn = Math.atan2(-s.dir.x, s.dir.y) * 180 / Math.PI;
+
+                put(layers.face, 'transform', `translate(${(head.x + 0.5) * cellSize} ${(head.y + 0.5) * cellSize}) rotate(${turn})`);
+                put(layers.face, 'html', eyesOf(eyesShut));
+            }
 
             // The spark sits on the edge the head ran into: half a cell along the heading,
             // which is exactly the border between the head and whatever it hit. Drawn with
             // strokes rather than a glyph — an emoji star arrives in its own colours and
             // cannot be made red.
-            if (s.crashPhase === 1) {
-                const head = s.snakeBody[0];
+            let spark = '';
+
+            if (s.crashPhase === 1 && head) {
                 const cx = (head.x + 0.5 + s.dir.x * 0.5) * cellSize;
                 const cy = (head.y + 0.5 + s.dir.y * 0.5) * cellSize;
                 const reach = cellSize * 0.3;
 
-                let spark = '';
+                let d = '';
                 for (let i = 0; i < 4; i++) {
                     const angle = (Math.PI / 4) * i;
                     const len = i % 2 === 0 ? reach : reach * 0.55; // long cross, short diagonals
                     const dx = Math.cos(angle) * len;
                     const dy = Math.sin(angle) * len;
-                    spark += `M${cx - dx} ${cy - dy}L${cx + dx} ${cy + dy}`;
+                    d += `M${cx - dx} ${cy - dy}L${cx + dx} ${cy + dy}`;
                 }
 
-                out += `<path d="${spark}" stroke="#ff1744" stroke-width="3" stroke-linecap="round" fill="none" />`;
+                spark = `<path d="${d}" stroke="#ff1744" stroke-width="3" stroke-linecap="round" fill="none" />`;
             }
 
-            scene.innerHTML = out;
+            put(layers.spark, 'html', spark);
         };
     }
 
@@ -5058,14 +5225,20 @@ function snake(container) {
          * what makes that legible instead of surprising.
          *
          * Fast on purpose. This is a beat between the crash and playing again,
-         * not a cutscene: a long snake has more links to light and so takes
-         * longer, which is right — there is more of it to turn round.
+         * not a cutscene, and it takes the same HEAD_RUN_MS on a snake of any
+         * length: the flash runs faster along a longer one. It went at 45ms a
+         * link until 3 November 2026, and a long snake kept the player waiting
+         * for seconds (the owner's call).
          *
          * Driven by clock.after rather than by the game's own ticks, which is the
          * only way it works at all: there is no free-running clock, and the
-         * board is repainted only when the player presses something.
+         * board is repainted only when the player presses something. Woken
+         * when the flash is due at its next link, but no oftener than a frame:
+         * along a long snake it passes several links a frame, and each frame
+         * writes only the links whose colour it changed -- see put.
          */
-        const HEAD_RUN_MS = 45;
+        const HEAD_RUN_MS = 800;
+        const HEAD_RUN_FRAME = 16;
 
         /*
          * The whole of a crash on the path that has nothing to turn round — the
@@ -5088,25 +5261,38 @@ function snake(container) {
 
             // A snake of one link is all head. There is nothing for the flash to
             // run along and nothing that turning it round would change.
-            if (total < 2) return clock.after(HEAD_RUN_MS * 4, whenDone);
+            if (total < 2) return clock.after(HEAD_RUN_MS, whenDone);
 
-            let at = 1;
+            // The links behind the head, each holding the flash for an equal
+            // share of the run
+            const behind = total - 1;
+            const began = performance.now();
+            let shown = 0;
 
             const step = () => {
-                view.headRun(at);
-                paint();
+                const gone = performance.now() - began;
 
-                at += 1;
-                if (at < total) return clock.after(HEAD_RUN_MS, step);
+                if (gone >= HEAD_RUN_MS) {
+                    // Cleared without painting: the frame that follows is the one
+                    // headToTail draws, and it is the same picture this leaves —
+                    // so there is nothing to see in between, and nothing to flicker.
+                    view.headRun(null);
+                    return whenDone();
+                }
 
-                // Cleared without painting: the frame that follows is the one
-                // headToTail draws, and it is the same picture this leaves —
-                // so there is nothing to see in between, and nothing to flicker.
-                view.headRun(null);
-                whenDone();
+                const at = Math.min(behind, 1 + Math.floor(gone / HEAD_RUN_MS * behind));
+
+                if (at !== shown) {
+                    shown = at;
+                    view.headRun(at);
+                    paint();
+                }
+
+                const next = began + at * HEAD_RUN_MS / behind;
+                clock.after(Math.max(HEAD_RUN_FRAME, next - performance.now()), step);
             };
 
-            clock.after(HEAD_RUN_MS, step);
+            clock.after(HEAD_RUN_FRAME, step);
         }
 
         /*
@@ -5156,6 +5342,10 @@ function snake(container) {
          * waits. clock.after covers both, and it is tracked, so leaving the
          * screen takes the blink with it.
          *
+         * The board is not painted for it: the eyes are the one thing a blink
+         * changes, and they are written by themselves -- see view.eyesShut.
+         * It painted the whole board twice a blink until 3 November 2026.
+         *
          * The gap is uneven on purpose. Blinking on a metronome is the one way
          * to make something look less alive than not blinking at all.
          *
@@ -5176,7 +5366,6 @@ function snake(container) {
                 if (mine !== idleBlink) return;
 
                 view.eyesShut(false);
-                paint();
 
                 clock.after(gap(), shut);
             };
@@ -5185,7 +5374,6 @@ function snake(container) {
                 if (mine !== idleBlink) return;
 
                 view.eyesShut(true);
-                paint();
 
                 clock.after(BLINK_SHUT_MS, open);
             };
@@ -5736,9 +5924,11 @@ function snake(container) {
             // puts the d-pad away.
             panelMuted: t.muted,
             // The stage in the dot of the word in play (see stageInDot): the
-            // page's own ink, light on the dark theme and dark on the light
-            // one, on the waiting dot's own colour
-            stageInk: t.ink,
+            // page's quiet ink, as on the way out beside it, on the waiting
+            // dot's own colour. It was the page's full ink, and shone out of
+            // the header brighter than anything in it (the owner, 3 November
+            // 2026).
+            stageInk: t.muted,
             ring: t.accent,
             // Marks where you are right now — the dot you are on, and in quiz
             // the option under the keyboard cursor. Its own token rather than
