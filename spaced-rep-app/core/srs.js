@@ -95,6 +95,11 @@ function spacedRepetitions() {
     // Helper: count how many progressive SRS checkpoints elapsed between two timestamps.
     // The first checkpoint is at nextRepetitionTime, then each skipped interval advances
     // the simulated stage, so the following checkpoint is INTERVALS[simStage + 1] later.
+    //
+    // The climb is the marks' alone: it spaces the windows a word was left
+    // through out the way the ladder does, so a word forgotten for a month on
+    // a five-minute rung is a few dots and not thousands. The word's own stage
+    // does not climb with it -- see getWordProgress.
     function countElapsedCheckpoints(nextRepetitionTime, untilTime, stageAfterLastRepetition) {
         let count = 0;
         let checkTime = nextRepetitionTime;
@@ -123,7 +128,10 @@ function spacedRepetitions() {
      *  - an early repetition (before nextRepetition) never raises the stage; an early success also
      *    leaves the running timer alone, while an early error is a full mistake and restarts it;
      *  - a repetition that closes N elapsed checkpoints renders N-1 warnings plus its own result mark,
-     *    and on success counts as N error-free repetitions (skipped intervals count as successful);
+     *    and on success counts as one error-free repetition however late it is: skipped intervals
+     *    do not touch the stage. The owner's call, 3 November 2026 -- until then a success after
+     *    skipped intervals counted as N, every window missed as one answered right, and a word left
+     *    alone for months came back several rungs up for a single right answer;
      *  - any mistake costs ERROR_PENALTY stages (stage - 3), but never drops below stage 1.
      */
     function getWordProgress(word, nowTs = Date.now()) {
@@ -173,7 +181,7 @@ function spacedRepetitions() {
 
                 if (success) {
                     marks.push(elapsed > 1 ? MARKS.LATE_OK : MARKS.OK);
-                    successRun += elapsed;
+                    successRun += 1;
                     stage = Math.min(MAX_STAGE, successRun + 1);
                 } else {
                     marks.push(elapsed > 1 ? MARKS.LATE_FAIL : MARKS.FAIL);

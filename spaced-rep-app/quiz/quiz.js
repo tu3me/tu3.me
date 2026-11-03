@@ -28,7 +28,280 @@ function quiz(container) {
     let palette = {};
 
     function getEmptyState() {
-        return { selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
+        return { selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false, starLevel: 0 };
+    }
+
+    /*
+     * The star beside the dots: a run of right answers, kept in the session
+     * while it is played, and in the set's achievements if it is full when the
+     * session ends -- the owner's call, 3 November 2026, after Snake's (see
+     * STAR_TOP in snake.js). Written out here again rather than shared, which
+     * is the owner's rule too: each game's achievements are its own, and may
+     * go their own ways.
+     *
+     * Counted in steps. Nought is no star at all; the first right answer puts
+     * up its outline, and every one after that fills another STAR_FILL_STEP
+     * of it with gold from the bottom up -- five of them to fill it. Right
+     * answers past a full star change nothing; a wrong one takes it back to
+     * the outline.
+     */
+    const STAR_FILL_STEP = 0.2;
+    const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
+
+    // The star in the header, the size of the buttons at its two ends
+    const STAR_SIZE = 29;
+
+    // And over the middle of the screen when it is won, and the gold of both
+    const WON_SIZE = 168;
+    const STAR_GOLD = '#f5bf3a';
+
+    /*
+     * The star with its corners rounded, the same drawing as Snake's: the ten
+     * corners of the usual five-pointed star, each cut back along both its
+     * edges and turned with a curve, the points by more than the hollows.
+     * STAR_BOX is what the gold is measured against.
+     */
+    const STAR_TIP_ROUND = 3.3;
+    const STAR_HOLLOW_ROUND = 1.5;
+    const STAR_CORNERS = [[12, 2], [15.09, 8.26], [22, 9.27], [17, 14.14], [18.18, 21.02], [12, 17.77], [5.82, 21.02], [7, 14.14], [2, 9.27], [8.91, 8.26]];
+
+    const { STAR_PATH, STAR_BOX } = (() => {
+        const toward = (from, to, by) => {
+            const dx = to[0] - from[0];
+            const dy = to[1] - from[1];
+            const length = Math.hypot(dx, dy);
+            return [from[0] + dx / length * by, from[1] + dy / length * by];
+        };
+
+        const n = STAR_CORNERS.length;
+        const turns = STAR_CORNERS.map((corner, i) => ({
+            from: toward(corner, STAR_CORNERS[(i + n - 1) % n], i % 2 ? STAR_HOLLOW_ROUND : STAR_TIP_ROUND),
+            corner,
+            to: toward(corner, STAR_CORNERS[(i + 1) % n], i % 2 ? STAR_HOLLOW_ROUND : STAR_TIP_ROUND)
+        }));
+
+        const xy = (p) => p.map(c => +c.toFixed(2)).join(' ');
+        const path = 'M' + xy(turns[0].from)
+            + turns.map((t, i) => (i ? 'L' + xy(t.from) : '') + 'Q' + xy(t.corner) + ' ' + xy(t.to)).join('')
+            + 'Z';
+
+        const seen = [];
+        turns.forEach(({ from, corner, to }) => {
+            for (let k = 0; k <= 20; k++) {
+                const t = k / 20;
+                const a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+                seen.push([a * from[0] + b * corner[0] + c * to[0], a * from[1] + b * corner[1] + c * to[1]]);
+            }
+        });
+
+        const round = (v) => +v.toFixed(2);
+        const x = round(Math.min(...seen.map(p => p[0])));
+        const y = round(Math.min(...seen.map(p => p[1])));
+
+        return {
+            STAR_PATH: path,
+            STAR_BOX: { x, y, width: round(Math.max(...seen.map(p => p[0])) - x), height: round(Math.max(...seen.map(p => p[1])) - y) }
+        };
+    })();
+
+    // How much of the star is gold at `level`
+    const starShare = (level) => (level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0);
+
+    // The star in the header: out of sight at nought. The gold is a rectangle
+    // clipped to the star and scaled up from its foot -- clipped on a group
+    // round it, or the clip would shrink with the fill.
+    function starHtml(level) {
+        return `<svg class="quiz-star" viewBox="0 0 24 24" width="${STAR_SIZE}" height="${STAR_SIZE}" aria-hidden="true" style="display: block; flex: none; margin: 0 auto 0 8.5px; overflow: visible; opacity: ${level ? 1 : 0};">
+            <defs><clipPath id="quiz-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
+            <g clip-path="url(#quiz-star-shape)">
+                <rect class="quiz-star-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="${STAR_GOLD}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(${starShare(level)});" />
+            </g>
+            <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.1" stroke-linejoin="round" />
+        </svg>`;
+    }
+
+    /*
+     * An answer on its way to the star, as Snake sends it: the answered dot
+     * swells once, every dot still waiting to its right lights up in the
+     * answer's colour one after another, and the star takes the news when
+     * the light gets to it -- swelling as the gold rises, or shrinking as it
+     * drains.
+     *
+     * Kept as when it was sent rather than as animations on nodes, because
+     * this game draws its screen again for every word, and its dots again
+     * whenever one changes colour: the next word comes 700ms after a right
+     * answer, with the light still on its way. Whatever is drawn again takes
+     * the light up from where it was by a negative delay -- see waveDots and
+     * waveStar.
+     */
+    const WAVE_START = 140;
+    const WAVE_STEP = 70;
+    const WAVE_PULSE = 320;
+    const DOT_SWELL_MS = 420;
+    const STAR_PULSE = 520;
+
+    let answered = null;
+
+    const elapsed = () => (answered ? performance.now() - answered.at : Infinity);
+
+    function waveDots(group) {
+        if (!answered || !group) return;
+
+        const gone = elapsed();
+        const dots = [...group.children];
+        const colour = answered.right ? palette.okText : palette.errText;
+
+        const answeredDot = dots[answered.from];
+        if (answeredDot && gone < DOT_SWELL_MS) {
+            answeredDot.animate([
+                { scale: 1 }, { scale: 1.8, offset: 0.3 }, { scale: 0.84, offset: 0.65 }, { scale: 1 }
+            ], { duration: DOT_SWELL_MS, delay: -gone, easing: 'ease-out' });
+        }
+
+        dots.slice(answered.from + 1).forEach((dot, k) => {
+            const delay = WAVE_START + k * WAVE_STEP - gone;
+            if (delay + WAVE_PULSE <= 0) return;
+
+            dot.animate([
+                { background: palette.dotIdle, transform: 'scale(1)' },
+                { background: colour, transform: 'scale(1.4)' },
+                { background: palette.dotIdle, transform: 'scale(1)' }
+            ], { duration: WAVE_PULSE, delay, easing: 'ease-in-out' });
+        });
+    }
+
+    // The star at the level it has come to, and the swell or the shrink it
+    // takes the news with when the light gets there
+    function waveStar(star) {
+        if (!star) return;
+
+        const now = state.starLevel;
+        star.style.opacity = now ? '1' : '0';
+        star.querySelector('.quiz-star-fill').style.transform = `scaleY(${starShare(now)})`;
+
+        if (!answered) return;
+
+        const was = answered.was;
+        const delay = answered.arrives - elapsed();
+        if (delay + STAR_PULSE <= 0) return;
+
+        const up = now > was || (now === was && now >= STAR_TOP);
+        const turn = up ? 0.4 : 0.5;
+        const timing = { duration: STAR_PULSE, delay, easing: 'ease-out', fill: 'backwards' };
+
+        star.animate([
+            { transform: was ? 'scale(1)' : 'scale(0.4)', opacity: was ? 1 : 0 },
+            { transform: up ? 'scale(1.7)' : 'scale(0.5)', opacity: 1, offset: turn },
+            { transform: 'scale(1)', opacity: 1 }
+        ], timing);
+
+        star.querySelector('.quiz-star-fill').animate([
+            { transform: `scaleY(${starShare(was)})` },
+            { transform: `scaleY(${starShare(now)})`, offset: turn },
+            { transform: `scaleY(${starShare(now)})` }
+        ], timing);
+    }
+
+    /*
+     * The star hears about an answer the moment its dot takes its colour,
+     * once a question. A wrong answer with no star up sends nothing: there is
+     * no star for the light to reach.
+     */
+    function starAnswered(right) {
+        const was = Math.min(STAR_TOP, state.starLevel);
+        if (!right && !was) return;
+
+        state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 1;
+
+        const waiting = Math.max(0, state.sessionResults.length - state.currentIndex - 1);
+        answered = { at: performance.now(), from: state.currentIndex, right, was, arrives: WAVE_START + waiting * WAVE_STEP };
+
+        waveStar(container.querySelector('.quiz-star'));
+    }
+
+    /*
+     * The end of a session with the star full: it goes into the set's
+     * achievements, flies out of the header to the middle of the screen and
+     * stays there shining, and a press on it -- or anywhere -- is the way back
+     * to the catalog. Not full, the session ends as it always did, straight
+     * back to the catalog.
+     *
+     * The session is over the moment this begins (page.endSession), so that a
+     * popup closed while the star is up leaves a finished session behind. The
+     * star waits for itself to have finished filling first: the last answer
+     * is what fills it, and it comes 700ms before this.
+     *
+     * With reduced motion nothing flies or shines: the star is simply there.
+     *
+     * The press is written down as `quiz-won` -- see ANALYTICS.md: the veil is
+     * no button, and data-press is what makes it one to the analytics.
+     */
+    const WON_FLIGHT = 1100;
+    const WON_TURN = 144;
+    const WON_SHINE = 1900;
+
+    async function winStar() {
+        store.achieve(state.selectedSetId, 'quiz', 'star', state.sessionResults.filter(r => r === 'correct').length);
+        page.endSession();
+        unbindKeys();
+
+        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const small = container.querySelector('.quiz-star');
+
+        if (small && !still) await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => null);
+
+        const veil = $(container, `<div class="quiz-won" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
+            <svg class="quiz-won-star" viewBox="0 0 24 24" width="${WON_SIZE}" height="${WON_SIZE}" aria-hidden="true" style="display: block; overflow: visible;">
+                <defs>
+                    <linearGradient id="quiz-won-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
+                    <linearGradient id="quiz-won-glint" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.85" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" /></linearGradient>
+                    <clipPath id="quiz-won-shape"><path d="${STAR_PATH}" /></clipPath>
+                </defs>
+                <path d="${STAR_PATH}" fill="url(#quiz-won-gold)" />
+                <g clip-path="url(#quiz-won-shape)">
+                    <rect class="quiz-won-glint" x="-4" y="0" width="5" height="24" fill="url(#quiz-won-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+                </g>
+                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="0.7" stroke-linejoin="round" />
+            </svg>
+        </div>`);
+
+        veil.addEventListener('click', () => page.home());
+
+        if (small) small.style.visibility = 'hidden';
+        if (still) return;
+
+        const big = veil.querySelector('.quiz-won-star');
+
+        // Out of the header: from the small star exactly, measured in the
+        // app's own pixels -- the app is zoomed, see appRect
+        if (small) {
+            const from = appRect(small);
+            const to = appRect(big);
+            const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+            const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+
+            big.animate([
+                { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}) rotate(${-WON_TURN}deg)`, easing: 'ease-in-out' },
+                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8, easing: 'ease-out' },
+                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
+            ], { duration: WON_FLIGHT });
+        }
+
+        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: WON_FLIGHT * 0.5, easing: 'ease-out' });
+
+        // And shining for as long as it is up: a glow that swells and fades,
+        // and a glint across the gold
+        big.animate([
+            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' },
+            { filter: 'drop-shadow(0 0 22px rgba(255, 214, 92, 0.9))', offset: 0.5 },
+            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' }
+        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
+
+        veil.querySelector('.quiz-won-glint').animate([
+            { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
+            { transform: 'translateX(30px) skewX(-20deg)', opacity: 1, offset: 0.55 },
+            { transform: 'translateX(30px) skewX(-20deg)', opacity: 0 }
+        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
     }
 
     // Keyboard: ↑/↓ move the highlight over the options, → answers with the highlighted one
@@ -426,10 +699,15 @@ function quiz(container) {
             return `<div class="quiz-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
         }).join('');
 
-        // The dots are redrawn as soon as the answer is scored, not only on the next word
+        // The dots are redrawn as soon as the answer is scored, not only on the
+        // next word -- and the light of an answer on its way to the star goes
+        // on along the new ones (see waveDots)
         function refreshDots() {
             const group = header.querySelector('.quiz-dots-group');
-            if (group) group.innerHTML = dotsHtml();
+            if (!group) return;
+
+            group.innerHTML = dotsHtml();
+            waveDots(group);
         }
 
         const header = $(container, `<div class="quiz-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
@@ -446,6 +724,14 @@ function quiz(container) {
         });
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
+
+        // The star at the head of the sound's third, as Snake has it -- and
+        // whatever light is still on its way to it, going on from where it was
+        const end = header.querySelector('.game-header-end');
+        if (end) end.insertAdjacentHTML('afterbegin', starHtml(state.starLevel));
+
+        waveDots(header.querySelector('.quiz-dots-group'));
+        waveStar(header.querySelector('.quiz-star'));
 
         const questionCard = $(container, `<div class="quiz-question-card" data-press style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
             <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
@@ -589,7 +875,10 @@ function quiz(container) {
             state.currentIndex++;
             if (state.currentIndex >= pool.length) {
                 state.sessionPool = null;
-                page.finish();
+
+                // A full star ends it in the middle of the screen -- see winStar
+                if (state.starLevel >= STAR_TOP) winStar();
+                else page.finish();
             } else {
                 render();
                 page.save();
@@ -650,6 +939,7 @@ function quiz(container) {
 
                         store.recordRepetition(currentItem, 1, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'correct';
+                        starAnswered(true);
 
                         store.save();
                         refreshDots();
@@ -660,6 +950,7 @@ function quiz(container) {
 
                         store.recordRepetition(currentItem, 0, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'wrong';
+                        starAnswered(false);
 
                         store.save();
                         refreshDots();
@@ -757,7 +1048,16 @@ function quiz(container) {
 
             // Still read by the dots along the top, which are too small to fill.
             okText: t.ok,
-            errText: t.err
+            errText: t.err,
+
+            // The star's edge: its own gold on the dark theme, and a deeper
+            // one on the light, where the gold is pale against the page --
+            // Snake's
+            starEdge: isDark ? STAR_GOLD : '#b7860f',
+
+            // The page under a won star, most of the way to the page's own
+            // ground, so that the star is the thing on it
+            veil: `color-mix(in srgb, ${t.ground} 82%, transparent)`
         };
     };
 
@@ -779,7 +1079,10 @@ function quiz(container) {
         // without saying which run they were part of.
         sessionAt: state.sessionAt,
 
-        allowEarly: state.allowEarly
+        allowEarly: state.allowEarly,
+
+        // The star is the session's and goes with it -- see STAR_TOP
+        starLevel: state.starLevel
     });
 
     quiz.setState = (snap) => {

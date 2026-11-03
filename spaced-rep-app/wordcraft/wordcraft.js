@@ -73,11 +73,291 @@ function wordcraft(container) {
     let state = getEmptyState();
     let palette = {};
 
+    // The word spelled right goes on to the next by itself, this long after
+    // -- see moveOn in render -- and which word that has been set going for
+    const NEXT_AFTER = 700;
+    let movingOn = -1;
+
     function getEmptyState() {
         return {
             selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null,
-            sessionAt: null, allowEarly: false, round: null
+            sessionAt: null, allowEarly: false, round: null, starLevel: 0
         };
+    }
+
+    /*
+     * The star beside the dots: a run of right answers, kept in the session
+     * while it is played, and in the set's achievements if it is full when the
+     * session ends -- the owner's call, 3 November 2026, after Snake's (see
+     * STAR_TOP in snake.js). Written out here again rather than shared, which
+     * is the owner's rule too: each game's achievements are its own, and may
+     * go their own ways.
+     *
+     * Counted in steps. Nought is no star at all; the first right answer puts
+     * up its outline, and every one after that fills another STAR_FILL_STEP
+     * of it with gold from the bottom up -- five of them to fill it. Right
+     * answers past a full star change nothing; a wrong one takes it back to
+     * the outline.
+     */
+    const STAR_FILL_STEP = 0.2;
+    const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
+
+    // The star in the header, the size of the buttons at its two ends
+    const STAR_SIZE = 29;
+
+    // And over the middle of the screen when it is won, and the gold of both
+    const WON_SIZE = 168;
+    const STAR_GOLD = '#f5bf3a';
+
+    /*
+     * The star with its corners rounded, the same drawing as Snake's: the ten
+     * corners of the usual five-pointed star, each cut back along both its
+     * edges and turned with a curve, the points by more than the hollows.
+     * STAR_BOX is what the gold is measured against.
+     */
+    const STAR_TIP_ROUND = 3.3;
+    const STAR_HOLLOW_ROUND = 1.5;
+    const STAR_CORNERS = [[12, 2], [15.09, 8.26], [22, 9.27], [17, 14.14], [18.18, 21.02], [12, 17.77], [5.82, 21.02], [7, 14.14], [2, 9.27], [8.91, 8.26]];
+
+    const { STAR_PATH, STAR_BOX } = (() => {
+        const toward = (from, to, by) => {
+            const dx = to[0] - from[0];
+            const dy = to[1] - from[1];
+            const length = Math.hypot(dx, dy);
+            return [from[0] + dx / length * by, from[1] + dy / length * by];
+        };
+
+        const n = STAR_CORNERS.length;
+        const turns = STAR_CORNERS.map((corner, i) => ({
+            from: toward(corner, STAR_CORNERS[(i + n - 1) % n], i % 2 ? STAR_HOLLOW_ROUND : STAR_TIP_ROUND),
+            corner,
+            to: toward(corner, STAR_CORNERS[(i + 1) % n], i % 2 ? STAR_HOLLOW_ROUND : STAR_TIP_ROUND)
+        }));
+
+        const xy = (p) => p.map(c => +c.toFixed(2)).join(' ');
+        const path = 'M' + xy(turns[0].from)
+            + turns.map((t, i) => (i ? 'L' + xy(t.from) : '') + 'Q' + xy(t.corner) + ' ' + xy(t.to)).join('')
+            + 'Z';
+
+        const seen = [];
+        turns.forEach(({ from, corner, to }) => {
+            for (let k = 0; k <= 20; k++) {
+                const t = k / 20;
+                const a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+                seen.push([a * from[0] + b * corner[0] + c * to[0], a * from[1] + b * corner[1] + c * to[1]]);
+            }
+        });
+
+        const round = (v) => +v.toFixed(2);
+        const x = round(Math.min(...seen.map(p => p[0])));
+        const y = round(Math.min(...seen.map(p => p[1])));
+
+        return {
+            STAR_PATH: path,
+            STAR_BOX: { x, y, width: round(Math.max(...seen.map(p => p[0])) - x), height: round(Math.max(...seen.map(p => p[1])) - y) }
+        };
+    })();
+
+    // How much of the star is gold at `level`
+    const starShare = (level) => (level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0);
+
+    // The star in the header: out of sight at nought. The gold is a rectangle
+    // clipped to the star and scaled up from its foot -- clipped on a group
+    // round it, or the clip would shrink with the fill.
+    function starHtml(level) {
+        return `<svg class="wordcraft-star" viewBox="0 0 24 24" width="${STAR_SIZE}" height="${STAR_SIZE}" aria-hidden="true" style="display: block; flex: none; margin: 0 auto 0 8.5px; overflow: visible; opacity: ${level ? 1 : 0};">
+            <defs><clipPath id="wordcraft-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
+            <g clip-path="url(#wordcraft-star-shape)">
+                <rect class="wordcraft-star-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="${STAR_GOLD}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(${starShare(level)});" />
+            </g>
+            <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.1" stroke-linejoin="round" />
+        </svg>`;
+    }
+
+    /*
+     * An answer on its way to the star, as Snake sends it: the answered dot
+     * swells once, every dot still waiting to its right lights up in the
+     * answer's colour one after another, and the star takes the news when
+     * the light gets to it -- swelling as the gold rises, or shrinking as it
+     * drains.
+     *
+     * Kept as when it was sent rather than as animations on nodes, because
+     * this game draws its screen again for every word, and its dots again
+     * whenever one changes colour -- and Next can be pressed with the light
+     * still on its way. Whatever is drawn again takes
+     * the light up from where it was by a negative delay -- see waveDots and
+     * waveStar.
+     */
+    const WAVE_START = 140;
+    const WAVE_STEP = 70;
+    const WAVE_PULSE = 320;
+    const DOT_SWELL_MS = 420;
+    const STAR_PULSE = 520;
+
+    let answered = null;
+
+    const elapsed = () => (answered ? performance.now() - answered.at : Infinity);
+
+    function waveDots(group) {
+        if (!answered || !group) return;
+
+        const gone = elapsed();
+        const dots = [...group.children];
+        const colour = answered.right ? palette.ok : palette.err;
+
+        const answeredDot = dots[answered.from];
+        if (answeredDot && gone < DOT_SWELL_MS) {
+            answeredDot.animate([
+                { scale: 1 }, { scale: 1.8, offset: 0.3 }, { scale: 0.84, offset: 0.65 }, { scale: 1 }
+            ], { duration: DOT_SWELL_MS, delay: -gone, easing: 'ease-out' });
+        }
+
+        dots.slice(answered.from + 1).forEach((dot, k) => {
+            const delay = WAVE_START + k * WAVE_STEP - gone;
+            if (delay + WAVE_PULSE <= 0) return;
+
+            dot.animate([
+                { background: palette.dotIdle, transform: 'scale(1)' },
+                { background: colour, transform: 'scale(1.4)' },
+                { background: palette.dotIdle, transform: 'scale(1)' }
+            ], { duration: WAVE_PULSE, delay, easing: 'ease-in-out' });
+        });
+    }
+
+    // The star at the level it has come to, and the swell or the shrink it
+    // takes the news with when the light gets there
+    function waveStar(star) {
+        if (!star) return;
+
+        const now = state.starLevel;
+        star.style.opacity = now ? '1' : '0';
+        star.querySelector('.wordcraft-star-fill').style.transform = `scaleY(${starShare(now)})`;
+
+        if (!answered) return;
+
+        const was = answered.was;
+        const delay = answered.arrives - elapsed();
+        if (delay + STAR_PULSE <= 0) return;
+
+        const up = now > was || (now === was && now >= STAR_TOP);
+        const turn = up ? 0.4 : 0.5;
+        const timing = { duration: STAR_PULSE, delay, easing: 'ease-out', fill: 'backwards' };
+
+        star.animate([
+            { transform: was ? 'scale(1)' : 'scale(0.4)', opacity: was ? 1 : 0 },
+            { transform: up ? 'scale(1.7)' : 'scale(0.5)', opacity: 1, offset: turn },
+            { transform: 'scale(1)', opacity: 1 }
+        ], timing);
+
+        star.querySelector('.wordcraft-star-fill').animate([
+            { transform: `scaleY(${starShare(was)})` },
+            { transform: `scaleY(${starShare(now)})`, offset: turn },
+            { transform: `scaleY(${starShare(now)})` }
+        ], timing);
+    }
+
+    /*
+     * The star hears about an answer the moment its dot takes its colour,
+     * once a word: from scoreRound, or from hearWord before any verdict --
+     * a word heard is a word told, and its dot goes red then, as Snake has
+     * it. A wrong answer with no star up sends nothing: there is no star for
+     * the light to reach.
+     */
+    function starAnswered(right) {
+        const was = Math.min(STAR_TOP, state.starLevel);
+        if (!right && !was) return;
+
+        state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 1;
+
+        const waiting = Math.max(0, state.sessionResults.length - state.currentIndex - 1);
+        answered = { at: performance.now(), from: state.currentIndex, right, was, arrives: WAVE_START + waiting * WAVE_STEP };
+
+        waveStar(container.querySelector('.wordcraft-star'));
+    }
+
+    /*
+     * The end of a session with the star full: it goes into the set's
+     * achievements, flies out of the header to the middle of the screen and
+     * stays there shining, and a press on it -- or anywhere -- is the way back
+     * to the catalog. Not full, the session ends as it always did, straight
+     * back to the catalog.
+     *
+     * The session is over the moment this begins (page.endSession), so that a
+     * popup closed while the star is up leaves a finished session behind. The
+     * star waits for itself to have finished filling first: the last answer
+     * is what fills it, and Next can come before it has.
+     *
+     * With reduced motion nothing flies or shines: the star is simply there.
+     *
+     * The press is written down as `wordcraft-won` -- see ANALYTICS.md: the veil is
+     * no button, and data-press is what makes it one to the analytics.
+     */
+    const WON_FLIGHT = 1100;
+    const WON_TURN = 144;
+    const WON_SHINE = 1900;
+
+    async function winStar() {
+        store.achieve(state.selectedSetId, 'wordcraft', 'star', state.sessionResults.filter(r => r === 'correct').length);
+        page.endSession();
+        speech.hush();
+
+        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const small = container.querySelector('.wordcraft-star');
+
+        if (small && !still) await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => null);
+
+        const veil = $(container, `<div class="wordcraft-won" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
+            <svg class="wordcraft-won-star" viewBox="0 0 24 24" width="${WON_SIZE}" height="${WON_SIZE}" aria-hidden="true" style="display: block; overflow: visible;">
+                <defs>
+                    <linearGradient id="wordcraft-won-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
+                    <linearGradient id="wordcraft-won-glint" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.85" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" /></linearGradient>
+                    <clipPath id="wordcraft-won-shape"><path d="${STAR_PATH}" /></clipPath>
+                </defs>
+                <path d="${STAR_PATH}" fill="url(#wordcraft-won-gold)" />
+                <g clip-path="url(#wordcraft-won-shape)">
+                    <rect class="wordcraft-won-glint" x="-4" y="0" width="5" height="24" fill="url(#wordcraft-won-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
+                </g>
+                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="0.7" stroke-linejoin="round" />
+            </svg>
+        </div>`);
+
+        veil.addEventListener('click', () => page.home());
+
+        if (small) small.style.visibility = 'hidden';
+        if (still) return;
+
+        const big = veil.querySelector('.wordcraft-won-star');
+
+        // Out of the header: from the small star exactly, measured in the
+        // app's own pixels -- the app is zoomed, see appRect
+        if (small) {
+            const from = appRect(small);
+            const to = appRect(big);
+            const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+            const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+
+            big.animate([
+                { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}) rotate(${-WON_TURN}deg)`, easing: 'ease-in-out' },
+                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8, easing: 'ease-out' },
+                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
+            ], { duration: WON_FLIGHT });
+        }
+
+        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: WON_FLIGHT * 0.5, easing: 'ease-out' });
+
+        // And shining for as long as it is up: a glow that swells and fades,
+        // and a glint across the gold
+        big.animate([
+            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' },
+            { filter: 'drop-shadow(0 0 22px rgba(255, 214, 92, 0.9))', offset: 0.5 },
+            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' }
+        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
+
+        veil.querySelector('.wordcraft-won-glint').animate([
+            { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
+            { transform: 'translateX(30px) skewX(-20deg)', opacity: 1, offset: 0.55 },
+            { transform: 'translateX(30px) skewX(-20deg)', opacity: 0 }
+        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
     }
 
     // A word off a card goes straight into markup, and a word is whatever
@@ -668,9 +948,14 @@ function wordcraft(container) {
             <div class="wordcraft-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">${dotsHtml()}</div>
         </div>`);
 
+        // Redrawn whenever a dot changes colour -- and the light of an answer
+        // on its way to the star goes on along the new ones (see waveDots)
         function refreshDots() {
             const group = header.querySelector('.wordcraft-dots-group');
-            if (group) group.innerHTML = dotsHtml();
+            if (!group) return;
+
+            group.innerHTML = dotsHtml();
+            waveDots(group);
         }
 
         header.querySelector('.back-btn').addEventListener('click', (e) => {
@@ -682,6 +967,14 @@ function wordcraft(container) {
         });
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
+
+        // The star at the head of the sound's third, as Snake has it -- and
+        // whatever light is still on its way to it, going on from where it was
+        const end = header.querySelector('.game-header-end');
+        if (end) end.insertAdjacentHTML('afterbegin', starHtml(state.starLevel));
+
+        waveDots(header.querySelector('.wordcraft-dots-group'));
+        waveStar(header.querySelector('.wordcraft-star'));
 
         const banner = $(container, `<div class="wordcraft-hint-banner" style="background: ${palette.hintBg}; border: 1px solid ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 10.2px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
             <div class="wordcraft-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${escapeText(currentItem.word.translation || '')}</div>
@@ -930,6 +1223,10 @@ function wordcraft(container) {
              * have painted it green over a record that says otherwise.
              */
             state.sessionResults[state.currentIndex] = final === 1 ? 'correct' : 'wrong';
+
+            // A heard word told the star at the speaker -- see starAnswered
+            if (!round.heard) starAnswered(final === 1);
+
             store.save();
         }
 
@@ -954,6 +1251,10 @@ function wordcraft(container) {
             if (round.heard) return;
 
             round.heard = true;
+
+            // The dot goes red now, and the star hears it with the dot --
+            // unless a verdict has told it already
+            if (!state.sessionResults[state.currentIndex]) starAnswered(false);
 
             refreshDots();
             page.save();
@@ -991,6 +1292,22 @@ function wordcraft(container) {
             page.save();
         }
 
+        /*
+         * The next word, a beat after this one was spelled: the beat is the
+         * green line and the word being said. Once a word -- the screen is
+         * drawn again in the meantime when the voices arrive, and a session
+         * closed in the beat comes back spelled, and moves on from there.
+         * The voice is not stopped: it finishes the word under the next one.
+         */
+        function moveOn() {
+            if (movingOn === state.currentIndex) return;
+
+            const from = movingOn = state.currentIndex;
+            setTimeout(() => {
+                if (state.currentIndex === from && state.sessionPool) advance();
+            }, NEXT_AFTER);
+        }
+
         // Moves to the next word, or ends the session on the last one.
         function advance() {
             state.currentIndex += 1;
@@ -998,7 +1315,10 @@ function wordcraft(container) {
 
             if (state.currentIndex >= pool.length) {
                 state.sessionPool = null;
-                page.finish();
+
+                // A full star ends it in the middle of the screen -- see winStar
+                if (state.starLevel >= STAR_TOP) winStar();
+                else page.finish();
             } else {
                 render();
                 page.save();
@@ -1022,7 +1342,7 @@ function wordcraft(container) {
         const trayEl = $(container, `<div class="wordcraft-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8.5px;"></div>`);
 
         // Under them the round's buttons: Undo and Check while it is being
-        // played, Next once it has been judged.
+        // played, and nothing once the word is spelled -- see drawActions.
         const actionsEl = $(container, `<div class="wordcraft-actions" style="display: flex; justify-content: center; align-items: center; gap: 8.5px; margin-top: 15.4px;"></div>`);
 
         function pieceStyle(spent) {
@@ -1152,13 +1472,24 @@ function wordcraft(container) {
          * Check arrives when the last box fills and goes again if a piece is
          * taken back.
          *
-         * Next arrives when the word is spelled and Check has said so, and not
-         * one moment earlier. It used to come with the verdict, whatever the
-         * verdict was, which made it a way past a word the player had just got
-         * wrong or given away — and the word they had got wrong is the one word
-         * on the screen worth putting together. The score is already written by
-         * then and nothing here can change it; what is left is the spelling, and
-         * doing it is the round.
+         * Once the word is spelled and Check has said so, the next word comes
+         * by itself, NEXT_AFTER later -- the owner's call, 3 November 2026,
+         * the way a right answer moves the quiz on. Until then there was a
+         * Next button for it, and it came then and not one moment earlier,
+         * which still holds.
+         *
+         * Except on the last word of a run with the star short of full, which
+         * keeps its button, "Finish!" -- the owner's call the same day. What
+         * is behind it there is not another word but the way out, and a run
+         * that ends by itself, with no star to fly out, ends without anybody
+         * noticing it has. A full star ends it by flying -- see winStar.
+         *
+         * The button, when every word had it, came with the verdict at first,
+         * whatever the verdict was, which made it a way past a word the
+         * player had just got wrong or given away — and the word they
+         * had got wrong is the one word on the screen worth putting together.
+         * The score is already written by then and nothing here can change it;
+         * what is left is the spelling, and doing it is the round.
          *
          * Nobody is trapped by that. Every piece the word needs is on the table
          * — a Check puts the wrong ones back — Undo takes back anything laid
@@ -1169,19 +1500,16 @@ function wordcraft(container) {
         function drawActions() {
             actionsEl.innerHTML = '';
 
-            const next = () => {
-                // The last word of the run says so. What is behind the button
-                // there is not another word but the way out, and a run that ends
-                // under the same "Next" as every word before it ends without
-                // anybody noticing it has.
-                const last = state.currentIndex >= pool.length - 1;
+            const last = state.currentIndex >= pool.length - 1;
 
-                const btn = $(actionsEl, `<button class="wordcraft-next" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">${last ? 'Finish!' : 'Next'}</button>`);
+            if (round.done && last && state.starLevel < STAR_TOP) {
+                const finish = $(actionsEl, `<button class="wordcraft-next" style="${ACTION} background: ${palette.accent}; color: ${palette.onAccent}; border: none; cursor: pointer;">Finish!</button>`);
 
-                btn.addEventListener('click', advance);
-            };
+                finish.addEventListener('click', advance);
+                return;
+            }
 
-            if (round.done) return next();
+            if (round.done) return moveOn();
 
             const can = round.laid.length > round.locked;
 
@@ -1297,7 +1625,16 @@ function wordcraft(container) {
             // this app paints the thing to press. Undo is not: it stands in the
             // chrome's own outline, like the way out and the sound.
             accent: t.accent,
-            onAccent: t.onAccent
+            onAccent: t.onAccent,
+
+            // The star's edge: its own gold on the dark theme, and a deeper
+            // one on the light, where the gold is pale against the page --
+            // Snake's
+            starEdge: isDark ? STAR_GOLD : '#b7860f',
+
+            // The page under a won star, most of the way to the page's own
+            // ground, so that the star is the thing on it
+            veil: `color-mix(in srgb, ${t.ground} 82%, transparent)`
         };
     };
 
@@ -1326,7 +1663,10 @@ function wordcraft(container) {
         // over a word that was halfway spelled.
         round: state.round,
 
-        allowEarly: state.allowEarly
+        allowEarly: state.allowEarly,
+
+        // The star is the session's and goes with it -- see STAR_TOP
+        starLevel: state.starLevel
     });
 
     wordcraft.setState = (snap) => {

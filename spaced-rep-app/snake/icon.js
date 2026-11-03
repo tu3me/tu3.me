@@ -279,7 +279,41 @@
      * times, gold through, with a thinner edge and -- on the crown -- jewels.
      */
     const CROWN = `<path d="M-62 0 L-72 -58 L-34 -30 L0 -76 L34 -30 L72 -58 L62 0 Z" /><rect x="-64" y="0" width="128" height="16" rx="6" />`;
-    const STAR = '44,126 62.1,165.1 104.9,170.2 73.2,199.5 81.6,241.8 44,220.7 6.4,241.8 14.8,199.5 -16.9,170.2 25.9,165.1';
+    /*
+     * A star's ten corners, points and hollows in turn from a point, drawn
+     * with the corners turned: each cut back along both its edges and
+     * turned with a curve, the points by a third of the star's reach and the
+     * hollows by less -- the round corners every star in the app has, the
+     * owner's call, 3 November 2026; the game's own is drawn the same way
+     * (see STAR_PATH in snake.js). The drafts' stars, here as everywhere
+     * else, had sharp ones until then.
+     */
+    function rounded(points) {
+        const corners = points.split(' ').map(pair => pair.split(',').map(Number));
+        const cx = corners.reduce((sum, c) => sum + c[0], 0) / corners.length;
+        const cy = corners.reduce((sum, c) => sum + c[1], 0) / corners.length;
+        const reach = Math.hypot(corners[0][0] - cx, corners[0][1] - cy);
+
+        const toward = (from, to, by) => {
+            const dx = to[0] - from[0];
+            const dy = to[1] - from[1];
+            const length = Math.hypot(dx, dy);
+            return [from[0] + dx / length * by, from[1] + dy / length * by];
+        };
+
+        const n = corners.length;
+        const xy = (p) => p.map(c => +c.toFixed(2)).join(' ');
+        const turns = corners.map((corner, i) => {
+            const by = reach * (i % 2 ? 0.15 : 0.33);
+            return { from: toward(corner, corners[(i + n - 1) % n], by), corner, to: toward(corner, corners[(i + 1) % n], by) };
+        });
+
+        return 'M' + xy(turns[0].from)
+            + turns.map((t, i) => (i ? 'L' + xy(t.from) : '') + 'Q' + xy(t.corner) + ' ' + xy(t.to)).join('')
+            + 'Z';
+    }
+
+    const STAR = rounded('44,126 62.1,165.1 104.9,170.2 73.2,199.5 81.6,241.8 44,220.7 6.4,241.8 14.8,199.5 -16.9,170.2 25.9,165.1');
     const CUP = `<path d="M-27 -32 H27 V-2 C27 20 11 30 0 30 C-11 30 -27 20 -27 -2 Z" /><rect x="-6" y="30" width="12" height="18" /><rect x="-24" y="46" width="48" height="12" rx="5" />`;
     const GOBLET_AT = 'translate(350 170) scale(1.4)';
 
@@ -300,11 +334,11 @@
         {
             name: 'star',
             frame: 'translate(17 0) rotate(-16 44 190)',
-            silhouette: `<polygon points="${STAR}" fill="${NAVY}" stroke="${EDGE}" stroke-width="6" stroke-linejoin="round" />`,
-            mask: `<polygon points="${STAR}" fill="#ffffff" stroke="#ffffff" stroke-width="5.8" stroke-linejoin="round" />`,
+            silhouette: `<path d="${STAR}" fill="${NAVY}" stroke="${EDGE}" stroke-width="6" stroke-linejoin="round" />`,
+            mask: `<path d="${STAR}" fill="#ffffff" stroke="#ffffff" stroke-width="5.8" stroke-linejoin="round" />`,
             box: { x: -40, y: 123, width: 170, height: 122.8 },
-            over: `<polygon points="${STAR}" fill="none" stroke="${EDGE}" stroke-width="6" stroke-linejoin="round" />`,
-            whole: (gold) => `<polygon points="${STAR}" fill="${gold}" stroke="${EDGE}" stroke-width="5.8" stroke-linejoin="round" />`
+            over: `<path d="${STAR}" fill="none" stroke="${EDGE}" stroke-width="6" stroke-linejoin="round" />`,
+            whole: (gold) => `<path d="${STAR}" fill="${gold}" stroke="${EDGE}" stroke-width="5.8" stroke-linejoin="round" />`
         },
         {
             name: 'goblet',
@@ -335,8 +369,8 @@
     // The ones by the star moved with it, the glint in from the side, and the
     // two dots that were under the shield up out of the name's way.
     const SPARKS = (gold) => [
-        `<polygon points="13,121 16.9,129.6 26.3,130.7 19.4,137.1 21.2,146.3 13,141.7 4.8,146.3 6.6,137.1 -0.3,130.7 9.1,129.6" fill="${gold}" stroke="${AMBER}" stroke-width="1.3" stroke-linejoin="round" />`,
-        `<polygon points="378,-16 384.2,-2.5 398.9,-0.8 388,9.3 390.9,23.8 378,16.6 365.1,23.8 368,9.3 357.1,-0.8 371.8,-2.5" fill="${gold}" stroke="${AMBER}" stroke-width="2" stroke-linejoin="round" />`,
+        `<path d="${rounded('13,121 16.9,129.6 26.3,130.7 19.4,137.1 21.2,146.3 13,141.7 4.8,146.3 6.6,137.1 -0.3,130.7 9.1,129.6')}" fill="${gold}" stroke="${AMBER}" stroke-width="1.3" stroke-linejoin="round" />`,
+        `<path d="${rounded('378,-16 384.2,-2.5 398.9,-0.8 388,9.3 390.9,23.8 378,16.6 365.1,23.8 368,9.3 357.1,-0.8 371.8,-2.5')}" fill="${gold}" stroke="${AMBER}" stroke-width="2" stroke-linejoin="round" />`,
         `<path d="M394 69 Q396.2 77.8 405 80 Q396.2 82.2 394 91 Q391.8 82.2 383 80 Q391.8 77.8 394 69 Z" fill="${AMBER}" />`,
         `<circle cx="392" cy="140" r="4" fill="${AMBER}" />`,
         `<circle cx="25" cy="208" r="4.5" fill="${AMBER}" />`,

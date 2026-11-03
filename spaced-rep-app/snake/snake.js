@@ -1040,7 +1040,9 @@ function snake(container) {
          * back along both its edges and turned with a curve: the points by
          * more, the hollows between them by less, so it keeps its shape and
          * loses only the sharpness. Worked out here rather than written out as
-         * a path, so that how round it is stays a number to change.
+         * a path, so that how round it is stays a number to change. Rounder
+         * since 3 November 2026, when the owner asked for every star to have
+         * round corners and this one's were not seen to: 2.4 and 1 until then.
          *
          * STAR_BOX is the room the rounded star takes up, which is less than
          * the polygon's — the rounding takes it off the tips — and it is what
@@ -1048,8 +1050,8 @@ function snake(container) {
          * not of the box it was drawn in.
          */
         const STAR_CORNERS = [[12, 2], [15.09, 8.26], [22, 9.27], [17, 14.14], [18.18, 21.02], [12, 17.77], [5.82, 21.02], [7, 14.14], [2, 9.27], [8.91, 8.26]];
-        const STAR_TIP_ROUND = 2.4;
-        const STAR_HOLLOW_ROUND = 1;
+        const STAR_TIP_ROUND = 3.3;
+        const STAR_HOLLOW_ROUND = 1.5;
 
         const { STAR_PATH, STAR_BOX } = (() => {
             const toward = (from, to, by) => {
