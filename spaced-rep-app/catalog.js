@@ -266,13 +266,18 @@ function catalog(container) {
                     stroke="#ffffff" stroke-width="${ring.eye - ring.pupil}" />`).join('');
     }
 
-    // The eyes are glad ones once the app has been updated -- see updated
-    function logoSvg(fill, size) {
+    // `glad`: the eyes of an update -- see updated. In a group of another
+    // name, so that the blink, which looks for the rings, passes them by.
+    //
+    // A mark smaller than LOGO_SIZE stands in the middle of the room the
+    // usual one takes, so that the name beside it stays where it always is
+    // (the owner, 3 November 2026: the name moved with the smaller mark).
+    function logoSvg(fill, size, glad) {
         return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
-            aria-hidden="true" style="display: block; flex-shrink: 0;">
+            aria-hidden="true" style="display: block; flex-shrink: 0; margin: 0 ${(LOGO_SIZE - size) / 2}px;">
             <g transform="rotate(-7 16 16)">
                 <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
-                <g class="dict-logo-eyes">${updated ? GLAD_EYES : ringsSvg()}</g>
+                ${glad ? `<g class="dict-logo-glad">${GLAD_EYES}</g>` : `<g class="dict-logo-eyes">${ringsSvg()}</g>`}
             </g>
         </svg>`;
     }
@@ -311,9 +316,8 @@ function catalog(container) {
     let blinkTimer = null;
     let blinking = false;
 
-    // Not at all with the glad eyes of an update, which are shut already
     function startBlinking() {
-        if (blinking || updated) return;
+        if (blinking) return;
 
         blinking = true;
         blinkLogo();
@@ -362,6 +366,11 @@ function catalog(container) {
      * Asked once for the page and not at each drawing: the catalog is drawn
      * again for many reasons -- a sync landing, a press -- and the mark stays
      * the updated one through all of them, to the end of the page.
+     *
+     * A press on the mark puts the same look on it whether or not the app was
+     * updated, and the next press takes it off, until the catalog is next
+     * drawn; nothing is kept -- the owner's calls, the same day. See the
+     * header in render.
      */
     const SEEN_STAMP_KEY = 'seen-stamp';
 
@@ -383,16 +392,18 @@ function catalog(container) {
     const UPDATED_LOGO_SIZE = 31;
 
     // Shut in two arcs, the left the larger, as the left ring is. They do not
-    // blink -- see startBlinking.
+    // blink -- see logoSvg.
     const GLAD_EYES = `<path d="M6.88 18.24 Q11.37 9.55 15.86 18.24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                 <path d="M20.01 17.5 Q23.02 11.68 26.03 17.5" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
 
     // Over the mark and to the right of the corner the width is dragged by,
-    // no nearer than 2px to the top of the page
-    function updatedNote() {
-        if (!updated) return '';
+    // no nearer than 2px to the top of the page. Where the draft has it
+    // against the mark, which here stands in by half of what it is smaller
+    // by -- see logoSvg -- and the note goes in with it.
+    const NOTE_LEFT = 17 + (LOGO_SIZE - UPDATED_LOGO_SIZE) / 2;
 
-        return `<span class="dict-updated-note" style="position: absolute; top: 3.5px; left: 17px; white-space: nowrap; pointer-events: none; transform: rotate(-4deg); transform-origin: left bottom; font: italic 600 7px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.03em; color: ${palette.softColor};">Updated</span>`;
+    function updatedNote() {
+        return `<span class="dict-updated-note" style="position: absolute; top: 3.5px; left: ${NOTE_LEFT}px; white-space: nowrap; pointer-events: none; transform: rotate(-4deg); transform-origin: left bottom; font: italic 600 7px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.03em; color: ${palette.softColor};">Updated</span>`;
     }
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
@@ -1975,14 +1986,15 @@ function catalog(container) {
          *
          * The title is held at LOGO_SIZE tall whatever mark is in it: the mark
          * of an update is smaller (see updated), and the header keeps the
-         * height it always has, with the mark in the middle of it.
+         * height it always has, with the mark in the middle of it -- and in
+         * the middle of the usual mark's width, see logoSvg.
          */
         const header = $(container, `<div class="dict-header" style="position: sticky; top: 0; z-index: 6; margin: -6.8px -6.8px 0; padding: 6.8px; background: ${palette.pageBg}; box-shadow: 0 -2px 0 ${palette.pageBg}; display: flex; justify-content: space-between; align-items: center;">
             <h1 class="dict-title" style="margin: 0; min-height: ${LOGO_SIZE}px; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
-                ${logoSvg(palette.logo, updated ? UPDATED_LOGO_SIZE : LOGO_SIZE)}
+                ${updated ? logoSvg(palette.logo, UPDATED_LOGO_SIZE, true) : logoSvg(palette.logo, LOGO_SIZE)}
                 ${WORDMARK}
             </h1>
-            ${updatedNote()}
+            ${updated ? updatedNote() : ''}
             <div class="dict-header-actions" style="display: flex; align-items: center; gap: 6.8px;">
                 ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="New card set">+ New set</button>` : ''}
                 <button class="dict-settings-btn" id="settings-btn" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s; will-change: scale;" title="Settings">${GEAR}</button>
@@ -1999,10 +2011,34 @@ function catalog(container) {
 
         if (addSetBtn) addSetBtn.addEventListener('click', toggleNewSet);
 
-        // The mark is a picture and nothing else now: no press, no state. The
-        // one thing it does, it does on its own — see blinkLogo. After an
-        // update it is another picture to the end of the page -- see updated.
+        // The mark keeps no state. What it does on its own is blink -- see
+        // blinkLogo -- and after an update it is another picture to the end
+        // of the page -- see updated.
         startBlinking();
+
+        // A press on it, or on the name, puts the look of an update on the
+        // mark, and the next press takes it off again -- whichever it wore,
+        // updated or not. Until the catalog is next drawn, which builds this
+        // header again from `updated` alone. Written into the header where it
+        // stands, so that nothing has to remember it.
+        //
+        // No data-press on the title, and that is on purpose: the analytics
+        // are not to hear about this press at all (the owner, 3 November
+        // 2026). A heading is nothing track.js counts as pressable.
+        const title = header.querySelector('.dict-title');
+
+        title.addEventListener('click', () => {
+            const note = header.querySelector('.dict-updated-note');
+            const mark = title.querySelector('.dict-logo');
+
+            if (note) {
+                note.remove();
+                mark.outerHTML = logoSvg(palette.logo, LOGO_SIZE);
+            } else {
+                mark.outerHTML = logoSvg(palette.logo, UPDATED_LOGO_SIZE, true);
+                title.insertAdjacentHTML('afterend', updatedNote());
+            }
+        });
 
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press
