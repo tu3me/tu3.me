@@ -133,8 +133,8 @@
     const MAKE_ROOM = [
         { scale: 1, down: 0 },
         { scale: 0.78, down: 0.13 },
-        { scale: 0.5, down: 0.29 },
-        { scale: 0.5, down: 0.29, gone: true }
+        { scale: 0.4, down: 0.3 },
+        { scale: 0.4, down: 0.3, gone: true }
     ];
 
     const placed = (tile, room) => ({
@@ -263,13 +263,22 @@
         const rows = stars.length / ROW;
         const total = stars.length * STAR_GAP + STAR_IN;
 
+        /*
+         * Each step over before the next row begins: a step as long as a
+         * star's coming in ran into the next row's, which comes sooner, and
+         * offsets that go back are an animation the browser refuses -- it
+         * threw, the tile was left half grown with the drawing whole under
+         * two rows of stars, and never settled (found 3 November 2026).
+         */
+        const STEP = Math.min(STAR_IN, ROW * STAR_GAP);
+
         if (drawing) {
             const frames = [Object.assign({ offset: 0 }, placed(tile, MAKE_ROOM[0]))];
 
             for (let r = 1; r <= rows; r++) {
                 const at = (r - 1) * ROW * STAR_GAP;
                 frames.push(Object.assign({ offset: at / total, easing: 'ease-in-out' }, placed(tile, MAKE_ROOM[r - 1])));
-                frames.push(Object.assign({ offset: Math.min(1, (at + STAR_IN) / total) }, placed(tile, MAKE_ROOM[r])));
+                frames.push(Object.assign({ offset: (at + STEP) / total }, placed(tile, MAKE_ROOM[r])));
             }
             frames.push(Object.assign({ offset: 1 }, placed(tile, MAKE_ROOM[rows])));
 

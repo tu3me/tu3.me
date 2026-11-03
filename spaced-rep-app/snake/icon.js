@@ -365,19 +365,30 @@
     const STEPS = [0, 0.3, 0.6, 1];
     const levelOf = (wins) => (wins ? STEPS[Math.min(wins, STEPS.length) - 1] : null);
 
-    // The sparks round the finished emblem: two stars, a glint and five dots.
-    // The ones by the star moved with it, the glint in from the side, and the
-    // two dots that were under the shield up out of the name's way.
-    const SPARKS = (gold) => [
-        `<path d="${rounded('13,121 16.9,129.6 26.3,130.7 19.4,137.1 21.2,146.3 13,141.7 4.8,146.3 6.6,137.1 -0.3,130.7 9.1,129.6')}" fill="${gold}" stroke="${AMBER}" stroke-width="1.3" stroke-linejoin="round" />`,
-        `<path d="${rounded('378,-16 384.2,-2.5 398.9,-0.8 388,9.3 390.9,23.8 378,16.6 365.1,23.8 368,9.3 357.1,-0.8 371.8,-2.5')}" fill="${gold}" stroke="${AMBER}" stroke-width="2" stroke-linejoin="round" />`,
-        `<path d="M394 69 Q396.2 77.8 405 80 Q396.2 82.2 394 91 Q391.8 82.2 383 80 Q391.8 77.8 394 69 Z" fill="${AMBER}" />`,
-        `<circle cx="392" cy="140" r="4" fill="${AMBER}" />`,
-        `<circle cx="25" cy="208" r="4.5" fill="${AMBER}" />`,
-        `<circle cx="104" cy="392" r="5" fill="${AMBER}" />`,
-        `<circle cx="296" cy="390" r="5" fill="${AMBER}" />`,
-        `<circle cx="312" cy="-4" r="4" fill="${AMBER}" />`
-    ];
+    /*
+     * The sparks round the finished emblem: four small stars, of different
+     * sizes and strewn loosely -- one off the top left corner, one over the
+     * top edge right of the crown, one by the top right corner, one at the
+     * foot on the left -- the owner's calls, 3 November 2026: first one in
+     * each corner, which read as too even. Until then there were two stars,
+     * a glint and five dots round the sides, and all but one star lay on the
+     * band, amber on amber, and were not seen.
+     *
+     * Each kept clear of the band -- out where the rim turns a corner (see
+     * RIM_GAP), or above it -- and within the room a face may draw in (see
+     * the header): no further out than 36 from the tile's sides and nothing
+     * under 400; the one at the foot under the ribbon's tail.
+     */
+    const SPARK_SPOTS = [[26, 4, 20], [318, -24, 12], [394, 46, 10], [15, 385, 13]];
+
+    const starAt = (cx, cy, reach) => Array.from({ length: 10 }, (_, i) => {
+        const angle = -Math.PI / 2 + i * Math.PI / 5;
+        const r = i % 2 ? reach * 0.42 : reach;
+        return `${+(cx + r * Math.cos(angle)).toFixed(2)},${+(cy + r * Math.sin(angle)).toFixed(2)}`;
+    }).join(' ');
+
+    const SPARKS = (gold) => SPARK_SPOTS.map(([cx, cy, reach]) =>
+        `<path d="${rounded(starAt(cx, cy, reach))}" fill="${gold}" stroke="${AMBER}" stroke-width="2" stroke-linejoin="round" />`);
 
     // What a set's log comes to: the record, and each prize's level, or
     // nothing for a prize never won.

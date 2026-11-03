@@ -3,4 +3,4 @@
  * after every change, never by hand. See there, and buildLine and sheenHtml
  * in catalog.js.
  */
-const CODE_STAMP = { version: '0.2.8', changed: '2026-11-03T15:24:06+05:00' };
+const CODE_STAMP = { version: '0.2.8', changed: '2026-11-03T15:53:07+05:00' };

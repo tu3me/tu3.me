@@ -5478,8 +5478,17 @@ function takePlace() {
     }
 }
 
-// The card back where it stood. Both scrollers, the way showFromTop does it:
-// only one of them moves.
+/*
+ * The card back where it stood. Both scrollers, the way showFromTop does it:
+ * only one of them moves.
+ *
+ * Each in its own pixels. The distance is measured on the screen, and the
+ * document's pixels are the screen's; the body's are the app's, inside its
+ * zoom (see appScale). The body is what scrolls in the popup, and scrolled
+ * by the screen's figure it went a zoom's worth too far -- the card came back
+ * a little higher every time the popup opened, and the list crept up (found
+ * by the owner, 3 November 2026).
+ */
 function returnTo(place) {
     if (!place || !catalog.formsOpen()) return false;
 
@@ -5490,7 +5499,7 @@ function returnTo(place) {
     const page = document.scrollingElement || document.documentElement;
 
     page.scrollTop += by;
-    document.body.scrollTop += by;
+    document.body.scrollTop += by / appScale();
     return true;
 }
 
