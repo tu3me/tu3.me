@@ -5228,7 +5228,8 @@ function snake(container) {
          * not a cutscene, and it takes the same HEAD_RUN_MS on a snake of any
          * length: the flash runs faster along a longer one. It went at 45ms a
          * link until 3 November 2026, and a long snake kept the player waiting
-         * for seconds (the owner's call).
+         * for seconds; then 800 for any length, and a second the same day
+         * (the owner's calls).
          *
          * Driven by clock.after rather than by the game's own ticks, which is the
          * only way it works at all: there is no free-running clock, and the
@@ -5237,7 +5238,7 @@ function snake(container) {
          * along a long snake it passes several links a frame, and each frame
          * writes only the links whose colour it changed -- see put.
          */
-        const HEAD_RUN_MS = 800;
+        const HEAD_RUN_MS = 1000;
         const HEAD_RUN_FRAME = 16;
 
         /*
