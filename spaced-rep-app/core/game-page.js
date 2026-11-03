@@ -164,6 +164,23 @@ function page() {
         return store.save();
     };
 
+    /*
+     * And going on after all, on the same page: snake's "Grow more" at the
+     * end of a session deals a new one over the snake the last left (see
+     * growMore in snake.js). Undoes what endSession did, so that the saves
+     * land again, the popup reopens here, and the catalog offers to continue
+     * it -- with the active session the catalog writes when it starts one
+     * (see beginSession in catalog.js), which endSession took away.
+     */
+    page.reopen = () => {
+        ended = false;
+
+        nav.setEntryPoint(location.pathname.replace(/^\//, ''));
+
+        const state = module.getState() || {};
+        return storage.set('active_session', { game: gameId, setId: state.selectedSetId, startedAt: Date.now() });
+    };
+
     // Leave, but keep the session — the "Continue" banner will pick it up.
     page.home = () => nav.home();
 

@@ -62,16 +62,20 @@ function snake(container) {
     const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
 
     /*
-     * The most of the goblet one heart fills -- a share of the hearts dealt,
-     * and never more than 12 per cent: nine hearts at the least to fill it, so
-     * a short session does not win it. With a heart after every word but the
-     * last and ten words to a session (POOL_LIMIT), that is a whole session
-     * without a crash. The owner's call, 28 October 2026: a fifth first, and
-     * the same day 12 per cent; until then a heart filled a share of those
-     * dealt whatever their number, and a session of two words filled the
-     * goblet with its one heart.
+     * The goblet: filled by the red hearts the snake carries when the session
+     * ends, a ninth of it each, so that nine fill it -- a whole session of
+     * ten words without losing one, a heart coming after every word but the
+     * last -- and past nine they heap it over the brim. The black ones count
+     * for nothing. The owner's rule since 3 November 2026, with "Grow more"
+     * (see growMore in render): a snake that goes on into more words goes on
+     * carrying its hearts. Ten for most of that day.
+     *
+     * Until then it was a session without a crash: every heart dealt still
+     * red, each a share of the goblet -- of the hearts dealt, and never more
+     * than 12 per cent, so nine at the least to fill it (the owner's call, 28
+     * October 2026) -- and a black heart took it up in smoke.
      */
-    const GOBLET_SHARE = 0.12;
+    const GOBLET_HEARTS = 9;
 
     /*
      * A swell and a settle: out to `peak`, back past where it started by a
@@ -90,31 +94,6 @@ function snake(container) {
 
     // The playing field: board reasons about it, view draws it
     const GRID_COUNT = 12;
-
-    /*
-     * The snake running into itself, on trial -- the owner's call, 2 November
-     * 2026, made knowing it may well be taken out again: false puts it back
-     * as it was, a crash like any other.
-     *
-     * With it on, running into itself costs no heart. The snake stops where
-     * it is, and the links from the one its head ran into to the tail come
-     * off where they lie: their letters go back on the board as letters, in
-     * blue, and their hearts as hearts. The game goes back to the word the
-     * snake ran into -- the banner shows it, with what the snake still
-     * carries of it -- and the words from there on are collected again in
-     * order, a heart that came off caught between each, up to the session's
-     * own word. A word gone back over was answered already, and is not
-     * answered again. See shed and resumeWord in board, goToWord in render.
-     * A dead end is then something to get out of at a price, and not a heart
-     * and the goblet with it. Running into the wrong letter is a crash still,
-     * and so is a letter of another word, or a heart that came off, taken out
-     * of turn.
-     *
-     * Its first form, the same day: the letters of the word in play went back
-     * on the board and the rest lay as links come loose, to be taken back in
-     * any order. The owner wanted the order of the words kept instead.
-     */
-    const SHED_ON_SELF = true;
 
     /*
      * How many pieces each word of a line is laid out on the board in, by the
@@ -172,6 +151,19 @@ function snake(container) {
     const SEGMENTER = typeof Intl !== 'undefined' && Intl.Segmenter
         ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
         : null;
+
+    // A copy of the list in an order at random: the letters of a new word
+    // out of the cloud (see view.deal), the words "Grow more" deals
+    function shuffled(list) {
+        const out = list.slice();
+
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [out[i], out[j]] = [out[j], out[i]];
+        }
+
+        return out;
+    }
 
     function lettersOf(word) {
         if (!word) return [];
@@ -298,6 +290,10 @@ function snake(container) {
      */
     let state = getEmptyState();
 
+    // The screen about to be built is a snake grown on into more words, and
+    // not a session coming back -- see growMore in render
+    let growing = false;
+
     /**
      * Rendering. Holds the DOM references and the palette, and knows nothing
      * about the rules: mount() builds the screen and stores the callbacks,
@@ -364,10 +360,6 @@ function snake(container) {
         // Display state like the rest: the board has them where they are going.
         let undealt = new Set();
 
-        // The cells of what has just come off the snake, trembling, and since
-        // when -- see view.shudder
-        let shudder = null;
-
         // The strangers on their way off the board once their word is
         // collected, and since when -- see view.sweep
         let sweep = null;
@@ -381,7 +373,8 @@ function snake(container) {
 
         let controlMode = 0;
 
-        // Victory takes the control panel away for good. renderControls has to
+        // Victory takes the control panel away for the rest of the screen --
+        // "Grow more" builds a new one (see view.mount). renderControls has to
         // know: the chip in the header stays live, and without this, switching
         // the d-pad on would raise the panel again over the end-of-session screen.
         let controlsRetired = false;
@@ -764,6 +757,10 @@ function snake(container) {
         view.setTheme = (p) => { palette = p; };
 
         // Builds the screen from scratch and remembers the callbacks
+        // The way out: in the header, and at the end of a session the crown
+        // did not end -- see view.victory
+        const BACK_ARROW = '<svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg>';
+
         view.mount = (opts) => {
             cb = opts;
 
@@ -776,8 +773,8 @@ function snake(container) {
             won = false;
             medalGone = false;
             undealt = new Set();
-            shudder = null;
             sweep = null;
+            controlsRetired = false;
             showing += 1;
             lastFrame = null;
             controlMode = opts.controlMode || 0;
@@ -821,6 +818,7 @@ function snake(container) {
              * itself when the handle on the left edge changes the zoom.
              */
             host.style.boxSizing = 'border-box';
+            host.style.cursor = '';
             host.style.display = 'flex';
             host.style.flexDirection = 'column';
             host.style.maxHeight = 'calc(max(100vh, 600px) * var(--app-unscale))';
@@ -840,7 +838,7 @@ function snake(container) {
              */
             header = $(host, `<div class="snake-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                 <div class="snake-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
-                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                    <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;">${BACK_ARROW}</a>
                     <span class="snake-length" role="img" title="Length of the snake, and the longest it has been in this set" style="display: inline-flex; align-items: center; margin-left: auto; margin-right: 8.5px; line-height: 1;">
                         <span class="snake-length-medal" aria-hidden="true" style="display: block; width: ${MEDAL_IN_HEADER * MEDAL_W / MEDAL_H}px; height: ${MEDAL_IN_HEADER}px; flex: none;"></span>
                     </span>
@@ -1109,7 +1107,9 @@ function snake(container) {
             </svg>`;
         }
 
-        const starFill = (level) => `scaleY(${level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0})`;
+        // How much of the star is gold at `level` -- see STAR_TOP
+        const starShare = (level) => (level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0);
+        const starFill = (level) => `scaleY(${starShare(level)})`;
 
         /*
          * A dot has just been answered, and the answer runs on to the star:
@@ -1580,26 +1580,18 @@ function snake(container) {
         const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         /*
-         * The snake ran into itself and its back end came off (see
-         * SHED_ON_SELF): the whole board starts, once, and what came off
-         * trembles where it fell and comes to rest -- the owner's call, 2
-         * November 2026.
+         * A crash, into the wrong letter or into the snake itself: the whole
+         * board starts, once -- the owner's call, 2 November 2026. The board
+         * is the svg, which stays put while the scene in it is drawn again.
          *
-         * The board is the svg, which stays put while the scene in it is
-         * drawn again; the trembling is on the letters and hearts, which are
-         * drawn again with every frame -- the blink alone redraws them every
-         * few seconds. So they tremble by a stylesheet animation started as
-         * far back as the time gone since the snake ran into itself (see
-         * trembling in view.draw), and one drawn again goes on from where the
-         * one before it was rather than starting over.
+         * It came in the same day with the snake's back end coming off when
+         * it ran into itself, a trial taken out again on 3 November, and what
+         * came off trembled where it fell.
          */
         const SHUDDER = 360;
-        const TREMBLE = 1000;
 
-        view.shudder = (cells) => {
+        view.shudder = () => {
             if (still() || !svg) return;
-
-            shudder = { cells: new Set(cells.map(c => c.x + ',' + c.y)), at: performance.now() };
 
             svg.animate([
                 { translate: '0 0' },
@@ -1618,9 +1610,10 @@ function snake(container) {
          * first, each swelling a little and shrinking away -- the owner's
          * call, 2 November 2026; until then they went all in the one frame.
          * The board has done with them already, and this is the view drawing
-         * them a moment longer, the way the trembling is drawn (see
-         * view.shudder): by a stylesheet animation started as far back as the
-         * time gone, so one drawn again goes on from where it was.
+         * them a moment longer. The scene is drawn again with every frame --
+         * the blink alone redraws it every few seconds -- so they go by a
+         * stylesheet animation started as far back as the time gone, and one
+         * drawn again goes on from where it was rather than starting over.
          *
          * The gap between two shortens with more of them, so that however
          * many the stage put out they are all gone in well under a second.
@@ -1703,13 +1696,21 @@ function snake(container) {
         /*
          * The end of the session, told in the banner: "You won!" and, under
          * it, what the session achieved, arriving one after another -- the
-         * crown, the record, the star, the goblet, in that order. When the last
-         * of them is in, the banner beckons, and a press anywhere on it is the
-         * way out, to the catalog. The owner's design, 27 October 2026. Before
-         * it the banner said "Victory! Snake completed!" between two emoji over
-         * a Dictionary button, and a full star came down to the middle of the
-         * board and stayed there, a second way out; the button went, and the
-         * star goes on from the middle of the board to the banner.
+         * crown, the record, the star, the goblet, in that order. The owner's
+         * design, 27 October 2026. Before it the banner said "Victory! Snake
+         * completed!" between two emoji over a Dictionary button, and a full
+         * star came down to the middle of the board and stayed there, a second
+         * way out; the button went, and the star goes on from the middle of
+         * the board to the banner.
+         *
+         * When the last of them is in, what to do next. With the crown the
+         * snake has nowhere left to grow: the banner beckons, and a press
+         * anywhere on it is the way out, to the catalog. Without it the row
+         * has a button at each end -- back to the catalog on the left, "Grow
+         * more" on the right (see growMore in render) -- and the hand points
+         * at the one and the other in turn, for the choice is the player's;
+         * a press anywhere else does nothing then. The owner's design, 3
+         * November 2026.
          *
          * Every prize has its moment over the middle of the board first, big:
          * it comes out there, shines once, and only then goes down into its
@@ -1717,8 +1718,7 @@ function snake(container) {
          * header to get there; the crown and the goblet come up in the middle
          * and are filled there, by what flies into them from the board.
          *
-         * `result` is what the session settled -- see settle -- and each prize
-         * is there or not:
+         * `result` is what the session settled -- see settle:
          *
          *   crown   the board filled to its last cell as a word arrived. The
          *           letters on the board turn into crowns, and the crowns fly up
@@ -1726,29 +1726,26 @@ function snake(container) {
          *   record  the session beat the set's record for length, and the
          *           length in the header has been a medal since -- see
          *           view.draw. The medal is what flies.
-         *   star    full.
-         *   hearts  the hearts the session dealt -- one after every word it
-         *           finished but the last -- and which links of the snake still
-         *           carry them, red and black, with the share of the goblet one
-         *           heart fills (see GOBLET_SHARE) and whether it was won. They
-         *           fly out of the snake into the goblet one by one, the red
-         *           first, each filling it with gold by that share. Won, it is
-         *           full. Not, a pause, and the black ones fill on with black a
-         *           share each -- to the brim when nine or more were dealt --
-         *           the gold goes black with it, and the goblet goes up in smoke
-         *           where it stands. With none black -- the hearts were lost
-         *           with the snake's length, or too few were dealt to fill it --
-         *           nothing more comes, and it goes up in smoke as it is, short
-         *           of full. It is won with every heart still red and enough of
-         *           them, and that is what this shows.
+         *   star    whether it is full, and `starLevel`, how far it came.
+         *   hearts  the links of the snake that carry a red heart, and
+         *   goblet  whether there are enough of them to fill it -- see
+         *           GOBLET_HEARTS. They fly out of the snake into it one by
+         *           one, each filling it a ninth, and past the ninth they heap
+         *           it over the brim. The black hearts stay where they are.
+         *
+         * The crown and the record are there only when they were won; the
+         * star and the goblet always, and when they are not full they come
+         * as far as they got, shine not, and stand in the row see-through,
+         * flickering -- the owner's call, 3 November 2026. Until then they
+         * were there only when full, and a goblet that was not went up in
+         * smoke over the board, after the black hearts had filled it on in
+         * black.
          *
          * Every place in the row is laid out at once and hidden, so that
-         * nothing already there moves when the next one arrives -- except for
-         * a goblet gone up in smoke, whose place closes and lets the rest come
-         * together in the middle again.
+         * nothing already there moves when the next one arrives.
          *
-         * With reduced motion nothing flies or shines: what was won is simply
-         * there, and a goblet that was not is not.
+         * With reduced motion nothing flies, shines or flickers: the prizes
+         * are simply there.
          */
 
         /*
@@ -1793,11 +1790,6 @@ function snake(container) {
         // page's own ink is pale too in the dark theme.
         const MEDAL_INK = '#0f2b3c';
 
-        // What a goblet that was not won is filled with, and edged in.
-        const SOOT_TOP = '#55555e';
-        const SOOT_FOOT = '#101014';
-        const SOOT_EDGE = '#26262c';
-
         const PRIZE_BEAT = 500;     // "You won!" on its own, before the first prize
         const ARRIVE = 1200;        // out of the header to the middle of the board
         const POP_IN = 520;         // or up in the middle of it
@@ -1813,16 +1805,32 @@ function snake(container) {
          * The hearts into the goblet, about twice as fast as they were at first
          * (350, 260 and 650, with 800 before the black ones) -- the owner's
          * call, 28 October 2026: nine hearts took three seconds to pour, and
-         * the ending is no place to wait.
+         * the ending is no place to wait. A snake grown on and on carries
+         * more than that, and the gap between two shortens so that however
+         * many there are they are poured in HEARTS_SPAN.
          */
         const HEART_WAIT = 150;
         const HEART_GAP = 110;
         const HEART_FLIGHT = 450;
-        const BLACK_PAUSE = 450;    // before the black hearts: the owner's pause
-        const BLACKEN = 700;        // the fill going black, top to bottom
-        const SMOKE_AFTER = 300;    // the owner's number, where nothing went black
-        const EVAPORATE = 900;      // and the goblet gone, top to bottom
+        const HEARTS_SPAN = 1600;
         const BANNER_BEAT = 1600;
+
+        // How see-through a prize short of full stands in the row, from and
+        // to as it flickers, and how long one flicker takes
+        const DIM_LOW = 0.25;
+        const DIM_HIGH = 0.6;
+        const DIM_BEAT = 1700;
+
+        // How long the hand stays on one of the two buttons before it goes to
+        // the other: one nudge of it -- see hand-nudge in app.css
+        const CHOICE_TURN = 1500;
+
+        // The two buttons, one either end of the row: the same size and the
+        // same coral, so that the row stands even about the prizes -- the
+        // owner's call, 3 November 2026; "Grow more" on two lines to fit.
+        // As wide as a badge, and a little less tall.
+        const CHOICE_W = BADGE_W;
+        const CHOICE_H = 44;
 
         /*
          * The crown and the goblet, on the 24 grid the star is drawn on, each as
@@ -1831,6 +1839,11 @@ function snake(container) {
          * band is a second shape in the same path, so the gold rises through
          * both. The goblet's handles are drawn and never filled: gold rising
          * through two thin hoops reads as the cup leaking.
+         *
+         * And the goblet's heap: the gold over its brim, for the hearts past
+         * the ninth (see GOBLET_HEARTS) -- a mound standing on the rim, risen
+         * from it as the gold rises in the cup. Up to half a cell's height
+         * over the brim, which keeps it inside the badge.
          */
         const CROWN = {
             path: 'M4.2 17.8 2.8 8.6 8.1 12.1 12 4.6 15.9 12.1 21.2 8.6 19.8 17.8ZM4.2 19.4H19.8V21.2H4.2Z',
@@ -1842,10 +1855,15 @@ function snake(container) {
             path: 'M6.5 3.5H17.5V8.5A5.5 5.5 0 0 1 13.1 13.9V17.2H15.4Q16.6 17.2 16.6 18.4V20.5H7.4V18.4Q7.4 17.2 8.6 17.2H10.9V13.9A5.5 5.5 0 0 1 6.5 8.5Z',
             handles: 'M6.6 5.4H4.9Q3.2 5.4 3.4 7.3 3.7 9.6 7.3 10.6M17.4 5.4H19.1Q20.8 5.4 20.6 7.3 20.3 9.6 16.7 10.6',
             box: { x: 6.5, y: 3.5, width: 11, height: 17 },
+            heap: 'M6.5 3.5C7.6 -0.6 16.4 -0.6 17.5 3.5Z',
             label: 'FULL HEALTH'
         };
 
         const STAR = { path: STAR_PATH, box: STAR_BOX, label: 'FLAWLESS' };
+
+        // How far the heap has risen with `over` hearts past the ninth: half
+        // of it with the first, and a tenth more with each after that
+        const heapOf = (over) => (over > 0 ? Math.min(1, 0.4 + over * 0.1) : 0);
 
         const SHAPES = { crown: CROWN, goblet: GOBLET, star: STAR };
 
@@ -1887,35 +1905,31 @@ function snake(container) {
 
         /*
          * A badge, gold to `level` from the bottom up -- see starHtml, and why
-         * the gold is a clipped rectangle. Under the gold, the soot a goblet
-         * that was not won fills with (see darkTo); over it the black the
-         * whole of its fill then goes (see blacken), and the glint a prize
-         * shines with in the middle of the board. `quiet` leaves the plate
-         * out of sight: the star has none while it is in the header.
+         * the gold is a clipped rectangle -- and over it the glint a prize
+         * shines with in the middle of the board. The goblet's heap risen to
+         * `heap` of its height (see heapOf). `quiet` leaves the plate out of
+         * sight: the star has none while it is in the header.
          */
-        function badgeSvg(kind, level, quiet) {
+        function badgeSvg(kind, level, quiet, heap) {
             const shape = SHAPES[kind];
             const id = 'snake-won-' + (++drawn);
             const { x, y, width, height } = shape.box;
             const edge = palette.starEdge;
-            const fades = 'transition: stroke 0.4s ease-in-out;';
 
             return `<svg viewBox="0 0 ${BADGE_W} ${BADGE_H}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
                 <defs>
                     <linearGradient id="${id}-gold" x1="0" y1="0" x2="0" y2="1">${goldStops()}</linearGradient>
-                    <linearGradient id="${id}-soot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${SOOT_TOP}" /><stop offset="1" stop-color="${SOOT_FOOT}" /></linearGradient>
                     <linearGradient id="${id}-glint" x1="0" y1="0" x2="1" y2="0">${GLINT_STOPS}</linearGradient>
                     <clipPath id="${id}-shape"><path d="${shape.path}" /></clipPath>
                 </defs>
                 <g transform="translate(${SHAPE_LEFT} 0) scale(${SHAPE_SCALE})">
                     <g clip-path="url(#${id}-shape)">
-                        <rect class="snake-won-soot" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-soot)" style="${RISES} transform: scaleY(0); transition: transform 0.45s ease-out;" />
                         <rect class="snake-won-fill" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-gold)" style="${RISES} transform: scaleY(${level}); transition: transform 0.3s ease-out;" />
-                        <rect class="snake-won-char" x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-soot)" style="transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0);" />
                         <rect class="snake-won-glint" data-travel="${width + 12}" x="${x - 8}" y="${y - 4}" width="6" height="${height + 8}" fill="url(#${id}-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
                     </g>
-                    <path class="snake-won-edge" d="${shape.path}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round" style="${fades}" />
-                    ${shape.handles ? `<path class="snake-won-edge" d="${shape.handles}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linecap="round" style="${fades}" />` : ''}
+                    ${shape.heap ? `<path class="snake-won-heap" d="${shape.heap}" fill="url(#${id}-gold)" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round" style="${RISES} transform: scaleY(${heap || 0}); transition: transform 0.3s ease-out;" />` : ''}
+                    <path class="snake-won-edge" d="${shape.path}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round" />
+                    ${shape.handles ? `<path class="snake-won-edge" d="${shape.handles}" fill="none" stroke="${edge}" stroke-width="1.6" stroke-linecap="round" />` : ''}
                 </g>
                 <g class="snake-won-plate" style="opacity: ${quiet ? 0 : 1};">
                     <rect x="3" y="31.5" width="46" height="13" rx="3.5" fill="url(#${id}-gold)" stroke="${edge}" stroke-width="1" />
@@ -2104,49 +2118,47 @@ function snake(container) {
             ], { duration: SHINE, easing: 'ease-in-out' }).finished;
         }
 
-        // And down into its place in the banner, where it is shown instead.
-        function depart(at, place) {
+        // And down into its place in the banner, where it is shown instead --
+        // see arrive
+        function depart(at, place, dim) {
             const to = centreOf(place);
 
             return at.el.animate([
                 { transform: 'translate(0px, 0px) scale(1)' },
                 { transform: `translate(${to.x - at.centre.x}px, ${to.y - at.centre.y}px) scale(${to.height / at.height})` }
             ], { duration: DEPART, easing: 'ease-in-out', fill: 'forwards' }).finished
-                .then(() => { at.el.remove(); arrive(place); }, () => at.el.remove());
-        }
-
-        /*
-         * Going up in smoke where it stands: gone from the top down, the edge
-         * of what is left soft and coming down through it, the whole of it
-         * lifting and blurring a little as it goes -- the owner's call,
-         * 29 October 2026. Until then it swelled to half as big again,
-         * blurred and faded all at once.
-         *
-         * A mask two and a half times its height, clear above and solid
-         * below, slid up through it: at the start the box sees the solid
-         * part, at the end the clear one.
-         */
-        function evaporate(at) {
-            const el = at.el;
-            el.style.maskImage = 'linear-gradient(to bottom, transparent 40%, #000 60%)';
-            el.style.maskSize = '100% 250%';
-            el.style.maskRepeat = 'no-repeat';
-
-            return el.animate([
-                { maskPosition: '0 100%', translate: '0 0', filter: 'blur(0px)' },
-                { maskPosition: '0 0%', translate: '0 -6px', filter: 'blur(1.5px)' }
-            ], { duration: EVAPORATE, easing: 'linear', fill: 'forwards' }).finished
-                .then(() => el.remove(), () => el.remove());
+                .then(() => { at.el.remove(); arrive(place, dim); }, () => at.el.remove());
         }
 
         // A pause in the ending, on the clock that owns every wait the game
         // makes: leaving the screen clears it, and the ending stops there.
         const wait = (ms) => new Promise(done => clock.after(ms, done));
 
-        // A prize shown in its place, with the swell the dots set off with.
-        function arrive(place) {
+        // A prize shown in its place, with the swell the dots set off with --
+        // and `dim`, short of full, see-through and flickering (see dimmed).
+        function arrive(place, dim) {
             place.style.visibility = 'visible';
+            if (dim) dimmed(place);
             if (!still()) place.animate(beckon(1.3), { duration: BECKON_MS, easing: 'ease-out' });
+        }
+
+        /*
+         * A star or a goblet short of full, in its place: there, so that what
+         * is still to fill is seen, and see-through, flickering unevenly as a
+         * light does that is not quite on -- for as long as the screen is up.
+         * Standing still with reduced motion, half-way between the two.
+         */
+        function dimmed(place) {
+            place.style.opacity = String((DIM_LOW + DIM_HIGH) / 2);
+            if (still()) return;
+
+            place.animate([
+                { opacity: DIM_HIGH },
+                { opacity: DIM_LOW, offset: 0.35 },
+                { opacity: DIM_HIGH * 0.9, offset: 0.5 },
+                { opacity: DIM_LOW * 1.3, offset: 0.7 },
+                { opacity: DIM_HIGH }
+            ], { duration: DIM_BEAT, iterations: Infinity, easing: 'ease-in-out' });
         }
 
         function fillTo(el, level) {
@@ -2154,60 +2166,14 @@ function snake(container) {
             if (gold) gold.style.transform = `scaleY(${level})`;
         }
 
-        // The soot, rising under the gold: what shows of it is what stands
-        // above the gold.
-        function darkTo(el, level) {
-            const soot = el.querySelector('.snake-won-soot');
-            if (soot) soot.style.transform = `scaleY(${level})`;
-        }
-
-        /*
-         * And all of the fill black, `level` of it from the bottom: the black
-         * comes down over the gold and the soot from the top of the fill to
-         * the bottom of it, and the edges go dark with it -- the owner's call,
-         * 29 October 2026. Until then the gold faded off the soot under it,
-         * all of it at once.
-         */
-        function blacken(el, level) {
-            const char = el.querySelector('.snake-won-char');
-            const { y, height } = GOBLET.box;
-
-            if (char && level > 0) {
-                char.setAttribute('y', y + height * (1 - level));
-                char.setAttribute('height', height * level);
-                char.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: BLACKEN, easing: 'ease-in', fill: 'forwards' });
-            }
-
-            el.querySelectorAll('.snake-won-edge').forEach(edge => { edge.style.stroke = SOOT_EDGE; });
+        // The gold over the goblet's brim -- see GOBLET -- risen to `level`
+        function heapTo(el, level) {
+            const heap = el.querySelector('.snake-won-heap');
+            if (heap) heap.style.transform = `scaleY(${level})`;
         }
 
         function bump(el) {
             el.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 220, easing: 'ease-out' });
-        }
-
-        function shake(el) {
-            el.animate([{ translate: '0 0' }, { translate: '-4px 0' }, { translate: '4px 0' }, { translate: '-2px 0' }, { translate: '0 0' }], { duration: 260, easing: 'ease-in-out' });
-        }
-
-        /*
-         * The place of a prize that did not come, closed: its width and the gap
-         * in front of it -- the goblet is the last of the row -- or, alone in
-         * the row, the row itself, and "You won!" comes down to the middle,
-         * where it stands when nothing was won.
-         */
-        function closePlace(place) {
-            const row = place.parentNode;
-            const alone = row.children.length === 1;
-            const closing = alone ? row : place;
-
-            const shut = alone
-                ? [{ height: row.offsetHeight + 'px', marginTop: '0px' }, { height: '0px', marginTop: '-3.4px' }]
-                : [{ width: place.offsetWidth + 'px', marginLeft: '0px' }, { width: '0px', marginLeft: -PRIZE_GAP + 'px' }];
-
-            if (still()) return closing.remove();
-
-            return closing.animate(shut, { duration: 260, easing: 'ease-in-out', fill: 'forwards' }).finished
-                .then(() => closing.remove(), () => closing.remove());
         }
 
         // The banner, once everything is in: the whole of it is what to press.
@@ -2315,17 +2281,6 @@ function snake(container) {
 
         // A letter flying, drawn the way the board draws it on a cell
         const letterSvg = (char) => `<svg viewBox="0 0 ${cellSize} ${cellSize}" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">${glyph(char, cellSize / 2, cellSize / 2, LETTER_PX, palette.boardLetter, 'bold')}</svg>`;
-
-        function shuffled(list) {
-            const out = list.slice();
-
-            for (let i = out.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [out[i], out[j]] = [out[j], out[i]];
-            }
-
-            return out;
-        }
 
         /*
          * The cloud's shape, in a box `w` by `h` round its text: a pill the
@@ -2570,34 +2525,48 @@ function snake(container) {
             if (controlsArea) controlsArea.style.display = 'none';
             pointingHand.clear();
 
-            const hearts = result.hearts;
-            const full = hearts && hearts.won;
+            // How far the star and the goblet are gold as they stand in the row
+            const starGold = result.star ? 1 : starShare(result.starLevel);
+            const gobletGold = Math.min(1, result.hearts.length / GOBLET_HEARTS);
+            const gobletHeap = heapOf(result.hearts.length - GOBLET_HEARTS);
+
+            // The snake can still grow: the choice of the two buttons -- see
+            // the head of this ending
+            const choice = !result.crown;
 
             const prizes = [
                 result.crown && { kind: 'crown', html: badgeSvg('crown', 1), width: BADGE_W, height: BADGE_H },
                 result.record && { kind: 'record', html: medalSvg(result.record), width: MEDAL_W, height: MEDAL_H },
-                result.star && { kind: 'star', html: badgeSvg('star', 1), width: BADGE_W, height: BADGE_H },
-                hearts && (full || !still()) && { kind: 'goblet', html: badgeSvg('goblet', 1), width: BADGE_W, height: BADGE_H }
+                { kind: 'star', dim: !result.star, html: badgeSvg('star', starGold), width: BADGE_W, height: BADGE_H },
+                { kind: 'goblet', dim: !result.goblet, html: badgeSvg('goblet', gobletGold, false, gobletHeap), width: BADGE_W, height: BADGE_H }
             ].filter(Boolean);
 
-            hintBanner.innerHTML = `<div class="snake-won-title" style="font-size: 18.4px; font-weight: 800; line-height: 1.2; color: ${palette.hintText};">You won!</div>`
-                + (prizes.length ? `<div class="snake-won-prizes" style="display: flex; justify-content: center; align-items: center; gap: ${PRIZE_GAP}px;">
+            const button = (cls, title, inside) => `<button class="${cls}" title="${title}" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: none; width: ${CHOICE_W}px; height: ${CHOICE_H}px; padding: 0; border: none; border-radius: 10.2px; background: ${palette.growBg}; color: ${palette.growInk}; font: inherit; font-size: 12.8px; font-weight: 800; line-height: 1.1; cursor: pointer; visibility: hidden;">${inside}</button>`;
+
+            hintBanner.innerHTML = `<div class="snake-won-title" style="font-size: 18.4px; font-weight: 800; line-height: 1.2; color: ${palette.hintText};">You won!</div>
+                <div class="snake-won-prizes" style="display: flex; justify-content: center; align-items: center; gap: ${PRIZE_GAP}px;">
+                    ${choice ? button('snake-won-back', 'Back to the sets', BACK_ARROW) : ''}
                     ${prizes.map(p => `<span class="snake-won-prize" style="display: block; flex: none; width: ${p.width}px; height: ${p.height}px; visibility: hidden;">${p.html}</span>`).join('')}
-                </div>` : '');
+                    ${choice ? button('snake-grow-more', 'More words for the same snake', 'Grow<br>more') : ''}
+                </div>`;
 
             const places = [...hintBanner.querySelectorAll('.snake-won-prize')];
+            const back = hintBanner.querySelector('.snake-won-back');
+            const grow = hintBanner.querySelector('.snake-grow-more');
 
             /*
              * The whole screen is pressed, wherever: a press while the prizes
-             * are still coming brings them all in at once (finish), and the
-             * press after that is the way out -- the owner's call, 29 October
-             * 2026. Until then the banner alone was the way out, at any
-             * moment, and a press on it in the middle of the prizes left
-             * before they were in.
+             * are still coming brings them all in at once (finish), and with
+             * the crown the press after that is the way out -- the owner's
+             * call, 29 October 2026. Until then the banner alone was the way
+             * out, at any moment, and a press on it in the middle of the
+             * prizes left before they were in. Without the crown the way on
+             * is the two buttons, and a press anywhere else does nothing.
              *
              * Not the buttons in the header, which do what they always do:
              * the way back is a way out anyway, and the sound is not the
-             * ending's to switch.
+             * ending's to switch. Nor the two in the row, which are buttons
+             * and are written down as buttons are.
              *
              * Written down by hand, as `snake-won` and what the press did --
              * see ANALYTICS.md: a press anywhere has no one element to be
@@ -2613,6 +2582,7 @@ function snake(container) {
             const press = (e) => {
                 if (mine !== showing) return document.removeEventListener('click', press);
                 if (e.target instanceof Element && e.target.closest('button, a')) return;
+                if (done && choice) return;
 
                 track('click', 'snake-won', '', '', done ? 'exit' : 'skip');
 
@@ -2621,16 +2591,48 @@ function snake(container) {
             };
             document.addEventListener('click', press);
 
+            const leave = (go) => () => {
+                pointingHand.clear();
+                go();
+            };
+
+            if (back) back.addEventListener('click', leave(cb.onGoDictionary));
+            if (grow) grow.addEventListener('click', leave(cb.onGrowMore));
+
+            /*
+             * Everything is in: the banner beckons where the whole of it is
+             * the way out, and the two buttons come up where they are. The
+             * hand goes from the one to the other and back, a nudge on each,
+             * until one of them is pressed or the screen goes.
+             */
+            function settled() {
+                done = true;
+
+                if (!choice) return beckonBanner();
+
+                host.style.cursor = '';
+                [back, grow].forEach(btn => arrive(btn));
+
+                let turn = 0;
+                const point = () => {
+                    if (mine !== showing) return;
+
+                    pointingHand.at(turn % 2 ? grow : back, { into: host, size: HINT_HAND });
+                    turn += 1;
+                    wait(CHOICE_TURN).then(point);
+                };
+                point();
+            }
+
             /*
              * Every prize where the ending leaves it, at once: the ones still
              * to come and the one on its way. What is in the air is taken
              * away, and the chain stops at its next step (`alive`), which
              * every step asks after each wait.
              *
-             * The board as it is left: the crowns gone up, the hearts gone
-             * out of the snake; the header without the medal and the star; a
-             * goblet that was not won taken out of the row, as closePlace
-             * does it, without the closing.
+             * The board as it is left: the crowns gone up, the red hearts
+             * gone out of the snake; the header without the medal and the
+             * star.
              */
             function finish() {
                 skipped = true;
@@ -2641,28 +2643,22 @@ function snake(container) {
                     crowned = true;
                     lastFrame.s.lettersOnBoard.forEach((letter, k) => crownsGone.add(k));
                 }
-                if (hearts) hearts.red.concat(hearts.black).forEach(link => flown.add(link));
+                result.hearts.forEach(link => flown.add(link));
                 if (result.record) medalGone = true;
                 redraw();
 
                 const star = header && header.querySelector('.snake-star');
-                if (result.star && star) star.style.visibility = 'hidden';
+                if (star) star.style.visibility = 'hidden';
 
                 prizes.forEach((prize, k) => {
                     const place = places[k];
-                    if (!place.isConnected) return;
+                    if (place.style.visibility === 'visible') return;
 
-                    if (prize.kind !== 'goblet' || full) {
-                        place.style.visibility = 'visible';
-                        return;
-                    }
-
-                    const row = place.parentNode;
-                    (row.children.length === 1 ? row : place).remove();
+                    place.style.visibility = 'visible';
+                    if (prize.dim) dimmed(place);
                 });
 
-                done = true;
-                beckonBanner();
+                settled();
             }
 
             async function crownIn(place) {
@@ -2753,20 +2749,28 @@ function snake(container) {
              *
              * Its plate comes with it as it leaves, and not before: in the
              * header it is a star and nothing more (the owner's call).
+             *
+             * Short of full it comes all the same, as far as it is filled, and
+             * goes down without shining; with no star in the header at all --
+             * not a word right yet -- the outline is simply there in the row.
              */
             async function starIn(place) {
+                const dim = !result.star;
                 const small = header && header.querySelector('.snake-star');
-                if (!small) return arrive(place);
+                if (!small || !result.starLevel) {
+                    if (small) small.style.visibility = 'hidden';
+                    return arrive(place, dim);
+                }
 
                 await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => { });
                 if (!alive() || !small.isConnected) return;
 
                 if (still()) {
                     small.style.visibility = 'hidden';
-                    return arrive(place);
+                    return arrive(place, dim);
                 }
 
-                const at = badgeStage('star', 1, true);
+                const at = badgeStage('star', starGold, true);
 
                 const flight = arriveFrom(at, small, PRIZE_TURN, STAR_FIT);
                 small.style.visibility = 'hidden';
@@ -2781,14 +2785,22 @@ function snake(container) {
                 await flight;
                 if (!alive()) return;
 
-                await shine(at);
+                if (!dim) await shine(at);
                 if (!alive()) return;
 
-                await depart(at, place);
+                await depart(at, place, dim);
             }
 
+            /*
+             * The red hearts out of the snake into the goblet, a ninth of it
+             * each and the heap over the brim past the ninth -- see
+             * GOBLET_HEARTS. Shines when it is full, and goes down to the row
+             * either way; with no red heart to pour, the empty cup is simply
+             * there in the row.
+             */
             async function gobletIn(place) {
-                if (still()) return arrive(place);
+                const dim = !result.goblet;
+                if (still() || !result.hearts.length) return arrive(place, dim);
 
                 const at = badgeStage('goblet', 0);
                 await popIn(at);
@@ -2798,90 +2810,39 @@ function snake(container) {
                 // Into the cup, which stands well above the badge's middle.
                 const to = { x: at.centre.x, y: at.centre.y - at.height * 0.2 };
 
-                const fly = (link, red) => {
+                const fly = (link) => {
                     if (!alive() || !body[link]) return null;
 
                     const from = cellAt(body[link]);
                     flown.add(link);
                     redraw();
 
-                    return launch(heartHtml(red), from.width, [
+                    return launch(heartHtml(true), from.width, [
                         { x: from.x, y: from.y, scale: 0.8 },
                         { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 30, scale: 1.4, offset: 0.45 },
                         { x: to.x, y: to.y, scale: 0.8, opacity: 0.7 }
                     ], HEART_FLIGHT);
                 };
 
-                let gold = 0;
+                const gap = Math.min(HEART_GAP, HEARTS_SPAN / Math.max(1, result.hearts.length - 1));
+                let poured = 0;
 
                 await wait(HEART_WAIT);
-                await Promise.all(hearts.red.map((link, k) => wait(k * HEART_GAP)
-                    .then(() => fly(link, true))
+                await Promise.all(result.hearts.map((link, k) => wait(k * gap)
+                    .then(() => fly(link))
                     .then(() => {
-                        gold = Math.min(1, gold + hearts.share);
-                        fillTo(at.el, gold);
+                        poured += 1;
+                        fillTo(at.el, Math.min(1, poured / GOBLET_HEARTS));
+                        heapTo(at.el, heapOf(poured - GOBLET_HEARTS));
                         bump(at.el);
                     })));
                 if (!alive()) return;
 
-                if (full) {
-                    await wait(FILLED_REST);
-                    await shine(at);
-                    if (!alive()) return;
-
-                    return depart(at, place);
-                }
-
-                await wait(BLACK_PAUSE);
+                await wait(FILLED_REST);
+                if (!dim) await shine(at);
                 if (!alive()) return;
 
-                /*
-                 * The black ones fill on with black, a share each like the red
-                 * -- to the brim when there were hearts enough to fill it --
-                 * and then the whole of the fill goes black from the top down,
-                 * the gold with it.
-                 *
-                 * None black -- the snake lost its hearts with its length,
-                 * starting a round over, or too few were dealt to fill it --
-                 * and nothing more comes: the goblet goes up in smoke as it
-                 * stands, short of full and as gold as it was. It was topped
-                 * up with black by itself for a while, as if the lost hearts
-                 * had been black ones; the owner would rather it stayed
-                 * unfilled (27 October 2026).
-                 */
-                const black = hearts.black;
-
-                if (black.length) {
-                    let landed = 0;
-
-                    await Promise.all(black.map((link, k) => wait(k * HEART_GAP)
-                        .then(() => fly(link, false))
-                        .then(() => {
-                            landed += 1;
-                            darkTo(at.el, Math.min(1, gold + hearts.share * landed));
-                            shake(at.el);
-                        })));
-                    if (!alive()) return;
-
-                    await wait(FILLED_REST);
-                    if (!alive()) return;
-
-                    blacken(at.el, Math.min(1, gold + hearts.share * black.length));
-
-                    // Gone the moment it is black, with no pause between: the
-                    // owner's call, 29 October 2026. The black came down
-                    // easing out and the smoke went up easing in, with
-                    // SMOKE_AFTER between them, and that was read as a stall.
-                    await wait(BLACKEN);
-                } else {
-                    await wait(SMOKE_AFTER);
-                }
-                if (!alive()) return;
-
-                await evaporate(at);
-                if (!alive()) return;
-
-                await closePlace(place);
+                await depart(at, place, dim);
             }
 
             const steps = { crown: crownIn, record: medalIn, star: starIn, goblet: gobletIn };
@@ -2903,10 +2864,7 @@ function snake(container) {
             });
 
             chain.then(() => {
-                if (!alive()) return;
-
-                done = true;
-                beckonBanner();
+                if (alive()) settled();
             });
 
             // Last, so the burst is measured against the board as it now stands
@@ -3088,23 +3046,14 @@ function snake(container) {
             // are not among them — see BLANK. On a board filled to the last
             // cell they are crowns at the end, and then not there at all as
             // the crowns go up to the banner — see view.victory. A new word's
-            // are not there until they have flown in — see view.deal. Those
-            // that came off the snake are blue -- see SHED_ON_SELF -- and
-            // tremble for a moment where they fell (view.shudder).
-            const since = shudder ? performance.now() - shudder.at : TREMBLE;
-            if (since >= TREMBLE) shudder = null;
-
-            const trembling = (cell, drawn) => (shudder && shudder.cells.has(cell.x + ',' + cell.y)
-                ? `<g style="transform-box: fill-box; transform-origin: center; animation: snake-tremble ${TREMBLE}ms linear ${-Math.round(since)}ms both;">${drawn}</g>`
-                : drawn);
-
+            // are not there until they have flown in — see view.deal.
             s.lettersOnBoard.forEach((l, at) => {
                 if (l.isEaten || crownsGone.has(at) || undealt.has(at)) return;
 
                 const cx = (l.x + 0.5) * cellSize;
                 const cy = (l.y + 0.5) * cellSize;
 
-                out += crowned ? crownOn(cx, cy) : trembling(l, glyph(l.char, cx, cy, LETTER_PX, l.fallen ? palette.fallenLetter : palette.boardLetter, 'bold'));
+                out += crowned ? crownOn(cx, cy) : glyph(l.char, cx, cy, LETTER_PX, palette.boardLetter, 'bold');
             });
 
             // The strangers of the word just collected, going one after
@@ -3192,14 +3141,6 @@ function snake(container) {
                         width="${jointWidth}" height="${jointReach * 2}" fill="${fill}" />`;
                 }
             }
-
-            // The hearts that came off the snake, as the heart to catch is
-            // drawn -- see SHED_ON_SELF
-            (s.looseHearts || []).forEach(heart => {
-                out += trembling(heart, `<text x="${(heart.x + 0.5) * cellSize}" y="${(heart.y + 0.5) * cellSize}"
-                    font-family="${LETTER_FONT}" font-size="16.4" text-anchor="middle"
-                    dominant-baseline="central">${heart.char}</text>`);
-            });
 
             /*
              * The face, and it is the app's own: the two rings of the mark in
@@ -3451,7 +3392,6 @@ function snake(container) {
      *
      * step() reports what happened and lets the session decide what it means:
      *   'moved' | 'letter' | 'wordDone' | 'heart' | 'crashHeart' | 'crashRestart'
-     *   | 'shed' -- see SHED_ON_SELF
      */
     function board() {
         let snakeBody = [];
@@ -3468,28 +3408,10 @@ function snake(container) {
         let crashPhase = 0;
         let newTail = null;
 
-        /*
-         * The words gone back over after the snake ran into itself -- see
-         * shed. `behind` is how many words the one in play is behind the
-         * live word, the one the session has come to: 0 the rest of the time.
-         * The letters of a word behind it lie on the board with `behind` on
-         * them; the live word's have none, as they always had.
-         *
-         * `looseHearts`: the hearts that came off, {x, y, char}, lying where
-         * they did. One is caught after each word gone back over, in place of
-         * a heart put out new.
-         */
-        let behind = 0;
-        let looseHearts = [];
-
-        // The strangers put out with the live word's letters -- see
-        // DECOYS_FROM -- told by the session, which knows the set they come
-        // out of
+        // The strangers put out with the word's letters -- see DECOYS_FROM --
+        // told by the session, which knows the set they come out of
         let decoys = [];
         board.setDecoys = (list) => { decoys = list; };
-
-        // What the last run into itself came to -- see shed
-        let shedTo = null;
 
         // The word as a list of letters, segmented and cased once. Every rule
         // that counts letters counts these; the word itself the board has no
@@ -3626,8 +3548,8 @@ function snake(container) {
          * letters, the letters take every one of them, and those that do not
          * fit are not put out at all.
          */
-        // A cell taken by the snake or by a link lying loose
-        const taken = (x, y) => snakeBody.some(s => s.x === x && s.y === y) || looseHearts.some(s => s.x === x && s.y === y);
+        // A cell the snake is on
+        const taken = (x, y) => snakeBody.some(s => s.x === x && s.y === y);
 
         function spawnLetters() {
             lettersOnBoard = [];
@@ -3785,92 +3707,6 @@ function snake(container) {
             snakeBody.push({ x: oldTailPos.x, y: oldTailPos.y, char });
         }
 
-        const isHeart = (char) => char === '\u2764\ufe0f' || char === '\ud83d\udda4';
-
-        /*
-         * Which word each link carries a letter of, and which letter of it,
-         * read off the body itself: after the head come the words collected,
-         * one after another, a heart after each but the last, and the last is
-         * the word in play. So a word is known by how many hearts stand
-         * between it and the tail, and a link by its place among its word's
-         * links -- the letters of a word are eaten in order. A heart is told
-         * as the heart after its word.
-         */
-        function wordsOnBody() {
-            const hearts = snakeBody.filter(link => isHeart(link.char)).length;
-            let word = 0;
-            let nth = 0;
-
-            return snakeBody.map((link, i) => {
-                if (i === 0) return null;
-
-                const back = behind + hearts - word;
-                if (!isHeart(link.char)) return { behind: back, nth: nth++ };
-
-                word += 1;
-                nth = 0;
-                return { behind: back, heart: true };
-            });
-        }
-
-        /*
-         * The snake ran into itself at (x, y), with SHED_ON_SELF: it stays
-         * where it is, and every link from the one it ran into to the tail
-         * comes off where it lies. Every letter goes back on the board as a
-         * letter of its word, where its link was, and every heart lies there
-         * loose; and the game goes back to the word the snake ran into, with
-         * what the snake still carries of it -- or, run into the heart after
-         * a word, to the catching of that heart. The words from there on are
-         * gone over again in order (see board.resumeWord), the session's own
-         * word last.
-         *
-         * Returns null when the link is not one that can come off, and the run
-         * into it is a crash as ever. Only the head is one.
-         */
-        function shed(x, y, grows) {
-            const after = grows ? snakeBody : snakeBody.slice(0, -1);
-            const cut = after.findIndex(s => s.x === x && s.y === y);
-            if (cut < 1) return null;
-
-            const tags = wordsOnBody();
-            const hit = tags[cut];
-            const fallen = snakeBody.slice(cut);
-
-            snakeBody = snakeBody.slice(0, cut);
-            inputQueue = [];
-            heartPos = null;
-
-            /*
-             * The letters eaten so far go off the board for good, and those
-             * that came off are put out new where their links were. Eaten,
-             * a letter is of no more use there: nothing goes for it or draws
-             * it. They were once taken off one by one, each in place of the
-             * letter that came off, found by its place in the word -- and a
-             * word with a letter in it twice is eaten in any order of the
-             * two, since only the letter is asked for. So the letter found
-             * was at times the other one, not eaten yet, and that went off
-             * the board: an E short of a phrase with four of them (reported
-             * by the owner, 2 November 2026).
-             */
-            lettersOnBoard = lettersOnBoard.filter(l => !l.isEaten);
-
-            fallen.forEach((link, i) => {
-                const tag = tags[cut + i];
-                if (tag.heart) return void looseHearts.push({ x: link.x, y: link.y, char: link.char });
-
-                lettersOnBoard.push(Object.assign({ char: link.char, x: link.x, y: link.y, isEaten: false, fallen: true }, tag.behind ? { behind: tag.behind } : {}));
-            });
-
-            // And where it all came off, for the view to shake -- see view.shudder
-            shedTo = { behind: hit.behind, kept: hit.heart ? 0 : hit.nth, heart: !!hit.heart, cells: fallen.map(link => ({ x: link.x, y: link.y })) };
-            return 'shed';
-        }
-
-        // The run into itself: shed with SHED_ON_SELF, a crash without
-        function selfHit(x, y, grows, prev) {
-            return (SHED_ON_SELF && shed(x, y, grows)) || crash(prev);
-        }
-
         /*
          * Whether the head would land on the body as it stands after this
          * step, not before it.
@@ -3923,14 +3759,10 @@ function snake(container) {
                 inputCooldown = false;
                 crashPhase = saved.savedCrashPhase || 0;
                 newTail = saved.savedNewTail ? clone(saved.savedNewTail) : null;
-                behind = saved.savedBehind || 0;
-                looseHearts = clone(saved.savedLooseHearts || []);
                 return false;
             }
 
             placeSnake();
-            behind = 0;
-            looseHearts = [];
             dir = { x: 0, y: -1 };
             inputQueue = [];
             nextLetterIndex = 0;
@@ -3963,13 +3795,11 @@ function snake(container) {
             saved.savedCrashPhase = crashPhase;
             saved.c_new_tail = newTail;
             saved.savedNewTail = newTail ? clone(newTail) : null;
-            saved.savedBehind = behind;
-            saved.savedLooseHearts = clone(looseHearts);
         };
 
         board.snapshot = () => ({
             snakeBody, lettersOnBoard, phase, heartPos,
-            isFrozen, losingHeartIdx, blinkVisible, crashPhase, dir, looseHearts
+            isFrozen, losingHeartIdx, blinkVisible, crashPhase, dir
         });
 
         board.phase = () => phase;
@@ -3999,66 +3829,21 @@ function snake(container) {
         };
 
         // The word's letters, all eaten, go, and the strangers put out with
-        // it if it is the live word (see decoys); those of the words still to
-        // be gone back over stay. Answers the ones still lying there, which
-        // the view sees off -- see view.sweep.
+        // it (see decoys). Answers the strangers, which the view sees off --
+        // see view.sweep.
         board.clearWord = () => {
-            const going = lettersOnBoard.filter(l => !l.isEaten && (l.behind || 0) === behind);
-            lettersOnBoard = lettersOnBoard.filter(l => (l.behind || 0) !== behind);
+            const going = lettersOnBoard.filter(l => !l.isEaten);
+            lettersOnBoard = [];
             return going;
         };
 
-        // And the heart after it: one that came off is the one to catch if
-        // there is one -- see looseHearts -- and a new one is put out if not,
-        // while the strangers are still on the board, so not on a cell one of
-        // them is still being seen off from.
+        // And the heart after it, put out while the strangers are still on
+        // the board, so not on a cell one of them is still being seen off
+        // from.
         board.beginHeartPhase = () => {
             phase = 'HEART';
-
-            if (looseHearts.length) heartPos = null;
-            else spawnHeart();
-
+            spawnHeart();
             return board.clearWord();
-        };
-
-        board.behind = () => behind;
-        board.shedTo = () => shedTo;
-
-        /*
-         * The word in play, gone back to or come on to after the snake ran
-         * into itself -- see shed: `back` words behind the live one, with the
-         * first `kept` of its letters on the snake, or all of them and its
-         * heart to catch (`heart`). Its letters are on the board already, and
-         * nothing is put out.
-         */
-        board.resumeWord = (word, stage, back, kept, heart) => {
-            readWord(word, stage);
-            behind = back;
-
-            nextLetterIndex = 0;
-            skipBlanks();
-
-            if (heart) {
-                nextLetterIndex = targetLetters.length;
-            } else {
-                for (let n = 0; n < kept; n++) {
-                    nextLetterIndex++;
-                    skipBlanks();
-                }
-            }
-
-            phase = heart ? 'HEART' : 'WORD';
-            heartPos = null;
-            if (heart && !looseHearts.length) spawnHeart();
-        };
-
-        // Gone back over no more: the hearts that came off go, and the live
-        // word is the word in play -- for a round started over, which puts
-        // its letters out new
-        board.leaveWordsBehind = (word, stage) => {
-            readWord(word, stage);
-            behind = 0;
-            looseHearts = [];
         };
 
         board.restartRound = () => {
@@ -4162,21 +3947,12 @@ function snake(container) {
             const headY = (snakeBody[0].y + dir.y + GRID_COUNT) % GRID_COUNT;
             const prev = snakeBody.map(s => ({ ...s }));
 
-            // A heart that came off, where the head goes -- see looseHearts --
-            // and a letter, of whichever word
-            const loose = looseHearts.find(h => h.x === headX && h.y === headY);
-            const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
-
             if (phase === 'HEART') {
-                const onHeart = (!!heartPos && headX === heartPos.x && headY === heartPos.y) || !!loose;
-                if (hits(headX, headY, onHeart || !!touched)) return selfHit(headX, headY, onHeart || !!touched, prev);
-
-                // A letter of a word still to be gone back over is not for now
-                if (touched) return crash(prev);
+                const onHeart = !!heartPos && headX === heartPos.x && headY === heartPos.y;
+                if (hits(headX, headY, onHeart)) return crash(prev);
 
                 if (onHeart) {
-                    if (loose) looseHearts = looseHearts.filter(h => h !== loose);
-                    grow(headX, headY, loose ? loose.char : '\u2764\ufe0f');
+                    grow(headX, headY, '❤️');
                     return 'heart';
                 }
 
@@ -4184,14 +3960,12 @@ function snake(container) {
                 return 'moved';
             }
 
-            if (hits(headX, headY, !!touched || !!loose)) return selfHit(headX, headY, !!touched || !!loose, prev);
+            const touched = lettersOnBoard.find(l => !l.isEaten && l.x === headX && l.y === headY);
 
-            // A heart that came off is caught between words, not in one
-            if (loose) return crash(prev);
+            if (hits(headX, headY, !!touched)) return crash(prev);
 
             if (touched) {
-                // A letter of another word is as wrong as a letter out of turn
-                if ((touched.behind || 0) !== behind || touched.char !== targetLetters[nextLetterIndex]) {
+                if (touched.char !== targetLetters[nextLetterIndex]) {
                     wrongLetter = true;
                     return crash(prev);
                 }
@@ -4267,7 +4041,8 @@ function snake(container) {
             hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, starLevel: 0, recordAt: null, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
-            savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null, savedBehind: 0, savedLooseHearts: null
+            savedBlinkVisible: true, crashPhase: 0, c_new_tail: null, savedCrashPhase: 0, savedNewTail: null,
+            played: [], starWon: false, gobletWon: false
         };
     }
 
@@ -4672,10 +4447,7 @@ function snake(container) {
             return;
         }
 
-        // The word in play: the session's own, or one before it while the
-        // words are gone back over after the snake ran into itself -- see
-        // SHED_ON_SELF. Only a round under way can be one of those.
-        let currentItem = pool[state.currentIndex - (state.savedSnake ? state.savedBehind || 0 : 0)];
+        let currentItem = pool[state.currentIndex];
         let targetWord = currentItem.word.original.toLowerCase();
         sayLang = currentItem.originalLang;
 
@@ -4748,7 +4520,7 @@ function snake(container) {
              */
             onLetterClick: (index) => {
                 const letters = board.letters();
-                const isShown = (at) => opened() || at < board.progress();
+                const isShown = (at) => state.showHint || at < board.progress();
 
                 if (!isShown(index)) {
                     forgetTaps();
@@ -4813,9 +4585,7 @@ function snake(container) {
                 const letters = board.letters();
                 const said = sayNow(letters.join('').toLowerCase(), () => view.sayWords(lineWords(letters)), speaker);
 
-                // A word gone back over was answered already, and costs
-                // nothing to hear
-                if (said && !replaying()) hearWord();
+                if (said) hearWord();
             },
 
             // A tap on the board stops the snake -- a panel that arrives while
@@ -4842,14 +4612,13 @@ function snake(container) {
                 state.sessionPool = null;
                 state.savedSnake = null;
                 page.home();
-            }
+            },
+
+            onGrowMore: () => growMore()
         });
 
-        // The dot of the word in play -- one before the session's own while
-        // the words are gone back over (see SHED_ON_SELF), and nothing heard
-        // of it then
         function refreshDots() {
-            view.dots(pool, state.sessionResults, state.currentIndex - board.behind(), state.heardThisRound && !replaying());
+            view.dots(pool, state.sessionResults, state.currentIndex, state.heardThisRound);
         }
 
         /*
@@ -4874,6 +4643,10 @@ function snake(container) {
             if (!right && !was) return;
 
             state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 1;
+
+            // A star put in the achievements is a new one once it is filled
+            // again -- see settle
+            if (state.starLevel < STAR_TOP) state.starWon = false;
 
             view.star(was, state.starLevel, view.wave(state.currentIndex, right));
         }
@@ -4935,41 +4708,8 @@ function snake(container) {
             // stop existing, and whatever was said over them is over too.
             forgetTaps();
             dropMark();
-            view.gathered(board.letters(), board.progress(), opened());
+            view.gathered(board.letters(), board.progress(), state.showHint);
             offerReveal();
-        }
-
-        /*
-         * Going back over the words after the snake ran into itself -- see
-         * SHED_ON_SELF. The session stays where it is (state.currentIndex)
-         * and the word in play is `behind` words before it: answered already,
-         * so it is collected again and nothing more, not scored again, not
-         * charged for hearing, and its "?" open for nothing (`replayOpen`,
-         * for this screen only) -- what was paid for it was paid the first
-         * time round.
-         */
-        const replaying = () => board.behind() > 0;
-
-        let replayOpen = false;
-        const opened = () => (replaying() ? replayOpen : state.showHint);
-
-        // The word in play, `back` words behind the session's own, with
-        // `kept` of its letters on the snake, or all of them and its heart
-        // to catch -- see board.resumeWord
-        function goToWord(back, kept, heart) {
-            narration += 1;
-            speech.hush();
-
-            currentItem = pool[state.currentIndex - back];
-            targetWord = currentItem.word.original.toLowerCase();
-            sayLang = currentItem.originalLang;
-            replayOpen = false;
-
-            board.resumeWord(targetWord, stageOf(currentItem), back, kept, heart);
-
-            view.banner(currentItem.word.translation, stageOf(currentItem));
-            refreshGathered();
-            refreshDots();
         }
 
         /*
@@ -5086,11 +4826,6 @@ function snake(container) {
         // Showing the answer, which is only ever asked for by clicking a letter
         // that is still hidden
         function revealHint() {
-            if (replaying()) {
-                replayOpen = true;
-                return refreshGathered();
-            }
-
             if (state.showHint) return;
 
             state.showHint = true;
@@ -5155,15 +4890,25 @@ function snake(container) {
                 .some(entry => 'maxLength' in entry && entry.at === state.recordAt);
         }
 
-        // The strangers are the live word's, whatever word is in play -- a
-        // round started over puts them out again with its letters
-        board.setDecoys(decoysFor(pool[state.currentIndex]));
+        // The strangers for the word -- a round started over puts them out
+        // again with its letters
+        board.setDecoys(decoysFor(currentItem));
 
         const fresh = board.load(state, targetWord, stageOf(currentItem));
         if (fresh) board.spawnLetters();
 
-        // After the board, which knows whether the word in play is the
-        // session's own -- see refreshDots
+        /*
+         * A snake grown on into more words -- see growMore: the board is the
+         * one the last session ended on, the snake and all, and the first of
+         * the new words is put out round it as any new word is. Which can
+         * take the last free cell, and that is the crown -- see the end of
+         * render.
+         */
+        const grown = growing && !fresh;
+        growing = false;
+
+        const crowning = grown && board.setWord(targetWord, stageOf(currentItem));
+
         refreshDots();
         view.star(0, state.starLevel);
 
@@ -5454,6 +5199,10 @@ function snake(container) {
          * which finishes a crash a session comes back in.
          */
         function afterCrash(event) {
+            // Under the ninth red heart, the goblet put in the achievements
+            // is a new one once it is filled again -- see settle
+            if (event === 'crashRestart' || redHearts().length < GOBLET_HEARTS) state.gobletWon = false;
+
             if (event === 'crashHeart') {
                 if (!board.headToTail()) return;
                 paint();
@@ -5471,22 +5220,6 @@ function snake(container) {
 
             clock.pause();
             clock.cancelAccel();
-
-            /*
-             * Started over in the middle of going back over the words (see
-             * SHED_ON_SELF): what came off goes with everything else the
-             * snake had, and the round is the session's own word again, as a
-             * round started over always was.
-             */
-            if (replaying()) {
-                currentItem = pool[state.currentIndex];
-                targetWord = currentItem.word.original.toLowerCase();
-                sayLang = currentItem.originalLang;
-                replayOpen = false;
-
-                board.leaveWordsBehind(targetWord, stageOf(currentItem));
-                refreshDots();
-            }
 
             board.restartRound();
             view.banner(currentItem.word.translation, stageOf(currentItem));
@@ -5597,49 +5330,50 @@ function snake(container) {
          *              beat the set's record (recordBeaten), and what it came to.
          *   star       a full star: `star` is how many of the session's words
          *              were answered without a mistake.
-         *   goblet     a session without a crash, told by the hearts: one is
+         *   goblet     nine red hearts on the snake at the least -- see
+         *              GOBLET_HEARTS: `goblet` is how many it carries. One is
          *              dealt after every word but the last, a crash with a heart
          *              to spend turns one black, and a crash with none starts
          *              the round over with a snake of one link, the hearts it
-         *              carried gone with it. Every heart dealt still red is the
-         *              goblet -- if there were enough of them to fill it, nine
-         *              at the least (see GOBLET_SHARE) -- and `goblet` is how
-         *              many hearts that was. A crash in the first word, before
-         *              there is a heart to lose, starts that word over and leaves
-         *              no trace for this to read.
+         *              carried gone with it.
          *   crown      the board filled to its last cell as a word arrived --
          *              see crownSession: `crown` is how long the snake was.
+         *
+         * A star or a goblet goes in once for every time it is filled, and not
+         * again at the end of each session it stays full through: a snake
+         * grown on into more words (see growMore) carries both, and a star full
+         * since the session before is not a second star. `starWon` and
+         * `gobletWon` say it is in already; the star going back to its outline
+         * clears the one (see starAnswered), a heart lost below the ninth the
+         * other (see afterCrash).
          *
          * A run over every set achieves the same and writes nothing: there is no
          * set by its id. Nor has it a record to beat.
          */
         function settle(crown) {
             const body = board.snapshot().snakeBody;
-            const carrying = (char) => body.map((part, at) => (part.char === char ? at : -1)).filter(at => at >= 0);
-
-            const red = carrying('\u2764\ufe0f');
-            const black = carrying('\ud83d\udda4');
-
-            // The hearts dealt: one after each word but the last, and the crown
-            // ends a session as the next word arrives -- after the heart for
-            // every word finished before it.
-            const dealt = crown ? state.currentIndex : pool.length - 1;
-
-            // What one heart fills, and whether the red ones fill it all
-            const share = dealt > 0 ? Math.min(1 / dealt, GOBLET_SHARE) : 0;
+            const hearts = redHearts();
 
             const star = state.starLevel >= STAR_TOP;
-            const goblet = dealt > 0 && red.length === dealt && dealt * GOBLET_SHARE >= 1;
+            const goblet = hearts.length >= GOBLET_HEARTS;
 
             const setId = state.selectedSetId;
 
             const record = recordBeaten() ? store.recordOf(setId, 'snake', 'maxLength') : 0;
 
             if (crown) store.achieve(setId, 'snake', 'crown', body.length);
-            if (star) store.achieve(setId, 'snake', 'star', state.sessionResults.filter(r => r === 'correct').length);
-            if (goblet) store.achieve(setId, 'snake', 'goblet', red.length);
+            if (star && !state.starWon) store.achieve(setId, 'snake', 'star', state.sessionResults.filter(r => r === 'correct').length);
+            if (goblet && !state.gobletWon) store.achieve(setId, 'snake', 'goblet', hearts.length);
 
-            return { crown, record, star, hearts: dealt > 0 ? { red, black, share, won: goblet } : null };
+            state.starWon = star;
+            state.gobletWon = goblet;
+
+            return { crown, record, star, starLevel: state.starLevel, hearts, goblet };
+        }
+
+        // The links of the snake that carry a red heart
+        function redHearts() {
+            return board.snapshot().snakeBody.map((part, at) => (part.char === '❤️' ? at : -1)).filter(at => at >= 0);
         }
 
         /*
@@ -5663,6 +5397,83 @@ function snake(container) {
 
             stopPlaying();
             showVictory(result);
+        }
+
+        /*
+         * "Grow more", at the end of a session the crown did not end -- see
+         * view.victory: the same snake goes on into more words, on the same
+         * screen, so that a set of a few short words still comes to the crown
+         * in the end, to a player who presses it after every session. The
+         * owner's design, 3 November 2026.
+         *
+         * A session of its own -- its words, its dots, its moment in the
+         * records and in the analytics (`run_start`) -- that carries on what
+         * the snake has: its body where it lies, the hearts on it, the star,
+         * the record it is raising. The first of the words comes out of the
+         * cloud as soon as the screen is up, with no heart caught before it:
+         * a heart comes between two words, as in any session.
+         *
+         * As many words as could still fill the star and the goblet, ten at
+         * the most -- see wordsToGrow -- and ten where both are full: what is
+         * left to grow for then is the crown. Fewer where the set has fewer.
+         */
+        function growMore() {
+            const played = state.played.concat(pool.map(wordKey));
+            const next = morePool(wordsToGrow(), played);
+
+            // The set emptied under the screen -- from another device, say:
+            // nothing left to grow on, and the session is over already
+            if (!next.length) return page.home();
+
+            board.persistTo(state);
+            state.savedInputQueue = [];
+
+            state.sessionPool = next;
+            state.sessionResults = new Array(next.length).fill(null);
+            state.currentIndex = 0;
+            state.sessionAt = Date.now();
+            state.played = played;
+            state.hadErrorThisRound = false;
+            state.showHint = false;
+            state.heardThisRound = false;
+
+            growing = true;
+            page.reopen();
+            render();
+            page.save();
+        }
+
+        /*
+         * How many words could still fill the star and the goblet: a right
+         * answer for every step left of the star (see STAR_TOP), and a word
+         * for every red heart short of the ninth, and one more -- the heart
+         * comes after a word, and none after the last. Whichever is more,
+         * up to a session's worth.
+         */
+        function wordsToGrow() {
+            const star = STAR_TOP - Math.min(STAR_TOP, state.starLevel);
+            const red = redHearts().length;
+            const goblet = red < GOBLET_HEARTS ? GOBLET_HEARTS - red + 1 : 0;
+
+            return Math.min(POOL_LIMIT, Math.max(star, goblet) || POOL_LIMIT);
+        }
+
+        /*
+         * The words for it, out of the set the session was played in: first
+         * those that are due, then those still waiting on their timers, and
+         * last those already played since the session that began it
+         * (`played`, by wordKey) -- the owner's order. At random within each,
+         * as duePool deals them.
+         */
+        const wordKey = (item) => item.setId + '\n' + item.word.original;
+
+        function morePool(count, played) {
+            const seen = new Set(played);
+            const rank = (item) => (seen.has(wordKey(item)) ? 2 : spacedRepetitions.isWordDue(item.word) ? 0 : 1);
+
+            return shuffled(store.wordsOf(state.selectedSetId))
+                .sort((a, b) => rank(a) - rank(b))
+                .slice(0, count);
         }
 
         /*
@@ -5719,15 +5530,13 @@ function snake(container) {
              */
             if (board.crashedOnLetter()) {
                 missedLetter = true;
-
-                // The board starts, as it does when the snake runs into
-                // itself -- the owner's call, 2 November 2026; nothing came
-                // off, so nothing trembles
-                view.shudder([]);
             } else if (event === 'letter' || event === 'wordDone') {
                 missedLetter = false;
                 offerReveal();
             }
+
+            // The board starts at every crash -- see view.shudder
+            if (event === 'crashHeart' || event === 'crashRestart') view.shudder();
 
             if (event === 'crashHeart') {
                 board.persistTo(state);
@@ -5745,42 +5554,7 @@ function snake(container) {
                 return;
             }
 
-            /*
-             * The snake ran into itself and its back end came off -- see
-             * SHED_ON_SELF. The game goes back to the word it ran into, the
-             * banner with it: its translation, and what the snake still
-             * carries of it. It stands still until the next press, held key
-             * or not: the step it was taking went nowhere, and the eye wants
-             * a moment to see what came off.
-             */
-            if (event === 'shed') {
-                clock.pause();
-                clock.cancelAccel();
-                clock.setAcceleration(false);
-
-                const to = board.shedTo();
-                goToWord(to.behind, to.kept, to.heart);
-
-                // Before the paint, which draws what came off trembling
-                view.shudder(to.cells);
-
-                board.persistTo(state);
-                paint();
-                page.save();
-                return;
-            }
-
             if (wasHeartPhase) {
-                // A heart caught while going back over the words: on to the
-                // next of them, whose letters are on the board already
-                if (event === 'heart' && replaying()) {
-                    goToWord(board.behind() - 1, 0, false);
-                    board.persistTo(state);
-                    paint();
-                    page.save();
-                    return;
-                }
-
                 if (event === 'heart') {
                     state.currentIndex++;
                     state.savedSnake = null;
@@ -5818,10 +5592,7 @@ function snake(container) {
                 // Redrawn before it is narrated — same reason as above.
                 refreshGathered();
 
-                // Going back over the words, the word done is not the session's
-                // own, and was answered already -- see goToWord
-                const live = !replaying();
-                const lastOfSession = live && state.currentIndex >= pool.length - 1;
+                const lastOfSession = state.currentIndex >= pool.length - 1;
 
                 if (!lastOfSession) sayProgress();
 
@@ -5844,7 +5615,7 @@ function snake(container) {
                  */
                 const clean = !state.hadErrorThisRound;
 
-                if (clean && live) scoreRound(1);
+                if (clean) scoreRound(1);
 
                 /*
                  * And the dot says so now, with the last letter, rather than
@@ -5917,7 +5688,7 @@ function snake(container) {
         speech.onVoices(refreshGathered);
 
         view.banner(currentItem.word.translation, stageOf(currentItem));
-        if (fresh) deal();
+        if (fresh || (grown && !crowning)) deal();
         paint();
         board.persistTo(state);
 
@@ -5937,6 +5708,10 @@ function snake(container) {
         if (board.isFrozen() && board.crashPhase() === 1) {
             afterCrash(board.snapshot().losingHeartIdx >= 0 ? 'crashHeart' : 'crashRestart');
         }
+
+        // And the crown, where the first word a snake grew on into took the
+        // last free cell -- see `grown` above. At the end for the same reason.
+        if (crowning) crownSession();
 
         // Started once, here, and it runs until the screen goes.
         blinkEyes();
@@ -6032,14 +5807,14 @@ function snake(container) {
             // from the thing you steer at, and far enough from the body's blues
             // and violets to stay legible against every segment behind it.
             boardLetter: isDark ? t.progress : t.progressFill,
-            // A letter that came off the snake (see SHED_ON_SELF): blue, the
-            // owner's word, 2 November 2026 -- Snake's own blue, the tile's,
-            // the same on both themes like the head's coral
-            fallenLetter: '#4a90d9',
             // The empty heart after a line collected (see view.gathered): the
             // red of the heart on the board, the same on both themes
             heartToCatch: '#e5364b',
             head: t.accent,
+            // The two buttons at the end of a session -- back, and "Grow
+            // more": buttons to press, in the coral every such button is in
+            growBg: t.accent,
+            growInk: t.onAccent,
             /*
              * The body, along its length.
              *
@@ -6112,6 +5887,13 @@ function snake(container) {
         // second entry for the same record.
         recordAt: state.recordAt,
 
+        // What a snake grown on carries over from the sessions before -- see
+        // growMore and settle: the words played since the one that began it,
+        // and whether the star and the goblet are in the achievements already
+        played: state.played,
+        starWon: state.starWon,
+        gobletWon: state.gobletWon,
+
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,
         savedInputQueue: state.savedInputQueue,
@@ -6123,12 +5905,7 @@ function snake(container) {
         savedLosingHeartIdx: state.savedLosingHeartIdx,
         savedBlinkVisible: state.savedBlinkVisible,
         savedCrashPhase: state.crashPhase,
-        savedNewTail: state.c_new_tail,
-
-        // The words gone back over, and the hearts that came off -- see
-        // SHED_ON_SELF
-        savedBehind: state.savedBehind,
-        savedLooseHearts: state.savedLooseHearts
+        savedNewTail: state.c_new_tail
     });
 
     snake.setState = (snap) => {

@@ -63,25 +63,14 @@ function remote() {
     const BUILD_VERSION = '0.2.8';
 
     // Unbuilt -- served straight out of app/ while developing -- the
-    // placeholder is still there, and says so as "dev". Asked as a prefix
-    // rather than spelled out, or build.sh would replace the question too.
+    // placeholder is still there, and says so as "dev": the analytics of
+    // development are told from those of the site at tu3.me by it, which
+    // talks to the same test server. Asked as a prefix rather than spelled
+    // out, or build.sh would replace the question too. The version the
+    // settings show is another thing -- see CODE_STAMP in core/stamp.js.
     function version() {
         if (inExtension && chrome.runtime.getManifest) return chrome.runtime.getManifest().version;
         return BUILD_VERSION.startsWith('__') ? 'dev' : BUILD_VERSION;
-    }
-
-    /*
-     * When the code was last changed, for the foot of the settings (see
-     * buildLine in catalog.js): the moment of the last commit to it, as an
-     * ISO date with its offset, written in over the placeholder below by the
-     * build -- build.sh for the site, build-min.sh for the extension. The
-     * commit and not the build, because the same code built again later is
-     * no newer. Unbuilt there is none, and the answer is null.
-     */
-    const BUILD_CODE_DATE = '2026-11-02T18:57:34+05:00';
-
-    function codeDate() {
-        return BUILD_CODE_DATE.startsWith('__') ? null : (BUILD_CODE_DATE || null);
     }
 
     /*
@@ -264,6 +253,5 @@ function remote() {
     remote.grouped = grouped;
     remote.platform = platform;
     remote.version = version;
-    remote.codeDate = codeDate;
 }
 remote();

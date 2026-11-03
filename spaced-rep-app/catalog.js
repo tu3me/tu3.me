@@ -266,15 +266,24 @@ function catalog(container) {
                     stroke="#ffffff" stroke-width="${ring.eye - ring.pupil}" />`).join('');
     }
 
-    function logoSvg(fill, size) {
-        return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
+    // `bare`: the card alone, with no eyes -- the light that runs over the
+    // mark, see sheenHtml
+    function logoSvg(fill, size, bare) {
+        return `<svg${bare ? '' : ' class="dict-logo"'} width="${size}" height="${size}" viewBox="0 0 32 32"
             aria-hidden="true" style="display: block; flex-shrink: 0;">
             <g transform="rotate(-7 16 16)">
                 <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
-                <g class="dict-logo-eyes">${ringsSvg()}</g>
+                ${bare ? '' : `<g class="dict-logo-eyes">${ringsSvg()}</g>`}
             </g>
         </svg>`;
     }
+
+    // The name beside the mark, in two lines -- and the same again in the
+    // light that runs over it, see sheenHtml
+    const WORDMARK = `<span class="dict-wordmark" style="display: block; line-height: 1.06;">
+            <span class="dict-wordmark-top" style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
+            <span class="dict-wordmark-bottom" style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
+        </span>`;
 
     /*
      * The blink. It runs from the first render to the end of the page, and it
@@ -331,6 +340,62 @@ function catalog(container) {
     function paintRings() {
         const eyes = container.querySelector('.dict-logo-eyes');
         if (eyes) eyes.innerHTML = ringsSvg();
+    }
+
+    /*
+     * The app has just been updated: the mark and the name beside it shine,
+     * a band of light running across them twice -- the owner's call, 3
+     * November 2026. A copy of the two in gold lies over them, seen only
+     * through a band slid across it (`title-sheen` in app.css), so the light
+     * is on the card and the letters and not on the page between them.
+     *
+     * Updated is the stamp in the code -- the version, and when the code was
+     * last changed, see core/stamp.js -- against the one this device saw
+     * last. The time changes with every change, so every deploy shines, and
+     * every change while testing; the version alone stayed the same across
+     * deploys (the owner's call the same day). Kept in localStorage -- this
+     * device's own, and wanted before the first drawing -- and written at
+     * once, so that the next page with the same code does not shine. A
+     * device's first visit has nothing to compare and is not an update.
+     *
+     * Timed from the page and not from a drawing: the catalog is drawn again
+     * for many reasons -- a sync landing, a press -- and a sheen drawn again
+     * goes on from where it was, by a negative delay, rather than starting
+     * over. Not at all with reduced motion -- see app.css.
+     */
+    const SEEN_STAMP_KEY = 'seen-stamp';
+    const SHEEN_WAIT = 400;     // the page settling, before the first pass
+    const SHEEN_MS = 1600;      // a pass, with the pause after it
+    const SHEEN_PASSES = 2;
+    const SHEEN_INK = '#ffd65c';
+
+    // Not quite solid, so that the eyes still show through the light on the
+    // card -- the gold copy of it has none
+    const SHEEN_STRENGTH = 0.8;
+
+    const sheenFrom = (() => {
+        const stamp = CODE_STAMP.version + ' ' + CODE_STAMP.changed;
+
+        try {
+            const seen = localStorage.getItem(SEEN_STAMP_KEY);
+            localStorage.setItem(SEEN_STAMP_KEY, stamp);
+
+            return seen !== null && seen !== stamp ? performance.now() + SHEEN_WAIT : null;
+        } catch (e) {
+            return null;
+        }
+    })();
+
+    function sheenHtml() {
+        if (sheenFrom === null) return '';
+
+        const after = Math.round(sheenFrom - performance.now());
+        if (after + SHEEN_MS * SHEEN_PASSES <= 0) return '';
+
+        return `<span class="dict-title-sheen" aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; gap: 7.7px; color: ${SHEEN_INK}; opacity: ${SHEEN_STRENGTH}; pointer-events: none; mask-image: linear-gradient(105deg, transparent 40%, #000 50%, transparent 60%); mask-size: 300% 100%; mask-repeat: no-repeat; animation: title-sheen ${SHEEN_MS}ms ease-in-out ${after}ms ${SHEEN_PASSES} both;">
+                ${logoSvg('currentColor', LOGO_SIZE, true)}
+                ${WORDMARK}
+            </span>`;
     }
 
     // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
@@ -1912,12 +1977,10 @@ function catalog(container) {
          * which is a row of buttons sitting high in its own strip.
          */
         const header = $(container, `<div class="dict-header" style="position: sticky; top: 0; z-index: 6; margin: -6.8px -6.8px 0; padding: 6.8px; background: ${palette.pageBg}; box-shadow: 0 -2px 0 ${palette.pageBg}; display: flex; justify-content: space-between; align-items: center;">
-            <h1 class="dict-title" style="margin: 0; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
+            <h1 class="dict-title" style="position: relative; margin: 0; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
                 ${logoSvg(palette.logo, LOGO_SIZE)}
-                <span class="dict-wordmark" style="display: block; line-height: 1.06;">
-                    <span class="dict-wordmark-top" style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
-                    <span class="dict-wordmark-bottom" style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
-                </span>
+                ${WORDMARK}
+                ${sheenHtml()}
             </h1>
             <div class="dict-header-actions" style="display: flex; align-items: center; gap: 6.8px;">
                 ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="New card set">+ New set</button>` : ''}
@@ -1936,8 +1999,12 @@ function catalog(container) {
         if (addSetBtn) addSetBtn.addEventListener('click', toggleNewSet);
 
         // The mark is a picture and nothing else now: no press, no state. The
-        // one thing it does, it does on its own — see blinkLogo.
+        // one thing it does, it does on its own — see blinkLogo. And once
+        // after an update, it shines -- see sheenHtml.
         startBlinking();
+
+        const sheen = header.querySelector('.dict-title-sheen');
+        if (sheen) sheen.addEventListener('animationend', () => sheen.remove());
 
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press
@@ -3028,20 +3095,17 @@ function catalog(container) {
 
     /*
      * The foot of the settings, at the bottom of Advanced in small type: the
-     * version, and when its code was last changed (see remote.codeDate) --
-     * the owner's call, 2 November 2026. In the device's own time, written
-     * year first, which reads the same whatever language the device is in.
-     * Without a build there is no date, and the version is "dev".
+     * version, and when its code was last changed -- the stamp in the code,
+     * see core/stamp.js -- the owner's call, 2 November 2026. The same
+     * wherever the code runs, built or not. In the device's own time,
+     * written year first, which reads the same whatever language the device
+     * is in.
      */
     function buildLine() {
-        const at = remote.codeDate() ? new Date(remote.codeDate()) : null;
+        const at = new Date(CODE_STAMP.changed);
         const pad = (n) => String(n).padStart(2, '0');
 
-        const when = at && !isNaN(at)
-            ? ` · updated ${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`
-            : '';
-
-        return `Version ${remote.version()}${when}`;
+        return `Version ${CODE_STAMP.version} · updated ${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
     }
 
     function renderSettings(parent, rising) {
