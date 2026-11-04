@@ -57,8 +57,7 @@
  * list, between the cards of the sets, and has to be the same card they are —
  * see catalog.setTheme, which owns that palette.
  *
- * Catalog only. The marks on the dots card are drawn from the sprite in
- * index.html, and nothing on a game page builds one of these.
+ * Catalog only: nothing on a game page builds one of these.
  */
 function onboarding() {
     /*
@@ -113,7 +112,7 @@ function onboarding() {
      * settings.onboardingAt: the card the reader was last left looking at.
      *
      * Written down because closing the popup is not an answer to anything. A
-     * strip of six cards is read a few at a time -- the popup is shut by a
+     * strip of cards is read a few at a time -- the popup is shut by a
      * click anywhere else on the screen, and a game page is a navigation away
      * and back -- and a booklet that falls open at page one every time is one
      * nobody gets to the end of.
@@ -177,8 +176,7 @@ function onboarding() {
 
     // Has anything, anywhere, ever been answered. Asked of the words rather than
     // kept as a flag, so it answers itself: the first repetition ever recorded
-    // opens the cards that are about colours and dots, and clearing the data
-    // closes them again.
+    // opens the card about colours, and clearing the data closes it again.
     function answered() {
         return store.sets().some(set =>
             (set.words || []).some(w => w.repetitions && w.repetitions.length > 0));
@@ -208,16 +206,13 @@ function onboarding() {
 
     const note = (html) => `<span style="font-size: 11.3px; font-weight: 600; line-height: 1.3; color: ${look.body};">${html}</span>`;
 
-    // A row of the little legends: something to look at, then what it is.
-    const row = (mark, html, top, extra) => `<div style="display: flex; align-items: center; gap: 10.2px; margin-top: ${top}px; ${extra || ''}">${mark}${note(html)}</div>`;
-
     /*
      * A bubble standing in for the ones on the cards below, at the size they are
      * drawn there. The whole job of the colours card is recognising the thing
      * outside it, and a swatch shrunk to fit a sentence is a swatch that has to
      * be matched up rather than simply seen.
      */
-    const chip = (fill, ink, extra, inner) => `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px 8.5px; font-size: 13.3px; font-weight: 800; line-height: 1.15; ${extra || ''}">word${inner || ''}</span>`;
+    const chip = (fill, ink, extra) => `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px 8.5px; font-size: 13.3px; font-weight: 800; line-height: 1.15; ${extra || ''}">word</span>`;
 
     /*
      * Drawn rather than typed. The arrow in a font is set on its own
@@ -399,7 +394,7 @@ function onboarding() {
      * Sixty in front of all of it, which is less than a blink: it is not a
      * pause, it is the first thing not being already there when the card is.
      */
-    const AFTER = (i, step) => `animation: onb-mark 220ms ease-out ${Math.round(60 + i * (step || 90))}ms both;`;
+    const AFTER = (i) => `animation: onb-mark 220ms ease-out ${60 + i * 90}ms both;`;
 
     /*
      * Every mark drawn by hand on a card -- the arrows and the word under the
@@ -502,17 +497,17 @@ function onboarding() {
      *
      * `moment` is when the card has something to say that is on the screen:
      * two of them are always true — what the app is, and what it promises —
-     * and the three in between wait for the thing they are about.
+     * and the two in between wait for the thing they are about.
      *
      * `only` is the other question, and the width card is the one that has to
      * ask it: the moment can come on a device that has no corner at all. A card
      * can be ahead of its moment and still be worth reading; a card about
      * something that is not on the device is not.
      *
-     * The three that read a bubble stand together -- what its colour says, what
-     * it says besides colour, what the dots under the word are -- and the
-     * window's corner comes after them. It used to stand in the middle of the
-     * three, which put a card about the app between two cards about a word.
+     * What a bubble says besides its colour, and what the dots under the word
+     * are, had a card each until 4 November 2026: the menu behind the eye on a
+     * set's card names them now, the marks drawn beside their names, and it is
+     * there when the reader wants to know (the owner's call).
      */
     const CARDS = [
         {
@@ -544,197 +539,6 @@ function onboarding() {
                 // a picture butted up against a line of type reads as part of it.
                 return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 3.4px; margin-top: 6.8px;">${ladder.join('')}</div>
                     <div style="display: flex; justify-content: space-between; margin-top: 5.1px; ${AFTER(ladder.length)}">${note('new')}${note('learned')}</div>`;
-            }
-        },
-        {
-            /*
-             * What used to stand under the rule on the colours card.
-             *
-             * That rule was the admission that the card held two things: above
-             * it the ladder, which is one picture read left to right, and below
-             * it three rows that are a legend and are read one at a time. A line
-             * drawn between them says they do not belong together; two cards say
-             * it and cost nothing, since paging is what the strip is for.
-             *
-             * The three are in the order a word lives them: dropped, then
-             * counting down, then asking. The mistake is not a rung of the
-             * ladder -- every colour on that card is somewhere a word climbed
-             * to, and this is the one it was dropped to -- and the other two are
-             * not about colour at all, which is why a legend of colours alone
-             * explained the quiet half of the screen and none of the part that
-             * waves.
-             *
-             * The two that are about movement wear the same colour, so that what
-             * is different about a row is the only thing that row is about, and
-             * the colour they wear is stage 2 -- a word answered rightly once,
-             * which is the lowest rung either of them can happen on. A timer is
-             * only ever on a word that has been answered, and the floor it
-             * would hop on below that is the grey the first row is already
-             * showing. A colour from the middle of the ladder stood here before
-             * and was a word further up the climb than the row needed, picked
-             * for no reason the picture could give.
-             */
-            /*
-             * No title. Three rows that each say what they are is a card that
-             * has already named itself, and a heading over them would be a
-             * fourth line saying it a fourth time.
-             */
-            id: 'signs',
-            moment: answered,
-            body: () => {
-                const stage = ramp();
-
-                /*
-                 * The badge a bubble wears while it waits, copied off the shelf
-                 * down to the four pixels it hangs over the corner by. Two hours
-                 * because it has to say something, and a round number reads as
-                 * an example rather than as whatever this particular word
-                 * happens to be waiting.
-                 */
-                const timer = `<span style="position: absolute; bottom: -5px; right: -4px; background: ${look.timerFill}; color: ${look.onTimer}; font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px; border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); white-space: nowrap; letter-spacing: -0.2px;">2h</span>`;
-
-                // The hop uses the same keyframes and the same duration the
-                // bubbles do, because a demonstration at a tempo of its own is a
-                // demonstration of something else.
-                /*
-                 * The stagger is on the rows and not on what is in them, which
-                 * is what leaves the hopping chip its own animation: one element
-                 * carrying two would have to declare both in one place, and the
-                 * two have nothing to do with each other.
-                 *
-                 * A longer step than the ladder's, because these are three
-                 * sentences and not seven pieces of one picture.
-                 */
-                return `${row(chip(look.damaged, look.failInk), 'a mistake — three steps back', 0, AFTER(0, 150))}
-                    ${row(chip(stage[2].fill, stage[2].ink, 'position: relative;', timer), 'a timer — repeat it later', 10.2, AFTER(1, 150))}
-                    ${row(chip(stage[2].fill, stage[2].ink, `animation: bounce ${look.bounce}ms ease-in-out infinite;`), 'a hop — ready to repeat', 10.2, AFTER(2, 150))}`;
-            }
-        },
-        {
-            /*
-             * A bubble off the shelf with every kind of mark on it at once, and
-             * the four names under it with their own marks in front of them.
-             *
-             * It was four rows of legend before -- a mark, then what it means,
-             * four times over -- which is a table of the parts with no picture
-             * of the thing they are parts of. What a reader has in front of them
-             * is a word with a row of dots under it, so that is what is drawn.
-             *
-             * The names are joined to the dots by repeating the dot rather than
-             * by drawing a line to each: four lines from four marks nine pixels
-             * apart to four words spread across the card travel as one bundle,
-             * however they are bent, and what they cost in height they did not
-             * earn in clarity. One arrow saying "and these are them" does that
-             * job, and the mark printed in front of each name does the matching.
-             *
-             * That one arrow hooks round the left of the bubble rather than
-             * dropping out of the bottom of it, which is what lets the names sit
-             * almost against the bubble: a stroke that travels sideways asks for
-             * no height at all, and the card is shorter by the corridor the old
-             * one needed.
-             *
-             * It starts level with the dots and clear of the first one by
-             * about the gap between two of them -- closer in, the stroke reads
-             * as touching the row rather than as coming off it -- and ends level
-             * with the names, pointing at the first of them:
-             * both ends stand at the height of the thing they are about, so the
-             * stroke reads as carrying one row down to the other. Between them
-             * it goes the long way round, outside the bubble's left edge, where
-             * there is nothing to cross.
-             *
-             * The arc is carried out as far as the text's own left edge, which
-             * is not about the shape of it: that is the room the last stretch
-             * needs to come in level and straight rather than still turning when
-             * it arrives. Further out than that is the margin the paging press
-             * owns, and a stroke in there would be a stroke somebody is about to
-             * click.
-             *
-             * The air between the head and the first mark is made at the other
-             * end instead -- the row of names is indented by the page's own
-             * 27.3 -- because the arrow cannot give any of it: shortened, it
-             * arrives still turning; moved left, it is in the margin.
-             *
-             * The far end hangs below the drawing's own box, which is what
-             * `overflow: visible` is there for: the names are a row of their own
-             * under the svg, and the stroke has to reach into it. It reaches
-             * into the empty few pixels to the left of the first mark, so it
-             * lands beside the row rather than on it.
-             *
-             * The box is ten units shorter than the drawing wants, and that is
-             * what sets the air between the bubble and the names: the row is in
-             * ordinary flow under the svg, so the svg's height is the only
-             * thing holding it down. At 70 the gap was eighteen pixels of
-             * nothing in the middle of a card that has three things on it and
-             * is the tallest in the strip; at 60 it is eight, and the card is
-             * ten shorter for it. The arrow lost the same ten and no more: both
-             * of its ends are still level with the row they belong to, which is
-             * the whole of what it is doing.
-             *
-             * It is drawn in the accent, which is also what lets it start where
-             * it does: coral on white is a line, while the ink this card writes
-             * in is white in the dark theme and would not be there at all. The
-             * accent is the app's colour for the thing to look at, and of
-             * everything on this card the dots are that thing.
-             *
-             * One word per mark, too. "A repetition that was missed" is the true
-             * name and it is four times the width of the thing it names; next to
-             * the mark itself, "missed" is as much as needs saying.
-             *
-             * The marks come from the sprite in index.html, which is where the
-             * shelf gets them, so these are the same dots and not a drawing of
-             * them. White under them in both places, bubble and legend: the
-             * marks are drawn in a near-black to be read on a pale bubble, and
-             * white is the one ground that gives all four -- the dark, the red,
-             * the small one and the ring -- their full contrast in either theme.
-             *
-             * The size is the legend's own, and larger than the shelf draws them
-             * at now -- see MARK_ICONS in catalog.js, where they were taken down
-             * a pixel because a bubble can hold a dozen of them. Here there are
-             * four, each alone in a white square with its name beside it, and
-             * nothing is competing for the room. What a reader has to do with
-             * them is tell them apart, which is a job for the ring, and the ring
-             * is the first thing to go when a mark is made smaller.
-             *
-             * The two words in the bubble stand upright while the rest of the
-             * card leans. Everything else here is the app talking; those two are
-             * a card of the reader's own, quoted, and a quotation set in the
-             * voice of the page around it is not a quotation.
-             */
-            id: 'dots',
-            moment: answered,
-            title: 'Every review leaves a dot',
-            body: () => {
-                const stage = ramp()[8];
-
-                const marks = [
-                    { id: 'mark-dot-dark', size: 5, at: 43.5, name: 'right' },
-                    { id: 'mark-dot-red', size: 5, at: 52.5, name: 'wrong' },
-                    { id: 'mark-dot-dark', size: 3, at: 61.5, name: 'missed' },
-                    { id: 'mark-ring-dark', size: 5, at: 70.5, name: 'early' }
-                ];
-
-                const dot = (m) => `<use href="#${m.id}" x="${m.at - m.size / 2}" y="${29 - m.size / 2}"
-                    width="${m.size}" height="${m.size}" />`;
-
-                const named = (m) => `<span style="display: inline-flex; align-items: center; gap: 5.1px;">
-                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 14.5px; height: 14.5px; flex: none; background: #ffffff; border-radius: 4.3px;">
-                            <svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>
-                        </span>
-                        <span style="font-size: 9.7px; font-weight: 600; color: ${look.body};">${m.name}</span>
-                    </span>`;
-
-                return `<div style="position: relative;">
-                        <svg width="110" height="60" viewBox="0 0 110 60" aria-hidden="true" style="display: block; overflow: visible;">
-                            <rect x="14" y="0" width="86" height="52" rx="12" fill="#ffffff" />
-                            <text x="57" y="19" text-anchor="middle" font-size="13.3" font-weight="800" font-style="normal" fill="${stage.ink}">hola</text>
-                            ${marks.map(dot).join('')}
-                            <text x="57" y="46" text-anchor="middle" font-size="13.3" font-weight="600" font-style="normal" fill="${stage.sub}">hello</text>
-                            <path ${DRAW(460, 360)} d="M30 29C-8 36.2 -2 67.3 14 67.3" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" />
-                            <path ${DRAW(190, 810)} d="M7.6 64 14 67.3 7.6 70.6" fill="none" stroke="${look.accent}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <div style="position: absolute; left: 112px; top: 1px; width: 170px;">${text('Each card tracks how your brain remembers the word.')}</div>
-                        <div style="display: flex; align-items: center; gap: 10.2px; margin-left: 27.3px;">${marks.map(named).join('')}</div>
-                    </div>`;
             }
         },
         {
@@ -830,16 +634,43 @@ function onboarding() {
      * margin, where nothing is written, and the drawing sits in the middle of
      * that. A target thirteen pixels tall is a target to aim at, and nobody
      * reading a card wants to aim at anything.
-     *
-     * No counter and no row of pips either. The cards below carry dots that mean
-     * something, one of these cards is about those dots, and a second meaning
-     * for a dot on the same screen is a meaning lost.
      */
     const step = (back, off) => (off ? '' : `<button class="onb-step" data-back="${back ? 1 : 0}" data-press="${back ? 'back' : 'next'}"
         title="${back ? 'Previous' : 'Next'}" aria-label="${back ? 'Previous card' : 'Next card'}"
         style="position: absolute; ${back ? 'left' : 'right'}: 4.3px; top: 0; bottom: 0; display: inline-flex;
         align-items: center; justify-content: center; width: 20.5px; padding: 0; background: transparent;
         border: none; color: ${look.softColor}; opacity: 0.75; cursor: pointer;">${STEP(back)}</button>`);
+
+    /*
+     * How many cards there are and which one this is: a dot for each across the
+     * top of the card, the owner's call, 4 November 2026. As many as this device
+     * shows -- see here -- and the one standing here in the ink, the rest faint.
+     *
+     * Out of the flow, in the air the card keeps above its heading. Not pressable:
+     * the arrows are what turns a card, and a target this small would only be
+     * something to miss.
+     *
+     * That air is 18.8 where the card keeps 13.7 under its text, the owner's call.
+     * In the 13.7 the dots stood right on top of the heading: a card a few pixels
+     * taller is the price of their having some room under them as well as over.
+     *
+     * There were none for a while on purpose, because one of these cards was
+     * about the dots under a word, and a second meaning for a dot on the same
+     * screen was a meaning lost. That card is gone.
+     *
+     * Their top is level with the top of the cross in the other corner, so that
+     * the two stand the same distance from the edge -- the owner's call. The ink
+     * of the cross starts 9.25 down: 3.4 to its box, 5.25 to the drawing in the
+     * middle of it, and 0.6 to the end of its stroke. One less here, because this
+     * is measured inside the card's border and that from outside it.
+     */
+    const PIP = 4.4;
+    const PIP_TOP = 8.25;
+    const PIP_ROOM = 18.8;
+
+    const pips = (count, here) => `<div class="onb-pips" role="img" aria-label="Card ${here + 1} of ${count}" style="position: absolute; top: ${PIP_TOP}px; left: 0; right: 0; display: flex; justify-content: center; gap: 4.3px; pointer-events: none;">
+            ${Array.from({ length: count }, (_, i) => `<span style="display: block; width: ${PIP}px; height: ${PIP}px; border-radius: 50%; background: ${look.softColor}; opacity: ${i === here ? 1 : 0.3};"></span>`).join('')}
+        </div>`;
 
     /*
      * The press that sends the strip away, on every card.
@@ -967,7 +798,8 @@ function onboarding() {
          * apart from the page it is written on. The strip's colour says the same
          * thing at arm's length; this says it in the sentence.
          */
-        strip.innerHTML = `<div class="onb-card" style="position: relative; font-style: italic; background: ${look.cardBg}; border: 1px solid ${look.cardBorder}; border-radius: 15.4px; padding: 13.7px 27.3px;">
+        strip.innerHTML = `<div class="onb-card" style="position: relative; font-style: italic; background: ${look.cardBg}; border: 1px solid ${look.cardBorder}; border-radius: 15.4px; padding: ${PIP_ROOM}px 27.3px 13.7px;">
+                ${pips(cards.length, place)}
                 ${card.title ? `<div class="onb-head" style="display: flex; align-items: center; gap: 8.5px; margin-bottom: 8.5px;">
                     ${SIGN()}
                     <span style="font-size: 13.3px; font-weight: 700; line-height: 1.2; color: ${look.heading};">${heading(card)}</span>
@@ -1065,7 +897,7 @@ function onboarding() {
      *
      * The card the reader was left on, if that card is still unread: it is the
      * page they had open, and nothing it has to say has been said yet. This is
-     * the whole of what the memory is for -- six cards are not read in one
+     * the whole of what the memory is for -- the cards are not read in one
      * sitting, and a booklet that falls open at page one every time is one
      * nobody finishes.
      *

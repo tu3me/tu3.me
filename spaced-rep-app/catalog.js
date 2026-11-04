@@ -144,6 +144,10 @@ function catalog(container) {
     // has no business surviving a reload.
     let settingsOpen = false;
 
+    // The set whose view menu is open, as the text of its id. Screen state like
+    // the panel above -- see viewMenu.
+    let viewFor = null;
+
     // Whether the answer to the question mark is folded out. Panel state like
     // the panel itself, and it outlives a redraw: switching the setting while
     // reading about it should not put the reading away.
@@ -1178,10 +1182,14 @@ function catalog(container) {
 
     // The language comes in rather than off the word: a bubble is tapped to hear
     // it, and what it is in is the set's answer now -- see store.label.
-    function buildBubbleData(word, lang) {
+    //
+    // So does the set's view (store.viewOf), and what it leaves of the bubble
+    // goes into the data rather than being asked for at the drawing: the data
+    // is what says a bubble needs drawing again -- see redrawBubbles.
+    function buildBubbleData(word, lang, view) {
         const progress = spacedRepetitions.getWordProgress(word);
         const colors = getStageColors(progress.stage);
-        const timer = getCompactTimerText(progress.nextRepetition);
+        const timer = view.srs ? getCompactTimerText(progress.nextRepetition) : null;
 
         return {
             word: word.original,
@@ -1189,10 +1197,13 @@ function catalog(container) {
             bgColor: progress.stage === 1 ? DAMAGED_FILL : colors.fill,
             textColor: progress.lastFailed ? FAIL_INK : colors.ink,
             transColor: progress.lastFailed ? FAIL_INK : colors.sub,
-            marks: progress.marks,
+            marks: view.srs ? progress.marks.filter(mark => view[MARK_ICONS[mark].shownBy]) : [],
             stage: progress.stage, // TEMP (debug): stage number shown in the bubble
             sad: progress.lastFailed,
             timer,
+            bouncing: view.srs && view.bounce,
+            wordSize: view.original ? view.originalSize : null,
+            transSize: view.translation ? view.translationSize : null,
             lang: lang
         };
     }
@@ -1227,18 +1238,18 @@ function catalog(container) {
      * its own edges, and where those edges land was being decided by the layout
      * -- see marksSvg.
      *
-     * The legend in onboarding.js draws the same four marks from the same sprite
-     * at the size they used to be here, and that is deliberate -- see the dots
-     * card there.
+     * `shownBy`: the switch of the set's view that keeps a mark on the bubble --
+     * see store.viewOf. A late answer goes with the regular ones because it
+     * looks like them: what makes it late is the small dots in front of it.
      */
     const MARK_ICONS = {
-        OK: { id: 'mark-dot-dark', size: 4 },
-        FAIL: { id: 'mark-dot-red', size: 4 },
-        LATE_OK: { id: 'mark-dot-dark', size: 4 },
-        LATE_FAIL: { id: 'mark-dot-red', size: 4 },
-        MISSED: { id: 'mark-dot-dark', size: 2 },
-        EARLY_OK: { id: 'mark-ring-dark', size: 4 },
-        EARLY_FAIL: { id: 'mark-ring-red', size: 4 }
+        OK: { id: 'mark-dot-dark', size: 4, shownBy: 'regular' },
+        FAIL: { id: 'mark-dot-red', size: 4, shownBy: 'regular' },
+        LATE_OK: { id: 'mark-dot-dark', size: 4, shownBy: 'regular' },
+        LATE_FAIL: { id: 'mark-dot-red', size: 4, shownBy: 'regular' },
+        MISSED: { id: 'mark-dot-dark', size: 2, shownBy: 'missed' },
+        EARLY_OK: { id: 'mark-ring-dark', size: 4, shownBy: 'early' },
+        EARLY_FAIL: { id: 'mark-ring-red', size: 4, shownBy: 'early' }
     };
 
     // The air between two marks, and the line they stand on: the tallest mark
@@ -1434,9 +1445,11 @@ function catalog(container) {
      * own timer was running would be contradicting it. Motion here means one
      * thing or it means nothing, and the screen is quieter for having only the
      * words that want something on it moving.
+     *
+     * `bouncing` is the set's own say in it -- see store.viewOf.
      */
-    function bubbleMotion(stage, timer, sad, order) {
-        if (stage === 0 || timer) return '';
+    function bubbleMotion(stage, timer, sad, order, bouncing) {
+        if (!bouncing || stage === 0 || timer) return '';
 
         const period = sad ? SAD_BOUNCE_MS : BOUNCE_MS;
 
@@ -1451,12 +1464,6 @@ function catalog(container) {
      * here, and standing in the heading of the dialog that turns a game away
      * while everything is still ripening -- see confirmEarly. Where it goes is
      * the caller's business and arrives as `extra`; what it looks like is not.
-     *
-     * A third copy of it is drawn in onboarding.js, on the card that names the
-     * three things a bubble does. That one is written out by hand and has to
-     * stay that way: the strip is handed its colours rather than reading them
-     * -- see setLook -- so this function is of no use over there. Two copies in
-     * two files is the price of that, and the onboarding card says as much.
      */
     const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px;'
         + ' border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18);'
@@ -1464,8 +1471,16 @@ function catalog(container) {
 
     const timerBadge = (text, extra) => `<span class="bubble-timer-badge" style="${TIMER_BADGE} background: ${palette.timerFill}; color: ${palette.onTimer}; ${extra || ''}">${text}</span>`;
 
+    /*
+     * A bubble with no word on it at all, which the set's view allows: with
+     * everything switched off the set is a row of small coloured pills. Still
+     * something to press -- a tap says the word whatever is shown of it -- and
+     * still something that can hop.
+     */
+    const BARE_BUBBLE = 'min-width: 24px; min-height: 17px;';
+
     function createBubble(bubbleData, parent, order) {
-        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, wordSize, transSize } = bubbleData;
 
         // The repetition timeline: one mark per repetition or elapsed interval,
         // drawn as a single picture -- see marksSvg.
@@ -1477,13 +1492,23 @@ function catalog(container) {
         // Optional timer badge in bottom-right corner
         const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -5px; right: -4px; z-index: 3;') : '';
 
-        const bubbleHtml = `
-            <div class="word-bubble-card" data-press style="${bubbleMotion(stage, timer, sad, order || 0)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; min-width: 41px; max-width: 100%;">
-                <span class="bubble-word-text" style="font-weight: 800; font-size: 13.3px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>
-                <div class="bubble-dots-group" style="font-size: 6px; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; line-height: 1;">
+        const wordHtml = wordSize ? `<span class="bubble-word-text" style="font-weight: 800; font-size: ${wordSize}px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>` : '';
+        const transHtml = transSize ? `<span class="bubble-trans-text" style="font-size: ${transSize}px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>` : '';
+
+        // Empty, the row of marks is still the air between the word and its
+        // translation. With one of those gone it is air on one side of the
+        // other, which would stand off-centre in the bubble.
+        const dotsRow = dotsHtml || (wordHtml && transHtml)
+            ? `<div class="bubble-dots-group" style="font-size: 6px; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; line-height: 1;">
                     ${dotsHtml}
-                </div>
-                <span class="bubble-trans-text" style="font-size: 13.3px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>
+                </div>`
+            : '';
+
+        const bubbleHtml = `
+            <div class="word-bubble-card" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
+                ${wordHtml}
+                ${dotsRow}
+                ${transHtml}
                 ${timerHtml}
             </div>
         `;
@@ -1543,19 +1568,30 @@ function catalog(container) {
 
         container.querySelectorAll('.set-card[data-set-id]').forEach(card => {
             const set = store.sets().find(s => String(s.id) === card.dataset.setId);
-            const row = card.querySelector('.set-words-bubbles');
-            if (!set || !row) return;
+            if (set) redrawBubbles(card, set);
+        });
+    }
 
-            const bubbles = row.querySelectorAll('.word-bubble-card');
-            if (bubbles.length !== set.words.length) return;
+    // `now`: for somebody watching this very card, for whom the next tick is
+    // half a minute too late -- the bubble being said is drawn again with the
+    // rest, and goes on being said. See viewMenu.
+    function redrawBubbles(card, set, now) {
+        const row = card.querySelector('.set-words-bubbles');
+        if (!row) return;
 
-            set.words.forEach((w, order) => {
-                const old = bubbles[order];
-                const data = buildBubbleData(w, set.originalLang);
-                if (old === swollen || looks.get(old) === JSON.stringify(data)) return;
+        const bubbles = row.querySelectorAll('.word-bubble-card');
+        if (bubbles.length !== set.words.length) return;
 
-                old.replaceWith(createBubble(data, document.createElement('div'), order));
-            });
+        const view = store.viewOf(set);
+
+        set.words.forEach((w, order) => {
+            const old = bubbles[order];
+            const data = buildBubbleData(w, set.originalLang, view);
+            if ((old === swollen && !now) || looks.get(old) === JSON.stringify(data)) return;
+
+            if (old === swollen) swollen = null;
+
+            old.replaceWith(createBubble(data, document.createElement('div'), order));
         });
     }
 
@@ -1902,6 +1938,9 @@ function catalog(container) {
 
         page.scrollTop = pageTop;
         document.body.scrollTop = bodyTop;
+
+        // Hung during the draw, from a button that had not got its scroll back
+        if (viewWatch) viewWatch.moved();
     }
 
     /*
@@ -2182,6 +2221,8 @@ function catalog(container) {
         // panel — and it only rises into place when this pass is the one that
         // opened it.
         if (settingsOpen) renderSettings(container, unfold === 'settings');
+
+        if (viewFor !== null) viewMenu(false);
 
         // The redraw emptied the container, and the hand was inside it. Put back
         // here rather than at the one entry the page calls, so that it comes back
@@ -2672,6 +2713,236 @@ function catalog(container) {
             settingsOpen = false;
             render();
         }, RISE_OUT);
+    }
+
+    /*
+     * How a set is shown: the eye beside the pencil on its card, and a menu
+     * hung under it the way the settings hang under the gear -- the owner's
+     * call, 4 November 2026. What the switches do is store.viewOf's business;
+     * this is only how they are reached.
+     *
+     * No wash under it, which is where it parts from the settings. This menu is
+     * used by watching the bubbles change, and dimming them would dim the thing
+     * being judged. The layer is still there, clear, to catch the press that
+     * means "enough".
+     *
+     * A press writes the view and brings the set's bubbles up to it where they
+     * stand (redrawBubbles), rather than drawing the catalog again: a draw would
+     * throw the menu away and every bubble's hop with it, on every press of a
+     * plus. It stays on this device and nothing is sent -- see store.viewOf.
+     *
+     * Written down through the classes of its controls, see docs/ANALYTICS.md.
+     * The checkbox is what is counted and not its label, which a press on the
+     * label would count a second time: it passes the press on to the checkbox.
+     * What the press left the switch at goes as `view`: the press alone says it
+     * was pressed, the way `sound` does for the sound.
+     */
+    const VIEW_SIZE_STEP = 1;
+    const VIEW_SIZE_LEAST = 8.3;
+    const VIEW_SIZE_MOST = 24.3;
+
+    // The marks each switch answers for, on a white plate of their own: the dark
+    // ones are drawn for a bubble's pastel, and on the dark theme's panel they
+    // would not be seen at all. A size up from a bubble's, too, where they are too
+    // small to read as anything in a menu. The small dot stays half the rest, which
+    // is the whole of what it says.
+    const MARK_SAMPLES = {
+        missed: [{ id: 'mark-dot-dark', size: 3 }, { id: 'mark-dot-dark', size: 3 }],
+        regular: [{ id: 'mark-dot-dark', size: 5 }, { id: 'mark-dot-red', size: 5 }],
+        early: [{ id: 'mark-ring-dark', size: 5 }, { id: 'mark-ring-red', size: 5 }]
+    };
+
+    function viewMenuHtml(view) {
+        const check = (key, label, after) => `<div class="set-view-row" style="display: flex; align-items: center; gap: 6.8px; min-height: 27.3px;">
+                <input class="set-view-check" id="set-view-${key}" type="checkbox" data-press="${key}" ${view[key] ? 'checked' : ''} style="flex: none; width: 15px; height: 15px; margin: 0; accent-color: ${palette.accent}; cursor: pointer;">
+                <label for="set-view-${key}" data-untracked style="flex: 1; min-width: 0; font-size: 12.8px; font-weight: 600; line-height: 1.2; color: ${palette.dialogText}; cursor: pointer;">${label}</label>
+                ${after || ''}
+            </div>`;
+
+        const sizeBtn = (cls, side, step, title, path) => `<button class="${cls}" data-press="${side}" data-side="${side}" data-step="${step}" title="${title}" aria-label="${title}" style="display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px; padding: 0; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 7px; cursor: pointer;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="${path}"></path></svg>
+            </button>`;
+
+        const sizes = (side) => `<span style="display: flex; gap: 3.4px; flex: none;">
+                ${sizeBtn('set-view-smaller', side, -1, 'Smaller text', 'M5 12H19')}
+                ${sizeBtn('set-view-bigger', side, 1, 'Larger text', 'M12 5V19M5 12H19')}
+            </span>`;
+
+        const sample = (key) => `<span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; gap: 2.6px; flex: none; width: 23px; height: 14.5px; background: #ffffff; border-radius: 4.3px; box-shadow: 0 0 0 0.5px ${palette.softBorder};">
+                ${MARK_SAMPLES[key].map(m => `<svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>`).join('')}
+            </span>`;
+
+        return `${check('original', 'Original', sizes('original'))}
+            ${check('translation', 'Translation', sizes('translation'))}
+            ${check('srs', 'Spaced repetition system')}
+            <div class="set-view-children" style="padding-left: 21.8px;">
+                ${check('missed', 'Missed repetitions', sample('missed'))}
+                ${check('regular', 'Regular repetitions', sample('regular'))}
+                ${check('early', 'Early repetitions', sample('early'))}
+                ${check('bounce', '<span class="set-view-hop" style="display: inline-block;">Bounce</span> when ready to repeat')}
+            </div>`;
+    }
+
+    /*
+     * Under the button, right edges together, as hangUnder does for the settings
+     * -- and lifted to stay on the screen where it does for a panel by letting
+     * it scroll inside itself. The settings hang from the top of the page and
+     * have the height of the window; this hangs from a card that can be anywhere
+     * in the list, and with no scrollbars drawn (see app.css) switches scrolled
+     * out of a menu this short would simply be gone.
+     */
+    function hangViewMenu(panel, anchor) {
+        hangUnder(panel, anchor);
+        panel.style.maxHeight = '';
+
+        const room = document.documentElement.clientHeight / appScale();
+        const top = Math.max(SCREEN_EDGE, Math.min(parseFloat(panel.style.top), room - panel.offsetHeight - SCREEN_EDGE));
+        const a = appRect(anchor);
+
+        panel.style.top = `${top}px`;
+        panel.style.maxHeight = `${room - top - SCREEN_EDGE}px`;
+        panel.style.transformOrigin = `${a.left + a.width / 2 - parseFloat(panel.style.left)}px ${a.top + a.height / 2 - top}px`;
+    }
+
+    // Escape, a window that changed size and a list that moved under the menu:
+    // the button it hangs from goes with the list, see watchWhileOpen.
+    let viewWatch = null;
+
+    function stopViewWatch() {
+        if (!viewWatch) return;
+
+        document.removeEventListener('keydown', viewWatch.key);
+        window.removeEventListener('resize', viewWatch.moved);
+        window.removeEventListener('scroll', viewWatch.moved, true);
+        viewWatch = null;
+    }
+
+    /*
+     * The menu of the set in `viewFor`. Drawn from there, so that a draw of the
+     * catalog under it brings it back -- a sync landing, say, with another copy
+     * of this very set -- and gone with the set if the set is.
+     */
+    function viewMenu(rising) {
+        stopViewWatch();
+
+        const set = store.sets().find(s => String(s.id) === viewFor);
+        const card = set && container.querySelector(`.set-card[data-set-id="${viewFor}"]`);
+        const anchor = card && card.querySelector('.set-view-btn');
+
+        if (!anchor) {
+            viewFor = null;
+            return;
+        }
+
+        anchor.style.background = palette.softBg;
+
+        // The set's id on the panel, for the analytics to read as they do off a
+        // card: the panel is not inside one.
+        const overlay = $(container, `<div class="set-view-overlay" style="position: fixed; inset: 0; z-index: 100;">
+            <div class="set-view-panel" data-set-id="${set.id}" style="position: absolute; box-sizing: border-box; width: 244px; background: ${palette.dialogBg}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 6.8px 10.2px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+                ${viewMenuHtml(store.viewOf(set))}
+            </div>
+        </div>`);
+
+        const panel = overlay.querySelector('.set-view-panel');
+
+        const place = () => hangViewMenu(panel, anchor);
+
+        // What the state of the set leaves of the menu itself: the switches under
+        // the system go with it, and a plus or a minus with nothing to act on, or
+        // nowhere left to go, cannot be pressed.
+        const settle = () => {
+            const view = store.viewOf(set);
+
+            panel.querySelector('.set-view-children').hidden = !view.srs;
+
+            // The word in the switch's name hops while the bubbles do, at their
+            // tempo: switched off, nothing on the card moves and neither does it.
+            panel.querySelector('.set-view-hop').style.animation = view.bounce
+                ? `bounce-word ${BOUNCE_MS}ms ease-in-out infinite`
+                : 'none';
+
+            panel.querySelectorAll('[data-side]').forEach(btn => {
+                const size = view[`${btn.dataset.side}Size`] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
+
+                btn.disabled = !view[btn.dataset.side] || size < VIEW_SIZE_LEAST || size > VIEW_SIZE_MOST;
+                btn.style.opacity = btn.disabled ? '0.35' : '';
+                btn.style.cursor = btn.disabled ? 'default' : 'pointer';
+            });
+
+            place();
+        };
+
+        const change = (changes) => {
+            store.setView(set, changes);
+            Object.entries(changes).forEach(([what, value]) => track('view', set.id, what, Number(value)));
+
+            redrawBubbles(card, set, true);
+            settle();
+        };
+
+        panel.querySelectorAll('.set-view-check').forEach(box => {
+            box.addEventListener('change', () => change({ [box.dataset.press]: box.checked }));
+        });
+
+        panel.querySelectorAll('[data-side]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = `${btn.dataset.side}Size`;
+                const size = store.viewOf(set)[key] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
+
+                change({ [key]: Number(size.toFixed(1)) });
+            });
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeViewMenu();
+        });
+
+        viewWatch = {
+            key: (e) => { if (e.key === 'Escape') closeViewMenu(); },
+            moved: place
+        };
+
+        document.addEventListener('keydown', viewWatch.key);
+        window.addEventListener('resize', viewWatch.moved);
+        window.addEventListener('scroll', viewWatch.moved, true);
+
+        settle();
+
+        if (!rising) return;
+
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        pin(panel);
+
+        panel.style.transition = `transform ${RISE_IN}ms ease-out, opacity ${RISE_IN}ms ease-out`;
+        panel.style.transform = '';
+        panel.style.opacity = '';
+
+        setTimeout(() => { panel.style.transition = ''; }, RISE_IN + 40);
+    }
+
+    // Folds it back into the eye. The catalog is not drawn again, having nothing
+    // to take back: only the eye's own background says the menu was open.
+    function closeViewMenu() {
+        const overlay = container.querySelector('.set-view-overlay');
+        const anchor = container.querySelector(`.set-card[data-set-id="${viewFor}"] .set-view-btn`);
+
+        stopViewWatch();
+        viewFor = null;
+
+        if (anchor) anchor.style.background = 'transparent';
+        if (!overlay) return;
+
+        const panel = overlay.querySelector('.set-view-panel');
+
+        overlay.style.pointerEvents = 'none';
+        panel.style.transition = `transform ${RISE_OUT}ms ease-in, opacity ${RISE_OUT}ms ease-in`;
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        setTimeout(() => overlay.remove(), RISE_OUT);
     }
 
     /*
@@ -3611,8 +3882,15 @@ function catalog(container) {
      * baseline, is the same mark everywhere. Rounded by its stroke rather than
      * by its path: a polygon stroked in its own colour with a round join rounds
      * where it turns, and one set of three points draws both.
+     *
+     * Under the word and not after it, since 4 November 2026, as the owner
+     * asked: after it the two came to the whole width of the tile's fifth. Taken
+     * out of the flow, so that it stands in the air under the row and the card
+     * does not grow for a mark that is there half the time; that air is the
+     * card's own padding, which is what it is taking up. The face it is in does
+     * not clip for the same reason -- see tileBtn.
      */
-    const CONTINUE = `Continue<svg viewBox="0 0 12 12" width="0.82em" height="0.82em" aria-hidden="true" style="display: inline-block; margin-left: 0.3em;"><path d="M2.4 1.8 10.2 6 2.4 10.2z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>`;
+    const CONTINUE = `Continue<svg viewBox="0 0 12 12" width="0.82em" height="0.82em" aria-hidden="true" style="position: absolute; left: 50%; top: 100%; transform: translateX(-50%);"><path d="M2.4 1.8 10.2 6 2.4 10.2z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>`;
 
     /*
      * The tile's side, its corner and the drawing in it -- 57.6, 19.2 and 32
@@ -3732,10 +4010,16 @@ function catalog(container) {
      * part of what is pressed, and a name that only looks pressable is a strip
      * of dead pixels across the middle of a row of targets.
      *
-     * The name is cut with an ellipsis rather than wrapped. Two lines under one
-     * tile and one under the next would leave the row with tiles at two
-     * different heights -- and a name long enough to need two lines is a name
-     * nobody reads to the end anyway.
+     * The name is never wrapped. Two lines under one tile and one under the
+     * next would leave the row with tiles at two different heights.
+     *
+     * It has the row's whole pitch to stand in -- its fifth and the gap after
+     * it, half the gap reaching out on either side -- so two names side by
+     * side can at most touch. And a name wider than that is set a size down
+     * until it fits (see fitNames), rather than cut: "Word search" came to
+     * 61 against a fifth of 57.4 and read "Word sea..." (the owner, 3
+     * November 2026). The ellipsis is left for a name that does not fit at
+     * any size worth reading.
      *
      * An unfinished tile's name takes turns with "Continue" -- see CONTINUE --
      * and the tile itself stays as it is.
@@ -3819,7 +4103,8 @@ function catalog(container) {
      * that loses a game closes up instead of spreading out.
      *
      * The names under them are a size down from what they were, 10.8 against
-     * 11.3, for the same fifth: "Continue" and its mark come to 56.6 at that
+     * 11.3, for the same fifth: "Continue" with its mark after it, as it then
+     * stood, came to 56.6 at that
      * size, and a fifth of the row is 57.4.
      */
     const ROW_PLACES = 5;
@@ -3832,6 +4117,11 @@ function catalog(container) {
      * above the name, and is drawn to: the row has no other guard against two
      * faces meeting, or a ribbon over a "Continue". See snake/icon.js.
      */
+    const NAME_SIZE = 10.8;
+
+    // Not below this: a smaller name is cut instead
+    const NAME_LEAST = 8.5;
+
     function tileBtn(cls, face, label, attrs, resuming) {
         const swap = resuming ? ' set-tile-swap' : '';
 
@@ -3839,11 +4129,48 @@ function catalog(container) {
 
         return `<button class="${cls}" ${attrs} style="flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
-            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; max-width: 100%; font-size: 10.8px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: max-content; max-width: calc(100% + ${ROW_GAP}px); font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
                 <span class="set-tile-face" style="grid-area: 1 / 1; ${CUT}">${label}</span>
-                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; ${CUT}">${CONTINUE}</span>` : ''}
+                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; max-width: 100%; white-space: nowrap;">${CONTINUE}</span>` : ''}
             </span>
         </button>`;
+    }
+
+    // The names under the tiles of a row brought down, each by as much as it
+    // is too wide for its room -- see tileBtn. Asked of the page as it is laid
+    // out, since the room is the app's width and the width is the font's.
+    //
+    // A pixel to spare, because both widths come rounded to whole pixels: a
+    // name brought down to exactly its room overran it by a fraction, and
+    // was cut by its last letter all the same.
+    /*
+     * The air kept around the bubbles inside the box that folds them away. A
+     * fold clips what it folds, and a bubble does not stay inside its own edges:
+     * the timer hangs five pixels over its corner, and the hop and the swell take
+     * it further still.
+     *
+     * Taken back from what stands beside the box: by a margin at the sides, and
+     * above and below out of the spaces to the bar and to the tiles. Not by a
+     * margin there as well, which it was at first: a box folded to nothing still
+     * has its margin, and the tiles it had drawn up six pixels dropped back the
+     * moment it was hidden -- a jolt at the end of every fold, and at the start
+     * of every unfolding (reported by the owner, 4 November 2026).
+     *
+     * The tiles' share is padding and not a margin, for the same jolt the other
+     * way: with the box hidden the bar's margin and theirs would stand next to
+     * each other and collapse into the larger one, where the box folded to
+     * nothing still keeps them apart.
+     */
+    const BUBBLE_ROOM = 6;
+
+    function fitNames(row) {
+        row.querySelectorAll('.set-tile-face').forEach(name => {
+            const room = name.clientWidth;
+            const need = name.scrollWidth;
+            if (!room || need <= room) return;
+
+            name.style.fontSize = `${Math.max(NAME_LEAST, Math.floor(NAME_SIZE * room / (need + 1) * 10) / 10)}px`;
+        });
     }
 
     function renderSetCard(parent, set, intro) {
@@ -4279,10 +4606,23 @@ function catalog(container) {
             const totalWords = set.words.length;
             const progress = spacedRepetitions.calculateSetProgress(set.words);
 
-            // Every card has the same one button: the words in it are yours,
+            const view = store.viewOf(set);
+
+            // Every card has the same buttons: the words in it are yours,
             // whether you typed them or the first screen wrote them for you.
+            //
+            // The last folds the bubbles away and brings them back, and the rest
+            // of the card stays: the name, the bar and the games are what a set
+            // is played from. Kept with the set's view -- see store.viewOf. The
+            // owner's call, 4 November 2026.
             const buttons = `<button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>
+                        <button class="set-view-btn" title="View options" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: ${viewFor === String(set.id) ? palette.softBg : 'transparent'}; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button class="set-collapse-btn" title="${view.collapsed ? 'Expand' : 'Collapse'}" aria-label="${view.collapsed ? 'Expand' : 'Collapse'}" aria-expanded="${!view.collapsed}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <span class="set-collapse-chevron" style="display: block; line-height: 0; transform: rotate(${view.collapsed ? 0 : 90}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                         </button>`;
 
             // Which of the tiles on this card is the one that was left open.
@@ -4356,24 +4696,28 @@ function catalog(container) {
                 <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
                         <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
-                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: ${progress === 0 ? 'none' : 'inline-block'};">${progress}%</span>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: inline-block;">${totalWords}${progress === 0 ? '' : ` · ${progress}%`}</span>
                     </div>
-                    <div class="set-btn-group" style="display: flex; align-items: center; gap: 6.8px;">
+                    <div class="set-btn-group" style="display: flex; align-items: center; gap: 1.7px; flex: none;">
                         ${buttons}
                     </div>
                 </div>
 
-                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_SIZE}px; margin-bottom: 12px;">
+                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_SIZE}px; margin-bottom: ${BUBBLE_ROOM}px;">
                     ${Array.from({ length: SEGMENTS }, (_, i) => `<div style="flex: 1; display: flex; justify-content: center;"><div class="set-progress-step"
                         style="${stepStyle(grows ? waiting : stepLook(i))}"></div></div>`).join('')}
                 </div>
 
-                <div class="set-words-bubbles" style="-padding-top: 6.8px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
+                <div class="set-words-fold" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM}px;"${view.collapsed ? ' hidden' : ''}>
+                    <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
+                </div>
 
-                <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; margin-top: 15.4px;">
+                <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM}px;">
                     ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${g.pitch}"`, unfinished(g))).join('')}
                 </div>
             `);
+
+            fitNames(card.querySelector('.set-actions-group'));
 
             // Render bubbles into the container
             const bubblesContainer = card.querySelector('.set-words-bubbles');
@@ -4381,7 +4725,7 @@ function catalog(container) {
                 $(bubblesContainer, `<p class="set-empty-msg" style="margin: 3.4px 0; color: #94a3b8; font-size: 13.3px; font-style: italic;">Set is empty</p>`);
             } else {
                 set.words.forEach((w, order) => {
-                    const bubbleData = buildBubbleData(w, set.originalLang);
+                    const bubbleData = buildBubbleData(w, set.originalLang, view);
                     createBubble(bubbleData, bubblesContainer, order);
                 });
             }
@@ -4478,6 +4822,28 @@ function catalog(container) {
                 });
             });
 
+            const collapse = card.querySelector('.set-collapse-btn');
+
+            collapse.addEventListener('click', () => {
+                const collapsed = !store.viewOf(set).collapsed;
+                const name = collapsed ? 'Expand' : 'Collapse';
+
+                store.setView(set, { collapsed });
+                track('view', set.id, 'collapsed', Number(collapsed));
+
+                collapse.title = name;
+                collapse.setAttribute('aria-label', name);
+                collapse.setAttribute('aria-expanded', !collapsed);
+                collapse.querySelector('.set-collapse-chevron').style.transform = `rotate(${collapsed ? 0 : 90}deg)`;
+
+                foldOut(card.querySelector('.set-words-fold'), !collapsed);
+            });
+
+            card.querySelector('.set-view-btn').addEventListener('click', () => {
+                viewFor = String(set.id);
+                viewMenu(true);
+            });
+
             card.querySelector('.set-edit-btn').addEventListener('click', () => {
                 editing.add(set.id);
                 rememberForm(set.id, setAsText(set));
@@ -4528,24 +4894,83 @@ function catalog(container) {
     }
 
     /*
-     * Where a star leads: the store for four and five, a form of ours for one,
-     * two and three.
+     * The foot of the list, where the app asks for something back. In the
+     * extension it starts as five stars; everywhere else, and in the extension
+     * once a star has been pressed, it is a quiet link that opens a box to write
+     * in.
      *
+     * Four and five stars lead to the store, one to three straight to the box.
      * The two kinds of reader do not turn up in the same numbers. Somebody the
      * app suits has no reason to go anywhere and say so; somebody it has failed
      * has every reason, and a listing left to itself fills with the second kind
      * until that is what the app looks like from outside. The stars are the ask
-     * the first kind never gets, and the form is somewhere for the second to be
-     * answered instead of filed under a rating nobody can reply to.
+     * the first kind never gets, and the box is somewhere for the second to say
+     * what went wrong instead of filing it under a rating.
      *
-     * Nothing is sent from here, down either road. A star is a link: pressing
-     * one opens a page, and whatever is written there is written by hand on
-     * somebody else's site. This app cannot tell that a star was ever pressed,
-     * which is what the store listing says about every other part of it.
+     * The stars are asked once on a device, whichever one was pressed: the owner's
+     * call, 4 November 2026, when the box replaced a Google form. Either answer
+     * has been given by then, and the box stays for whatever comes up later.
+     *
+     * Both keys are in localStorage, for the reason catalog-place is: the store
+     * opening closes the popup with no warning, and the answer has to be down
+     * before the press is over. A write to settings starts by reading them, and
+     * would be a promise still in flight as the page goes.
      */
     const STORE_REVIEWS = 'https://chromewebstore.google.com/detail/spaced-repetition-app/lpklkkakejhmfbckgonadkbcdpdfohfj/reviews';
 
-    const FEEDBACK_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdMptJ_BiatwliYh3gywHBYcuviZH3s8M-QZZdK4CP9caojVA/viewform';
+    const RATED_KEY = 'rated';
+    const FEEDBACK_DRAFT_KEY = 'feedback-draft';
+
+    // The server keeps 2000 characters of an event (see events.php), and the
+    // name and the stars are part of those. Past that the end of what somebody
+    // wrote would be cut off, with nothing to say it had been.
+    const FEEDBACK_MAX = 1900;
+
+    // The question at the foot of the list, on the link and in the box. The other
+    // one answers a press of one to three stars and is seen only right after it:
+    // anywhere else nobody has said anything yet for it to be thanks for. The
+    // owner's call, 4 November 2026.
+    const ASK_WISHES = 'What else would you like to see in this app?';
+    const ASK_AFTER_LOW_STARS = 'Your feedback is appreciated';
+
+    // The question of the box this page has opened, by the link or by a star, and
+    // null while it has not. On purpose not written down: the owner's call is that
+    // the next opening of the popup starts from the link again, unless there are
+    // words waiting to be sent.
+    let feedbackOpen = null;
+
+    const kept = (key) => {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const keep = (key, value) => {
+        try {
+            if (value) localStorage.setItem(key, value);
+            else localStorage.removeItem(key);
+        } catch (e) {
+            // Storage switched off: this much lasts as long as the page does.
+        }
+    };
+
+    function rateUs(parent) {
+        const stars = kept(RATED_KEY);
+
+        if (remote.platform() === 'e' && !stars) {
+            rateStars(parent);
+            return;
+        }
+
+        // Nothing where nothing can be sent: a device without storage never starts
+        // a visit, and a box that swallows what is written is worse than no box.
+        if (!remote.enabled()) return;
+
+        if (feedbackOpen || kept(FEEDBACK_DRAFT_KEY)) feedbackBox(parent);
+        else feedbackLink(parent);
+    }
 
     /*
      * The stars themselves, and the one build that gets them.
@@ -4555,40 +4980,179 @@ function catalog(container) {
      * opened from disk -- may never have installed one: for them the stars lead
      * to a page that has nothing to do with what they are looking at.
      *
-     * Asked as "is this the extension", which is the opposite of how the rest of
-     * the app asks it. base.js asks "is this the web" on purpose, so that a
-     * folder opened by double-clicking still works; here the extension is
-     * genuinely the one case meant, and a folder on disk is one of the two that
-     * are not.
-     *
      * The stars run backwards in the markup -- five first -- and the row is
      * turned round again in the CSS, because lighting them up to the cursor
      * means lighting the ones to its left and CSS can only reach siblings that
      * follow. See .dict-rate-star in app.css.
      */
-    function rateUs(parent) {
-        if (location.protocol !== 'chrome-extension:') return;
-
+    function rateStars(parent) {
         // Drawn filled rather than outlined: at 17px an outlined star is four
         // hairlines around a hole, and what it reads as is a smudge.
         const star = `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" style="display: block; fill: currentColor;">
             <path d="M12 2.4 14.16 9.03 21.13 9.03 15.49 13.13 17.64 19.77 12 15.67 6.36 19.77 8.51 13.13 2.87 9.03 9.84 9.03Z" />
         </svg>`;
 
-        // The number goes on the press for the analytics: five links with one
+        // The number goes on the press for the analytics: five stars with one
         // class were five presses nobody could tell apart, and how many stars
-        // somebody gave -- and so whether they were sent to the store or to the
-        // form -- is the whole of what the press says.
-        const starLink = (stars) => `<a class="dict-rate-star" data-press="${stars}" href="${stars > 3 ? STORE_REVIEWS : FEEDBACK_FORM}" target="_blank" rel="noopener noreferrer" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5" style="display: block;">${star}</a>`;
+        // somebody gave is the whole of what the press says.
+        //
+        // A link where a star goes somewhere, and a button where it does not.
+        const starPress = (stars) => {
+            const said = `class="dict-rate-star" data-press="${stars}" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5"`;
+
+            return stars > 3
+                ? `<a ${said} href="${STORE_REVIEWS}" target="_blank" rel="noopener noreferrer" style="display: block;">${star}</a>`
+                : `<button ${said} style="display: block; padding: 0; background: none; border: none; cursor: pointer;">${star}</button>`;
+        };
 
         // Air above it and no rule across the page. A line there is read as the
         // end of the list -- it is the only full-width line on the screen -- and
         // what stands under it is two words and five stars, which is not a second
         // half of anything.
-        $(parent, `<div class="dict-rate" style="--star-idle: ${palette.softBorder}; display: flex; align-items: center; justify-content: center; gap: 8.5px; margin: 20.4px 0 15.3px;">
+        const row = $(parent, `<div class="dict-rate" style="--star-idle: ${palette.softBorder}; display: flex; align-items: center; justify-content: center; gap: 8.5px; margin: 20.4px 0 15.3px;">
             <span style="font-size: 12.8px; font-weight: 600; color: ${palette.hint};">Rate us</span>
-            <div style="display: flex; flex-direction: row-reverse; gap: 2.6px;">${[5, 4, 3, 2, 1].map(starLink).join('')}</div>
+            <div style="display: flex; flex-direction: row-reverse; gap: 2.6px;">${[5, 4, 3, 2, 1].map(starPress).join('')}</div>
         </div>`);
+
+        row.addEventListener('click', (e) => {
+            const pressed = e.target.closest('.dict-rate-star');
+            if (!pressed) return;
+
+            const stars = Number(pressed.dataset.press);
+            keep(RATED_KEY, String(stars));
+
+            // On the next turn, so that a link has done what a link does before
+            // it stops being on the page.
+            setTimeout(() => {
+                if (!remote.enabled()) {
+                    row.remove();
+                    return;
+                }
+
+                const low = stars < 4;
+                const text = openFeedback(row, parent, low ? ASK_AFTER_LOW_STARS : ASK_WISHES);
+
+                // Three or fewer came here to write. Five has gone to the store.
+                if (low) text.focus();
+            });
+        });
+    }
+
+    /*
+     * The question as one line of text, the owner's call, 4 November 2026: an
+     * empty box on every opening asks for more of this screen than a question
+     * somebody may never want to answer has a right to. A button under the look of
+     * a link, because it goes nowhere. In the colour of "Rate us" and fainter than
+     * that, by the owner's eye: the screen is for studying, and this is the last
+     * thing on it that should ask to be read. Opacity rather than a colour of its
+     * own, so that the two themes stay in step and the dashes fade with the text.
+     */
+    function feedbackLink(parent) {
+        const spot = $(parent, `<div class="dict-rate" style="margin: 20.4px 0 15.3px; text-align: center;">
+            <button class="dict-feedback-open" style="padding: 0; background: none; border: none; color: ${palette.hint}; opacity: 0.65; font-family: inherit; font-size: 12.8px; font-weight: 600; text-decoration: underline dashed; text-underline-offset: 3px; cursor: pointer;">${ASK_WISHES}</button>
+        </div>`);
+
+        spot.querySelector('.dict-feedback-open').addEventListener('click', () => {
+            openFeedback(spot, parent, ASK_WISHES).focus();
+        });
+
+        return spot;
+    }
+
+    // Whatever stands at the foot of the list gives way to the box. Answers with
+    // the field, which the caller decides whether to put the caret in.
+    function openFeedback(spot, parent, question) {
+        feedbackOpen = question;
+
+        const box = feedbackBox(parent);
+        spot.replaceWith(box);
+
+        return box.querySelector('.dict-feedback-text');
+    }
+
+    /*
+     * The box. What is written goes out as an event of the visit, which is what
+     * ties it to the device, and travels the way every event does: kept until the
+     * server has it, whatever happens to the network or the popup. See `feedback`
+     * in ANALYTICS.md, and track.said for why this is the one event with somebody's
+     * words in it.
+     *
+     * At rest the field is exactly as tall as the button beside it, the owner's
+     * call, and it grows with what is written: see .dict-feedback-text in app.css.
+     * Both heights are stated, because the button's own comes from the line height
+     * of whichever font this machine falls back on, and would part from the field's
+     * by a pixel somewhere.
+     *
+     * The direction follows what is written, because nobody knows in advance what
+     * language that is: without dir="auto" Arabic or Hebrew shows the right letters
+     * pressed against the wrong side of the field.
+     *
+     * Once something has been sent and thanked for it folds back into the link,
+     * the owner's call: that is the question answered. Not if somebody has begun
+     * on the next thing in the meantime, whose words would go with it.
+     *
+     * What is being written is kept as it is typed. A press anywhere outside the
+     * popup closes it, a redraw of the catalog empties this column, and neither
+     * should cost somebody their sentence -- the same promise an open form of a
+     * set makes.
+     */
+    function feedbackBox(parent) {
+        const prompt = feedbackOpen || ASK_WISHES;
+        const HEIGHT = 27.7;
+        const LINE = 16.5;
+
+        const box = $(parent, `<div class="dict-rate" style="display: flex; align-items: flex-end; gap: 6.8px; margin: 20.4px 0 15.3px;">
+            <textarea class="dict-feedback-text" rows="1" dir="auto" maxlength="${FEEDBACK_MAX}" placeholder="${prompt}" aria-label="${prompt}" style="flex: 1; min-width: 0; box-sizing: border-box; min-height: ${HEIGHT}px; max-height: 120px; padding: ${(HEIGHT - LINE - 2) / 2}px 6.8px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; line-height: ${LINE}px; outline: none;"></textarea>
+            <button class="dict-feedback-send" style="flex: none; box-sizing: border-box; height: ${HEIGHT}px; padding: 0 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px;">Send</button>
+        </div>`);
+
+        const text = box.querySelector('.dict-feedback-text');
+        const send = box.querySelector('.dict-feedback-send');
+
+        let thanking = 0;
+
+        const settle = () => {
+            send.disabled = !text.value.trim();
+            send.style.opacity = send.disabled ? 0.4 : 1;
+            send.style.cursor = send.disabled ? 'default' : 'pointer';
+        };
+
+        text.value = kept(FEEDBACK_DRAFT_KEY) || '';
+        settle();
+
+        text.addEventListener('input', () => {
+            // Spaces alone are no words to come back for.
+            keep(FEEDBACK_DRAFT_KEY, text.value.trim() ? text.value : '');
+            settle();
+        });
+
+        send.addEventListener('click', () => {
+            const words = text.value.trim();
+            if (!words) return;
+
+            track.said('feedback', [kept(RATED_KEY) || ''], words);
+
+            text.value = '';
+            keep(FEEDBACK_DRAFT_KEY, '');
+            settle();
+
+            // Closed already, so that a redraw in the next few seconds draws the
+            // link and not a box that nothing would ever fold.
+            feedbackOpen = null;
+
+            // In the field, where the words just were and where the eye still is.
+            text.placeholder = 'Thank you!';
+
+            clearTimeout(thanking);
+            thanking = setTimeout(() => {
+                if (!box.isConnected) return;
+
+                if (text.value.trim()) text.placeholder = ASK_WISHES;
+                else box.replaceWith(feedbackLink(parent));
+            }, 3000);
+        });
+
+        return box;
     }
 
     catalog.render = () => {
@@ -4763,7 +5327,6 @@ function catalog(container) {
             body: t.ink,
             softBorder: onbEdge,
             softColor: t.ink,
-            accent: palette.accent,
 
             /*
              * Mint, which is this app's colour for what went well, and the
@@ -4789,12 +5352,7 @@ function catalog(container) {
              */
             ok: isDark ? t.ok : t.progressFill,
 
-            timerFill: palette.timerFill,
-            onTimer: palette.onTimer,
-            damaged: DAMAGED_FILL,
-            failInk: FAIL_INK,
-            ramp: stageRamp,
-            bounce: BOUNCE_MS
+            ramp: stageRamp
         });
     };
 

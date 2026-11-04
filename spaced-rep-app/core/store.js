@@ -63,6 +63,8 @@ function store() {
     async function load() {
         const savedSets = await storage.get('word_sets');
         if (savedSets && savedSets.length > 0) sets = savedSets;
+
+        views = (await storage.get('set_views')) || {};
     }
 
     function save() {
@@ -166,10 +168,15 @@ function store() {
      *
      * The catalog calls this to count what is due and never looks at the order;
      * a shuffle it throws away costs nothing on a list this size.
+     *
+     * In a set with the spaced repetition system switched off nothing waits for
+     * its turn, so every word of it is due -- see viewOf. That is also what
+     * keeps the catalog's "Nothing to repeat yet" from being asked about it.
      */
     function duePool(setId, allowEarly, limit) {
         const items = wordsOf(setId);
-        const due = items.filter(i => spacedRepetitions.isWordDue(i.word));
+        const unspaced = new Set(live().filter(s => !viewOf(s).srs).map(s => s.id));
+        const due = items.filter(i => unspaced.has(i.setId) || spacedRepetitions.isWordDue(i.word));
         const pool = shuffled((allowEarly && due.length === 0) ? items : due);
         return limit ? pool.slice(0, limit) : pool;
     }
@@ -226,6 +233,67 @@ function store() {
      */
     function touch(set) {
         if (set) set.changedAt = Date.now();
+    }
+
+    /*
+     * How a set is shown on this device: one set can be a course and the next
+     * a list to read through -- the owner's calls, 4 November 2026. The menu
+     * that writes it is the eye on the set's card in the catalog.
+     *
+     * Beside the sets and not on them, under a key of its own, because it does
+     * not travel: what reads well in a popup is not what reads well on a phone.
+     * `word_sets` goes to the server whole, so a field on a set goes everywhere
+     * the set does -- it was one for a day, and each device kept changing what
+     * the others had chosen. Not dated either, for the same reason: changing
+     * how a set looks is no change to the set, and the date is what would have
+     * sent it, over the answers another device has -- see touch.
+     *
+     * Read with the sets, by the catalog and by the games alike, since duePool
+     * needs it (see `srs`). Not in localStorage, which is for what has to be
+     * known before the first frame, and nothing here is drawn before the sets
+     * are read.
+     *
+     * Only what differs from the default is written, and what is not there reads
+     * as the default, so a set nobody has touched looks the way it always did --
+     * and the record is also what the analytics read, as it stands, for what is
+     * set on a device: see `views` in track.js, and docs/ANALYTICS.md. By id, and
+     * a set that goes keeps its entry: it may come back -- see restore.
+     *
+     * `srs` off takes the timers, the marks and the hop off the bubbles and
+     * makes every word of the set due (see duePool), and that is all it does.
+     * The answers go on being written exactly as they were, with their moment
+     * and result, and srs.js reads them by the same rules -- switched back on,
+     * the set is what it would have been had the switch never been touched. The
+     * marks and the hop keep their own switches meanwhile, for the same reason.
+     */
+    const VIEW_DEFAULTS = {
+        original: true,
+        originalSize: 13.3,
+        translation: true,
+        translationSize: 13.3,
+        srs: true,
+        missed: true,
+        regular: true,
+        early: true,
+        bounce: true,
+        collapsed: false
+    };
+
+    let views = {};
+
+    const viewOf = (set) => ({ ...VIEW_DEFAULTS, ...views[set.id] });
+
+    function setView(set, changes) {
+        const view = { ...views[set.id], ...changes };
+
+        Object.keys(view).forEach(key => {
+            if (view[key] === VIEW_DEFAULTS[key]) delete view[key];
+        });
+
+        if (Object.keys(view).length) views[set.id] = view;
+        else delete views[set.id];
+
+        return storage.set('set_views', views);
     }
 
     /*
@@ -332,7 +400,8 @@ function store() {
      * part is appended, nothing outside has to hear about it.
      *
      * A record with no mark answers with nothing: 0.1.2 wrote no game at all,
-     * and none could be invented for its answers afterwards -- see migrate.js.
+     * and an answer from before 0.2.4 keeps its game in a field nothing reads any
+     * more -- see migrate.js.
      */
     const gameOf = (rep) => String((rep && rep.run) || '').split(RUN_SEP)[0];
 
@@ -481,6 +550,8 @@ function store() {
     store.duePool = duePool;
     store.addSet = addSet;
     store.touch = touch;
+    store.viewOf = viewOf;
+    store.setView = setView;
     store.archive = archive;
     store.restore = restore;
     store.put = put;

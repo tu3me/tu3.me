@@ -301,9 +301,41 @@ function wordcraft(container) {
     const WON_TURN = 144;
     const WON_SHINE = 1900;
 
+    /*
+     * Keyboard: ←/→ move over the pieces still in play, ↑ takes the one pointed
+     * at, ↓ takes back the last one -- the owner's call, 4 November 2026. And ↑
+     * with the line full is Check, pointed at or not: at that point no piece is
+     * left to point at, and there is one thing to do. The same for Finish!, which
+     * is the only way out of a last word for somebody on the keyboard.
+     *
+     * Nothing is pointed at until a key asks, as in the quiz: → then lands on the
+     * first piece and ← on the last. Nothing on the screen says the keys exist,
+     * which is also the owner's call.
+     */
+    const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+    let keyHandler = null;
+
+    // One listener at a time: every word draws the screen and binds its own
+    function bindKeys(onKey) {
+        unbindKeys();
+        keyHandler = (e) => {
+            if (e.repeat || !KEYS.includes(e.code)) return;
+            e.preventDefault(); // arrows would scroll the popup otherwise
+            onKey(e.code);
+        };
+        window.addEventListener('keydown', keyHandler);
+    }
+
+    function unbindKeys() {
+        if (keyHandler) window.removeEventListener('keydown', keyHandler);
+        keyHandler = null;
+    }
+
     async function winStar() {
         store.achieve(state.selectedSetId, 'wordcraft', 'star', state.sessionResults.filter(r => r === 'correct').length);
         page.endSession();
+        unbindKeys();
 
         const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const small = container.querySelector('.wordcraft-star');
@@ -1398,6 +1430,50 @@ function wordcraft(container) {
                 tile.disabled = spent;
                 tile.style.cssText = pieceStyle(spent);
             });
+
+            settleCursor();
+        }
+
+        /*
+         * The piece the keyboard is pointing at, drawn as the quiz draws its
+         * cursor. A piece, because it is the pieces that stay on the screen: the
+         * buttons under them are drawn again with every move.
+         *
+         * Written over whatever refreshTray has just set, which takes the
+         * outline off with the rest of the style. A piece that has left play --
+         * it is the one just taken -- hands the cursor to the next one that has
+         * not, so that ↑ pressed again goes on building the word.
+         */
+        let cursor = null;
+
+        function pointAt(tile) {
+            if (cursor) cursor.style.outline = 'none';
+
+            cursor = tile;
+
+            if (tile) {
+                tile.style.outline = `2px solid ${palette.cursor}`;
+                tile.style.outlineOffset = '0';
+            }
+        }
+
+        function settleCursor() {
+            if (!cursor) return;
+            if (!cursor.disabled) return pointAt(cursor);
+
+            const at = tiles.indexOf(cursor);
+            const open = tiles.filter(tile => !tile.disabled);
+
+            pointAt(open.find(tile => tiles.indexOf(tile) > at) || open[0] || null);
+        }
+
+        function moveCursor(by) {
+            const open = tiles.filter(tile => !tile.disabled);
+            if (!open.length) return;
+
+            const at = open.indexOf(cursor);
+
+            pointAt(open[at < 0 ? (by > 0 ? 0 : open.length - 1) : (at + by + open.length) % open.length]);
         }
 
         /*
@@ -1543,6 +1619,29 @@ function wordcraft(container) {
         drawBar();
         refreshTray();
         drawActions();
+
+        // Through the buttons' own clicks, so that a key does exactly what the
+        // press does -- the analytics included. Undo points back at the piece it
+        // returned: taken back, that is where the player was.
+        bindKeys((code) => {
+            if (code === 'ArrowLeft' || code === 'ArrowRight') return moveCursor(code === 'ArrowRight' ? 1 : -1);
+
+            if (code === 'ArrowDown') {
+                const undo = actionsEl.querySelector('.wordcraft-undo:not([disabled])');
+                if (!undo) return;
+
+                const back = tiles[round.laid[round.laid.length - 1]];
+
+                undo.click();
+                pointAt(back);
+                return;
+            }
+
+            const action = actionsEl.querySelector('.wordcraft-check, .wordcraft-next');
+
+            if (action) action.click();
+            else if (cursor) cursor.click();
+        });
 
         // Drawn before the voices were known, so the speaker was drawn on
         // trust. One redraw when the list lands takes it back where this device

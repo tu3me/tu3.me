@@ -6,35 +6,30 @@
  * and said outright that it would flip on the day somebody did. A version went
  * out. What those readers typed and what they played has to arrive here whole.
  *
- * Two translations live here, both 0.2.3 → 0.2.4. One folds the three fields a
- * repetition carried about the run it belonged to — game, session, sessionSize
- * — into the one string store.js writes now. The other takes the two flags
- * 0.2.3 kept about what it had shown somebody — coloursRead, gripTried — and
- * reads them as what they have become: the read-marks of two of the onboarding
- * cards, which is what the hand that explained the colours and the corner that
- * blinked for attention turned into. See onboarding.js.
+ * Three translations live here, and all three start from 0.2.8 as the store has
+ * it. That is the build of 24 October 2026, the version almost every reader is
+ * on, and it is older than its number makes it look: this code has gone on being
+ * called 0.2.8 since, and the two changes below came after the upload. What tells
+ * them apart is FORMAT in sync.js, which is 1 in the store.
  *
- * Both of them from 0.2.3, because that is the published version and the one
- * every reader is on.
+ * One, on 27 October 2026, is a game's records on a set, from the best kept per
+ * measure to a log -- see foldRecords. A set in the old shape can also arrive
+ * from the server, written by a device not yet updated, so this one works a set
+ * at a time and sync.js calls it on what it is handed. The day that was written
+ * about in docs/BACKEND.md ("Формат") is this one.
  *
- * A third came on 27 October 2026, and it is the first that is not only about
- * the database on this device: a game's records on a set, from the best kept
- * per measure to a log -- see foldRecords. A set in the old shape can also
- * arrive from the server, written by a device not yet updated, so this one
- * works a set at a time and sync.js calls it on what it is handed. The day
- * that was written about in docs/BACKEND.md ("Формат") is this one.
+ * The others, on 28 October 2026, are a game's new name: cards became flashcards,
+ * in the marks on its answers and in the games pinned to a set (see renameGames),
+ * which goes the same way, a set at a time, and in a round left open (see
+ * renameRounds).
  *
- * A fourth, on 28 October 2026, is a game's new name: cards became flashcards,
- * in the marks on its answers, in the games pinned to a set and in a round left
- * open -- see renameGames. It goes the same way, a set at a time.
- *
- * Anything older than these has nowhere to arrive from, and anything newer was
- * only ever written here, by versions nobody was given. Three other
- * translations stood in this file and went with the databases they were for:
- * 0.1.2 → 0.2.0, which moved a language from the word to the set, split a set
- * per language and dropped the demo; and two about a Wordcraft round saved in a
- * shape the game no longer reads, from versions that never shipped — the
- * game does not exist in 0.2.3, so no reader has a round of any shape.
+ * Anything older has no translation, the owner's call, 4 November 2026: almost
+ * nobody is below 0.2.8, and whoever is simply starts without one. Two stood here
+ * until then, both 0.2.3 -> 0.2.4. Going without them costs that reader little:
+ * their answers keep game, session and sessionSize, which nothing reads, instead
+ * of a `run` mark, and coloursRead and gripTried stay unread in the settings, so
+ * the onboarding shows those two cards again. Nothing breaks on either, which is
+ * why no database is wiped for being old.
  *
  * Deleting them is the point rather than the risk. The file is written so that
  * each translation stands alone and can be taken out when the last database it
@@ -45,127 +40,11 @@
  * what is saved. Depends on storage alone: a game page has no catalog, and the
  * reader may well open one of those first — a popup reopens where it was left.
  *
- * Meant to be deleted whole, one day, when no 0.2.3 database can still be out
- * there. Nothing outside refers to anything in here but sync.js, to
+ * Meant to be deleted whole, one day, when no database in FORMAT 1 can still be
+ * out there. Nothing outside refers to anything in here but sync.js, to
  * migrate.set.
  */
 function migrate() {
-    /*
-     * One answer, with what it used to say about its run said in one field.
-     *
-     * The three parts keep their order and their meaning; all that goes is three
-     * key names on a record that is kept for good -- see store.js, where the
-     * mark is written and where the reason to bother lives.
-     *
-     * Positional, so an empty part has to stay empty rather than close the gap:
-     * an answer from before the games were named carries no game, and
-     * "|1791...|10" says "run known, game not" where "1791...|10" would say the
-     * game was called 1791...
-     *
-     * Trailing nothing is dropped, which is the common case rather than an edge
-     * one: every answer from before sessions were recorded has a game and no run
-     * at all, and "cards||" would be two separators standing for nothing. An
-     * answer with all three parts empty gets no mark -- absent reads as "not
-     * known", which is what it is.
-     */
-    function fold(rep) {
-        const part = (value) => (value === undefined || value === null ? '' : String(value));
-
-        const mark = [part(rep.game), part(rep.session), part(rep.sessionSize)]
-            .join('|').replace(/\|+$/, '');
-
-        const next = Object.assign({}, rep);
-
-        delete next.game;
-        delete next.session;
-        delete next.sessionSize;
-
-        if (mark) next.run = mark;
-
-        return next;
-    }
-
-    /*
-     * Every answer in the store, folded.
-     *
-     * The check is the data and not a version number, which would have had to be
-     * written by the version being checked for and was not: a record still
-     * carrying any of the three fields is a record from before. Self-clearing --
-     * after a run there is not one left, so the next run stops before it writes.
-     *
-     * Sessions are left alone. A saved pool holds its own copies of the words,
-     * and those copies go on carrying answers in the old shape until the round
-     * is over -- which costs nothing, because nothing reads the mark off a pool
-     * copy. The answers that are kept are the ones in word_sets, and a game
-     * writes into both. Throwing away a round in progress to tidy a field nobody
-     * will look at is a worse trade than leaving it.
-     */
-    async function foldRuns() {
-        const sets = await storage.get('word_sets');
-
-        if (!Array.isArray(sets) || sets.length === 0) return false;
-
-        const old = (rep) => 'game' in rep || 'session' in rep || 'sessionSize' in rep;
-        const answers = (word) => word.repetitions || [];
-        const words = (set) => set.words || [];
-
-        if (!sets.some(set => words(set).some(w => answers(w).some(old)))) return false;
-
-        sets.forEach(set => words(set).forEach(word => {
-            if (word.repetitions) word.repetitions = word.repetitions.map(fold);
-        }));
-
-        await storage.set('word_sets', sets);
-
-        return true;
-    }
-
-    /*
-     * What 0.2.3 had already explained to this reader, written where 0.2.4 looks
-     * for it.
-     *
-     * Those two flags are not junk to be swept up: each is the record of a
-     * lesson somebody has already been given, and the cards that give those two
-     * lessons now would otherwise both arrive as unread -- the app explaining
-     * the colours a second time to the one reader who asked for the explanation
-     * and got it.
-     *
-     * The ids are the cards' own, and they are the one thing here that this file
-     * cannot work out for itself: a card is identified by a string in
-     * onboarding.js, and renaming one of those two means passing through here.
-     * Which is the price of the arrangement and cheap at the price -- the
-     * alternative is onboarding.js reading a 0.2.3 flag for ever.
-     *
-     * The check is the keys, and nothing 0.2.4 writes puts either of them back,
-     * so the pass clears itself: after it there is no `coloursRead` to find.
-     * Deleted rather than left where they are, because a key nobody reads is a
-     * key somebody will read one day and believe.
-     *
-     * A reader who never read the explanation and never touched the corner has
-     * neither flag, and arrives here as somebody who has been shown nothing --
-     * which is what they are.
-     */
-    async function foldMarks() {
-        const settings = await storage.get('settings');
-
-        if (!settings) return false;
-        if (!('coloursRead' in settings) && !('gripTried' in settings)) return false;
-
-        const read = new Set(settings.onboardingRead || []);
-
-        if (settings.coloursRead) read.add('colours');
-        if (settings.gripTried) read.add('width');
-
-        delete settings.coloursRead;
-        delete settings.gripTried;
-
-        settings.onboardingRead = Array.from(read);
-
-        await storage.set('settings', settings);
-
-        return true;
-    }
-
     /*
      * A set's records, from the best kept per measure to the log the games
      * write since 27 October 2026 -- see store.achieve.
@@ -176,9 +55,11 @@ function migrate() {
      * called maxLength, the owner's name for it. Any other measure, which there
      * never was, keeps its own name rather than being dropped.
      *
-     * The check is the data, as above: a game whose records are an object and
-     * not a list is from before, and nothing writes that shape any more, so a
-     * set passes through here once. A record with nothing in it is left out --
+     * The check is the data and not a version number, which would have had to be
+     * written by the version being checked for and was not: a game whose records
+     * are an object and not a list is from before, and nothing writes that shape
+     * any more, so a set passes through here once. A record with nothing in it is
+     * left out --
      * absent reads as "none yet", which is what it is.
      *
      * One set at a time, because sets arrive one at a time as well as all at
@@ -316,22 +197,17 @@ function migrate() {
      *
      * Each is a function that answers that question and knows nothing about its
      * neighbours, so adding one is a line here and taking one out is a line
-     * here. They touch different keys or different parts of one -- the answers
-     * and the records of `word_sets`, `settings`, the round left open -- and
-     * kept in the order they were written in, because an arbitrary order that
-     * is also stable is one less thing to think about when another arrives.
-     *
-     * One order is not arbitrary: renameGames after foldRuns, which writes the
-     * marks it reads. A 0.2.3 answer comes out of foldRuns marked "cards".
+     * here. They touch different keys or different parts of one -- the records
+     * and the marks of `word_sets`, the round left open -- and kept in the order
+     * they were written in, because an arbitrary order that is also stable is one
+     * less thing to think about when another arrives.
      */
     async function run() {
-        const folded = await foldRuns();
-        const marked = await foldMarks();
         const recorded = await foldAllRecords();
         const renamed = await renameAllGames();
         const moved = await renameRounds();
 
-        return folded || marked || recorded || renamed || moved;
+        return recorded || renamed || moved;
     }
 
     migrate.run = run;

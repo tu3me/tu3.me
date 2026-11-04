@@ -619,6 +619,20 @@ body {
 }
 
 /*
+ * The same hop on the word "Bounce" in the set's view menu, which says what the
+ * switch does by doing it -- see viewMenu in catalog.js. Stretched further,
+ * because a stretch is a share of the height: what is two pixels on a bubble
+ * forty tall would be under one on a word fifteen tall, and not seen at all.
+ */
+@keyframes bounce-word {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.006 1.09; transform: skew(3deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.6deg; }
+    75% { scale: 1.006 1.15; transform: skew(-0.6deg, 0deg); }
+}
+
+/*
  * A timer plate breathing, in the dialog that turns a game away while every
  * word is still counting down -- see confirmEarly in catalog.js.
  *
@@ -632,9 +646,10 @@ body {
  * tilts: a pill two characters wide has no room to do either legibly.
  *
  * It also keeps the two apart in meaning, which matters more than the size
- * does. The hop is a word asking to be answered, and the onboarding says so in
- * those words. This plate is the opposite -- a word that cannot be answered
- * yet -- so it must not arrive wearing the motion the app has taught as "now".
+ * does. The hop is a word asking to be answered, and the menu behind a set's
+ * eye says as much by name. This plate is the opposite -- a word that cannot be
+ * answered yet -- so it must not arrive wearing the motion the app has taught as
+ * "now".
  *
  * An eighth bigger at the top, which on a plate this size is a few pixels: far
  * enough to be caught by the corner of an eye, near enough that nothing beside
@@ -698,7 +713,8 @@ body {
  * it: the banner says Victory in words.
  */
 @media (prefers-reduced-motion: reduce) {
-    .word-bubble-card {
+    .word-bubble-card,
+    .set-view-hop {
         animation: none !important;
     }
 
@@ -716,6 +732,27 @@ body {
 /* A placeholder cannot be styled from a style attribute, so this one rule lives
    here. Mid grey on purpose: readable on the white input of the light theme and
    on the near black one of the dark theme alike. */
-.set-edit-textarea::placeholder {
+.set-edit-textarea::placeholder,
+.dict-feedback-text::placeholder {
     color: #94a3b8;
+}
+
+/*
+ * The box at the foot of the list, one line tall until there is more to show --
+ * see feedbackBox in catalog.js.
+ *
+ * Left to the browser rather than measured. Measuring means setting the height
+ * back to auto first, which shortens the page for an instant, and this stands at
+ * the very bottom of it: the page would be scrolled back up a little on every key.
+ * Where the browser cannot do it the field stays one line, with a handle to drag.
+ */
+.dict-feedback-text {
+    field-sizing: content;
+    resize: none;
+}
+
+@supports not (field-sizing: content) {
+    .dict-feedback-text {
+        resize: vertical;
+    }
 }

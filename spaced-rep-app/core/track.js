@@ -30,7 +30,8 @@
  * What is written is the moment that meant something, not raw input: where a
  * scroll came to rest rather than every step of it, the width a drag ended
  * on rather than the drag. And never what anybody typed, nor the text of what
- * they pressed -- the bubbles on this screen are a person's own words.
+ * they pressed -- the bubbles on this screen are a person's own words. The one
+ * exception writes to us on purpose: see track.said.
  */
 function track(name, ...args) {
     track.record(name, args);
@@ -121,6 +122,17 @@ function analytics() {
     track.record = (name, parts) => record(line(name, parts));
 
     /*
+     * An event that ends in what somebody wrote to us, word for word: `feedback`
+     * and nothing else. Everywhere else what a person types stays out of here
+     * because they typed it for themselves; this they typed for whoever reads it,
+     * and the words are the event.
+     *
+     * Last, the one place free text may stand, and so left as it came: a | in it
+     * cannot become a part.
+     */
+    track.said = (name, parts, text) => record(line(name, parts) + SEP + text);
+
+    /*
      * An event that may come in a flood: the same error from the same place
      * on every tick of a game, the same missing voice on every tap. The first
      * is written; the ones after only raise the count in it, which sits right
@@ -166,10 +178,16 @@ function analytics() {
      * enough, without an IP address being looked at by anybody; `utc` is its
      * offset in minutes at the start of the visit, which is what "the next
      * day" means for the person rather than for the server.
+     *
+     * `views`, how the sets are shown on this device: it is kept here and goes
+     * nowhere else (see viewOf in store.js), so this is the only way of knowing
+     * what people have set. The record as it is, which holds only what differs
+     * from the default; nothing in it comes from what a person typed.
      */
     async function stateOf(settings) {
         const s = settings || (await storage.get('settings')) || {};
         const active = await storage.get('active_session');
+        const views = await storage.get('set_views');
 
         let width = null;
         try {
@@ -194,6 +212,7 @@ function analytics() {
             width: width,
             muted: !!s.muted,
             resume: (active && active.game) || null,
+            views: views && Object.keys(views).length ? views : null,
             nav: nav,
             ua: uaOf(),
             tz: tz,

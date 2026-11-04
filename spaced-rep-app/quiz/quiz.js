@@ -304,7 +304,10 @@ function quiz(container) {
         ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
     }
 
-    // Keyboard: ↑/↓ move the highlight over the options, → answers with the highlighted one
+    // Keyboard: ↑/↓ move the highlight over the options, → answers with the highlighted one.
+    // Nothing is highlighted until a key asks: ↓ then lands on the first option and ↑ on the
+    // last -- the owner's call, 4 November 2026. Until then the first stood highlighted from
+    // the start, which pointed at one answer of four before anybody had read them.
     const KEYS = ['ArrowUp', 'ArrowDown', 'ArrowRight'];
 
     let keyHandler = null;
@@ -808,7 +811,7 @@ function quiz(container) {
         const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 6.8px;"></div>`);
 
         const optionButtons = [];
-        let selectedIndex = 0;
+        let selectedIndex = -1;
 
         /*
          * Whether this question has been answered, read from the saved dot rather
@@ -988,10 +991,8 @@ function quiz(container) {
             });
         });
 
-        highlight(0);
-
         bindKeys((code) => {
-            if (code === 'ArrowUp') highlight(selectedIndex - 1);
+            if (code === 'ArrowUp') highlight(selectedIndex < 0 ? -1 : selectedIndex - 1);
             else if (code === 'ArrowDown') highlight(selectedIndex + 1);
             else if (optionButtons[selectedIndex]) optionButtons[selectedIndex].click();
         });

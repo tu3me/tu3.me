@@ -124,6 +124,11 @@ function page() {
      * bootGame -- so a moment that is new to this page is a run that has just
      * begun, whichever game it is and however it began: a fresh start, or
      * "again" pressed at the end of the last one.
+     *
+     * With whether the spaced repetition system is on for the set, on this
+     * device: the answers do not say, and with it off an answer ahead of its
+     * timer is simply how that person plays. Nothing for a run over every set,
+     * which has no one answer -- see docs/ANALYTICS.md.
      */
     let run = null;
 
@@ -133,7 +138,10 @@ function page() {
         if (!state || !state.sessionAt || state.sessionAt === run) return;
 
         run = state.sessionAt;
-        track('run_start', gameId, state.selectedSetId, run, (state.sessionPool || []).length);
+
+        const set = store.sets().find(s => s.id === state.selectedSetId);
+
+        track('run_start', gameId, state.selectedSetId, run, (state.sessionPool || []).length, set ? Number(store.viewOf(set).srs) : '');
     }
 
     // The session blob is private to its game — no other page ever reads this key,
