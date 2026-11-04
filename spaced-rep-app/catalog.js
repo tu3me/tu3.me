@@ -573,46 +573,36 @@ function catalog(container) {
      * lost is only detail the sections under them repeat — a book is a paper
      * book, a video is a YouTube video.
      */
-    const ROUTES_LABEL = 'From Google Translate, a book, a page or a video';
-
-    const ROUTES = [
+    const routeList = () => [
         {
             id: 'translate',
-            question: 'How to export from Google Translate?',
+            question: tr('routeTranslateQ'),
             steps: [
                 {
-                    text: 'Go to your saved translations',
-                    linkText: 'saved translations',
+                    text: tr('routeTranslate1'),
+                    linkText: tr('routeTranslate1Link'),
                     link: 'https://translate.google.com/saved'
                 },
-                { text: 'Press Export', icon: 'sheet' },
-                'Select only words and translations in the table, copy and paste them in the box above'
+                { text: tr('routeTranslate2'), icon: 'sheet' },
+                tr('routeTranslate3')
             ]
         },
         {
             id: 'paper',
-            question: 'How to add words from a paper book or notebook?',
+            question: tr('routePaperQ'),
             steps: [
-                'Photograph the list of words and give the photo to any AI tool',
-                {
-                    text: 'Ask it to extract the words with their translations',
-                    prompt: 'Extract every word from this photo and translate it into [your language]. '
-                        + 'Return one pair per line as "word -- translation", with no numbering and nothing else.'
-                },
-                'Copy the result and paste it in the box above'
+                tr('routePaper1'),
+                { text: tr('routeAsk'), prompt: tr('routePaperPrompt') },
+                tr('routePasteResult')
             ]
         },
         {
             id: 'web',
-            question: 'How to make a set from a web page or a YouTube video?',
+            question: tr('routeWebQ'),
             steps: [
-                'Give the link to any AI tool',
-                {
-                    text: 'Ask it to extract the words with their translations',
-                    prompt: 'Extract the useful words from this page or video and translate them into [your language]. '
-                        + 'Return one pair per line as "word -- translation", with no numbering and nothing else.'
-                },
-                'Copy the result and paste it in the box above'
+                tr('routeWeb1'),
+                { text: tr('routeAsk'), prompt: tr('routeWebPrompt') },
+                tr('routePasteResult')
             ]
         }
     ];
@@ -698,10 +688,10 @@ function catalog(container) {
      * button lifts, and a caption inside it would ride along into the paste.
      */
     function promptBox(text) {
-        return `<div class="set-prompt-lead" style="margin-top: 3.4px;">Here is your prompt</div>
+        return `<div class="set-prompt-lead" style="margin-top: 3.4px;">${tr('promptLead')}</div>
         <div class="set-prompt" style="margin: 4.3px 0 6px; background: ${palette.inputBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px;">
             <div class="set-prompt-text" style="font-size: 10.8px; font-weight: 500; line-height: 1.45; color: ${palette.inputText};">${text}</div>
-            <button class="set-prompt-copy" style="display: block; margin: 6px 0 0 auto; padding: 2.6px 8.5px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 10.8px; font-weight: 600; cursor: pointer;">Copy</button>
+            <button class="set-prompt-copy" style="display: block; margin: 6px 0 0 auto; padding: 2.6px 8.5px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 10.8px; font-weight: 600; cursor: pointer;">${tr('copy')}</button>
         </div>`;
     }
 
@@ -750,7 +740,7 @@ function catalog(container) {
             });
         }
 
-        return { title: titled ? lines[0] : (set.title || 'NEW SET NAME'), words };
+        return { title: titled ? lines[0] : (set.title || tr.of(shownMyLang(), 'newSetName')), words };
     }
 
     /*
@@ -913,8 +903,18 @@ function catalog(container) {
      */
     const CATALOG_CHOICES = LANGUAGE_CHOICES.filter(c => vocab.languages().includes(c.tag));
 
+    // The languages the catalog itself can be read in, named in English like every
+    // other list of languages here -- see i18n.js.
+    const UI_CHOICES = tr.langs()
+        .map(tag => ({ tag, name: languageName(tag) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const uiOptions = () => UI_CHOICES
+        .map(c => `<option value="${c.tag}"${c.tag === tr.now ? ' selected' : ''}>${c.name}</option>`)
+        .join('');
+
     function languageOptions() {
-        return `<option value="${STATE_VALUE}" hidden></option><option value="auto">Auto</option>`
+        return `<option value="${STATE_VALUE}" hidden></option><option value="auto">${tr('auto')}</option>`
             + LANGUAGE_CHOICES.map(c => `<option value="${c.tag}">${markedName(c.tag)}</option>`).join('');
     }
 
@@ -976,13 +976,13 @@ function catalog(container) {
         if (diffMs <= 0) return null; // due — no timer needed
 
         const diffMins = Math.ceil(diffMs / (60 * 1000));
-        if (diffMins < 60) return `${diffMins}m`;
+        if (diffMins < 60) return `${diffMins}${tr('unitM')}`;
 
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours}h`;
+        if (diffHours < 24) return `${diffHours}${tr('unitH')}`;
 
         const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays}d`;
+        return `${diffDays}${tr('unitD')}`;
     }
 
     /*
@@ -1001,10 +1001,10 @@ function catalog(container) {
 
     function spanText(ms) {
         if (!ms) return '0';
-        if (ms % SPAN_UNITS.d === 0) return `${ms / SPAN_UNITS.d}d`;
-        if (ms % SPAN_UNITS.h === 0) return `${ms / SPAN_UNITS.h}h`;
+        if (ms % SPAN_UNITS.d === 0) return `${ms / SPAN_UNITS.d}${tr('unitD')}`;
+        if (ms % SPAN_UNITS.h === 0) return `${ms / SPAN_UNITS.h}${tr('unitH')}`;
 
-        return `${ms / SPAN_UNITS.m}m`;
+        return `${ms / SPAN_UNITS.m}${tr('unitM')}`;
     }
 
     /*
@@ -1018,14 +1018,23 @@ function catalog(container) {
      * the app where a value is typed rather than picked, and a value that is
      * not a number has to be refused here — srs.js says what a NaN does to
      * every date it touches.
+     *
+     * The unit in the letters this interface writes it in, and in the Latin ones
+     * as well: the field is filled in the first, and a person who has always typed
+     * "2h" should not be refused for having switched the language of the screen.
      */
+    const SPAN_NAMES = { m: 'unitM', h: 'unitH', d: 'unitD' };
+
     function spanValue(text) {
-        const parts = /^\s*(\d+(?:[.,]\d+)?)\s*([mhd]?)\s*$/i.exec(text || '');
+        const parts = /^\s*(\d+(?:[.,]\d+)?)\s*(\S*)\s*$/.exec(text || '');
         if (!parts) return null;
 
-        const unit = SPAN_UNITS[(parts[2] || 'm').toLowerCase()];
+        const said = parts[2].toLowerCase();
+        const unit = !said ? 'm' : Object.keys(SPAN_UNITS).find(u => said === u || said === tr(SPAN_NAMES[u]).toLowerCase());
 
-        return Math.round(Number(parts[1].replace(',', '.')) * unit);
+        if (!unit) return null;
+
+        return Math.round(Number(parts[1].replace(',', '.')) * SPAN_UNITS[unit]);
     }
 
     /**
@@ -1927,6 +1936,13 @@ function catalog(container) {
      * standing 75px lower than where it was pressed.
      */
     function render(shaped) {
+        // The corner of the window is on every page and is made by base.js, which has
+        // no table to read: a game page keeps it in English. Here it is put right on
+        // every draw, because the language can change under it.
+        const grip = document.querySelector('.app-grip');
+
+        if (grip) grip.title = tr('gripHint');
+
         const page = document.scrollingElement || document.documentElement;
         const toTop = unfolding === 'set';
         const pageTop = toTop ? 0 : page.scrollTop;
@@ -2035,8 +2051,8 @@ function catalog(container) {
             </h1>
             ${updated ? updatedNote() : ''}
             <div class="dict-header-actions" style="display: flex; align-items: center; gap: 6.8px;">
-                ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="New card set">+ New set</button>` : ''}
-                <button class="dict-settings-btn" id="settings-btn" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s; will-change: scale;" title="Settings">${GEAR}</button>
+                ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="${tr('newSetHint')}">${tr('newSet')}</button>` : ''}
+                ${langsAsked ? `<button class="dict-settings-btn" id="settings-btn" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s; will-change: scale;" title="${tr('settings')}">${GEAR}</button>` : ''}
             </div>
         </div>`);
 
@@ -2082,7 +2098,14 @@ function catalog(container) {
         // Opens the settings layer and closes it again. A toggle, like the New
         // Set button next to it: the press that opened something is the press
         // that takes it away, whatever shape the something has.
-        header.querySelector('#settings-btn').addEventListener('click', () => {
+        //
+        // Not on the first screen, the owner's call, 4 November 2026: that screen
+        // is one question, and a way out of it beside Skip only asks for attention.
+        // Connecting a second device goes through Skip now, which loses nothing:
+        // the profile's languages replace whatever the first screen was told.
+        const settingsBtn = header.querySelector('#settings-btn');
+
+        if (settingsBtn) settingsBtn.addEventListener('click', () => {
             if (closing) return;
 
             if (settingsOpen) {
@@ -2131,9 +2154,6 @@ function catalog(container) {
          */
         if (!langsAsked) {
             askLanguages(container);
-
-            if (settingsOpen) renderSettings(container, unfold === 'settings');
-
             return;
         }
 
@@ -2764,22 +2784,22 @@ function catalog(container) {
             </button>`;
 
         const sizes = (side) => `<span style="display: flex; gap: 3.4px; flex: none;">
-                ${sizeBtn('set-view-smaller', side, -1, 'Smaller text', 'M5 12H19')}
-                ${sizeBtn('set-view-bigger', side, 1, 'Larger text', 'M12 5V19M5 12H19')}
+                ${sizeBtn('set-view-smaller', side, -1, tr('viewSmaller'), 'M5 12H19')}
+                ${sizeBtn('set-view-bigger', side, 1, tr('viewLarger'), 'M12 5V19M5 12H19')}
             </span>`;
 
         const sample = (key) => `<span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; gap: 2.6px; flex: none; width: 23px; height: 14.5px; background: #ffffff; border-radius: 4.3px; box-shadow: 0 0 0 0.5px ${palette.softBorder};">
                 ${MARK_SAMPLES[key].map(m => `<svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>`).join('')}
             </span>`;
 
-        return `${check('original', 'Original', sizes('original'))}
-            ${check('translation', 'Translation', sizes('translation'))}
-            ${check('srs', 'Spaced repetition system')}
+        return `${check('original', tr('viewOriginal'), sizes('original'))}
+            ${check('translation', tr('viewTranslation'), sizes('translation'))}
+            ${check('srs', tr('viewSrs'))}
             <div class="set-view-children" style="padding-left: 21.8px;">
-                ${check('missed', 'Missed repetitions', sample('missed'))}
-                ${check('regular', 'Regular repetitions', sample('regular'))}
-                ${check('early', 'Early repetitions', sample('early'))}
-                ${check('bounce', '<span class="set-view-hop" style="display: inline-block;">Bounce</span> when ready to repeat')}
+                ${check('missed', tr('viewMissed'), sample('missed'))}
+                ${check('regular', tr('viewRegular'), sample('regular'))}
+                ${check('early', tr('viewEarly'), sample('early'))}
+                ${check('bounce', tr('viewBounce', { bounce: `<span class="set-view-hop" style="display: inline-block;">${tr('viewBounceWord')}</span>` }))}
             </div>`;
     }
 
@@ -3036,7 +3056,7 @@ function catalog(container) {
 
             const field = stage === 0
                 ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 6.8px; font-size: 11.3px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
-                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="Stage ${stage}" style="flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; padding: 0 2.6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6.8px; font-family: inherit; font-size: 11.3px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
+                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="${tr('stage', { n: stage })}" style="flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; padding: 0 2.6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6.8px; font-family: inherit; font-size: 11.3px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
 
             // min-width on the cell as well as on the field inside it: a grid
             // item is auto-sized to its content, and a text input's content is
@@ -3049,10 +3069,10 @@ function catalog(container) {
         }).join('');
 
         return `<div style="padding-top: 6.8px;">
-            <div class="dict-intervals-hint" style="margin-bottom: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">How long a word waits on each stage before it comes up again. Minutes unless the number carries <b>h</b> or <b>d</b>.</div>
+            <div class="dict-intervals-hint" style="margin-bottom: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">${tr('intervalsHint', { h: `<b>${tr('unitH')}</b>`, d: `<b>${tr('unitD')}</b>` })}</div>
             <div class="dict-intervals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5.1px;">${cells}</div>
             <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 6.8px;">
-                <button class="dict-intervals-reset" style="padding: 4.3px 8.5px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; font-family: inherit; font-size: 11.3px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">Defaults</button>
+                <button class="dict-intervals-reset" style="padding: 4.3px 8.5px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; font-family: inherit; font-size: 11.3px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">${tr('defaults')}</button>
             </div>
         </div>`;
     }
@@ -3143,9 +3163,9 @@ function catalog(container) {
 
     function platformStrip() {
         const spots = [
-            { icon: PUZZLE, name: 'Browser', note: 'You are here', here: true },
-            { icon: DESKTOP, name: 'Web App', note: 'Coming soon!', press: 'web' },
-            { icon: HANDSET, name: 'Mobile', note: 'Coming soon!', press: 'mobile' }
+            { icon: PUZZLE, name: tr('whereBrowser'), note: tr('whereHere'), here: true },
+            { icon: DESKTOP, name: tr('whereWeb'), note: tr('whereSoon'), press: 'web' },
+            { icon: HANDSET, name: tr('whereMobile'), note: tr('whereSoon'), press: 'mobile' }
         ];
 
         const cells = spots.map(spot => {
@@ -3204,7 +3224,7 @@ function catalog(container) {
 
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
             + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 27.3px 5.1px 8.5px;`
-            + ` appearance: none; -webkit-appearance: none;`
+            + ` appearance: none; -webkit-appearance: none; text-overflow: ellipsis;`
             + ` font-family: inherit; font-size: 12.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
         const caption = (text) => `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
@@ -3217,7 +3237,7 @@ function catalog(container) {
 
         const chip = (tag) => `<span style="display: inline-flex; align-items: center; gap: 3.4px; padding: 2.6px 3.4px 2.6px 6.8px; background: ${palette.cardBg}; color: ${palette.dialogText}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 11.3px; font-weight: 600;">
                 ${languageName(tag)}
-                <button class="dict-lang-drop" data-tag="${tag}" title="Remove" style="display: inline-flex; align-items: center; justify-content: center; width: 13.7px; height: 13.7px; padding: 0; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer;">×</button>
+                <button class="dict-lang-drop" data-tag="${tag}" title="${tr('remove')}" style="display: inline-flex; align-items: center; justify-content: center; width: 13.7px; height: 13.7px; padding: 0; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer;">×</button>
             </span>`;
 
         // The same line as the first screen, in the same order, because it is the
@@ -3229,12 +3249,26 @@ function catalog(container) {
         // Side by side they fitted, but only by cutting "Languages to learn" in
         // a panel this narrow -- and the chips under the second one grow, which
         // in a row of two pushes its neighbour about.
-        return `<div style="margin-top: 8.5px;">${caption('Your language')}</div>
-                ${withChevron(`<select class="dict-my-lang" style="${field}">${options('Pick one', [], mine)}</select>`, edge)}
+        //
+        // The language of the interface does stand beside the reader's own, the
+        // owner's call, 4 November 2026: neither of the two grows, and both are
+        // one answer about the reader. Columns of exactly one width whatever is in
+        // them -- a select asks for the width of its longest option, and left to
+        // itself the column with the longest name would take the room of the other.
+        return `<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px; margin-top: 8.5px;">
+                    <div>
+                        ${caption(tr('yourLanguage'))}
+                        ${withChevron(`<select class="dict-my-lang" style="${field}">${options(tr('pickOne'), [], mine)}</select>`, edge)}
+                    </div>
+                    <div>
+                        ${caption(tr('interface'))}
+                        ${withChevron(`<select class="dict-ui-lang" style="${field}">${uiOptions()}</select>`, edge)}
+                    </div>
+                </div>
 
-                <div style="margin-top: 8.5px;">${caption('Languages to learn')}</div>
+                <div style="margin-top: 8.5px;">${caption(tr('languagesToLearn'))}</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 3.4px; margin-bottom: ${learnLangs.length ? '3.4px' : '0'};">${learnLangs.map(chip).join('')}</div>
-                ${withChevron(`<select class="dict-learn-lang" style="${field}">${options('Add one', [mine].concat(learnLangs), null)}</select>`, edge)}`;
+                ${withChevron(`<select class="dict-learn-lang" style="${field}">${options(tr('addOne'), [mine].concat(learnLangs), null)}</select>`, edge)}`;
     }
 
     /*
@@ -3265,11 +3299,11 @@ function catalog(container) {
     function agoText(ms) {
         const minutes = Math.floor(ms / 60000);
 
-        if (minutes < 1) return 'just now';
-        if (minutes < 60) return `${minutes}m ago`;
-        if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`;
+        if (minutes < 1) return tr('justNow');
+        if (minutes < 60) return tr('minutesAgo', { n: minutes });
+        if (minutes < 24 * 60) return tr('hoursAgo', { n: Math.floor(minutes / 60) });
 
-        return `${Math.floor(minutes / (24 * 60))}d ago`;
+        return tr('daysAgo', { n: Math.floor(minutes / (24 * 60)) });
     }
 
     // The day a code was left, with the year only when it is not this one.
@@ -3278,7 +3312,7 @@ function catalog(container) {
         const options = { month: 'short', day: 'numeric' };
         if (day.getFullYear() !== new Date().getFullYear()) options.year = 'numeric';
 
-        return day.toLocaleDateString('en', options);
+        return day.toLocaleDateString(tr.now, options);
     }
 
     /*
@@ -3296,7 +3330,7 @@ function catalog(container) {
         const meta = remote.meta();
         if (!meta || !syncOffered()) return '';
 
-        const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">Sync code</div>`;
+        const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">${tr('syncCode')}</div>`;
 
         /*
          * Said plainly when syncing has stopped working, rather than an honest
@@ -3308,11 +3342,11 @@ function catalog(container) {
         const now = Date.now();
         const failing = meta.failedAt && now - meta.failedAt > 60000;
 
-        let synced = meta.syncedAt ? `Synced ${agoText(now - meta.syncedAt)}.` : 'Not synced yet.';
+        let synced = meta.syncedAt ? tr('synced', { ago: agoText(now - meta.syncedAt) }) : tr('notSynced');
         if (failing) {
             synced = meta.syncedAt
-                ? `Last synced ${agoText(now - meta.syncedAt)}, and the server has not answered since. Your changes stay on this device until it does.`
-                : 'Not synced yet: the server has not answered.';
+                ? tr('lastSynced', { ago: agoText(now - meta.syncedAt) })
+                : tr('notSyncedServer');
         }
 
         const small = `font-size: 10.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};`;
@@ -3322,7 +3356,7 @@ function catalog(container) {
         const past = meta.past || [];
         const typed = syncTyped !== null && remote.normalize(syncTyped) !== meta.user;
 
-        const sets = (n) => `${n} ${n === 1 ? 'set' : 'sets'}`;
+        const sets = (n) => tr('setsCount', { n });
 
         // The code over what it held, in two lines: side by side they do not
         // fit the panel, and a note cut short is the half that tells the codes
@@ -3334,12 +3368,12 @@ function catalog(container) {
 
         const list = past.length ? `<div class="dict-sync-past-fold" style="overflow: hidden;"${pastOpen ? '' : ' hidden'}>
                 <div style="margin-top: 3.4px; padding: 2.6px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px;">
-                    ${entry(meta.user, 'In use on this device', 0)}
-                    ${past.map((p, i) => entry(p.user, `${sets(p.sets)} · used until ${codeDay(p.left)}`, i + 1)).join('')}
+                    ${entry(meta.user, tr('codeInUse'), 0)}
+                    ${past.map((p, i) => entry(p.user, tr('usedUntil', { sets: sets(p.sets), day: codeDay(p.left) }), i + 1)).join('')}
                 </div>
             </div>` : '';
 
-        const arrow = past.length ? `<button class="dict-sync-list" aria-expanded="${pastOpen}" title="Codes used on this device" style="position: absolute; right: 3.4px; top: 50%; translate: 0 -50%; display: flex; align-items: center; justify-content: center; width: 22.2px; height: 22.2px; padding: 0; background: transparent; border: none; color: ${palette.softColor}; cursor: pointer;">
+        const arrow = past.length ? `<button class="dict-sync-list" aria-expanded="${pastOpen}" title="${tr('codesList')}" style="position: absolute; right: 3.4px; top: 50%; translate: 0 -50%; display: flex; align-items: center; justify-content: center; width: 22.2px; height: 22.2px; padding: 0; background: transparent; border: none; color: ${palette.softColor}; cursor: pointer;">
                 <span class="dict-sync-list-chevron" style="display: block; rotate: ${pastOpen ? -90 : 90}deg; transition: rotate 0.18s ease-out;">${CHEVRON}</span>
             </button>` : '';
 
@@ -3347,18 +3381,18 @@ function catalog(container) {
                 ${caption}
                 <div style="display: flex; align-items: center; gap: 5.1px;">
                     <div style="position: relative; flex: 1; min-width: 0;">
-                        <input class="dict-sync-input" type="text" value="${escapeText(typed ? syncTyped : remote.grouped(meta.user))}" placeholder="XXXX-XXXX-XXXX" aria-label="Sync code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="width: 100%; box-sizing: border-box; padding: 5.1px ${past.length ? '27.3px' : '8.5px'} 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; ${code} outline: none;">
+                        <input class="dict-sync-input" type="text" value="${escapeText(typed ? syncTyped : remote.grouped(meta.user))}" placeholder="XXXX-XXXX-XXXX" aria-label="${tr('syncCode')}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="width: 100%; box-sizing: border-box; padding: 5.1px ${past.length ? '27.3px' : '8.5px'} 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; ${code} outline: none;">
                         ${arrow}
                     </div>
-                    <button class="dict-sync-copy" style="${button}"${typed ? ' hidden' : ''}>Copy</button>
+                    <button class="dict-sync-copy" style="${button}"${typed ? ' hidden' : ''}>${tr('copy')}</button>
                 </div>
                 ${list}
-                <div class="dict-sync-hint" style="margin-top: 4.3px; padding-left: 9.5px; ${small}"${typed ? ' hidden' : ''}>Enter it on your other device to share your sets and progress, or put that device's code here. ${synced}</div>
+                <div class="dict-sync-hint" style="margin-top: 4.3px; padding-left: 9.5px; ${small}"${typed ? ' hidden' : ''}>${tr('syncHint')} ${synced}</div>
                 <div class="dict-sync-switch"${typed ? '' : ' hidden'}>
-                    <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">The sets and progress on this device will be replaced with the ones under that code. The code in use now goes to this device's list of codes, to come back to.</div>
-                    <button class="dict-sync-connect" style="${button} margin-top: 5.1px; background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">Save and sync</button>
+                    <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">${tr('syncWarn')}</div>
+                    <button class="dict-sync-connect" style="${button} margin-top: 5.1px; background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">${tr('syncConnect')}</button>
                 </div>
-                <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote}</div>
+                <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote && tr(joinNote)}</div>
             </div>`;
     }
 
@@ -3369,10 +3403,10 @@ function catalog(container) {
      * the languages, the sets, a round that may have been left open.
      */
     const JOIN_NOTES = {
-        invalid: 'A code is 12 letters and digits.',
-        same: 'This device already uses that code.',
-        offline: 'Could not reach the server. Try again when you are online.',
-        missing: 'No profile has this code. Check it and try again.'
+        invalid: 'joinInvalid',
+        same: 'joinSame',
+        offline: 'joinOffline',
+        missing: 'joinMissing'
     };
 
     // One move at a time. A move now syncs the profile it leaves before it
@@ -3384,7 +3418,7 @@ function catalog(container) {
     async function connect(input, status) {
         if (joining) return;
         joining = true;
-        status.textContent = 'Connecting…';
+        status.textContent = tr('connecting');
 
         const answer = await sync.join(input.value, GAMES.map(g => g.id));
 
@@ -3395,7 +3429,7 @@ function catalog(container) {
 
         joining = false;
         joinNote = JOIN_NOTES[answer] || '';
-        status.textContent = joinNote;
+        status.textContent = joinNote && tr(joinNote);
     }
 
     /*
@@ -3410,7 +3444,7 @@ function catalog(container) {
         const at = new Date(CODE_STAMP.changed);
         const pad = (n) => String(n).padStart(2, '0');
 
-        return `Version ${CODE_STAMP.version} · updated ${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+        return tr('version', { v: CODE_STAMP.version, at: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}` });
     }
 
     function renderSettings(parent, rising) {
@@ -3419,11 +3453,11 @@ function catalog(container) {
         const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
             <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 256.1px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
                 <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
-                    <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">Settings</div>
+                    <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">${tr('settings')}</div>
                     <div style="display: flex; align-items: center; gap: 5.1px; flex: none;">
-                        <button class="dict-onb-row" aria-pressed="${onboarding.showing()}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: ${onboarding.showing() ? palette.pageBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${onboarding.showing() ? palette.heading : palette.softColor}; cursor: pointer;" title="${onboarding.showing() ? 'Hide the help cards' : 'Show the help cards'}">?</button>
-                        <button class="dict-theme-row" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${theme.isDark() ? 'Dark theme' : 'Light theme'}">${palette.themeIcon}</button>
-                        <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${speech.muted() ? 'Sound off' : 'Sound on'}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
+                        <button class="dict-onb-row" aria-pressed="${onboarding.showing()}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: ${onboarding.showing() ? palette.pageBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${onboarding.showing() ? palette.heading : palette.softColor}; cursor: pointer;" title="${tr(onboarding.showing() ? 'hideHelp' : 'showHelp')}">?</button>
+                        <button class="dict-theme-row" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${tr(theme.isDark() ? 'themeDark' : 'themeLight')}">${palette.themeIcon}</button>
+                        <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${tr(speech.muted() ? 'soundOff' : 'soundOn')}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
                     </div>
                 </div>
                 ${platformStrip()}
@@ -3431,29 +3465,29 @@ function catalog(container) {
                 ${syncRows()}
                 <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 5.1px; width: 100%; box-sizing: border-box; margin-top: 3.4px; padding: 5.1px 2px; background: transparent; border: none; font-family: inherit; font-size: 10.2px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
                     <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON_SMALL}</span>
-                    <span>Advanced</span>
+                    <span>${tr('advanced')}</span>
                     <span class="dict-advanced-rule" style="flex: 1; height: 1px; background: ${palette.softBorder};"></span>
                 </button>
                 <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
                 <div class="dict-advanced-body" style="padding-top: 6.8px;">
                 <div class="dict-split-line" style="display: flex; align-items: center; gap: 6.8px;">
                     <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; flex: 1; min-width: 0; box-sizing: border-box; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
-                        <span>Split words</span>
-                        <span class="dict-split-state">${speech.splitsByLanguage() ? 'By language' : 'By spaces'}</span>
+                        <span>${tr('splitWords')}</span>
+                        <span class="dict-split-state">${tr(speech.splitsByLanguage() ? 'byLanguage' : 'bySpaces')}</span>
                     </button>
-                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="What this does" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
+                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="${tr('whatThisDoes')}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
                 </div>
                 <div class="dict-split-hint" style="overflow: hidden;"${splitHintOpen ? '' : ' hidden'}>
                     <div style="padding-top: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
-                        <div>Where a word ends, when you tap one on a card.</div>
-                        <div style="margin-top: 5.1px;"><b>By spaces</b> — letters between spaces and punctuation. A line written without spaces, as Japanese and Chinese are, comes out as one word.</div>
-                        <div style="margin-top: 5.1px;"><b>By language</b> — worth trying for Japanese, Chinese and Thai, which are written in characters with no spaces between the words: the browser's own rules can find where one word ends inside such a line. Not every browser knows how, phones least of all — where that is missing, every character becomes a word of its own.</div>
-                        <div style="margin-top: 6.8px;"><b>If this browser cannot do it</b>, put the spaces in yourself and they will work everywhere. Open the set for editing, copy everything out of the box, ask any AI tool to space the words apart, then paste the result back and save.</div>
+                        <div>${tr('splitWhere')}</div>
+                        <div style="margin-top: 5.1px;"><b>${tr('bySpaces')}</b> ${tr('splitSpaces')}</div>
+                        <div style="margin-top: 5.1px;"><b>${tr('byLanguage')}</b> ${tr('splitLang')}</div>
+                        <div style="margin-top: 6.8px;">${tr('splitNoCan')}</div>
                     </div>
                 </div>
                 <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 6.8px; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
                     <span class="dict-intervals-chevron" style="display: block; flex: none; transform: rotate(${intervalsOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
-                    <span style="flex: 1; text-align: left;">Repetition intervals</span>
+                    <span style="flex: 1; text-align: left;">${tr('repetitionIntervals')}</span>
                 </button>
                 <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
                 <div class="dict-settings-body" style="margin-top: 12px;"></div>
@@ -3489,10 +3523,22 @@ function catalog(container) {
 
             await saveSetting('myLang', myLang);
             await saveSetting('learnLangs', learnLangs);
+            await setUiLang(tr.forLang(myLang), 'follow');
             await langsChanged('mine');
             await makeSets();
 
             render();
+        });
+
+        // The screen first and the writing after, so that the press is answered at
+        // once: nothing in the redraw waits on the record, or writes to it.
+        overlay.querySelector('.dict-ui-lang').addEventListener('change', async (e) => {
+            const saved = setUiLang(e.target.value, 'pick');
+
+            render();
+
+            await saved;
+            await langsChanged();
         });
 
         overlay.querySelector('.dict-learn-lang').addEventListener('change', async (e) => {
@@ -3631,8 +3677,8 @@ function catalog(container) {
             copy.addEventListener('click', async () => {
                 try {
                     await navigator.clipboard.writeText(remote.grouped(meta.user));
-                    copy.textContent = 'Copied';
-                    setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+                    copy.textContent = tr('copied');
+                    setTimeout(() => { copy.textContent = tr('copy'); }, 1500);
                 } catch (e) {
                     codeField.select();
                 }
@@ -3799,11 +3845,11 @@ function catalog(container) {
         // One sentence for every build, on both steps. What the wipe does to
         // the sync code is a matter for builds that offer synchronisation, and
         // telling it only there would be a sentence per build.
-        const WIPE_NOTE = 'Removes all data on this device.';
+        const WIPE_NOTE = tr('wipeNote');
 
         function offer() {
             body.innerHTML = `
-                <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Clear data</button>
+                <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('clearData')}</button>
                 <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>`;
 
             body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
@@ -3813,8 +3859,8 @@ function catalog(container) {
             body.innerHTML = `
                 <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>
                 <div class="dict-wipe-actions" style="display: flex; gap: 6.8px;">
-                    <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">Erase</button>
-                    <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">Cancel</button>
+                    <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('erase')}</button>
+                    <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">${tr('cancel')}</button>
                 </div>`;
 
             body.querySelector('.dict-wipe-cancel').addEventListener('click', offer);
@@ -4013,16 +4059,17 @@ function catalog(container) {
      * The name is never wrapped. Two lines under one tile and one under the
      * next would leave the row with tiles at two different heights.
      *
-     * It has the row's whole pitch to stand in -- its fifth and the gap after
-     * it, half the gap reaching out on either side -- so two names side by
-     * side can at most touch. And a name wider than that is set a size down
-     * until it fits (see fitNames), rather than cut: "Word search" came to
-     * 61 against a fifth of 57.4 and read "Word sea..." (the owner, 3
-     * November 2026). The ellipsis is left for a name that does not fit at
-     * any size worth reading.
+     * Nor is it cut, or made smaller: one size for every name, the owner's call,
+     * 4 November 2026. "Word search" comes to 61 against a fifth of 57.4 and read
+     * "Word sea..." when it was held to its fifth, and for a while a name was set a
+     * size down until it fit. A name stands centred under its tile and simply takes
+     * what it needs out of the gap and its neighbour's margin. There is room: the
+     * longest are 61 here and a little more in a wider font, the names beside them
+     * are short, and the last in the row has the card's own padding to go into.
      *
      * An unfinished tile's name takes turns with "Continue" -- see CONTINUE --
-     * and the tile itself stays as it is.
+     * and the tile itself stays as it is. In English in every interface, the owner's
+     * call, as the name it takes turns with is.
      *
      * Each of the two names is a cell of the same one-cell grid rather than one
      * box with something absolute over it. The cell takes the size of the wider
@@ -4119,30 +4166,18 @@ function catalog(container) {
      */
     const NAME_SIZE = 10.8;
 
-    // Not below this: a smaller name is cut instead
-    const NAME_LEAST = 8.5;
-
     function tileBtn(cls, face, label, attrs, resuming) {
         const swap = resuming ? ' set-tile-swap' : '';
 
-        const CUT = 'max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-
         return `<button class="${cls}" ${attrs} style="flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
-            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: max-content; max-width: calc(100% + ${ROW_GAP}px); font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
-                <span class="set-tile-face" style="grid-area: 1 / 1; ${CUT}">${label}</span>
-                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; max-width: 100%; white-space: nowrap;">${CONTINUE}</span>` : ''}
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: max-content; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+                <span class="set-tile-face" style="grid-area: 1 / 1; white-space: nowrap;">${label}</span>
+                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; white-space: nowrap;">${CONTINUE}</span>` : ''}
             </span>
         </button>`;
     }
 
-    // The names under the tiles of a row brought down, each by as much as it
-    // is too wide for its room -- see tileBtn. Asked of the page as it is laid
-    // out, since the room is the app's width and the width is the font's.
-    //
-    // A pixel to spare, because both widths come rounded to whole pixels: a
-    // name brought down to exactly its room overran it by a fraction, and
-    // was cut by its last letter all the same.
     /*
      * The air kept around the bubbles inside the box that folds them away. A
      * fold clips what it folds, and a bubble does not stay inside its own edges:
@@ -4163,15 +4198,27 @@ function catalog(container) {
      */
     const BUBBLE_ROOM = 6;
 
-    function fitNames(row) {
-        row.querySelectorAll('.set-tile-face').forEach(name => {
-            const room = name.clientWidth;
-            const need = name.scrollWidth;
-            if (!room || need <= room) return;
-
-            name.style.fontSize = `${Math.max(NAME_LEAST, Math.floor(NAME_SIZE * room / (need + 1) * 10) / 10)}px`;
-        });
-    }
+    /*
+     * A title takes as many lines as it needs, at one size whatever its length (the
+     * owner, 4 November 2026). It was once set a size down to stay on one line, and
+     * three sets of one language came out at three sizes.
+     *
+     * The air round it is what keeps the bar where it belongs. On one line the row
+     * of buttons, taller than the title, was all that held the title off the bar, so
+     * the gap above the bar came to the same 12 as the gap under it by that accident
+     * alone, and fell to 6.8 on the second line. Air of its own that adds up to the
+     * buttons' height on one line changes nothing there and keeps the 12 on any
+     * number of lines.
+     *
+     * Nothing is clipped here. This box used to hide its overflow at a line height of
+     * 1.1, which is less than the letters are tall, so the tails of the last line
+     * were cut off at its edge, right over the bar. A line height that holds the
+     * marks of Vietnamese clear of the line above, and a word too long for the row
+     * breaks rather than pushing the buttons out.
+     */
+    const SET_BUTTON = 27.3;
+    const TITLE_LINE = 18.5;
+    const TITLE_AIR = (SET_BUTTON - TITLE_LINE) / 2;
 
     function renderSetCard(parent, set, intro) {
         const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 15.4px; padding: 13.7px;"></div>`);
@@ -4246,7 +4293,7 @@ function catalog(container) {
              * languages now, so those rows answered a question that can no longer
              * be asked, and the two dropdowns here are the whole of the subject.
              */
-            const LANG_SECTION = 'Text-to-speech language';
+            const LANG_SECTION = tr('langSection');
 
             /*
              * What goes in the box: what was typed into it, and the set itself
@@ -4263,20 +4310,20 @@ function catalog(container) {
             const boxText = escapeText(form ? form.text : setAsText(set));
 
             const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
-                    A card set is just plain text, so you can edit it with any AI tool. First line — Title, then: "word -- translation" (a tab works too; clear text to delete)
+                    ${tr('formHint')}
                 </label>
-                <textarea class="set-edit-textarea" placeholder="NEW SET NAME&#10;word -- translation&#10;another word -- another translation" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
+                <textarea class="set-edit-textarea" placeholder="${tr('newSetName')}&#10;${tr('pairSample')}&#10;${tr('pairSampleMore')}" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
                 <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
                     <div class="set-lang-fold">${foldingSection(LANG_SECTION, `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 6.8px; align-items: start;">
-                            ${caption('Words', true, PLATE_INDENT)}
-                            ${caption('Translations', true, PLATE_INDENT)}
+                            ${caption(tr('words'), true, PLATE_INDENT)}
+                            ${caption(tr('translations'), true, PLATE_INDENT)}
                             ${langPlate('originalLang')}
                             ${langPlate('translationLang')}
                         </div>
                         <div style="font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint}; margin-top: 8.5px;">
-                            <div>${OWN_VOICE} voice installed</div>
-                            <div>${BORROWED_VOICE} read by a related voice</div>
-                            <div>${NO_VOICE} no voice at all</div>
+                            <div>${OWN_VOICE} ${tr('voiceOwn')}</div>
+                            <div>${BORROWED_VOICE} ${tr('voiceBorrowed')}</div>
+                            <div>${NO_VOICE} ${tr('voiceNone')}</div>
                         </div>`, false, 'lang')}</div>
                 </div>`;
 
@@ -4297,12 +4344,12 @@ function catalog(container) {
             // bodies, so a section inside a section needs nothing but the
             // indent that says which is which.
             const routes = `<div class="set-fold-nest" style="padding-left: 10.2px;">`
-                + ROUTES.map(r => foldingSection(r.question, steps(r), false, r.id)).join('')
+                + routeList().map(r => foldingSection(r.question, steps(r), false, r.id)).join('')
                 + `</div>`;
 
             const formBody = guided
-                ? staticSection('Paste words here', box)
-                    + foldingSection(ROUTES_LABEL, routes, false, 'routes')
+                ? staticSection(tr('pasteWords'), box)
+                    + foldingSection(tr('routesLabel'), routes, false, 'routes')
                 : box;
 
             // The page turns selection off everywhere — it is a popup full of
@@ -4311,10 +4358,10 @@ function catalog(container) {
             // to another app, and the hint explains a format worth copying.
             const editForm = $(card, `<div class="set-edit-form" style="user-select: text; -webkit-user-select: text;">
                 <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
-                    <span class="set-edit-title" style="font-size: 13.3px; font-weight: 700; color: ${palette.heading};">${guided ? 'New Set' : 'Edit Set'}</span>
+                    <span class="set-edit-title" style="font-size: 13.3px; font-weight: 700; color: ${palette.heading};">${tr(guided ? 'formNew' : 'formEdit')}</span>
                     <div class="set-edit-actions" style="display: flex; gap: 5.1px;">
-                        <button class="set-save-btn" style="padding: 3.4px 8.5px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">Save</button>
-                        <button class="set-cancel-btn" style="padding: 3.4px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">Cancel</button>
+                        <button class="set-save-btn" style="padding: 3.4px 8.5px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">${tr('save')}</button>
+                        <button class="set-cancel-btn" style="padding: 3.4px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">${tr('cancel')}</button>
                     </div>
                 </div>
                 ${formBody}
@@ -4356,8 +4403,8 @@ function catalog(container) {
                         selection.addRange(range);
                     }
 
-                    btn.textContent = copied ? 'Copied' : 'Press Ctrl+C';
-                    setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+                    btn.textContent = tr(copied ? 'copied' : 'pressCtrlC');
+                    setTimeout(() => { btn.textContent = tr('copy'); }, 1400);
                 });
             });
 
@@ -4615,13 +4662,13 @@ function catalog(container) {
             // of the card stays: the name, the bar and the games are what a set
             // is played from. Kept with the set's view -- see store.viewOf. The
             // owner's call, 4 November 2026.
-            const buttons = `<button class="set-edit-btn" title="Edit" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+            const buttons = `<button class="set-edit-btn" title="${tr('edit')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
-                        <button class="set-view-btn" title="View options" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: ${viewFor === String(set.id) ? palette.softBg : 'transparent'}; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                        <button class="set-view-btn" title="${tr('viewOptions')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: ${viewFor === String(set.id) ? palette.softBg : 'transparent'}; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
-                        <button class="set-collapse-btn" title="${view.collapsed ? 'Expand' : 'Collapse'}" aria-label="${view.collapsed ? 'Expand' : 'Collapse'}" aria-expanded="${!view.collapsed}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                        <button class="set-collapse-btn" title="${tr(view.collapsed ? 'expand' : 'collapse')}" aria-label="${tr(view.collapsed ? 'expand' : 'collapse')}" aria-expanded="${!view.collapsed}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <span class="set-collapse-chevron" style="display: block; line-height: 0; transform: rotate(${view.collapsed ? 0 : 90}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                         </button>`;
 
@@ -4695,7 +4742,7 @@ function catalog(container) {
             $(card, `
                 <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
-                        <h4 class="set-title" style="margin: 0; line-height:1.1; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow: hidden; text-overflow: ellipsis;">${set.title}</h4>
+                        <h4 class="set-title" style="margin: 0; padding: ${TITLE_AIR}px 0; min-width: 0; line-height: ${TITLE_LINE}px; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow-wrap: anywhere;">${set.title}</h4>
                         <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: inline-block;">${totalWords}${progress === 0 ? '' : ` · ${progress}%`}</span>
                     </div>
                     <div class="set-btn-group" style="display: flex; align-items: center; gap: 1.7px; flex: none;">
@@ -4713,16 +4760,14 @@ function catalog(container) {
                 </div>
 
                 <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM}px;">
-                    ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${g.pitch}"`, unfinished(g))).join('')}
+                    ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${tr('pitch_' + g.id, null, g.pitch)}"`, unfinished(g))).join('')}
                 </div>
             `);
-
-            fitNames(card.querySelector('.set-actions-group'));
 
             // Render bubbles into the container
             const bubblesContainer = card.querySelector('.set-words-bubbles');
             if (totalWords === 0) {
-                $(bubblesContainer, `<p class="set-empty-msg" style="margin: 3.4px 0; color: #94a3b8; font-size: 13.3px; font-style: italic;">Set is empty</p>`);
+                $(bubblesContainer, `<p class="set-empty-msg" style="margin: 3.4px 0; color: #94a3b8; font-size: 13.3px; font-style: ${tr.italic()};">${tr('setEmpty')}</p>`);
             } else {
                 set.words.forEach((w, order) => {
                     const bubbleData = buildBubbleData(w, set.originalLang, view);
@@ -4789,12 +4834,11 @@ function catalog(container) {
             /*
              * The game still to come -- see `soon` in core/icons.js: its tile
              * an outline in the card's muted ink, and a press that starts
-             * nothing but says so. "Coming soon" takes the place of its name,
-             * or, where a fifth of the row is too narrow for the words, goes
-             * on the tile over the drawing -- the owner's call, 29 October
-             * 2026. Measured rather than assumed: the row's width is the
-             * app's, and the app's width is whatever the corner was dragged
-             * to.
+             * nothing but says so. "Coming soon" goes on the tile over the
+             * drawing, always there and always in English, whatever the language
+             * of the interface: it belongs with the game's name, which is English
+             * too (the owner, 4 November 2026). Until then it could also take the
+             * place of the name, where the row had room for the words.
              *
              * Written down as `set-soon-btn` all the same: a press on a game
              * that is not there yet is the one measure of how much it is
@@ -4813,11 +4857,6 @@ function catalog(container) {
                     if (said) return;
                     said = true;
 
-                    const name = btn.querySelector('.set-tile-face');
-                    name.textContent = 'Coming soon';
-                    if (name.scrollWidth <= name.clientWidth) return;
-
-                    name.textContent = game.title;
                     $(tile, `<span class="set-tile-soon" style="position: absolute; inset: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
                 });
             });
@@ -4826,7 +4865,7 @@ function catalog(container) {
 
             collapse.addEventListener('click', () => {
                 const collapsed = !store.viewOf(set).collapsed;
-                const name = collapsed ? 'Expand' : 'Collapse';
+                const name = tr(collapsed ? 'expand' : 'collapse');
 
                 store.setView(set, { collapsed });
                 track('view', set.id, 'collapsed', Number(collapsed));
@@ -4896,8 +4935,7 @@ function catalog(container) {
     /*
      * The foot of the list, where the app asks for something back. In the
      * extension it starts as five stars; everywhere else, and in the extension
-     * once a star has been pressed, it is a quiet link that opens a box to write
-     * in.
+     * once a star has been pressed, it is a box to write in.
      *
      * Four and five stars lead to the store, one to three straight to the box.
      * The two kinds of reader do not turn up in the same numbers. Somebody the
@@ -4926,18 +4964,17 @@ function catalog(container) {
     // wrote would be cut off, with nothing to say it had been.
     const FEEDBACK_MAX = 1900;
 
-    // The question at the foot of the list, on the link and in the box. The other
-    // one answers a press of one to three stars and is seen only right after it:
+    // The question at the foot of the list, in the box. The other one answers a
+    // press of one to three stars and is seen only right after it:
     // anywhere else nobody has said anything yet for it to be thanks for. The
     // owner's call, 4 November 2026.
-    const ASK_WISHES = 'What else would you like to see in this app?';
-    const ASK_AFTER_LOW_STARS = 'Your feedback is appreciated';
+    const ASK_WISHES = 'askWishes';
+    const ASK_AFTER_LOW_STARS = 'askLow';
 
-    // The question of the box this page has opened, by the link or by a star, and
-    // null while it has not. On purpose not written down: the owner's call is that
-    // the next opening of the popup starts from the link again, unless there are
-    // words waiting to be sent.
-    let feedbackOpen = null;
+    // The question a star has just asked of the box, and null otherwise. On purpose
+    // not written down: it answers that press, and the next opening of the popup
+    // asks the usual one.
+    let feedbackAsks = null;
 
     const kept = (key) => {
         try {
@@ -4968,8 +5005,7 @@ function catalog(container) {
         // a visit, and a box that swallows what is written is worse than no box.
         if (!remote.enabled()) return;
 
-        if (feedbackOpen || kept(FEEDBACK_DRAFT_KEY)) feedbackBox(parent);
-        else feedbackLink(parent);
+        feedbackBox(parent);
     }
 
     /*
@@ -4998,7 +5034,7 @@ function catalog(container) {
         //
         // A link where a star goes somewhere, and a button where it does not.
         const starPress = (stars) => {
-            const said = `class="dict-rate-star" data-press="${stars}" title="${stars} out of 5" aria-label="Rate this app ${stars} out of 5"`;
+            const said = `class="dict-rate-star" data-press="${stars}" title="${tr('starsOf', { n: stars })}" aria-label="${tr('rateStars', { n: stars })}"`;
 
             return stars > 3
                 ? `<a ${said} href="${STORE_REVIEWS}" target="_blank" rel="noopener noreferrer" style="display: block;">${star}</a>`
@@ -5010,7 +5046,7 @@ function catalog(container) {
         // what stands under it is two words and five stars, which is not a second
         // half of anything.
         const row = $(parent, `<div class="dict-rate" style="--star-idle: ${palette.softBorder}; display: flex; align-items: center; justify-content: center; gap: 8.5px; margin: 20.4px 0 15.3px;">
-            <span style="font-size: 12.8px; font-weight: 600; color: ${palette.hint};">Rate us</span>
+            <span style="font-size: 12.8px; font-weight: 600; color: ${palette.hint};">${tr('rateUs')}</span>
             <div style="display: flex; flex-direction: row-reverse; gap: 2.6px;">${[5, 4, 3, 2, 1].map(starPress).join('')}</div>
         </div>`);
 
@@ -5038,31 +5074,10 @@ function catalog(container) {
         });
     }
 
-    /*
-     * The question as one line of text, the owner's call, 4 November 2026: an
-     * empty box on every opening asks for more of this screen than a question
-     * somebody may never want to answer has a right to. A button under the look of
-     * a link, because it goes nowhere. In the colour of "Rate us" and fainter than
-     * that, by the owner's eye: the screen is for studying, and this is the last
-     * thing on it that should ask to be read. Opacity rather than a colour of its
-     * own, so that the two themes stay in step and the dashes fade with the text.
-     */
-    function feedbackLink(parent) {
-        const spot = $(parent, `<div class="dict-rate" style="margin: 20.4px 0 15.3px; text-align: center;">
-            <button class="dict-feedback-open" style="padding: 0; background: none; border: none; color: ${palette.hint}; opacity: 0.65; font-family: inherit; font-size: 12.8px; font-weight: 600; text-decoration: underline dashed; text-underline-offset: 3px; cursor: pointer;">${ASK_WISHES}</button>
-        </div>`);
-
-        spot.querySelector('.dict-feedback-open').addEventListener('click', () => {
-            openFeedback(spot, parent, ASK_WISHES).focus();
-        });
-
-        return spot;
-    }
-
-    // Whatever stands at the foot of the list gives way to the box. Answers with
-    // the field, which the caller decides whether to put the caret in.
+    // The stars give way to the box. Answers with the field, which the caller decides
+    // whether to put the caret in.
     function openFeedback(spot, parent, question) {
-        feedbackOpen = question;
+        feedbackAsks = question;
 
         const box = feedbackBox(parent);
         spot.replaceWith(box);
@@ -5087,23 +5102,27 @@ function catalog(container) {
      * language that is: without dir="auto" Arabic or Hebrew shows the right letters
      * pressed against the wrong side of the field.
      *
-     * Once something has been sent and thanked for it folds back into the link,
-     * the owner's call: that is the question answered. Not if somebody has begun
-     * on the next thing in the meantime, whose words would go with it.
+     * It is always there, the owner's call, 4 November 2026: for a few hours it stood
+     * folded into a line of text that opened it, and that was one press too many
+     * between somebody and saying what they think.
      *
      * What is being written is kept as it is typed. A press anywhere outside the
      * popup closes it, a redraw of the catalog empties this column, and neither
      * should cost somebody their sentence -- the same promise an open form of a
      * set makes.
      */
+    // A paper plane rather than the word, the owner's call, 4 November 2026: one
+    // word less to translate, in a place everybody knows what the button does.
+    const SEND_PLANE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;"><path d="M21.5 2.5 10.8 13.2" /><path d="M21.5 2.5 15 21.5l-4.2-8.3L2.5 9z" /></svg>`;
+
     function feedbackBox(parent) {
-        const prompt = feedbackOpen || ASK_WISHES;
+        const prompt = tr(feedbackAsks || ASK_WISHES);
         const HEIGHT = 27.7;
         const LINE = 16.5;
 
         const box = $(parent, `<div class="dict-rate" style="display: flex; align-items: flex-end; gap: 6.8px; margin: 20.4px 0 15.3px;">
             <textarea class="dict-feedback-text" rows="1" dir="auto" maxlength="${FEEDBACK_MAX}" placeholder="${prompt}" aria-label="${prompt}" style="flex: 1; min-width: 0; box-sizing: border-box; min-height: ${HEIGHT}px; max-height: 120px; padding: ${(HEIGHT - LINE - 2) / 2}px 6.8px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; line-height: ${LINE}px; outline: none;"></textarea>
-            <button class="dict-feedback-send" style="flex: none; box-sizing: border-box; height: ${HEIGHT}px; padding: 0 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px;">Send</button>
+            <button class="dict-feedback-send" title="${tr('send')}" aria-label="${tr('send')}" style="flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: ${HEIGHT + 6.8}px; height: ${HEIGHT}px; padding: 0; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px;">${SEND_PLANE}</button>
         </div>`);
 
         const text = box.querySelector('.dict-feedback-text');
@@ -5136,20 +5155,15 @@ function catalog(container) {
             keep(FEEDBACK_DRAFT_KEY, '');
             settle();
 
-            // Closed already, so that a redraw in the next few seconds draws the
-            // link and not a box that nothing would ever fold.
-            feedbackOpen = null;
+            // That question has been answered, and a redraw in the next few seconds
+            // should ask the usual one.
+            feedbackAsks = null;
 
             // In the field, where the words just were and where the eye still is.
-            text.placeholder = 'Thank you!';
+            text.placeholder = tr('thanks');
 
             clearTimeout(thanking);
-            thanking = setTimeout(() => {
-                if (!box.isConnected) return;
-
-                if (text.value.trim()) text.placeholder = ASK_WISHES;
-                else box.replaceWith(feedbackLink(parent));
-            }, 3000);
+            thanking = setTimeout(() => { text.placeholder = tr(ASK_WISHES); }, 3000);
         });
 
         return box;
@@ -5423,6 +5437,9 @@ function catalog(container) {
         // The guess goes in before the screen is drawn, so the dropdown opens
         // with an answer in it rather than filling itself in as it appears.
         picking = { mine: systemLang(), learn: [] };
+
+        uiChosen = value && tr.has(value.uiLang) ? value.uiLang : null;
+        tr.use(uiNow());
     };
 
     /*
@@ -5488,6 +5505,94 @@ function catalog(container) {
     const SAMPLE_ID = '1';
 
     const isSample = (set) => String(set.id) === SAMPLE_ID && !set.adopted;
+
+    /*
+     * The title of a set off the shelf, all of it in the language it was built for:
+     * "Испанский · Начальный". A title is the contents of a set and not a list of
+     * languages, which is what stays in English (the owner, 4 November 2026).
+     *
+     * Where there is no table for that language the level has no name in it, and half
+     * a title in each language reads worse than a whole one in English, so it is
+     * English altogether. forLang decides both halves for that reason.
+     *
+     * The first letter by hand, because these names are written for the middle of a
+     * sentence: a browser calls Spanish "испанский". In the language's own rules for
+     * capitals, because in Turkish the capital of i is not I.
+     */
+    function shelfTitle(learn, mine, level) {
+        const lang = tr.forLang(mine);
+
+        return `${languageNameIn(learn, lang)} · ${tr.of(lang, 'level' + level)}`;
+    }
+
+    function languageNameIn(tag, lang) {
+        const english = languageName(tag);
+
+        if (lang === 'en' || typeof Intl.DisplayNames !== 'function') return english;
+
+        let named = null;
+        try {
+            named = new Intl.DisplayNames([lang], { type: 'language', fallback: 'none' }).of(tag);
+        } catch (e) {
+            named = null;
+        }
+
+        return named ? named.charAt(0).toLocaleUpperCase(lang) + named.slice(1) : english;
+    }
+
+    /*
+     * The titles the app wrote itself, in "Your language" and in the set itself.
+     *
+     * For a while these were translated on the way to the screen, into the language
+     * of the interface, which was wrong twice over (the owner, 4 November 2026): the
+     * box of the form still said "Your first card set", and the interface has no
+     * business in the contents of a set. So the title that is stored is the title.
+     *
+     * The starter set is written before anybody has named a language -- see seed.js
+     * -- and stands in for no language of its own, so its title follows the reader's,
+     * as often as that changes. A set off the shelf belongs to one pair and is born
+     * with the right title (see makeSets): only one written before this existed is
+     * still in English, and takes the language it was built for, which is also how
+     * one coming from a device not yet updated is put right.
+     *
+     * A title is touched only while it is word for word what the app wrote, so
+     * anything somebody typed stays, and no date is given: the app made this change
+     * and nobody else needs telling. See store.touch.
+     *
+     * Answers whether anything changed: saving is the caller's, who usually has more
+     * to save. Run wherever the sets are read and wherever myLang changes.
+     */
+    function retitleOwnSets() {
+        const starterTitles = tr.langs().map(tag => tr.of(tag, 'firstSet'));
+        let changed = false;
+
+        const retitle = (set, title) => {
+            if (set.title === title) return;
+
+            set.title = title;
+            changed = true;
+        };
+
+        store.allSets().forEach(set => {
+            if (isSample(set)) {
+                if (myLang && starterTitles.includes(set.title)) retitle(set, tr.of(myLang, 'firstSet'));
+                return;
+            }
+
+            if (!String(set.id).startsWith(CATALOG_ID)) return;
+
+            // In English, as everything from before this is, or with only the level
+            // translated, as a build of a few hours wrote it on the owner's devices.
+            const name = languageName(set.originalLang);
+            const level = vocab.levels().find(l => tr.langs().some(tag => set.title === `${name} · ${tr.of(tag, 'level' + l)}`));
+
+            if (level) retitle(set, shelfTitle(set.originalLang, set.translationLang, level));
+        });
+
+        return changed;
+    }
+
+    catalog.retitleOwnSets = () => (retitleOwnSets() ? store.save() : Promise.resolve());
 
     /*
      * The order of the list: whatever happened last is on top.
@@ -5577,6 +5682,10 @@ function catalog(container) {
         // when the other half of the pair arrives.
         if (!myLang) return Promise.resolve();
 
+        // Every change of the reader's language comes through here, and it ends in
+        // a save whatever else happens below.
+        retitleOwnSets();
+
         const made = [];
 
         learnLangs.forEach(learn => {
@@ -5594,7 +5703,7 @@ function catalog(container) {
 
                 made.push({
                     id: id,
-                    title: `${languageName(learn)} · ${level.level}`,
+                    title: shelfTitle(learn, myLang, level.level),
                     originalLang: learn,
                     translationLang: myLang,
                     words: level.words
@@ -5636,7 +5745,11 @@ function catalog(container) {
      */
     async function langsChanged(how) {
         await saveSetting('langsChangedAt', Date.now());
-        track('langs', how, myLang, learnLangs);
+
+        // Nothing to say when it was the interface that changed and not the pair:
+        // that is an event of its own, see setUiLang.
+        if (how) track('langs', how, myLang, learnLangs);
+
         syncCatalog();
     }
 
@@ -5729,6 +5842,37 @@ function catalog(container) {
     const shownMyLang = () => myLang || picking.mine;
 
     /*
+     * The language the catalog is read in: what somebody chose, and until they do,
+     * the one their own language leads to.
+     *
+     * `settings.uiLang` is written only when something decided it -- the dropdown,
+     * or the first dropdown moving, see setUiLang -- and absent until then. So a
+     * reader who has never touched either, a reader from before this existed
+     * included, follows their language wherever it comes from: the browser's guess
+     * on the first screen, or a profile they connect to afterwards.
+     */
+    let uiChosen = null;
+
+    const uiNow = () => uiChosen || tr.forLang(shownMyLang());
+
+    /*
+     * The screen changes at the press, and the caller draws it. A choice goes with
+     * the pair of languages to the other devices of the profile -- see langsOf in
+     * sync.js -- but the date that sends it is the caller's: in the settings, not on
+     * the first screen, the same as the pair itself. See langsChanged.
+     */
+    function setUiLang(tag, how) {
+        const moved = tag !== tr.now;
+
+        uiChosen = tag;
+        tr.use(tag);
+
+        if (moved) track('ui_lang', how, tag);
+
+        return saveSetting('uiLang', tag);
+    }
+
+    /*
      * The first screen: two dropdowns on one line, and nothing else to read.
      *
      * It had a heading and a paragraph explaining what a set is made of. Both
@@ -5766,7 +5910,7 @@ function catalog(container) {
 
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
             + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px 27.3px 10.2px 10.2px;`
-            + ` appearance: none; -webkit-appearance: none;`
+            + ` appearance: none; -webkit-appearance: none; text-overflow: ellipsis;`
             + ` font-family: inherit; font-size: 13.3px; font-weight: 600; cursor: pointer; outline: none;`;
 
         /*
@@ -5788,7 +5932,7 @@ function catalog(container) {
 
         const chip = (tag) => `<span class="dict-start-chip" data-tag="${tag}" style="display: inline-flex; align-items: center; gap: 5.1px; padding: 5.1px 6.8px 5.1px 10.2px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 12.3px; font-weight: 600;">
                 ${languageName(tag)}
-                <button class="dict-start-drop" data-tag="${tag}" title="Remove" style="display: inline-flex; align-items: center; justify-content: center; width: 15.4px; height: 15.4px; padding: 0; background: transparent; color: ${palette.hint}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; line-height: 1; cursor: pointer;">×</button>
+                <button class="dict-start-drop" data-tag="${tag}" title="${tr('remove')}" style="display: inline-flex; align-items: center; justify-content: center; width: 15.4px; height: 15.4px; padding: 0; background: transparent; color: ${palette.hint}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; line-height: 1; cursor: pointer;">×</button>
             </span>`;
 
         /*
@@ -5802,24 +5946,43 @@ function catalog(container) {
          * the same two fields read as a question with room around it.
          */
         const panel = $(parent, `<div class="dict-start" style="margin-top: 27.3px; padding: 0 27.3px 27.3px;">
-            ${caption('Your language')}
-            ${withChevron(`<select class="dict-start-mine" style="${field}">${options('Pick one', [], picking.mine)}</select>`, textEdge)}
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px;">
+                <div>
+                    ${caption(tr('yourLanguage'))}
+                    ${withChevron(`<select class="dict-start-mine" style="${field}">${options(tr('pickOne'), [], picking.mine)}</select>`, textEdge)}
+                </div>
+                <div>
+                    ${caption(tr('interface'))}
+                    ${withChevron(`<select class="dict-start-ui" style="${field}">${uiOptions()}</select>`, textEdge)}
+                </div>
+            </div>
 
-            <div style="margin-top: 27.3px;">${caption('Languages to learn')}</div>
+            <div style="margin-top: 27.3px;">${caption(tr('languagesToLearn'))}</div>
             <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
-            ${withChevron(`<select class="dict-start-learn" style="${field}">${options('Add one', [picking.mine].concat(picking.learn), null)}</select>`, textEdge)}
+            ${withChevron(`<select class="dict-start-learn" style="${field}">${options(tr('addOne'), [picking.mine].concat(picking.learn), null)}</select>`, textEdge)}
 
-            <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">If you don’t see your language, just skip this. You can add your own words later in the app.</div>
+            <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">${tr('startNote')}</div>
 
             <div style="display: flex; align-items: center; gap: 6.8px; margin-top: 27.3px;">
-                <button class="dict-start-skip" style="flex: none; padding: 11.9px ${textEdge}; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12.8px; font-weight: 700; cursor: pointer;">Skip</button>
-                <button class="dict-start-go" ${ready ? '' : 'disabled'} style="flex: 1; padding: 11.9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; font-weight: 700; opacity: ${ready ? 1 : 0.4}; cursor: ${ready ? 'pointer' : 'default'};">Start</button>
+                <button class="dict-start-skip" style="flex: none; padding: 11.9px ${textEdge}; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12.8px; font-weight: 700; cursor: pointer;">${tr('skip')}</button>
+                <button class="dict-start-go" ${ready ? '' : 'disabled'} style="flex: 1; padding: 11.9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; font-weight: 700; opacity: ${ready ? 1 : 0.4}; cursor: ${ready ? 'pointer' : 'default'};">${tr('start')}</button>
             </div>
         </div>`);
 
+        // Naming a language takes the interface along, to English where there is
+        // none of it. Clearing the answer names nothing, and leaves the screen as it
+        // is -- which has to be said, because a reader who never chose was following
+        // the answer that just went.
         panel.querySelector('.dict-start-mine').addEventListener('change', (e) => {
+            setUiLang(e.target.value ? tr.forLang(e.target.value) : tr.now, 'follow');
+
             picking = { mine: e.target.value || null, learn: picking.learn.filter(t => t !== e.target.value) };
             mineChosen = true;
+            render();
+        });
+
+        panel.querySelector('.dict-start-ui').addEventListener('change', (e) => {
+            setUiLang(e.target.value, 'pick');
             render();
         });
 
@@ -5856,6 +6019,10 @@ function catalog(container) {
 
             if (myLang) await saveSetting('myLang', myLang);
             await saveSetting('langsAsked', true);
+
+            // The starter set is all a reader who skips has, and it has been in
+            // English since before they said anything.
+            await catalog.retitleOwnSets();
 
             track('langs', 'skip', myLang, [], mineChosen ? 1 : 0);
             syncCatalog();
@@ -5977,11 +6144,11 @@ function catalog(container) {
 
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
-                <div class="early-dialog-title" style="display: flex; align-items: center; gap: 6.8px; font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">Nothing to repeat yet${badge}</div>
-                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">All words in this selection are still waiting for their timers. An early repetition will not move a word forward, but a mistake will still set it back.</div>
+                <div class="early-dialog-title" style="display: flex; align-items: center; gap: 6.8px; font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">${tr('nothingYet')}${badge}</div>
+                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">${tr('earlyText')}</div>
                 <div class="early-dialog-actions" style="display: flex; gap: 6.8px;">
-                    <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Cancel</button>
-                    <button class="early-dialog-play" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">Play anyway</button>
+                    <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('cancel')}</button>
+                    <button class="early-dialog-play" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('playAnyway')}</button>
                 </div>
             </div>
         </div>`);
@@ -6109,6 +6276,7 @@ function returnTo(place) {
 // profile, reloads the page.
 async function refreshCatalog(afterSync) {
     await store.load();
+    await catalog.retitleOwnSets();
     if (!afterSync) catalog.setSession(await storage.get('active_session'));
 
     // After store.load(), which is what decides whether a form still has a set

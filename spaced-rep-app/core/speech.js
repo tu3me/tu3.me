@@ -974,13 +974,21 @@ function speech() {
 
         track('voice_hint', where, gap.why, gap.langs.join(','));
 
-        const title = gap.why === 'browser' ? 'Words can’t be read aloud here'
-            : gap.why === 'none' ? 'No voices on this device'
-                : `No voice for ${namesOf(gap.langs)} on this device`;
+        // The catalog is read in the reader's language and a game page in English,
+        // which has no table loaded -- see i18n.js. The way to the voices is
+        // English only: those are the names of menus in somebody else's system, and
+        // a name it does not use is worse there than no name, so the other languages
+        // say where to look in general.
+        const translated = where === 'catalog' && typeof tr === 'function' && tr.now !== 'en';
+        const say = (key, english, vars) => (translated ? tr(key, vars) : english);
+
+        const title = gap.why === 'browser' ? say('voiceBrowserTitle', 'Words can’t be read aloud here')
+            : gap.why === 'none' ? say('voiceNoneTitle', 'No voices on this device')
+                : say('voiceMissingTitle', `No voice for ${namesOf(gap.langs)} on this device`, { langs: gap.langs.map(nameOf).join(', ') });
 
         const fix = gap.why === 'browser'
-            ? 'Open this page in Chrome, Edge or Safari.'
-            : `Add one in ${voicePath()}, then restart the app.`;
+            ? say('voiceBrowserFix', 'Open this page in Chrome, Edge or Safari.')
+            : say('voiceAddFix', `Add one in ${voicePath()}, then restart the app.`, { path: voicePath() });
 
         dropTip();
 

@@ -521,9 +521,14 @@ body {
  * offset from 1 to 0 uncovers it from its first point to its last. Which means
  * the direction it draws in is the direction the path is written in, and that
  * is why the shaft is written from the card and not from the corner.
+ *
+ * From a little past 1, and with a gap of 2 rather than 1, so that nothing shows
+ * before a stroke starts. At exactly 1 the dash ends on the path's first point, and
+ * its round cap stood there as a dot for as long as the stroke waited its turn; the
+ * longer gap keeps the next dash from coming in at the far end instead.
  */
 @keyframes onb-draw {
-    from { stroke-dashoffset: 1; }
+    from { stroke-dashoffset: 1.1; }
     to { stroke-dashoffset: 0; }
 }
 

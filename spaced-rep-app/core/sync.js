@@ -83,6 +83,10 @@ function sync() {
         return {
             myLang: settings.myLang || null,
             learnLangs: settings.learnLangs || [],
+
+            // Goes along with the pair and under its date. Null while nobody has
+            // chosen: every device then works it out from myLang for itself.
+            uiLang: settings.uiLang || null,
             changedAt: settings.langsChangedAt || 0
         };
     }
@@ -158,6 +162,11 @@ function sync() {
         settings.learnLangs = theirs.learnLangs || [];
         settings.langsChangedAt = theirs.changedAt || 0;
         settings.langsAsked = true;
+
+        // Nothing here means nothing was said, not that the choice was undone: a
+        // record written by a device from before this, or kept by a server that
+        // does not know the field yet.
+        if (theirs.uiLang) settings.uiLang = theirs.uiLang;
 
         return storage.set('settings', settings);
     }

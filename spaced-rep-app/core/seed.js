@@ -80,6 +80,10 @@ function seed() {
                  * existed, and an absent mark made this set permanent.
                  */
                 id: '1',
+
+                // English only until the reader has named a language: nothing can
+                // be known about them yet when this is written. See
+                // retitleOwnSets in catalog.js, which also knows this text.
                 title: 'Your first card set',
 
                 originalLang: 'es',

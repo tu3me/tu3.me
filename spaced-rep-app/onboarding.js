@@ -171,8 +171,9 @@ function onboarding() {
      * a second line after it -- "More games to help you remember words are
      * coming soon" -- that the card left out: it is about games that are
      * coming, and the game that is coming is a tile on every set's row now.
+     *
+     * The words are in i18n.js with the rest of what the cards say.
      */
-    const PROMISE = 'Congratulations — you are one of the first to install this app.';
 
     // Has anything, anywhere, ever been answered. Asked of the words rather than
     // kept as a flag, so it answers itself: the first repetition ever recorded
@@ -212,7 +213,20 @@ function onboarding() {
      * outside it, and a swatch shrunk to fit a sentence is a swatch that has to
      * be matched up rather than simply seen.
      */
-    const chip = (fill, ink, extra) => `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px 8.5px; font-size: 13.3px; font-weight: 800; line-height: 1.15; ${extra || ''}">word</span>`;
+    /*
+     * Except where the word itself does not fit. Four of these and three arrows
+     * are measured to the width of the card with a word of four letters in them,
+     * and "слово" at that size already pushes the row out of it. Five letters and more
+     * give up the side padding and a size, which is the smallest change that keeps
+     * four of them on the card, and the one bubble on the screen that is a
+     * picture of the others can afford it.
+     */
+    const chip = (fill, ink, extra) => {
+        const word = tr('onbWord');
+        const long = word.length > 4;
+
+        return `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px ${long ? 4.3 : 8.5}px; font-size: ${long ? 10.8 : 13.3}px; font-weight: 800; line-height: 1.15; ${extra || ''}">${word}</span>`;
+    };
 
     /*
      * Drawn rather than typed. The arrow in a font is set on its own
@@ -296,42 +310,19 @@ function onboarding() {
      * list is the strip becoming a thing in front of the cards rather than the
      * first of them.
      *
-     * The upward one comes out of the written word and goes up into the New set
-     * button, and it is short. It used to be long and mostly sideways: the
-     * button was the third in from the right of the header, most of a hundred
-     * pixels left of the word, and the stroke ran across the top of the card to
-     * get there, turned up at the end by a quarter of a circle. On 26 October
-     * 2026 the sound switch went into the settings, the button moved right by
-     * the switch and the gap after it, and came to stand almost over the word.
-     * What had been a journey became a step up.
+     * The upward one comes out of a plus in a circle, the plus on the New set
+     * button drawn in the hand of the arrow, and goes up into that button in a bow,
+     * the owner's call, 4 November 2026. Until then it rose from
+     * the word "create", written beside it in strokes: a word nobody could translate,
+     * on a card that is otherwise in the reader's language. A sign says the same in
+     * all of them.
      *
-     * It leaves from over the middle of "create". For a while it rose from
-     * beside the word instead, nine pixels left of its first letter, and read
-     * as an arrow starting from nowhere in particular with a word next to it;
-     * then it came out of the word as an S -- straight up, across, straight up
-     * again -- and two turns in twenty pixels are a squiggle, not an arrow
-     * (both reported 26 October 2026). Out of the top of the word, it is the
-     * word pointing.
-     *
-     * One gentle bow and no more: the word stands a little right of the
-     * button, so the stroke leaves it on a slant up and to the left and
-     * straightens as it goes, arriving at the middle of the button's lower
-     * edge all but upright -- a stroke that ended on the slant it set out on
-     * would be pointing past the button rather than at it. The head lies along
-     * the last of the shaft rather than square to the page, so its two strokes
-     * open evenly about the line they finish.
-     *
-     * The word sits a little lower than the line of the heading and left of
-     * the card's top right corner, where the cross that sends the strip away
-     * is. The foot stops a few pixels over the letters: a stroke that touches
-     * what it was written beside is a correction, and one that starts a little
-     * away from it is an aside.
-     *
-     * Where it ends is measured rather than chosen: the head is under the middle
-     * of the New set button, which is the second button in from the right of a
-     * header whose buttons are all a known width. That is the one number here
-     * another file can break -- a button added to that row moves it, and one
-     * taken out of it did -- and this comment is the whole of the warning.
+     * The circle stands a little to the right of the button's middle, and that is what
+     * gives the stroke its length and its bend: it leaves the circle on a slant up and
+     * to the left and straightens as it goes, arriving all but upright under the middle
+     * of the button. Whatever the button says and however wide that makes it, so where
+     * they stand is measured on the page -- see aim. The head lies along the last of
+     * the shaft, so its two strokes come out uneven against the page, as a hand's do.
      *
      * How far up it reaches is not a choice at all. The header is sticky, opaque
      * and above everything in the column, which is what has to happen when the
@@ -362,26 +353,14 @@ function onboarding() {
      * it: a head growing while the shaft grows is a shape swelling, and what is
      * wanted is a line arriving somewhere and then pointing.
      */
-    const DRAW = (ms, delay) => `pathLength="1" stroke-dasharray="1" style="animation: onb-draw ${ms}ms ease-out ${delay}ms both;"`;
+    const UP_TIP = 18;
+    const UP_SIGN = 20;
+    const UP_SIGN_ASIDE = 15;
+
+    const DRAW = (ms, delay) => `pathLength="1" stroke-dasharray="1 2" style="animation: onb-draw ${ms}ms ease-out ${delay}ms both;"`;
 
     /*
-     * The written word, which arrives rather than being drawn, and arrives last:
-     * the arrow it belongs to has to have got where it is going before the word
-     * next to it means anything.
-     *
-     * A fade although it is written in the same hand as the arrow. Ten strokes
-     * growing at once are not handwriting, they are ten strokes growing; ten in
-     * sequence are a second animation as long as the rest of the card has, for
-     * six letters nobody is waiting to read. See onb-mark in app.css for why
-     * anything on this card waits at all. `both` rather than `forwards`, so that
-     * what stands there during the wait is the first frame of the animation
-     * rather than the finished mark: the keyframes own both ends, and nothing
-     * has to be said twice in the style attribute.
-     */
-    const WORD_IN = 'animation: onb-mark 240ms ease-out 1060ms both;';
-
-    /*
-     * The same fade, handed out down a card so that its parts arrive one after
+     * A fade, handed out down a card so that its parts arrive one after
      * another rather than all at once.
      *
      * A card that is a list of things -- four rungs with arrows between them,
@@ -397,49 +376,39 @@ function onboarding() {
     const AFTER = (i) => `animation: onb-mark 220ms ease-out ${60 + i * 90}ms both;`;
 
     /*
-     * Every mark drawn by hand on a card -- the arrows and the word under the
+     * Every mark drawn by hand on a card -- the arrows and the circle under the
      * first one -- is an `onb-point`, so that the new-set form can put them
      * away when it covers the strip. They are what the form cannot cover: each
      * reaches out of its card, and two stand above the list on purpose. See
      * onb-point in app.css.
      */
-    const POINT_UP = () => `<svg width="36" height="32" viewBox="0 0 36 32"
+    const POINT_UP = () => `<svg width="24" height="25" viewBox="0 0 24 25"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 45.4px; top: -12px;">
-        <path ${DRAW(320, 500)} d="M19 26Q8 17 6 6.5" />
-        <path ${DRAW(170, 810)} d="M3.7 14.2 6 6.5 11 12.8" />
+        class="onb-point onb-up" aria-hidden="true" style="display: block; position: absolute; right: 58.5px; top: -8.5px;">
+        <path ${DRAW(360, 620)} d="M19 23.5C13.5 20 7.5 13 6 3" />
+        <path ${DRAW(170, 970)} d="M3.7 9.6 6 3 10.2 8.6" />
     </svg>`;
 
     /*
-     * And a word in the hand that drew the arrow, under it: what the button it
-     * points at is for.
+     * And what it comes out of: what the button it points at is for.
      *
-     * Written as strokes rather than set in a typeface. There is no handwriting
-     * font to be had here -- the app loads none and is not going to start, and
-     * the generic `cursive` family is a different face on every machine and a
-     * joke on one of them -- so the six letters are six little paths, drawn on
-     * the same round-capped line the arrows are. Six paths are also the whole
-     * reason this is allowed to look hand-made: a letter that is slightly wrong
-     * is handwriting, while a typeface that is slightly wrong is a bug.
+     * Written rather than constructed. A circle and two ruled lines are an icon, and
+     * an icon on this card is a second voice; so the circle is one stroke, not quite
+     * round, whose end runs a little past its beginning at the top, where the arrow
+     * leaves it, and the two strokes of the plus lean and bend a little.
      *
-     * Tilted four degrees, which is what makes it read as written next to the
-     * arrow rather than printed beside it, and in the same ink as the arrow and
-     * the sentence, so that the three are plainly one hand.
+     * Drawn in the order a hand would, before the arrow: a stroke setting out from
+     * nothing is a stroke with nothing to say. In the ink and the line of the arrow and
+     * the sentence, so that the three are plainly one hand. It stands level with the
+     * heading, to the right of it, where the card has air; aim keeps the heading from
+     * reaching it.
      */
-    const LABEL = () => `<svg width="46" height="15" viewBox="0 0 62 20" fill="none"
-        stroke="${look.body}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
-        class="onb-point" aria-hidden="true" style="display: block; position: absolute; right: 39.4px; top: 17px; ${WORD_IN}">
-        <g transform="rotate(-4 31 11)">
-            <path d="M10 8C6 5.5 2 8 2 11.2 2 14.6 6 16.6 10 14.6" />
-            <path d="M14.4 16 15.2 8.4" />
-            <path d="M14.8 10.6C16.4 7.8 19 7.6 20.2 9.2" />
-            <path d="M22.6 12.6C26 12.2 28.8 11.6 29.8 10.6 30.4 8.8 27.4 7 24.8 8.6 22.2 10.2 21.8 14.6 24.8 15.9 26.8 16.7 28.8 16.1 30.2 14.6" />
-            <path d="M40 9.6C38 7.6 34 8.2 33.5 11.4 33 14.7 36 16.9 39.2 15.2" />
-            <path d="M40.2 8.6C39.9 11.4 39.8 14 40 15.9 40.1 16.7 41.2 16.6 42 15.7" />
-            <path d="M47 5.4C46.4 9 46.1 13 46.5 15.1 46.8 16.5 48.1 16.5 49.1 15.4" />
-            <path d="M44 9.4 49.6 8.8" />
-            <path d="M52.1 12.6C55.5 12.2 58.3 11.6 59.3 10.6 59.9 8.8 56.9 7 54.3 8.6 51.7 10.2 51.3 14.6 54.3 15.9 56.3 16.7 58.3 16.1 59.7 14.6" />
-        </g>
+    const PLUS_SIGN = () => `<svg width="${UP_SIGN}" height="${UP_SIGN}" viewBox="0 0 20 20"
+        fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+        class="onb-point onb-up-sign" aria-hidden="true" style="display: block; position: absolute; right: 51.5px; top: 13px;">
+        <path ${DRAW(300, 120)} d="M12.8 2.9C8.2 .9 2.6 3.6 1.9 9.1 1.2 14.6 5.1 18.7 10.3 18.4 15.4 18.1 18.7 13.6 18.1 8.9 17.6 5 14.2 1.7 8.9 1.9" />
+        <path ${DRAW(90, 420)} d="M10.6 5.6C10 8.4 9.6 11.2 9.8 14.7" />
+        <path ${DRAW(90, 520)} d="M5.4 10.9C8.2 9.9 11.4 9.5 14.6 9.8" />
     </svg>`;
 
     const POINT_DOWN = () => `<svg width="19" height="36" viewBox="0 0 19 36"
@@ -513,14 +482,14 @@ function onboarding() {
         {
             id: 'start',
             moment: () => true,
-            title: 'What is this app about?',
-            body: () => text(`A gamified app for learning words. Test it out with <span style="position: relative; display: inline-block; font-weight: 800;">this${POINT_DOWN()}</span> flashcard set, or create your own.`),
-            marks: () => `${POINT_UP()}${LABEL()}`
+            title: () => tr('onbStartTitle'),
+            body: () => text(tr('onbStartBody', { this: `<span class="onb-this" style="position: relative; display: inline-block; font-weight: 800;">${tr('onbThis')}${POINT_DOWN()}</span>` })),
+            marks: () => `${POINT_UP()}${PLUS_SIGN()}`
         },
         {
             id: 'colours',
             moment: answered,
-            title: 'Words ripen with every repetition',
+            title: () => tr('onbColoursTitle'),
             body: () => {
                 const stage = ramp();
 
@@ -538,15 +507,15 @@ function onboarding() {
                 // what stands under it here is not a sentence but a picture, and
                 // a picture butted up against a line of type reads as part of it.
                 return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 3.4px; margin-top: 6.8px;">${ladder.join('')}</div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 5.1px; ${AFTER(ladder.length)}">${note('new')}${note('learned')}</div>`;
+                    <div style="display: flex; justify-content: space-between; margin-top: 5.1px; ${AFTER(ladder.length)}">${note(tr('onbNew'))}${note(tr('onbLearned'))}</div>`;
             }
         },
         {
             id: 'width',
             moment: played,
             only: mouse,
-            title: 'Pull the corner to resize the window',
-            body: () => text('Double-click the corner to put the width back.'),
+            title: () => tr('onbWidthTitle'),
+            body: () => text(tr('onbWidthBody')),
             marks: POINT_CORNER
         },
         {
@@ -569,8 +538,8 @@ function onboarding() {
              */
             id: 'free',
             moment: () => true,
-            title: () => `<span style="color: ${look.ok};">Free</span> for early adopters`,
-            body: () => text(PROMISE)
+            title: () => tr('onbFreeTitle', { free: `<span style="color: ${look.ok};">${tr('onbFreeWord')}</span>` }),
+            body: () => text(tr('onbPromise'))
         }
     ];
 
@@ -636,7 +605,7 @@ function onboarding() {
      * reading a card wants to aim at anything.
      */
     const step = (back, off) => (off ? '' : `<button class="onb-step" data-back="${back ? 1 : 0}" data-press="${back ? 'back' : 'next'}"
-        title="${back ? 'Previous' : 'Next'}" aria-label="${back ? 'Previous card' : 'Next card'}"
+        title="${tr(back ? 'onbPrev' : 'onbNext')}" aria-label="${tr(back ? 'onbPrevCard' : 'onbNextCard')}"
         style="position: absolute; ${back ? 'left' : 'right'}: 4.3px; top: 0; bottom: 0; display: inline-flex;
         align-items: center; justify-content: center; width: 20.5px; padding: 0; background: transparent;
         border: none; color: ${look.softColor}; opacity: 0.75; cursor: pointer;">${STEP(back)}</button>`);
@@ -668,7 +637,7 @@ function onboarding() {
     const PIP_TOP = 8.25;
     const PIP_ROOM = 18.8;
 
-    const pips = (count, here) => `<div class="onb-pips" role="img" aria-label="Card ${here + 1} of ${count}" style="position: absolute; top: ${PIP_TOP}px; left: 0; right: 0; display: flex; justify-content: center; gap: 4.3px; pointer-events: none;">
+    const pips = (count, here) => `<div class="onb-pips" role="img" aria-label="${tr('onbCardOf', { n: here + 1, of: count })}" style="position: absolute; top: ${PIP_TOP}px; left: 0; right: 0; display: flex; justify-content: center; gap: 4.3px; pointer-events: none;">
             ${Array.from({ length: count }, (_, i) => `<span style="display: block; width: ${PIP}px; height: ${PIP}px; border-radius: 50%; background: ${look.softColor}; opacity: ${i === here ? 1 : 0.3};"></span>`).join('')}
         </div>`;
 
@@ -692,7 +661,7 @@ function onboarding() {
      * The chevrons' ink and their three quarters, because the three of them
      * are the strip's furniture and not what it says.
      */
-    const CLOSE = () => `<button class="onb-close" type="button" title="Hide the help cards" aria-label="Hide the help cards"
+    const CLOSE = () => `<button class="onb-close" type="button" title="${tr('hideHelp')}" aria-label="${tr('hideHelp')}"
         style="position: absolute; top: 3.4px; right: 3.4px; z-index: 1; display: inline-flex; align-items: center;
         justify-content: center; width: 20.5px; height: 20.5px; padding: 0; background: transparent; border: none;
         color: ${look.softColor}; opacity: 0.75; cursor: pointer;"><svg width="10" height="10" viewBox="0 0 10 10"
@@ -731,6 +700,46 @@ function onboarding() {
      * drawn no earlier than 320ms, by which time the clip has been taken off
      * again. See DRAW.
      */
+    /*
+     * The two marks that are aimed at something, aimed once the card is on the page.
+     *
+     * The head of the stroke up to the New set button stands under the middle of the
+     * button, and the circle it comes out of a fixed step to the right of that. The word
+     * on the button is whatever the language calls it, so that middle is measured. A
+     * heading that reaches as far as the circle wraps before it gets there: the room is
+     * taken on this card only, and a wrapped heading only moves the sentence down.
+     *
+     * The stroke down to the set hangs off the one word that points at it, and was
+     * written knowing that word ends the paragraph at this width. In another language
+     * it can be anywhere in it, and the stroke would cross out the lines below. It
+     * starts under the last line instead, under the word: the eye still goes from
+     * the heavy word down, and nothing is crossed.
+     */
+    function aim(strip) {
+        const card = strip.querySelector('.onb-card');
+        const up = card.querySelector('.onb-up');
+        const button = document.getElementById('add-set-btn');
+
+        if (up && button) {
+            const middle = appRect(button);
+            const centre = appRect(card).right - 1 - (middle.left + middle.width / 2);
+
+            const sign = centre - UP_SIGN_ASIDE - UP_SIGN / 2;
+
+            up.style.right = `${centre - UP_TIP}px`;
+            card.querySelector('.onb-up-sign').style.right = `${sign}px`;
+            card.querySelector('.onb-head').style.paddingRight = `${sign + UP_SIGN - 27.3 + 4}px`;
+        }
+
+        const word = card.querySelector('.onb-this');
+
+        if (word) {
+            const drop = appRect(card.querySelector('.onb-body')).bottom - appRect(word).bottom;
+
+            if (drop > 2) word.querySelector('.onb-point').style.top = `calc(100% + ${drop}px)`;
+        }
+    }
+
     function settle(card, was) {
         const now = getComputedStyle(card).height;
 
@@ -798,7 +807,7 @@ function onboarding() {
          * apart from the page it is written on. The strip's colour says the same
          * thing at arm's length; this says it in the sentence.
          */
-        strip.innerHTML = `<div class="onb-card" style="position: relative; font-style: italic; background: ${look.cardBg}; border: 1px solid ${look.cardBorder}; border-radius: 15.4px; padding: ${PIP_ROOM}px 27.3px 13.7px;">
+        strip.innerHTML = `<div class="onb-card" style="position: relative; font-style: ${tr.italic()}; background: ${look.cardBg}; border: 1px solid ${look.cardBorder}; border-radius: 15.4px; padding: ${PIP_ROOM}px 27.3px 13.7px;">
                 ${pips(cards.length, place)}
                 ${card.title ? `<div class="onb-head" style="display: flex; align-items: center; gap: 8.5px; margin-bottom: 8.5px;">
                     ${SIGN()}
@@ -811,6 +820,7 @@ function onboarding() {
             ${step(false, place === cards.length - 1)}
             ${CLOSE()}`;
 
+        aim(strip);
         settle(strip.querySelector('.onb-card'), was);
 
         strip.querySelectorAll('.onb-step').forEach(btn => btn.addEventListener('click', () => {

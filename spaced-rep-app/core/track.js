@@ -208,6 +208,7 @@ function analytics() {
         return {
             myLang: s.myLang || null,
             learn: s.learnLangs || [],
+            ui: s.uiLang || null,
             theme: s.isDark === false ? 'light' : 'dark',
             width: width,
             muted: !!s.muted,
