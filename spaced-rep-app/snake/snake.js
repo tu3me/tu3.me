@@ -920,9 +920,22 @@ function snake(container) {
             cellSize = side / GRID_COUNT;
             boardSide = side;
 
+            /*
+             * An arrow key in the line under the board, the owner's call, 5 November
+             * 2026. A key because that is what the line is telling somebody to look
+             * for. Drawn rather than typed: a font sets its four arrows at sizes and
+             * heights of its own, which a frame around each of them would show up.
+             *
+             * WASD still steers and the line no longer says so: whoever is curious
+             * enough tries it.
+             *
+             * No taller than the line it stands in, so the line keeps its height.
+             */
+            const ARROW_KEY = (turn, name) => `<span role="img" aria-label="${name} arrow key" style="display: inline-block; box-sizing: border-box; width: 15px; height: 15px; vertical-align: -3.5px; border: 1px solid currentColor; border-bottom-width: 2px; border-radius: 3.4px;"><svg width="13" height="12" viewBox="0 0 13 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; rotate: ${turn}deg;"><path d="M6.5 9.8V2.4M3.4 5.4 6.5 2.3 9.6 5.4" /></svg></span>`;
+
             controlsArea = $(host, `<div class="snake-controls-panel" style="display: flex; flex-direction: column; align-items: center; gap: 6.8px; margin-top: 8.5px; flex: 0 1 auto; min-height: 0; overflow: hidden;">
                 <div class="snake-controls-wrapper" id="controls-wrapper" style="display: flex; justify-content: center; width: 100%; flex: 1 1 auto; min-height: 0; align-items: stretch;"></div>
-                <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ↑ ↓ ← → W A S D or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
+                <div class="snake-control-hint" id="control-hint" style="font-size: 11.1px; font-weight: 600; line-height: 1.45; color: ${palette.panelMuted}; text-align: center;" hidden>Use keyboard ${ARROW_KEY(0, 'up')} ${ARROW_KEY(180, 'down')} ${ARROW_KEY(270, 'left')} ${ARROW_KEY(90, 'right')} or <button class="snake-dpad-link" id="dpad-link" style="padding: 0; background: none; border: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer;">virtual d-pad</button>.</div>
             </div>`);
 
             svg.addEventListener('click', () => cb.onBoardClick());
