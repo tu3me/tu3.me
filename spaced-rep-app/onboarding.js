@@ -360,6 +360,40 @@ function onboarding() {
     const DRAW = (ms, delay) => `pathLength="1" stroke-dasharray="1 2" style="animation: onb-draw ${ms}ms ease-out ${delay}ms both;"`;
 
     /*
+     * The shaft of an arrow: in dashes, the owner's call, 5 November 2026, and still
+     * drawing itself.
+     *
+     * A path has one dash pattern and DRAW has already spent it on uncovering the
+     * stroke. So the dashes stay on the path that is seen, and the drawing goes on a
+     * copy of it in a mask, wider than the line so as to uncover all of it. Measured in
+     * the svg's own numbers, because by default a mask is measured on the path's box,
+     * and a shaft close to upright has a box with next to no width.
+     *
+     * The length the path is told is what lands the last dash on the end of the shaft,
+     * right under the head, rather than a gap: `gaps` of them and one dash more than
+     * that. Each shaft is given the count that comes nearest its real length, so the
+     * dashes are one size on all three.
+     *
+     * The head stays solid. Its two strokes are seven pixels long, and broken up they
+     * stop reading as a point.
+     *
+     * The id is only ever asked for here, and a card coming in stands beside the one
+     * going out for a moment, hence the count.
+     */
+    const DASH = 3;
+    const DASH_GAP = 4;
+    let shafts = 0;
+
+    const DASHED = (ms, delay, gaps, d) => {
+        const id = `onb-shaft-${++shafts}`;
+
+        return `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+            <path ${DRAW(ms, delay)} stroke="#fff" stroke-width="4" d="${d}" />
+        </mask>
+        <path pathLength="${gaps * (DASH + DASH_GAP) + DASH}" stroke-dasharray="${DASH} ${DASH_GAP}" mask="url(#${id})" d="${d}" />`;
+    };
+
+    /*
      * A fade, handed out down a card so that its parts arrive one after
      * another rather than all at once.
      *
@@ -385,7 +419,7 @@ function onboarding() {
     const POINT_UP = () => `<svg width="24" height="25" viewBox="0 0 24 25"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
         class="onb-point onb-up" aria-hidden="true" style="display: block; position: absolute; right: 58.5px; top: -8.5px;">
-        <path ${DRAW(360, 620)} d="M19 23.5C13.5 20 7.5 13 6 3" />
+        ${DASHED(360, 620, 3, 'M19 23.5C13.5 20 7.5 13 6 3')}
         <path ${DRAW(170, 970)} d="M3.7 9.6 6 3 10.2 8.6" />
     </svg>`;
 
@@ -414,7 +448,7 @@ function onboarding() {
     const POINT_DOWN = () => `<svg width="19" height="36" viewBox="0 0 19 36"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
         class="onb-point" aria-hidden="true" style="display: block; position: absolute; left: 50%; margin-left: -9.5px; top: 100%; z-index: 7;">
-        <path ${DRAW(500, 500)} d="M9.6 2.4c2.8 9.6 2.4 20.8-.9 31.2" />
+        ${DASHED(500, 500, 4, 'M9.6 2.4c2.8 9.6 2.4 20.8-.9 31.2')}
         <path ${DRAW(150, 1010)} d="M4.1 27.8 8.7 34.2 13.5 28.2" />
     </svg>`;
 
@@ -457,7 +491,7 @@ function onboarding() {
     const POINT_CORNER = () => `<svg width="26" height="80" viewBox="0 0 26 80"
         fill="none" stroke="${look.body}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
         class="onb-point" aria-hidden="true" style="display: block; position: absolute; left: -8.6px; top: -44.5px; z-index: 7;">
-        <path ${DRAW(560, 320)} d="M22 69C17 58 6.5 44 6.5 20L6.5 6" />
+        ${DASHED(560, 320, 9, 'M22 69C17 58 6.5 44 6.5 20L6.5 6')}
         <path ${DRAW(200, 870)} d="M3.2 12.2 6.5 6 9.8 12.2" />
     </svg>`;
 

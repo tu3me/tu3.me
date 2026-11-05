@@ -69,8 +69,10 @@ function seed() {
                  * by this number and nothing else.
                  *
                  * It is there so that the app is never an empty screen: somebody
-                 * who skipped the question, or whose languages the table has
-                 * nothing for, still has something to press. The moment there is
+                 * whose languages the table has nothing for, or who has taken every
+                 * language off the list, still has something to press. Somebody who
+                 * skipped the question gets a real set since 5 November 2026 -- see
+                 * defaultLearn in catalog.js. The moment there is
                  * anything else to show, this stops being shown -- it is the
                  * answer to "nothing here yet", and that question is no longer
                  * being asked.
@@ -83,8 +85,8 @@ function seed() {
 
                 // English only until the reader has named a language: nothing can
                 // be known about them yet when this is written. See
-                // retitleOwnSets in catalog.js, which also knows this text.
-                title: 'Your first card set',
+                // retitleSample in catalog.js, which also knows this text.
+                title: 'Starter Set',
 
                 originalLang: 'es',
                 translationLang: 'en',

@@ -565,6 +565,43 @@ body {
 }
 
 /*
+ * What the speakers in the set form's dropdowns mean -- see voiceKey in catalog.js.
+ * The press is written in here rather than on the element because what it changes is
+ * a state, and the markup draws a form in that state from the start: a redraw with
+ * the text open should not flicker shut.
+ *
+ * The air between the three goes after each rather than before the next. Open, the
+ * text wraps wherever it has to, and air in front of a part that starts a line would
+ * indent that line.
+ */
+.set-voice-key {
+    display: block;
+    width: 100%;
+    margin-top: 8.5px;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 9.7px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.set-voice-key > span:not(:last-child) {
+    margin-inline-end: 4.3px;
+}
+
+.set-voice-key[aria-expanded="true"] {
+    white-space: normal;
+    cursor: auto;
+}
+
+/*
  * The name under a game that was started and left, saying so: it becomes
  * "Continue" and a play mark, then goes back, and so on. The tile above it stays
  * as it is -- until 26 October 2026 its drawing turned into a play triangle in

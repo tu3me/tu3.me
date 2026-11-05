@@ -40,16 +40,18 @@ function store() {
      * get one, and the column they are read against is the whole column, the
      * already-named words included: they are the evidence.
      *
-     * `preferred` is the languages the person learns and reads, for a column
-     * that has nothing in it to tell -- see speech.languageOfAll.
+     * `preferred` is the languages each side is likely to be in, a list under the
+     * name of its field -- see speech.languageOfAll. What the other side prefers is
+     * still this person's language, so it is what this side falls back on.
      */
     function label(set, preferred) {
         const words = set.words || [];
+        const likely = preferred || {};
 
-        [['originalLang', 'original'], ['translationLang', 'translation']].forEach(([field, side]) => {
+        [['originalLang', 'original', 'translationLang'], ['translationLang', 'translation', 'originalLang']].forEach(([field, side, other]) => {
             if (set[field]) return;
 
-            const guess = speech.languageOfAll(words.map(w => w[side]), preferred);
+            const guess = speech.languageOfAll(words.map(w => w[side]), likely[field], likely[other]);
 
             // Nothing recognised — digits, an empty column — leaves the field
             // absent rather than putting a null in the saved data.

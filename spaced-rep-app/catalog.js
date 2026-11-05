@@ -482,30 +482,6 @@ function catalog(container) {
     const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
 
     /*
-     * A dropdown with the arrow drawn here rather than left to the browser.
-     *
-     * Chrome pins its own arrow to the right border and ignores the field's
-     * padding -- 0, 30 and 60 pixels of padding-right put it in exactly the same
-     * place -- so it sits hard against the edge while the text inside has its
-     * padding of air on the left. The only way to give the two sides the same
-     * inset is to switch the native arrow off and lay the app's own chevron over
-     * the field, which is what `inset` is for: it is the field's own border plus
-     * padding, so the arrow stands as far from its edge as the text does from
-     * the other one.
-     *
-     * The same icon the folding rows use, turned a quarter so it points down. It
-     * takes no clicks: the select underneath has to go on being the whole
-     * control, arrow included.
-     *
-     * Every field wrapped in this has to turn the native arrow off itself --
-     * appearance: none -- and leave room for this one in its padding-right.
-     */
-    const withChevron = (select, inset) => `<div style="position: relative;">
-            ${select}
-            <span style="position: absolute; right: ${inset}; top: 50%; translate: 0 -50%; rotate: 90deg; display: block; pointer-events: none; color: ${palette.softColor};">${CHEVRON}</span>
-        </div>`;
-
-    /*
      * The three ways to have this app — see platformStrip. Drawn a size up from
      * the chrome around them: they are the picture in a cell rather than the
      * mark on a button, and at 18 they read as three smudges.
@@ -961,6 +937,9 @@ function catalog(container) {
      * and the format hint below it start there too. It heads the box rather than
      * joining the folding routes, so it lines up with what it heads rather than
      * with the column their chevrons push them into.
+     *
+     * The section of the two language dropdowns is one of these too, the owner's
+     * call, 5 November 2026: it folded until then.
      */
     function staticSection(label, bodyHtml) {
         return `<div class="set-fold">
@@ -1966,10 +1945,10 @@ function catalog(container) {
      *
      * The pair, both halves of it. Checking only the language being learned
      * was enough until somebody changed their own language in the settings:
-     * makeSets then built the same three sets against the new one -- the ids
-     * carry both halves, so nothing was in the way -- and the old three went
-     * on standing beside them. Six Spanish sets, three names printed twice,
-     * and no way to tell from the list which was which.
+     * makeSets then built the same sets against the new one -- the ids carry
+     * both halves, so nothing was in the way -- and the old ones went on
+     * standing beside them. Six Spanish sets, three names printed twice, and no
+     * way to tell from the list which was which.
      *
      * Hidden, not deleted. The set stays in the store with everything that
      * has been answered in it, and naming that pair again brings it back as
@@ -1980,11 +1959,28 @@ function catalog(container) {
      * Only the made ones, told apart by their id -- see CATALOG_ID. A set
      * somebody wrote themselves belongs to them and not to an answer they
      * gave on a first screen, whatever language it turned out to be in.
+     *
+     * Except one that a person has had a hand in, which is never hidden, whatever
+     * happens to the languages, the owner's call, 5 November 2026: answers or an edit
+     * gone from the screen are lost to whoever does not think of naming that pair
+     * again. Somebody who no longer wants such a set deletes it, as they would any
+     * other. So a change of language can leave two sets of one language on the list,
+     * each titled in the language it is read in, and that is what tells them apart.
+     * The answers as well as the date, because a set last played before dates were
+     * written on sets has answers in it and no date.
+     *
+     * And one to a pair -- see FIRST_LEVEL. A pair used to bring three, and those
+     * are still in the database of everybody who came before, or arrive from a
+     * device on an older version. An untouched one of the other two is nothing to
+     * lose.
      */
     function onShelf(set) {
-        return !String(set.id).startsWith(CATALOG_ID)
-            || (learnLangs.includes(set.originalLang) && set.translationLang === myLang);
+        if (!String(set.id).startsWith(CATALOG_ID) || set.changedAt || hasAnswers(set)) return true;
+
+        return isFirstSet(set) && learnLangs.includes(set.originalLang) && set.translationLang === myLang;
     }
+
+    const hasAnswers = (set) => (set.words || []).some(w => w.repetitions && w.repetitions.length > 0);
 
     function draw() {
         // Read once per draw, so every card in the pass agrees, and cleared here
@@ -2187,8 +2183,9 @@ function catalog(container) {
 
         // The sample set is what the screen says when it has nothing else to
         // say -- see seed.js. Anything of the reader's own takes its place, and
-        // it comes back if that is ever all there is again.
-        const own = shown.filter(set => !isSample(set));
+        // it comes back if that is ever all there is again. Answered in, it is
+        // the reader's own as well: see onShelf.
+        const own = shown.filter(set => !isSample(set) || hasAnswers(set));
 
         recent(own.length ? own : shown).forEach(set => renderSetCard(list, set, intro));
 
@@ -2715,6 +2712,7 @@ function catalog(container) {
 
         if (!overlay) {
             settingsOpen = false;
+            fillLearnLangs();
             render();
             return;
         }
@@ -2731,8 +2729,51 @@ function catalog(container) {
         setTimeout(() => {
             closing = false;
             settingsOpen = false;
+            fillLearnLangs();
             render();
         }, RISE_OUT);
+    }
+
+    /*
+     * The list of languages being learned is not left empty by the settings, the
+     * owner's call, 5 November 2026: closed with nothing on it, it gets the default
+     * one, and that language's set the way any named language does. Not before the
+     * panel closes, because taking the last language off and adding another is an
+     * ordinary way to replace it, and a default appearing between the two presses
+     * would have to be taken off as well.
+     *
+     * Only a list emptied here. Somebody who skipped the question before there was a
+     * default has an empty list too, and opening the settings to look at something
+     * else is no change of languages.
+     *
+     * No `named`: this is not somebody asking for that language, so a set of it they
+     * deleted by hand stays deleted. See makeSets.
+     *
+     * The record already holds the default, from the moment the list went empty. A
+     * popup closes without warning and without asking (see saveForms), and there is
+     * no later moment to write it in. What it cannot do then is build the set, which
+     * waits for the next change of languages.
+     */
+    let learnEmptied = false;
+
+    function saveLearnLangs() {
+        learnEmptied = !learnLangs.length;
+
+        return saveSetting('learnLangs', learnEmptied ? [defaultLearn(shownMyLang())] : learnLangs);
+    }
+
+    function fillLearnLangs() {
+        // A sync can have brought a list from another device in the meantime.
+        const empty = learnEmptied && !learnLangs.length;
+
+        learnEmptied = false;
+
+        if (!empty) return;
+
+        learnLangs = [defaultLearn(shownMyLang())];
+
+        langsChanged('default');
+        makeSets();
     }
 
     /*
@@ -3218,18 +3259,18 @@ function catalog(container) {
     function languageRows() {
         const mine = shownMyLang();
 
-        // The chevron goes a border plus a padding in from the right, the same
-        // as the text on the left, and the padding on that side has to hold it.
-        const edge = '9.5px';
-
+        // The browser's own arrow, the owner's call, 5 November 2026. Until then this
+        // field and the first screen's switched it off and laid a chevron of the app's
+        // over it: Chrome pins its arrow to the border whatever the padding says, and
+        // the chevron could stand as far in as the text.
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
-            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 27.3px 5.1px 8.5px;`
-            + ` appearance: none; -webkit-appearance: none; text-overflow: ellipsis;`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 8.5px;`
+            + ` text-overflow: ellipsis;`
             + ` font-family: inherit; font-size: 12.8px; font-weight: 600; cursor: pointer; outline: none;`;
 
         const caption = (text) => `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
 
-        const options = (label, skip, chosenTag) => `<option value="">${label}</option>`
+        const options = (label, skip, chosenTag) => (label ? `<option value="">${label}</option>` : '')
             + CATALOG_CHOICES.concat(extra(mine))
                 .filter(c => !skip.includes(c.tag))
                 .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
@@ -3258,17 +3299,17 @@ function catalog(container) {
         return `<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px; margin-top: 8.5px;">
                     <div>
                         ${caption(tr('yourLanguage'))}
-                        ${withChevron(`<select class="dict-my-lang" style="${field}">${options(tr('pickOne'), [], mine)}</select>`, edge)}
+                        <select class="dict-my-lang" style="${field}">${options(null, [], mine)}</select>
                     </div>
                     <div>
                         ${caption(tr('interface'))}
-                        ${withChevron(`<select class="dict-ui-lang" style="${field}">${uiOptions()}</select>`, edge)}
+                        <select class="dict-ui-lang" style="${field}">${uiOptions()}</select>
                     </div>
                 </div>
 
                 <div style="margin-top: 8.5px;">${caption(tr('languagesToLearn'))}</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 3.4px; margin-bottom: ${learnLangs.length ? '3.4px' : '0'};">${learnLangs.map(chip).join('')}</div>
-                ${withChevron(`<select class="dict-learn-lang" style="${field}">${options(tr('addOne'), [mine].concat(learnLangs), null)}</select>`, edge)}`;
+                <select class="dict-learn-lang" style="${field}">${options(tr('addOne'), [mine].concat(learnLangs), null)}</select>`;
     }
 
     /*
@@ -3516,13 +3557,11 @@ function catalog(container) {
         // stays open through it: the row comes back saying the other theme, over
         // a catalog that is already wearing it.
         overlay.querySelector('.dict-my-lang').addEventListener('change', async (e) => {
-            if (!e.target.value) return;
-
             myLang = e.target.value;
             learnLangs = learnLangs.filter(tag => tag !== myLang);
 
             await saveSetting('myLang', myLang);
-            await saveSetting('learnLangs', learnLangs);
+            await saveLearnLangs();
             await setUiLang(tr.forLang(myLang), 'follow');
             await langsChanged('mine');
             await makeSets();
@@ -3557,9 +3596,9 @@ function catalog(container) {
 
             learnLangs = learnLangs.concat(e.target.value);
 
-            await saveSetting('learnLangs', learnLangs);
+            await saveLearnLangs();
             await langsChanged('add');
-            await makeSets();
+            await makeSets(e.target.value);
 
             render();
         });
@@ -3568,7 +3607,7 @@ function catalog(container) {
             button.addEventListener('click', async () => {
                 learnLangs = learnLangs.filter(tag => tag !== button.dataset.tag);
 
-                await saveSetting('learnLangs', learnLangs);
+                await saveLearnLangs();
                 await langsChanged('drop');
 
                 render();
@@ -4285,7 +4324,7 @@ function catalog(container) {
              * So they went inside the section, and the section stopped being
              * called "Advanced". A name that only says "there is more here" asks
              * to be opened and then explains nothing; this one answers the
-             * question the dropdowns were raising before they are even seen.
+             * question the dropdowns would otherwise raise.
              *
              * There were rows under them once, one per word, each with the same
              * pair of dropdowns -- a set could be in several languages at a time
@@ -4309,22 +4348,34 @@ function catalog(container) {
             const form = openForms.get(set.id);
             const boxText = escapeText(form ? form.text : setAsText(set));
 
+            /*
+             * What the speakers in those dropdowns mean, the owner's call, 5 November
+             * 2026: one line, cut where it does not fit, and a press shows all of it,
+             * the same text wrapping where it has to. There is no folding it back, so
+             * the second press does nothing; the next opening of the form starts from
+             * one line again.
+             *
+             * Hence on the form and not in what saveForms writes: a redraw while the
+             * form is open must not fold it under somebody reading it, and a popup
+             * reopened on a form left open is a next opening like any other.
+             */
+            const voicesShown = !!(form && form.voicesShown);
+            const voiceKey = `<button class="set-voice-key" aria-expanded="${voicesShown}"${voicesShown ? ' disabled' : ''} style="color: ${palette.hint};">`
+                + `<span>${OWN_VOICE}&nbsp;${tr('voiceOwn')}</span> <span>${BORROWED_VOICE}&nbsp;${tr('voiceBorrowed')}</span> <span>${NO_VOICE}&nbsp;${tr('voiceNone')}</span>`
+                + `</button>`;
+
             const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
                     ${tr('formHint')}
                 </label>
                 <textarea class="set-edit-textarea" placeholder="${tr('newSetName')}&#10;${tr('pairSample')}&#10;${tr('pairSampleMore')}" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
                 <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
-                    <div class="set-lang-fold">${foldingSection(LANG_SECTION, `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 6.8px; align-items: start;">
+                    ${staticSection(LANG_SECTION, `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 6.8px; align-items: start;">
                             ${caption(tr('words'), true, PLATE_INDENT)}
                             ${caption(tr('translations'), true, PLATE_INDENT)}
                             ${langPlate('originalLang')}
                             ${langPlate('translationLang')}
                         </div>
-                        <div style="font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint}; margin-top: 8.5px;">
-                            <div>${OWN_VOICE} ${tr('voiceOwn')}</div>
-                            <div>${BORROWED_VOICE} ${tr('voiceBorrowed')}</div>
-                            <div>${NO_VOICE} ${tr('voiceNone')}</div>
-                        </div>`, false, 'lang')}</div>
+                        ${voiceKey}`)}
                 </div>`;
 
             // A set being written from scratch gets the box as the first section,
@@ -4380,6 +4431,13 @@ function catalog(container) {
                     toggle.setAttribute('aria-expanded', opening);
                     toggle.querySelector('.set-fold-chevron').style.transform = `rotate(${opening ? 90 : 0}deg)`;
                 });
+            });
+
+            editForm.querySelector('.set-voice-key').addEventListener('click', (e) => {
+                if (form) form.voicesShown = true;
+
+                e.currentTarget.setAttribute('aria-expanded', 'true');
+                e.currentTarget.disabled = true;
             });
 
             editForm.querySelectorAll('.set-prompt-copy').forEach(btn => {
@@ -4520,11 +4578,6 @@ function catalog(container) {
             if (plates.length) {
                 refreshPlates();
                 textarea.addEventListener('input', refreshPlates);
-
-                // The generic fold handler above has already flipped the body by
-                // the time this runs, so opening the section is what draws it.
-                editForm.querySelector('.set-lang-fold .set-fold-toggle')
-                    .addEventListener('click', refreshPlates);
 
                 /*
                  * The voice list lands after the page does — getVoices() is
@@ -5480,7 +5533,7 @@ function catalog(container) {
      * Which sets came off the shelf rather than out of somebody's own typing.
      *
      * Read off the id, which the catalogue builds out of the pair and the level
-     * -- vocab-es-ru-beginner -- rather than kept as a field on the set. A field
+     * -- vocab-es-ru-intermediate -- rather than kept as a field on the set. A field
      * would have to be written when the set is taken, read back when it is
      * loaded, and defended against every set that was saved before it existed;
      * the id is already there, already unique, and already says where the thing
@@ -5507,92 +5560,61 @@ function catalog(container) {
     const isSample = (set) => String(set.id) === SAMPLE_ID && !set.adopted;
 
     /*
-     * The title of a set off the shelf, all of it in the language it was built for:
-     * "Испанский · Начальный". A title is the contents of a set and not a list of
-     * languages, which is what stays in English (the owner, 4 November 2026).
+     * The one set a pair of languages gets, the owner's call, 5 November 2026: the ten
+     * rows of the table in vocab.js, "Starter Set" in the reader's language. It was
+     * three, a level each.
      *
-     * Where there is no table for that language the level has no name in it, and half
-     * a title in each language reads worse than a whole one in English, so it is
-     * English altogether. forLang decides both halves for that reason.
+     * The title takes the word each language's interface already has for a set, and
+     * not its word for a deck of cards: "колода" is what one plays cards with, and this
+     * is a set of cards to revise with (the owner).
      *
-     * The first letter by hand, because these names are written for the middle of a
-     * sentence: a browser calls Spanish "испанский". In the language's own rules for
-     * capitals, because in Turkish the capital of i is not I.
+     * The id keeps the level, because the sets of the old three that are already out
+     * there have those ids, and this one of them should go on being the same set.
+     * With its history, if it has one.
      */
-    function shelfTitle(learn, mine, level) {
-        const lang = tr.forLang(mine);
+    const FIRST_LEVEL = 'Intermediate';
 
-        return `${languageNameIn(learn, lang)} · ${tr.of(lang, 'level' + level)}`;
-    }
-
-    function languageNameIn(tag, lang) {
-        const english = languageName(tag);
-
-        if (lang === 'en' || typeof Intl.DisplayNames !== 'function') return english;
-
-        let named = null;
-        try {
-            named = new Intl.DisplayNames([lang], { type: 'language', fallback: 'none' }).of(tag);
-        } catch (e) {
-            named = null;
-        }
-
-        return named ? named.charAt(0).toLocaleUpperCase(lang) + named.slice(1) : english;
-    }
+    const isFirstSet = (set) => String(set.id).endsWith(`-${FIRST_LEVEL.toLowerCase()}`);
 
     /*
-     * The titles the app wrote itself, in "Your language" and in the set itself.
+     * What somebody who skipped the question is learning until they say otherwise,
+     * and what they get a set in: Spanish, the owner's call, 5 November 2026. Until
+     * then Skip left the set the app ships with, which stopped being shown the moment
+     * anything else was on the list -- and so a first set of one's own took away the
+     * only thing on the screen.
      *
-     * For a while these were translated on the way to the screen, into the language
+     * English for somebody whose own language is Spanish: a pair is two languages.
+     */
+    const defaultLearn = (mine) => (mine === 'es' ? 'en' : 'es');
+
+    /*
+     * The title of the set the app ships with, in "Your language" and in the set itself.
+     *
+     * For a while titles were translated on the way to the screen, into the language
      * of the interface, which was wrong twice over (the owner, 4 November 2026): the
-     * box of the form still said "Your first card set", and the interface has no
+     * box of the form still said the English title, and the interface has no
      * business in the contents of a set. So the title that is stored is the title.
      *
-     * The starter set is written before anybody has named a language -- see seed.js
-     * -- and stands in for no language of its own, so its title follows the reader's,
-     * as often as that changes. A set off the shelf belongs to one pair and is born
-     * with the right title (see makeSets): only one written before this existed is
-     * still in English, and takes the language it was built for, which is also how
-     * one coming from a device not yet updated is put right.
+     * seed.js writes this set before anybody has named a language and it stands in for
+     * no language of its own, so its title follows the reader's, as often as that
+     * changes. A set off the shelf belongs to one pair and is born with the right title:
+     * see makeSets.
      *
-     * A title is touched only while it is word for word what the app wrote, so
-     * anything somebody typed stays, and no date is given: the app made this change
-     * and nobody else needs telling. See store.touch.
+     * Only while the title is word for word what the app wrote, so anything somebody
+     * typed stays, and no date is given: the app made this change and nobody else
+     * needs telling. See store.touch.
      *
-     * Answers whether anything changed: saving is the caller's, who usually has more
-     * to save. Run wherever the sets are read and wherever myLang changes.
+     * Nothing else is renamed, the owner's call, 5 November 2026. The name and the words
+     * of the starter set are for people arriving now. Sets written before them keep what
+     * they have, touched or not, and are not worth a migration.
      */
-    function retitleOwnSets() {
-        const starterTitles = tr.langs().map(tag => tr.of(tag, 'firstSet'));
-        let changed = false;
+    function retitleSample() {
+        const sample = store.allSets().find(isSample);
 
-        const retitle = (set, title) => {
-            if (set.title === title) return;
-
-            set.title = title;
-            changed = true;
-        };
-
-        store.allSets().forEach(set => {
-            if (isSample(set)) {
-                if (myLang && starterTitles.includes(set.title)) retitle(set, tr.of(myLang, 'firstSet'));
-                return;
-            }
-
-            if (!String(set.id).startsWith(CATALOG_ID)) return;
-
-            // In English, as everything from before this is, or with only the level
-            // translated, as a build of a few hours wrote it on the owner's devices.
-            const name = languageName(set.originalLang);
-            const level = vocab.levels().find(l => tr.langs().some(tag => set.title === `${name} · ${tr.of(tag, 'level' + l)}`));
-
-            if (level) retitle(set, shelfTitle(set.originalLang, set.translationLang, level));
-        });
-
-        return changed;
+        if (sample && tr.langs().some(tag => tr.of(tag, 'firstSet') === sample.title)) {
+            sample.title = tr.of(myLang, 'firstSet');
+        }
     }
-
-    catalog.retitleOwnSets = () => (retitleOwnSets() ? store.save() : Promise.resolve());
 
     /*
      * The order of the list: whatever happened last is on top.
@@ -5626,9 +5648,10 @@ function catalog(container) {
      * Sets older than that date have none -- see store.addSet -- and sort by
      * their answers alone, which is the order their readers already see. The
      * order the store holds them in is the last tie-breaker, and that is what
-     * keeps the three sets a language brings in the order they were built:
-     * makeSets adds them backwards so that Beginner comes out on top, and two
-     * sets written in the same millisecond have nothing else to tell them apart.
+     * keeps the sets of the languages named together in the order they were
+     * named: makeSets adds them backwards so that the first comes out on top, and
+     * two sets written in the same millisecond have nothing else to tell them
+     * apart.
      */
     function recent(sets) {
         const lastAnswer = (set) => (set.words || []).reduce((latest, word) => {
@@ -5655,8 +5678,8 @@ function catalog(container) {
     }
 
     /*
-     * The sets the two answers imply: three levels for every language being
-     * learned, read in the language the reader already has.
+     * The sets the two answers imply: one for every language being learned, read
+     * in the language the reader already has -- see FIRST_LEVEL.
      *
      * Made once and then owned. They are ordinary sets from the moment they are
      * written -- editable, deletable, no different from one typed by hand --
@@ -5675,8 +5698,19 @@ function catalog(container) {
      * change a person caused, and dated as one; a set built here is not, so
      * that an untouched copy loses to any copy that was played -- see
      * store.touch.
+     *
+     * Only for the language somebody has just named, which is `named`. Everything
+     * else that comes through here -- another language added, a change of the
+     * reader's own, a sync -- says nothing about this set, and it used to bring back
+     * whatever had been deleted in the meantime. Deleting by hand is how a set with
+     * answers in it leaves the list (see onShelf), so it has to stay deleted.
+     *
+     * Nor is anything built for a language somebody wrote their own set in and never
+     * asked for, the owner's call, 5 November 2026 -- see writtenOnly. Until then the
+     * next change of languages built it after all, so that a card nobody had asked for
+     * turned up on the list on the day somebody added German, or on another device.
      */
-    function makeSets() {
+    function makeSets(named) {
         // Nothing to read a set in. Somebody who skipped the question can still
         // name a language they are learning, and the sets for it are written
         // when the other half of the pair arrives.
@@ -5684,46 +5718,50 @@ function catalog(container) {
 
         // Every change of the reader's language comes through here, and it ends in
         // a save whatever else happens below.
-        retitleOwnSets();
+        retitleSample();
 
         const made = [];
 
-        learnLangs.forEach(learn => {
-            vocab.sets(learn, myLang).forEach(level => {
-                const id = `${CATALOG_ID}${learn}-${myLang}-${level.level.toLowerCase()}`;
+        learnLangs.filter(learn => learn === named || !writtenOnly(learn)).forEach(learn => {
+            const words = vocab.starter(learn, myLang);
 
-                const saved = store.allSets().find(s => s.id === id);
-                if (saved) {
-                    if (saved.archived) {
-                        store.restore(id);
-                        track('set_restore', id);
-                    }
-                    return;
+            if (!words) return;
+
+            const id = `${CATALOG_ID}${learn}-${myLang}-${FIRST_LEVEL.toLowerCase()}`;
+
+            const saved = store.allSets().find(s => s.id === id);
+            if (saved) {
+                if (saved.archived && learn === named) {
+                    store.restore(id);
+                    track('set_restore', id);
                 }
+                return;
+            }
 
-                made.push({
-                    id: id,
-                    title: shelfTitle(learn, myLang, level.level),
-                    originalLang: learn,
-                    translationLang: myLang,
-                    words: level.words
-                });
-
-                track('set_add', 'vocab', '', level.words.length, [], [learn, myLang]);
+            // Both languages written on the set. The pair is known here, and a
+            // ready-made set has no business leaving it to a detector to work out
+            // that these ten lines are Greek.
+            made.push({
+                id: id,
+                title: tr.of(myLang, 'firstSet'),
+                originalLang: learn,
+                translationLang: myLang,
+                words: words
             });
+
+            track('set_add', 'vocab', '', words.length, [], [learn, myLang]);
         });
 
         // Backwards into a store that puts each new set at the front, so what
-        // comes out is the order they were built in: the first language first,
-        // and inside it the first level first. Added forwards, a reader opening
-        // the app for the first time would meet Advanced.
+        // comes out is the order they were built in: the first language first.
         //
         // And a millisecond apart, so the order is written on the sets and not
         // only in where the store holds them. The store's order is this
         // device's: another device that joins the profile gets the sets in the
-        // server's order, which is by id -- measured: Advanced came before
-        // Intermediate there, where every set made in one go had the same
-        // moment and nothing else to sort them by. See `recent`.
+        // server's order, which is by id -- measured, on the three levels a
+        // language used to bring: Advanced came before Intermediate there, where
+        // every set made in one go had the same moment and nothing else to sort
+        // them by. See `recent`.
         made.reverse().forEach((set, i) => {
             store.addSet(set);
             set.createdAt += i;
@@ -5733,6 +5771,20 @@ function catalog(container) {
     }
 
     catalog.makeSets = makeSets;
+
+    /*
+     * A language on the list only because somebody wrote a set in it: there are sets
+     * in it, deleted ones included, and none of them came off the shelf. Asked of the
+     * sets rather than kept as a mark on the language, so that it reaches another
+     * device with them and there is nothing new in the record of the languages.
+     *
+     * The sample is nobody's writing.
+     */
+    function writtenOnly(tag) {
+        const sets = store.allSets().filter(set => set.originalLang === tag && !isSample(set));
+
+        return sets.length > 0 && sets.every(set => !String(set.id).startsWith(CATALOG_ID));
+    }
 
     /*
      * The pair of languages, changed in the settings by somebody: a change the
@@ -5758,14 +5810,18 @@ function catalog(container) {
      *
      * Somebody who writes a set in Greek is learning Greek, whatever they
      * answered on the first screen, and the settings are meant to say what they
-     * are learning. Nothing is made for it -- the set they just wrote is what
-     * they wanted -- so this only widens the answer.
+     * are learning. Nothing is made for it, now or later -- the set they just wrote
+     * is what they wanted, see writtenOnly -- so this only widens the answer.
      */
-    // The languages this person learns and reads, the learned ones first: what
-    // the detector falls back on for a column with nothing in it to tell --
-    // see speech.languageOfAll.
+    // Which languages each side of a set is likely to be in, the owner's call,
+    // 5 November 2026: the words in what this person is learning, the translations in
+    // what they read, their own language and then the interface's. See
+    // speech.languageOfAll.
     function preferredLangs() {
-        return learnLangs.concat(myLang ? [myLang] : []);
+        return {
+            originalLang: learnLangs,
+            translationLang: [...new Set([shownMyLang(), tr.now].filter(Boolean))]
+        };
     }
 
     function noteLearnLang(tag) {
@@ -5786,11 +5842,15 @@ function catalog(container) {
      * first one this app can do anything with wins.
      *
      * Region is cut off. "en-GB" and "en-US" are the same column here, and a
-     * table of thirty words a side has nothing to say about the difference.
+     * table of ten words a side has nothing to say about the difference.
      *
      * A guess, and it is pre-filled rather than accepted: it stands in the
      * dropdown where it can be seen and changed with one press, which is what a
-     * guess has earned. Nothing is built until Start.
+     * guess has earned. Nothing is built until Start or Skip.
+     *
+     * English where the browser names nothing the app can use: the dropdown always
+     * holds a language, the owner's call, 5 November 2026. It used to be able to hold
+     * "Pick one", and then there was a person with no language at all to read a set in.
      */
     function systemLang() {
         const wanted = (navigator.languages || [navigator.language || ''])
@@ -5799,7 +5859,7 @@ function catalog(container) {
 
         return wanted.find(tag => vocab.has(tag))
             || wanted.find(tag => languageName(tag) !== tag)
-            || null;
+            || 'en';
     }
 
     /*
@@ -5829,15 +5889,9 @@ function catalog(container) {
 
     /*
      * The reader's language as a row has to show it: the saved answer if there
-     * is one, and otherwise whatever the first screen was standing on.
-     *
-     * Inherited rather than guessed a second time. The first screen opens with
-     * the browser's language already in the dropdown and the reader may have
-     * changed it -- somebody who named their language there and pressed Skip
-     * because they had nothing to add to the second question has answered this
-     * half, and a settings row that opens on "Pick one" tells them it was not
-     * heard. Both cases are one expression because picking.mine starts out as
-     * the guess: a reader who cleared it meant to, and gets no guess back.
+     * is one, and otherwise whatever the first screen was standing on, which is always
+     * a language -- see systemLang. There is no saved answer for somebody who skipped
+     * the first screen back when it could stand on nothing.
      */
     const shownMyLang = () => myLang || picking.mine;
 
@@ -5900,17 +5954,17 @@ function catalog(container) {
      * still two questions and a button.
      */
     function askLanguages(parent) {
-        const ready = !!picking.mine && picking.learn.length > 0;
+        const ready = picking.learn.length > 0;
 
-        const options = (label, skip, chosenTag) => `<option value="">${label}</option>`
+        const options = (label, skip, chosenTag) => (label ? `<option value="">${label}</option>` : '')
             + CATALOG_CHOICES.concat(extra(picking.mine))
                 .filter(c => !skip.includes(c.tag))
                 .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
                 .join('');
 
         const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
-            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px 27.3px 10.2px 10.2px;`
-            + ` appearance: none; -webkit-appearance: none; text-overflow: ellipsis;`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px;`
+            + ` text-overflow: ellipsis;`
             + ` font-family: inherit; font-size: 13.3px; font-weight: 600; cursor: pointer; outline: none;`;
 
         /*
@@ -5949,17 +6003,17 @@ function catalog(container) {
             <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px;">
                 <div>
                     ${caption(tr('yourLanguage'))}
-                    ${withChevron(`<select class="dict-start-mine" style="${field}">${options(tr('pickOne'), [], picking.mine)}</select>`, textEdge)}
+                    <select class="dict-start-mine" style="${field}">${options(null, [], picking.mine)}</select>
                 </div>
                 <div>
                     ${caption(tr('interface'))}
-                    ${withChevron(`<select class="dict-start-ui" style="${field}">${uiOptions()}</select>`, textEdge)}
+                    <select class="dict-start-ui" style="${field}">${uiOptions()}</select>
                 </div>
             </div>
 
             <div style="margin-top: 27.3px;">${caption(tr('languagesToLearn'))}</div>
             <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
-            ${withChevron(`<select class="dict-start-learn" style="${field}">${options(tr('addOne'), [picking.mine].concat(picking.learn), null)}</select>`, textEdge)}
+            <select class="dict-start-learn" style="${field}">${options(tr('addOne'), [picking.mine].concat(picking.learn), null)}</select>
 
             <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">${tr('startNote')}</div>
 
@@ -5974,9 +6028,9 @@ function catalog(container) {
         // is -- which has to be said, because a reader who never chose was following
         // the answer that just went.
         panel.querySelector('.dict-start-mine').addEventListener('change', (e) => {
-            setUiLang(e.target.value ? tr.forLang(e.target.value) : tr.now, 'follow');
+            setUiLang(tr.forLang(e.target.value), 'follow');
 
-            picking = { mine: e.target.value || null, learn: picking.learn.filter(t => t !== e.target.value) };
+            picking = { mine: e.target.value, learn: picking.learn.filter(t => t !== e.target.value) };
             mineChosen = true;
             render();
         });
@@ -6003,31 +6057,32 @@ function catalog(container) {
         /*
          * Skipped, and that is written down as firmly as an answer would be.
          *
-         * Nothing is made: there is no second language to make anything out of,
-         * so what is left is the set the app ships with, which is enough to see
-         * what it does. The questions are in the settings from now on, where
+         * The language being learned is then the default one, standing in the
+         * settings like any other and with its set made the same way -- see
+         * defaultLearn. The questions are in the settings from now on, where
          * somebody who has seen the thing can answer them having a reason to.
+         *
+         * In the analytics the answer stays empty, because that is what it was. The
+         * language put in its place is in the state of the visit.
          *
          * What the first dropdown is standing on is kept, though. Skip answers
          * "which languages are you learning", and is not an instruction to
-         * forget the one already named: the settings would otherwise open on
-         * "Pick one" and ask it again of somebody who has answered it.
+         * forget the one already named.
          */
         panel.querySelector('.dict-start-skip').addEventListener('click', async () => {
             myLang = picking.mine;
+            learnLangs = [defaultLearn(myLang)];
             langsAsked = true;
 
-            if (myLang) await saveSetting('myLang', myLang);
+            await saveSetting('myLang', myLang);
+            await saveSetting('learnLangs', learnLangs);
             await saveSetting('langsAsked', true);
 
-            // The starter set is all a reader who skips has, and it has been in
-            // English since before they said anything.
-            await catalog.retitleOwnSets();
-
             track('langs', 'skip', myLang, [], mineChosen ? 1 : 0);
-            syncCatalog();
+            await makeSets();
 
-            render();
+            // The same first screen with something on it as Start's, below.
+            catalog.render();
         });
 
         panel.querySelector('.dict-start-go').addEventListener('click', async () => {
@@ -6276,7 +6331,6 @@ function returnTo(place) {
 // profile, reloads the page.
 async function refreshCatalog(afterSync) {
     await store.load();
-    await catalog.retitleOwnSets();
     if (!afterSync) catalog.setSession(await storage.get('active_session'));
 
     // After store.load(), which is what decides whether a form still has a set

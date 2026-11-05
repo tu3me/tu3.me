@@ -204,6 +204,88 @@ function speech() {
     const FALLBACK = 'en';
 
     /*
+     * What a language writes, for the question the lists above cannot answer: can a
+     * piece of text be in this language at all. Those lists say which language a
+     * letter points at, and neither of them is an alphabet: ó is on Spanish's shared
+     * list and not on Polish's, and Polish writes it.
+     *
+     * Latin: the letters beyond a to z, which everybody here writes. Cyrillic: the
+     * whole alphabet, because the plain Russian letters are not common ground -- ы rules
+     * out Ukrainian and і rules out Russian. Anything else has its script to go by,
+     * and the own letters of that script (see fits).
+     *
+     * A letter missing here refuses the language for good, while a letter too many
+     * only leaves it in the running, so where it is in doubt a letter goes in: the
+     * é of a German Café, and in English everything a loanword brings.
+     */
+    const ALPHABETS = {
+        ca: 'àçèéíïòóúü',
+        cs: 'áčďéěíňóřšťúůýž',
+        da: 'æøåéó',
+        de: 'äöüßé',
+        en: 'àâäçéèêëîïñôöûü',
+        es: 'áéíñóúü',
+        et: 'äõöüšž',
+        fi: 'äöåšž',
+        fr: 'àâæçéèêëîïôœùûüÿ',
+        hr: 'čćđšž',
+        hu: 'áéíóöőúüű',
+        id: 'é',
+        it: 'àèéìíîòóùú',
+        lt: 'ąčęėįšųūž',
+        lv: 'āčēģīķļņšūž',
+        ms: 'é',
+        nl: 'áàäçéèëêíïóöôúüû',
+        no: 'æøåéèêóòôü',
+        pl: 'ąćęłńóśźż',
+        pt: 'áâãàçéêíóôõúü',
+        ro: 'ăâîșțşţ',
+        sk: 'áäčďéíĺľňóôŕšťúýž',
+        sl: 'čšžćđ',
+        sv: 'åäöéü',
+        sw: '',
+        tl: 'ñáàâéèêíìîóòôúùû',
+        tr: 'çğıöşüâîû',
+        vi: 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ',
+
+        bg: 'абвгдежзийклмнопрстуфхцчшщъьюяѝ',
+        ru: 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+        sr: 'абвгдђежзијклљмнњопрстћуфхцчџш',
+        uk: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя'
+    };
+
+    /*
+     * Whether a line could be in this language, which is a question of ruling out and
+     * not of proof: plain letters fit every language written in them.
+     *
+     * Japanese is the one language that writes two of the scripts above: a line of Han
+     * and no kana can be in it. A line in a script's own letters beside a few Latin
+     * ones is read by the script it is in, the way detect reads it.
+     *
+     * A language with no alphabet here has its script alone to answer for it. The
+     * script's own letters do the rest where there is no alphabet to ask: a Persian
+     * letter is not Arabic.
+     */
+    function fits(tag, line) {
+        const script = detect(line).script;
+
+        if (script !== ownerOf(tag) && !(tag === 'ja' && script === 'zh')) return false;
+
+        const letters = ALPHABETS[tag];
+
+        if (letters === undefined) {
+            const home = SCRIPTS.find(s => s.lang === script);
+            return !(home && home.locals || []).some(([other, marks]) => other !== tag && line.match(marks));
+        }
+
+        const text = line.normalize('NFC').toLowerCase();
+        const cyrillic = script === 'ru';
+
+        return (text.match(cyrillic ? /\p{Script=Cyrillic}/gu : /\p{Script=Latin}/gu) || [])
+            .every(c => (!cyrillic && c >= 'a' && c <= 'z') || letters.includes(c));
+    }
+
+    /*
      * Which of several languages to believe when the evidence cannot choose
      * between them.
      *
@@ -336,14 +418,36 @@ function speech() {
      *
      * A column with no evidence at all is the script's default, unless the
      * person is known to read or learn another language written the same way
-     * and not the default itself — see `preferred`. Spanish with no ñ or accent
+     * and not the default itself — see `others`. Spanish with no ñ or accent
      * in it was English, for somebody learning Spanish and not English.
      *
      * When the column really does hold several languages, no one language can
      * stand for it, and each word is left with its own.
+     *
+     * All of that comes second, the owner's call, 5 November 2026. `preferred` is the
+     * languages this column is likely to be in, best first, and the first of them it
+     * can be in at all is the answer: a person's own languages are a better bet than
+     * letters that only point. Where the letters' own answer is among those that fit,
+     * it goes first, so ñ picks Spanish out of Spanish and French. Only a column that
+     * none of them can write goes by the letters alone. So plain Latin words are in
+     * the language being learned even when they are in fact French: what no letter
+     * rules out is the person's to correct on the plate.
      */
-    speech.languageOfAll = (texts, preferred) => {
+    speech.languageOfAll = (texts, preferred, others) => {
         const lines = (texts || []).map(t => String(t || '')).filter(t => t.trim());
+        const read = readColumn(texts, lines, others);
+        const written = lines.filter(line => detect(line).script);
+
+        const fitting = written.length
+            ? (preferred || []).filter(tag => written.every(line => fits(tag, line)))
+            : [];
+
+        if (!fitting.length) return read;
+
+        return { lang: fitting.includes(read.lang) ? read.lang : fitting[0], perText: null };
+    };
+
+    function readColumn(texts, lines, others) {
         const seen = lines.map(detect).filter(r => r.script);
 
         if (!seen.length) return { lang: null, perText: null };
@@ -370,11 +474,11 @@ function speech() {
                 if (whole) return { lang: whole, perText: null };
             }
 
-            if (named.size === 0 && hinted.size === 0) return { lang: unmarked(owner, preferred), perText: null };
+            if (named.size === 0 && hinted.size === 0) return { lang: unmarked(owner, others), perText: null };
         }
 
         return { lang: null, perText: (texts || []).map(t => detect(t).lang) };
-    };
+    }
 
     /*
      * What to call a column that carries nothing to tell its language by.
@@ -382,13 +486,12 @@ function speech() {
      * The script's own language, as always -- unless the person reads or
      * learns that language already, in which case it is the safe answer, or
      * does not, and does read or learn another language written the same way.
-     * The first of those in `preferred` (the languages being learned first,
-     * then the one the person reads) is far likelier than a language they
+     * The first of those in `others` is far likelier than a language they
      * never mentioned. Only a guess where there was none: a column whose
      * letters say anything is never overruled by it.
      */
-    function unmarked(owner, preferred) {
-        const mine = (preferred || []).filter(Boolean);
+    function unmarked(owner, others) {
+        const mine = (others || []).filter(Boolean);
         if (!mine.length || mine.includes(owner)) return owner;
 
         return mine.find(tag => ownerOf(tag) === owner) || owner;
