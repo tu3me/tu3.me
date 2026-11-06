@@ -1642,23 +1642,27 @@ function snake(container) {
          * it ran into itself, a trial taken out again on 3 November, and what
          * came off trembled where it fell.
          *
-         * Repeated rather than stretched for the crown (see crownIn): the same
-         * shake at a third of the speed is a sway.
+         * The crown's is longer (see crownIn) and one shake throughout: the two
+         * widest swings go on at the same pace and only the end dies away. Whole
+         * shakes run back to back came to rest at every join, which the owner saw
+         * as three shakes with pauses between them (6 November 2026). Stretching
+         * one is no answer: the same shake at a third of the speed is a sway. Nor
+         * is easing the long one as a whole, which crowds its swings in at the
+         * start and leaves the end swaying.
          */
         const SHUDDER = 360;
+        const SWINGS = ['-6px 2px', '5px -2px', '-4px 1px', '3px -1px', '-1px 0'];
+        const SWINGS_IN_A_SHAKE = SWINGS.length + 1;    // and the way back to rest
 
         view.shudder = (times = 1) => {
             if (still() || !svg) return;
 
-            svg.animate([
-                { translate: '0 0' },
-                { translate: '-6px 2px', offset: 0.15 },
-                { translate: '5px -2px', offset: 0.32 },
-                { translate: '-4px 1px', offset: 0.5 },
-                { translate: '3px -1px', offset: 0.68 },
-                { translate: '-1px 0', offset: 0.85 },
-                { translate: '0 0' }
-            ], { duration: SHUDDER, iterations: times, easing: 'ease-out' });
+            const held = Array.from({ length: (times - 1) * SWINGS_IN_A_SHAKE }, (_, k) => SWINGS[k % 2]);
+
+            svg.animate({ translate: ['0 0', ...held, ...SWINGS, '0 0'] }, {
+                duration: SHUDDER * times,
+                easing: times > 1 ? 'linear' : 'ease-out'
+            });
         };
 
         /*
@@ -3623,8 +3627,8 @@ function snake(container) {
         let inputCooldown = false;
         let crashPhase = 0;
 
-        // Crashes paid for since a letter was last eaten or the letters last laid
-        // out -- see board.shuffle
+        // Crashes paid for since a letter was last eaten or the word or the round
+        // last began -- see board.shuffle
         let crashes = 0;
 
         // The strangers put out with the word's letters -- see DECOYS_FROM --
@@ -3953,8 +3957,6 @@ function snake(container) {
         const WAY_TRIES = 20;
 
         function layLetters(strangers = decoys) {
-            crashes = 0;
-
             const head = snakeBody[0];
             const tail = snakeBody[snakeBody.length - 1];
             let best = null;
@@ -4113,6 +4115,7 @@ function snake(container) {
             skipBlanks();
             phase = 'WORD';
             heartPos = null;
+            crashes = 0;
             return layLetters();
         };
 
@@ -4146,6 +4149,7 @@ function snake(container) {
             losingHeartIdx = -1;
             inputCooldown = false;
             crashPhase = 0;
+            crashes = 0;
             layLetters();
         };
 
@@ -4170,17 +4174,17 @@ function snake(container) {
 
         /*
          * The way out of a dead end: the letters still on the board laid out again
-         * at the second crash in a row with no letter eaten between the two -- the
-         * owner's design, 6 November 2026. Both ends of the snake can come to stand
-         * in front of the wrong letter, and then a crash only hands the player from
-         * the one to the other.
+         * at every crash that follows a crash with no letter eaten between the two
+         * -- the owner's design, 6 November 2026. Both ends of the snake can come to
+         * stand in front of the wrong letter, and then a crash only hands the player
+         * from the one to the other.
          *
-         * It was a button that day, for a heart, before it was this. There is no
-         * price of its own now: each of the two crashes has cost its heart. A crash
-         * with no heart to spend starts the round over, which lays the letters out
-         * anyway, and that with the eating of a letter and any other layout is what
-         * sets the count back (see layLetters). In the heart's round there are no
-         * letters to lay, and the next word starts the count afresh.
+         * It was a button that day, for a heart, before it was this, and then the
+         * shuffle set the count back, so that only every other crash shuffled, until
+         * the owner put that right the same day. There is no price of its own now:
+         * each crash has cost its heart. A crash with no heart to spend starts the
+         * round over, which lays the letters out anyway. In the heart's round there
+         * are no letters to lay, and the next word starts the count afresh.
          *
          * Laid out like any word, and what has been eaten is not laid again.
          *
