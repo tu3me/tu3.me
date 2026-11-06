@@ -787,12 +787,6 @@ function snake(container) {
         // Builds the screen from scratch and remembers the callbacks
         // The way out: in the header, and at the end of a session the crown
         // did not end -- see view.victory
-        /*
-         * The button that lays the letters out again -- see shuffleLetters in
-         * render. The crossed arrows every music player shuffles with, drawn
-         * like the arrow beside it.
-         */
-        const SHUFFLE_ICON = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" /><path d="m15 15 6 6" /><path d="m4 4 5 5" /></svg>';
         const BACK_ARROW = '<svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg>';
 
         view.mount = (opts) => {
@@ -860,11 +854,7 @@ function snake(container) {
             /*
              * Three groups of one third each: the way out, the dots, and the
              * sound -- which page.muteButton hangs at the end in a group of its
-             * own. The shuffle stands beside the sound, at the end of that group.
-             * For a few hours on 6 November 2026 it stood where the record's
-             * medal is, with the medal beside the star: two prizes on one side
-             * of the dots looked lopsided (the owner), and they went back to
-             * one either side.
+             * own.
              *
              * The two ends have to stay equal: ten dots are wider than a third,
              * and what keeps them in the middle of the header is the two groups
@@ -895,13 +885,9 @@ function snake(container) {
             page.muteButton(header, palette.backBtn, palette.chromeBorder);
 
             // The star at the head of the sound's third, as the medal stands
-            // at the end of the way out's -- see starHtml -- and the shuffle
-            // beside the sound
+            // at the end of the way out's -- see starHtml
             const end = header.querySelector('.game-header-end');
-            if (end) {
-                end.insertAdjacentHTML('afterbegin', starHtml() + `<button class="snake-shuffle-btn" title="Lay the letters out again, for a heart" disabled style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; margin-right: 5px; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; padding: 0; visibility: hidden;">${SHUFFLE_ICON}</button>`);
-                end.querySelector('.snake-shuffle-btn').addEventListener('click', () => cb.onShuffle());
-            }
+            if (end) end.insertAdjacentHTML('afterbegin', starHtml());
 
             hintBanner = $(host, `<div class="snake-hint-banner" style="background: ${palette.hintBg}; border: ${palette.hintBorder}; border-radius: 12px; padding: 6.8px 12px; text-align: center; margin-bottom: 8.5px; height: 88.8px; min-height: 88.8px; max-height: 88.8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3.4px; overflow: hidden;">
                 <div class="snake-translation-text" id="snake-translation" style="font-size: 16.4px; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; max-height: 35.9px; overflow: hidden;">${opts.translation}</div>
@@ -996,9 +982,9 @@ function snake(container) {
          */
         // A dot, and the dot of the word in play, grown to hold its stage. That
         // one was fifteen until 6 November 2026, with five between the dots and
-        // the figure a step larger: the shuffle coming in between the star and
-        // the sound had under four pixels either side of it. Ten dots at these
-        // sizes leave it five. The numbers are in page, with the other games'.
+        // the figure a step larger: a button stood between the star and the sound
+        // that day and needed the room. It went and the sizes stayed, in every
+        // game. The numbers are in page, with the other games'.
         const DOT = page.DOT;
         const DOT_NOW = page.DOT_NOW;
 
@@ -1676,7 +1662,7 @@ function snake(container) {
         };
 
         /*
-         * A heart lost, to a crash or to the shuffle: the red one flies up out
+         * A heart lost to a crash: the red one flies up out
          * of its link, growing, and dissolves, and the link wears the black one
          * from the first frame (the owner's design, 6 November 2026).
          *
@@ -2598,8 +2584,7 @@ function snake(container) {
          * The letters laid out again -- see board.shuffle: each flies from the
          * cell it stood on to its new one, all together, so that what is seen
          * is the same letters moving and not a new word. The board is held
-         * while they are, with reduced motion too: the hold is also what stops
-         * a double press from costing two hearts.
+         * while they are, with reduced motion too.
          *
          * Not numbered with the deals: it can start while a deal's cloud is
          * still on its way up, and that cloud has the banner to bring back
@@ -3121,34 +3106,6 @@ function snake(container) {
         }
 
         /*
-         * The shuffle: not there until the snake has carried a heart, and from
-         * then on for the rest of the session, half gone whenever it has
-         * nothing to spend or nothing to lay out (the owner's rule, 6 November
-         * 2026). Disabled rather than only faded, so that every press the
-         * analytics sees of it is a press that was paid for.
-         *
-         * Compared against the element, like the medal above: the header can
-         * be built again under a running game.
-         */
-        const SHUFFLE_DIM = '0.4';
-
-        view.shuffleBtn = (shown, ready, appeared) => {
-            const btn = header && header.querySelector('.snake-shuffle-btn');
-            if (!btn) return;
-
-            const look = `${shown}/${ready}`;
-            if (btn.dataset.look === look) return;
-
-            btn.dataset.look = look;
-            btn.style.visibility = shown ? 'visible' : 'hidden';
-            btn.style.opacity = ready ? '1' : SHUFFLE_DIM;
-            btn.style.cursor = ready ? 'pointer' : 'default';
-            btn.disabled = !ready;
-
-            if (appeared && !still()) btn.animate(MEDAL_TURNS, { duration: 560, easing: 'ease-out' });
-        };
-
-        /*
          * Brings a letter down to the size its cell can hold.
          *
          * A Latin letter never needs this, which is why the board could ignore it
@@ -3666,6 +3623,10 @@ function snake(container) {
         let inputCooldown = false;
         let crashPhase = 0;
 
+        // Crashes paid for since a letter was last eaten or the letters last laid
+        // out -- see board.shuffle
+        let crashes = 0;
+
         // The strangers put out with the word's letters -- see DECOYS_FROM --
         // told by the session, which knows the set they come out of
         let decoys = [];
@@ -3992,6 +3953,8 @@ function snake(container) {
         const WAY_TRIES = 20;
 
         function layLetters(strangers = decoys) {
+            crashes = 0;
+
             const head = snakeBody[0];
             const tail = snakeBody[snakeBody.length - 1];
             let best = null;
@@ -4070,6 +4033,7 @@ function snake(container) {
             if (heartIdx !== -1) {
                 snakeBody[heartIdx].char = '🖤';
                 losingHeartIdx = heartIdx;
+                crashes++;
                 return 'crashHeart';
             }
 
@@ -4090,6 +4054,7 @@ function snake(container) {
                 heartPos = saved.savedHeartPos ? clone(saved.savedHeartPos) : null;
                 isFrozen = saved.savedIsFrozen;
                 losingHeartIdx = saved.savedLosingHeartIdx;
+                crashes = saved.savedCrashes;
                 inputCooldown = false;
                 crashPhase = saved.savedCrashPhase;
                 return false;
@@ -4122,6 +4087,7 @@ function snake(container) {
             saved.savedIsFrozen = isFrozen;
             saved.savedLosingHeartIdx = losingHeartIdx;
             saved.savedCrashPhase = crashPhase;
+            saved.savedCrashes = crashes;
         };
 
         board.snapshot = () => ({
@@ -4202,30 +4168,32 @@ function snake(container) {
             return true;
         };
 
-        board.canShuffle = () => phase === 'WORD' && snakeBody.some(s => s.char === '❤️');
-
         /*
-         * The way out of a dead end: a heart for the letters still on the
-         * board, laid out again -- the owner's design, 6 November 2026. Both
-         * ends of the snake can come to stand in front of the wrong letter,
-         * and then a crash only hands the player from the one to the other.
+         * The way out of a dead end: the letters still on the board laid out again
+         * at the second crash in a row with no letter eaten between the two -- the
+         * owner's design, 6 November 2026. Both ends of the snake can come to stand
+         * in front of the wrong letter, and then a crash only hands the player from
+         * the one to the other.
          *
-         * The heart goes as it goes in a crash: the first from the head. What a
-         * crash does beyond that is left out: the snake is not turned round and
-         * the board does not freeze. One that was frozen already, turned round
-         * and waiting for a press, stays that way.
+         * It was a button that day, for a heart, before it was this. There is no
+         * price of its own now: each of the two crashes has cost its heart. A crash
+         * with no heart to spend starts the round over, which lays the letters out
+         * anyway, and that with the eating of a letter and any other layout is what
+         * sets the count back (see layLetters). In the heart's round there are no
+         * letters to lay, and the next word starts the count afresh.
          *
-         * Laid out like any word (see layLetters), and what has been eaten is not
-         * laid again.
+         * Laid out like any word, and what has been eaten is not laid again.
          *
          * Answers the letters as they stood, for the view to fly from.
          */
+        const CRASHES_TO_SHUFFLE = 2;
+
+        board.shuffleDue = () => phase === 'WORD' && crashes >= CRASHES_TO_SHUFFLE;
+
         board.shuffle = () => {
             const was = lettersOnBoard.filter(l => !l.isEaten);
             const strangers = was.filter(l => l.decoy).map(l => l.char);
-            const heartIdx = snakeBody.findIndex(s => s.char === '❤️');
 
-            snakeBody[heartIdx].char = '🖤';
             inputQueue = [];
 
             layLetters(strangers);
@@ -4322,6 +4290,7 @@ function snake(container) {
                 }
 
                 touched.isEaten = true;
+                crashes = 0;
                 nextLetterIndex++;
                 skipBlanks();
                 grow(headX, headY, touched.char);
@@ -4392,8 +4361,8 @@ function snake(container) {
             hadErrorThisRound: false, showHint: false, heardThisRound: false, usedReveal: false, controlMode: 0, starLevel: 0, recordAt: null, savedSnake: null,
             savedDir: null, savedInputQueue: null, savedNextLetterIndex: 0, savedLettersOnBoard: null,
             savedPhase: 'WORD', savedHeartPos: null, savedIsFrozen: false, savedLosingHeartIdx: -1,
-            savedCrashPhase: 0,
-            played: [], starWon: false, gobletWon: false, shuffleSeen: false
+            savedCrashPhase: 0, savedCrashes: 0,
+            played: [], starWon: false, gobletWon: false
         };
     }
 
@@ -4839,8 +4808,6 @@ function snake(container) {
                 page.home();
             },
 
-            onShuffle: () => shuffleLetters(),
-
             /*
              * A click on one box of the bar.
              *
@@ -5220,47 +5187,18 @@ function snake(container) {
         // that sets a new one is noted just before the paint that shows it.
         function paint() {
             view.draw(board.snapshot(), store.recordOf(state.selectedSetId, 'snake', 'maxLength'), recordBeaten());
-
-            // Every heart the snake gets comes through a frame, so this is
-            // the one place that has to look -- see view.shuffleBtn
-            const appeared = !state.shuffleSeen && redHearts().length > 0;
-            if (appeared) state.shuffleSeen = true;
-
-            view.shuffleBtn(state.shuffleSeen, canShuffle(), appeared);
         }
 
-        // A session that is over has a board left standing under its ending,
-        // the snake and its hearts on it, and nothing more to be done with it
-        const canShuffle = () => state.currentIndex < pool.length && board.canShuffle();
-
-        /*
-         * The press of the button -- see board.shuffle. Not in the first moment
-         * of a crash, whose timer is about to turn the snake round or start
-         * the round over; it is taken once the snake has been turned, which
-         * is where a player finds out that the other end is shut in as well.
-         *
-         * The goblet counts the red hearts, and this is one less -- see
-         * afterCrash. The star does not: it is for knowing the words, and
-         * this says nothing about that.
-         */
+        // The letters laid out again -- see board.shuffle -- and the board held
+        // while they fly.
         function shuffleLetters() {
-            if (dealing || board.crashPhase() === 1 || !canShuffle()) return;
-
-            const heart = board.snapshot().snakeBody[redHearts()[0]];
             const was = board.shuffle();
-
-            if (redHearts().length < GOBLET_HEARTS) state.gobletWon = false;
 
             dealing = true;
             view.shuffle(was, board.snapshot().lettersOnBoard, () => {
                 dealing = false;
                 clock.schedule();
             });
-
-            // After the flights have taken their places from the board, which
-            // the shudder is about to move
-            view.heartLost(heart);
-            view.shudder();
 
             board.persistTo(state);
             paint();
@@ -5591,6 +5529,11 @@ function snake(container) {
                 board.persistTo(state);
                 page.save();
                 clock.after(500, () => board.releaseInput());
+
+                // After the turn and not at the blow: the way the new layout looks
+                // for starts from the head, and the head has just moved to the
+                // other end -- see layLetters.
+                if (board.shuffleDue()) shuffleLetters();
 
                 // The line is untouched on this path — the snake is turned round
                 // and the letters it had stay collected — so nothing redraws the
@@ -6278,10 +6221,6 @@ function snake(container) {
         starWon: state.starWon,
         gobletWon: state.gobletWon,
 
-        // The button stays once the snake has had a heart, hearts or none --
-        // and a snake started over after a crash has no sign of them left
-        shuffleSeen: state.shuffleSeen,
-
         savedSnake: state.savedSnake,
         savedDir: state.savedDir,
         savedInputQueue: state.savedInputQueue,
@@ -6291,7 +6230,8 @@ function snake(container) {
         savedHeartPos: state.savedHeartPos,
         savedIsFrozen: state.savedIsFrozen,
         savedLosingHeartIdx: state.savedLosingHeartIdx,
-        savedCrashPhase: state.savedCrashPhase
+        savedCrashPhase: state.savedCrashPhase,
+        savedCrashes: state.savedCrashes
     });
 
     snake.setState = (snap) => {
