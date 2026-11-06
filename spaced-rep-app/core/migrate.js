@@ -6,7 +6,7 @@
  * and said outright that it would flip on the day somebody did. A version went
  * out. What those readers typed and what they played has to arrive here whole.
  *
- * Three translations live here, and all three start from 0.2.8 as the store has
+ * Four translations live here, and all four start from 0.2.8 as the store has
  * it. That is the build of 24 October 2026, the version almost every reader is
  * on, and it is older than its number makes it look: this code has gone on being
  * called 0.2.8 since, and the two changes below came after the upload. What tells
@@ -19,9 +19,11 @@
  * about in docs/BACKEND.md ("Формат") is this one.
  *
  * The others, on 28 October 2026, are a game's new name: cards became flashcards,
- * in the marks on its answers and in the games pinned to a set (see renameGames),
- * which goes the same way, a set at a time, and in a round left open (see
- * renameRounds).
+ * in the marks on its answers (see renameGames), which goes the same way, a set
+ * at a time, and in a round left open (see renameRounds).
+ *
+ * The last, on 6 November 2026, takes away a run over every set left open -- see
+ * dropRunsOverAll.
  *
  * Anything older has no translation, the owner's call, 4 November 2026: almost
  * nobody is below 0.2.8, and whoever is simply starts without one. Two stood here
@@ -109,18 +111,16 @@ function migrate() {
      * 28 October 2026, the owner's call -- "cards" is what the words of a set
      * are called now, and a game by the same name was one word for two things.
      *
-     * A set holds the id in two places: the mark on every answer the game wrote
-     * ("cards|1791...|10" -- see runMark in store.js), and the games pinned to
-     * the set's row (`pinned`). Both are translated. Nothing reads the marks of
-     * the old name today but analytics on the server; the pins were what would
-     * hurt -- a row pinned to "cards" would lose the game, because the catalog
-     * no longer knows one by that name. Since 29 October 2026 nothing reads the
-     * pins either: every game is on every row (see ROW_GAMES in catalog.js),
-     * and the field is left on the sets that have it.
+     * A set holds the id on the mark of every answer the game wrote
+     * ("cards|1791...|10" -- see runMark in store.js), which is translated, and
+     * nothing reads it today but analytics on the server. It was also in the
+     * games pinned to the set's row (`pinned`), and that was translated here as
+     * well until 6 November 2026: nothing has read the pins since 29 October,
+     * when every game went on every row (see ROW_GAMES in catalog.js), and the
+     * field is left on the sets that have it.
      *
-     * The check is the data, as above: an answer marked with the old name, or
-     * a pin of it. Nothing writes the old name any more, so a set passes
-     * through here once. One set at a time, for the same reason foldRecords is:
+     * The check is the data, as above: an answer marked with the old name.
+     * Nothing writes the old name any more, so a set passes through here once. One set at a time, for the same reason foldRecords is:
      * a set from a device not yet updated arrives from the server with the old
      * name in it -- see FORMAT in sync.js, which went to 3 with this.
      */
@@ -139,11 +139,6 @@ function migrate() {
             rep.run = parts.join('|');
             changed = true;
         }));
-
-        if (Array.isArray(set.pinned) && set.pinned.some(id => GAMES_RENAMED[id])) {
-            set.pinned = set.pinned.map(id => GAMES_RENAMED[id] || id);
-            changed = true;
-        }
 
         return changed;
     }
@@ -192,6 +187,34 @@ function migrate() {
     }
 
     /*
+     * A run over every set, left open: `all` where a set's id goes. That mode went
+     * on 6 November 2026, the owner's call, no button having led to it for a long
+     * time, and nothing could carry such a run on: `all` is not a set. So it is
+     * closed rather than moved. The answers it wrote are on their words already.
+     */
+    async function dropRunsOverAll() {
+        let changed = false;
+
+        const active = await storage.get('active_session');
+
+        if (active && active.setId === 'all') {
+            await storage.set('active_session', null);
+            changed = true;
+        }
+
+        for (const game of ['flashcards', 'quiz', 'wordcraft', 'snake']) {
+            const saved = await storage.get('session:' + game);
+
+            if (saved && saved.selectedSetId === 'all') {
+                await storage.set('session:' + game, null);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /*
      * The translations, in order, and the answer is whether anything was done at
      * all. Nobody reads it yet.
      *
@@ -206,8 +229,9 @@ function migrate() {
         const recorded = await foldAllRecords();
         const renamed = await renameAllGames();
         const moved = await renameRounds();
+        const closed = await dropRunsOverAll();
 
-        return recorded || renamed || moved;
+        return recorded || renamed || moved || closed;
     }
 
     migrate.run = run;

@@ -80,7 +80,7 @@ function wordcraft(container) {
 
     function getEmptyState() {
         return {
-            selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null,
+            selectedSetId: null, currentIndex: 0, sessionResults: [], sessionPool: null,
             sessionAt: null, allowEarly: false, round: null, starLevel: 0
         };
     }
@@ -954,7 +954,9 @@ function wordcraft(container) {
 
         const round = state.round;
 
-        const dotsHtml = () => pool.map((_, idx) => {
+        const STAGE_HINT = 'The stage of this word: how well you know it. The higher it is, the more pieces the word is cut into.';
+
+        const dotsHtml = () => pool.map((item, idx) => {
             const res = state.sessionResults[idx];
 
             let bg = palette.dotIdle;
@@ -977,16 +979,14 @@ function wordcraft(container) {
              */
             if (!res && idx === state.currentIndex && round.heard) bg = palette.err;
 
-            const ring = idx === state.currentIndex ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
-
-            return `<div class="wordcraft-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ring} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return page.dotHtml('wordcraft-dot', bg, idx === state.currentIndex, item.word, palette, STAGE_HINT);
         }).join('');
 
         const header = $(container, `<div class="wordcraft-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
             <div class="wordcraft-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="wordcraft-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">${dotsHtml()}</div>
+            <div class="wordcraft-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: ${page.DOT_GAP}px;">${dotsHtml()}</div>
         </div>`);
 
         // Redrawn whenever a dot changes colour -- and the light of an answer
@@ -1668,6 +1668,8 @@ function wordcraft(container) {
             // rather than the accent, because "you are here" should not shout
             // in the same colour as "press this".
             cursor: t.progress,
+            // The stage in the dot of the word in play -- see page.dotHtml
+            stageInk: t.muted,
 
             ok: t.ok,
             err: t.err,

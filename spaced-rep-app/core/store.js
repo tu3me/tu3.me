@@ -9,7 +9,7 @@
  * the working copy of one page, never the place anything is kept.
  */
 function store() {
-    let sets = seed.sets();
+    let sets = [];
 
     /*
      * Writes onto the set which language each of its two sides is in:
@@ -34,7 +34,7 @@ function store() {
      * quietly half one thing and half another.
      *
      * A word that already names its language is left alone. The detector is a
-     * guess and the field may hold something better than a guess — what seed.js
+     * guess and the field may hold something better than a guess — what makeSets
      * wrote down, or what a person chose in the form — and a guess has no
      * business overwriting it on every edit. Only the words that have no answer
      * get one, and the column they are read against is the whole column, the
@@ -64,7 +64,7 @@ function store() {
 
     async function load() {
         const savedSets = await storage.get('word_sets');
-        if (savedSets && savedSets.length > 0) sets = savedSets;
+        if (savedSets) sets = savedSets;
 
         views = (await storage.get('set_views')) || {};
     }
@@ -115,24 +115,18 @@ function store() {
 
     // Live references into `sets` — the games build their own session pools from these
     function wordsOf(setId) {
-        const activeSets = setId !== 'all' ? live().filter(s => s.id === setId) : live();
+        const set = live().find(s => s.id === setId);
+        if (!set) return [];
 
         // The set's two languages travel with every word taken out of it. A
         // game is handed a flat list and has no set to look up, and this is the
         // one thing on a word that is not on the word.
-        const items = [];
-        activeSets.forEach(s => {
-            s.words.forEach(w => {
-                items.push({
-                    setId: s.id,
-                    setName: s.title,
-                    originalLang: s.originalLang,
-                    translationLang: s.translationLang,
-                    word: w
-                });
-            });
-        });
-        return items;
+        return set.words.map(w => ({
+            setId: set.id,
+            originalLang: set.originalLang,
+            translationLang: set.translationLang,
+            word: w
+        }));
     }
 
     /*
@@ -177,8 +171,9 @@ function store() {
      */
     function duePool(setId, allowEarly, limit) {
         const items = wordsOf(setId);
-        const unspaced = new Set(live().filter(s => !viewOf(s).srs).map(s => s.id));
-        const due = items.filter(i => unspaced.has(i.setId) || spacedRepetitions.isWordDue(i.word));
+        const set = live().find(s => s.id === setId);
+        const unspaced = !!set && !viewOf(set).srs;
+        const due = items.filter(i => unspaced || spacedRepetitions.isWordDue(i.word));
         const pool = shuffled((allowEarly && due.length === 0) ? items : due);
         return limit ? pool.slice(0, limit) : pool;
     }
@@ -453,10 +448,8 @@ function store() {
      * be needed is written down.
      *
      * Absent until the first entry, which reads as "nothing achieved yet" and is
-     * exactly that. No set by the id, no entry -- which is also all a run over
-     * every set at once gets: its id is 'all', and no set is called that. The
-     * caller saves -- these are always called just before a save the game makes
-     * anyway.
+     * exactly that. No set by the id, no entry. The caller saves -- these are
+     * always called just before a save the game makes anyway.
      */
     function logOf(set, game) {
         if (!set.achievements) set.achievements = {};

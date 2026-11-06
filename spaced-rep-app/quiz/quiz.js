@@ -28,7 +28,7 @@ function quiz(container) {
     let palette = {};
 
     function getEmptyState() {
-        return { selectedSetId: 'all', currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false, starLevel: 0 };
+        return { selectedSetId: null, currentIndex: 0, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false, starLevel: 0 };
     }
 
     /*
@@ -690,16 +690,15 @@ function quiz(container) {
 
         const currentItem = pool[state.currentIndex];
 
-        const dotsHtml = () => pool.map((_, idx) => {
+        const STAGE_HINT = 'The stage of this word: how well you know it. The higher it is, the more answers there are to choose from.';
+
+        const dotsHtml = () => pool.map((item, idx) => {
             const res = state.sessionResults[idx];
             let bg = palette.dotIdle;
             if (res === 'correct') bg = palette.okText;
             if (res === 'wrong') bg = palette.errText;
 
-            const isCurrent = idx === state.currentIndex;
-            const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
-
-            return `<div class="quiz-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return page.dotHtml('quiz-dot', bg, idx === state.currentIndex, item.word, palette, STAGE_HINT);
         }).join('');
 
         // The dots are redrawn as soon as the answer is scored, not only on the
@@ -717,12 +716,16 @@ function quiz(container) {
             <div class="quiz-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">
+            <div class="quiz-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: ${page.DOT_GAP}px;">
                 ${dotsHtml()}
             </div>
         </div>`);
 
-        header.querySelector('.back-btn').addEventListener('click', () => {
+        header.querySelector('.back-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+
+            // Whatever is being said belongs to this screen and goes with it.
+            speech.hush();
             page.home();
         });
 
@@ -771,10 +774,6 @@ function quiz(container) {
          * question, it is a tell. "багаж" among greetings is not a choice
          * to weigh, it is the one line that obviously does not belong, and a
          * round of those asks nothing.
-         *
-         * Read through the pool item's own set rather than the session's,
-         * because a session over every set is still a sequence of questions,
-         * each of which came from one.
          *
          * A set too small to fill the stage's count simply asks with fewer
          * options. What can be asked is limited by what is in the set, and
@@ -1016,6 +1015,8 @@ function quiz(container) {
             // the accent, because `ring` also paints the buttons, and "you are
             // here" should not shout in the same colour as "press this".
             cursor: t.progress,
+            // The stage in the dot of the word in play -- see page.dotHtml
+            stageInk: t.muted,
             backBtn: t.muted,
 
             // Flat panels, no gradients: the question and the answers already

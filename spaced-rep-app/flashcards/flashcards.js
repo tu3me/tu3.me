@@ -11,7 +11,7 @@ function flashcards(container) {
     let palette = {};
 
     function getEmptyState() {
-        return { selectedSetId: 'all', currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
+        return { selectedSetId: null, currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
     }
 
     // Keyboard: ← turns the card over, → is done with this word
@@ -478,16 +478,16 @@ function flashcards(container) {
 
         const currentItem = pool[state.currentIndex];
 
-        const dotsHtml = () => pool.map((_, idx) => {
+        // Says nothing of what the stage changes: on a card, nothing
+        const STAGE_HINT = 'The stage of this word: how well you know it.';
+
+        const dotsHtml = () => pool.map((item, idx) => {
             const res = state.sessionResults[idx];
             let bg = palette.dotIdle;
             if (res === 'correct') bg = palette.okText;
             if (res === 'wrong') bg = palette.errText;
 
-            const isCurrent = idx === state.currentIndex;
-            const ringStyle = isCurrent ? `outline: 1px solid ${palette.cursor}; transform: scale(1.15);` : '';
-
-            return `<div class="flashcards-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${bg}; ${ringStyle} transition: all 0.2s; flex-shrink: 0;"></div>`;
+            return page.dotHtml('flashcards-dot', bg, idx === state.currentIndex, item.word, palette, STAGE_HINT);
         }).join('');
 
         // The dots are redrawn mid-card now, not only when the next card is rendered
@@ -500,12 +500,16 @@ function flashcards(container) {
             <div class="flashcards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="flashcards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: 5px;">
+            <div class="flashcards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: ${page.DOT_GAP}px;">
                 ${dotsHtml()}
             </div>
         </div>`);
 
-        header.querySelector('.back-btn').addEventListener('click', () => {
+        header.querySelector('.back-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+
+            // Whatever is being said belongs to this screen and goes with it.
+            speech.hush();
             page.home();
         });
 
@@ -672,6 +676,8 @@ function flashcards(container) {
             // is painted in — "you are here" should not shout in the same colour
             // as "press this".
             cursor: t.progress,
+            // The stage in the dot of the word in play -- see page.dotHtml
+            stageInk: t.muted,
             backBtn: t.muted,
 
             // Nothing here for what is being said: letter, word and line are

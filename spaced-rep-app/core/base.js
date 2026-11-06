@@ -566,12 +566,6 @@ function pointingHand() {
         return shown;
     };
 
-    // Asked before a new hand is scheduled. `isConnected` rather than the
-    // variable alone: a screen that redraws itself takes the hand with it without
-    // going through clear(), and the reference left behind points at a node
-    // hanging off nothing.
-    pointingHand.showing = () => !!(shown && shown.isConnected);
-
     pointingHand.clear = () => {
         if (shown) shown.remove();
         shown = null;

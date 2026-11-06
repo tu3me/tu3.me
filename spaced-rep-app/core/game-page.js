@@ -47,6 +47,36 @@ function page() {
         <path d="M11 5L6 9H2v6h4l5 4V5z" />
         <path d="M16 9.5l5 5M21 9.5l-5 5" />`);
 
+    /*
+     * A dot of the row along the top of a game: one to a word of the session,
+     * and the dot of the word in play grown to hold its stage -- the figure
+     * alone, what it is in the tooltip, and only while the dot is waiting for
+     * its answer. Once it takes the colour of one, the figure goes. Snake's from
+     * 2 November 2026, every game's since the 6th (the owner's calls).
+     *
+     * Grown rather than scaled, as the dot in play was until it held a figure
+     * (scale 1.15): a figure has to be its own size to be read.
+     *
+     * Asked of the store here rather than handed in, because it is one word's
+     * stage and only ever the one in play: the other dots have no use for it.
+     *
+     * Snake has the numbers and not the drawing: it keeps its dots from frame to
+     * frame, for the wave that lives on them. See view.dots there.
+     */
+    page.DOT = 8;
+    page.DOT_NOW = 13;
+    page.DOT_GAP = 4.5;
+    page.DOT_FIGURE = 8.5;
+
+    page.dotHtml = (cls, bg, current, word, palette, hint) => {
+        const size = current ? page.DOT_NOW : page.DOT;
+        const waiting = current && bg === palette.dotIdle;
+        const ring = current ? `outline: 1px solid ${palette.cursor};` : '';
+        const stage = waiting ? spacedRepetitions.getWordStats(word).stage || 0 : '';
+
+        return `<div class="${cls}"${waiting ? ` title="${hint}"` : ''} style="display: flex; align-items: center; justify-content: center; width: ${size}px; height: ${size}px; border-radius: 50%; background: ${bg}; ${ring} color: ${palette.stageInk}; font-size: ${page.DOT_FIGURE}px; font-weight: 800; line-height: 1; overflow: hidden; cursor: default; font-variant-numeric: tabular-nums; transition: all 0.2s; flex-shrink: 0;">${stage}</div>`;
+    };
+
     function drawMute(btn) {
         btn.innerHTML = speech.muted() ? SPEAKER_OFF : SPEAKER;
         btn.title = speech.muted() ? 'Sound off' : 'Sound on';
@@ -95,7 +125,7 @@ function page() {
             if (speech.muted()) return;
 
             const playing = (module && module.getState()) || {};
-            const words = store.wordsOf(playing.selectedSetId || 'all')
+            const words = store.wordsOf(playing.selectedSetId)
                 .map(item => ({ text: item.word.original, lang: item.originalLang }));
 
             speech.explainSilence(btn, words, 'game');
@@ -127,8 +157,7 @@ function page() {
      *
      * With whether the spaced repetition system is on for the set, on this
      * device: the answers do not say, and with it off an answer ahead of its
-     * timer is simply how that person plays. Nothing for a run over every set,
-     * which has no one answer -- see docs/ANALYTICS.md.
+     * timer is simply how that person plays.
      */
     let run = null;
 
@@ -210,17 +239,14 @@ page();
  * not the words the set has any more. Asked while the restored game is still
  * paused, which is when it happens unnoticed; a player who pressed on before the
  * answer came is taken out under their finger, and that is accepted.
- *
- * Over every set it plays from, for a run over all of them.
  */
 async function syncUnder(module) {
     const done = await sync.run();
     if (!done || !done.replaced.length) return;
 
     const state = module.getState() || {};
-    const playing = state.selectedSetId;
 
-    if (playing !== 'all' && !done.replaced.includes(playing)) return;
+    if (!done.replaced.includes(state.selectedSetId)) return;
 
     await page.endSession('sync');
     await nav.home();
@@ -288,7 +314,7 @@ async function bootGame(id, module) {
     // The URL carries the intent — which set, and whether the player chose to
     // play ahead of the timers. The words themselves come from the store.
     const params = new URLSearchParams(location.search);
-    const setId = params.get('set') || 'all';
+    const setId = params.get('set');
     const allowEarly = params.get('early') === '1';
 
     // The previous session is handed over even on a fresh start, so a game can
@@ -313,8 +339,13 @@ async function bootGame(id, module) {
         // The run carries on rather than begins: no second `run_start` for it.
         page.resumed(saved.sessionAt);
         if (saved.sessionAt) track('run_resume', saved.sessionAt);
-    } else {
+    } else if (setId) {
         module.start(setId, allowEarly, saved);
+    } else {
+        // A bare address and nothing saved: nothing to carry on and no set to
+        // start. It began a run over every set until 6 November 2026, when the
+        // owner took that mode out: no button had led to it for a long time.
+        return nav.home();
     }
 
     // This history entry now stands for a running session. Every way back into it
@@ -343,8 +374,8 @@ async function bootGame(id, module) {
     /*
      * Written straight away, before the player has done anything: until they act
      * nothing else would write this key, and the popup's entry point carries no
-     * set to fall back on, so a game left untouched would come back as a fresh
-     * session over every set.
+     * set to fall back on, so a game left untouched would have nothing to come
+     * back to.
      *
      * After render() and not before, which is the whole point. The pool is built
      * inside render -- and so, in snake, is the board -- so a save taken ahead of

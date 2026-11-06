@@ -479,8 +479,6 @@ function catalog(container) {
     // a 10.2px word rather than a 12.8px one.
     const CHEVRON_SMALL = chromeIcon(`<path d="M9 5l7 7-7 7" />`, 12);
 
-    const CROSS = chromeIcon(`<path d="M6 6l12 12M18 6L6 18" />`);
-
     /*
      * The three ways to have this app — see platformStrip. Drawn a size up from
      * the chrome around them: they are the picture in a cell rather than the
@@ -1956,9 +1954,9 @@ function catalog(container) {
      * about languages that could destroy a month of repetitions is an answer
      * nobody could safely change.
      *
-     * Only the made ones, told apart by their id -- see CATALOG_ID. A set
-     * somebody wrote themselves belongs to them and not to an answer they
-     * gave on a first screen, whatever language it turned out to be in.
+     * Only the made ones, told apart by their id -- see CATALOG_ID and
+     * isOldSample. A set somebody wrote themselves belongs to them and not to an
+     * answer they gave on a first screen, whatever language it turned out to be in.
      *
      * Except one that a person has had a hand in, which is never hidden, whatever
      * happens to the languages, the owner's call, 5 November 2026: answers or an edit
@@ -1975,7 +1973,9 @@ function catalog(container) {
      * lose.
      */
     function onShelf(set) {
-        if (!String(set.id).startsWith(CATALOG_ID) || set.changedAt || hasAnswers(set)) return true;
+        const made = String(set.id).startsWith(CATALOG_ID) || isOldSample(set);
+
+        if (!made || set.changedAt || hasAnswers(set)) return true;
 
         return isFirstSet(set) && learnLangs.includes(set.originalLang) && set.translationLang === myLang;
     }
@@ -2179,15 +2179,7 @@ function catalog(container) {
         if (draft) renderSetCard(list, draft, intro);
 
         // Only what the answer about languages puts there -- see onShelf.
-        const shown = sets.filter(onShelf);
-
-        // The sample set is what the screen says when it has nothing else to
-        // say -- see seed.js. Anything of the reader's own takes its place, and
-        // it comes back if that is ever all there is again. Answered in, it is
-        // the reader's own as well: see onShelf.
-        const own = shown.filter(set => !isSample(set) || hasAnswers(set));
-
-        recent(own.length ? own : shown).forEach(set => renderSetCard(list, set, intro));
+        recent(sets.filter(onShelf)).forEach(set => renderSetCard(list, set, intro));
 
         /*
          * The form is open and the strip is in the column again: every draw puts
@@ -4632,13 +4624,6 @@ function catalog(container) {
 
                     // Writing a set in a language is saying you are learning it.
                     noteLearnLang(set.originalLang);
-
-                    // And typing into the starter set makes it a set like any
-                    // other, which is to say one that stays. Only the starter
-                    // set: on any other the mark means nothing, and written on
-                    // every set saved here it read as if every one of them had
-                    // started as the sample (ARCHITECTURE.md §5).
-                    if (String(set.id) === SAMPLE_ID) set.adopted = true;
                 }
 
                 /*
@@ -5256,23 +5241,6 @@ function catalog(container) {
             softColor: t.muted,
             softBorder: t.border,
 
-            /*
-             * The floor the My stuff band is painted in -- see the band itself,
-             * where what it is for and why it is sunk rather than lifted live.
-             *
-             * The two themes answer differently because black does. Three tenths
-             * of it over the navy page is a deeper navy; over warm paper the same
-             * veil is a grey-brown, which is both the wrong colour and twice the
-             * weight -- 2.06 against the page where the dark band is 1.16.
-             *
-             * The light theme takes the fourth step of its own cream ladder
-             * instead, the one the borders are drawn in. Card, page, chips,
-             * borders: the band is the step below the page, which puts it 4.5 of
-             * L* under it against the dark band's 5.9 -- the nearest thing to the
-             * same depth that is already a colour here.
-             */
-            bandBg: isDark ? sunk(t.ground, 0.3) : t.border,
-
             // The page's own colour, which the sticky Explore heading wears so
             // that what scrolls under it is covered rather than shown through.
             pageBg: t.ground,
@@ -5286,7 +5254,6 @@ function catalog(container) {
             hint: t.muted,
             inputBg: t.soft,
             inputText: t.ink,
-            barBg: t.soft,
 
             /*
              * What a segment of the ladder is before anything has happened to
@@ -5424,29 +5391,11 @@ function catalog(container) {
     };
 
     /*
-     * A colour sunk towards black by the given amount, which is the colour a
-     * veil of black at that strength composites to over it.
-     *
-     * The My stuff band was that veil -- three tenths of black over the page --
-     * and a veil cannot be worn by a heading that has to cover what slides under
-     * it. Mixing it down to one opaque value changes nothing on the screen (the
-     * composite is the same number the browser was producing) and makes the band
-     * a colour that can be painted on something else.
-     */
-    function sunk(hex, amount) {
-        const n = parseInt(hex.slice(1), 16);
-        const keep = 1 - amount;
-        const part = (shift) => Math.round(((n >> shift) & 255) * keep).toString(16).padStart(2, '0');
-
-        return `#${part(16)}${part(8)}${part(0)}`;
-    }
-
-    /*
      * One colour laid over another at the given strength, as an opaque value.
      *
-     * The same trade sunk() makes and for the same reason: a translucent colour
-     * cannot be the background of something that scrolls under other things, and
-     * it cannot be handed to a file that only knows how to paint. Mixed in the
+     * A translucent colour cannot be the background of something that scrolls
+     * under other things, and it cannot be handed to a file that only knows how
+     * to paint. Mixed in the
      * channels as they are written, which is not how light mixes -- it is how
      * every colour in this app was chosen by eye, and the eye is what this is
      * for.
@@ -5542,22 +5491,22 @@ function catalog(container) {
     const CATALOG_ID = 'vocab-';
 
     /*
-     * The set the app ships with, told apart the same way: by the id seed.js
-     * gives it.
+     * The set the app used to ship with, told apart the same way: by its id.
+     * Written on every first run from before there was a first screen, and made
+     * for nobody since 6 November 2026 (the owner's call, seed.js went): the first
+     * screen brings a set for whatever it is told, and this one was on show only
+     * to somebody who had deleted all the others, which is the wrong moment to
+     * hand them a set they did not ask for.
      *
-     * It used to carry a field saying so, and that field is exactly the failure
-     * the paragraph above warns about. It was added after there were already
-     * saved databases without it, and in every one of them the starter set
-     * stopped being recognised and stood in the list forever, beside sets in
-     * languages its reader had actually asked for. An id cannot be missing.
-     *
-     * Typing into it makes it a set like any other, and that is written down
-     * rather than taken away -- a mark whose absence means "still the sample" is
-     * a mark that cannot go missing either.
+     * Every database from before that has one, and the server has copies. Nobody
+     * has touched most of them, and those stay out of sight the way the old levels
+     * do -- see onShelf -- rather than being taken out of the list: one can arrive
+     * from a device on an older version at any time, and a set taken out comes back
+     * from the next device that still has it (see store.archive). With answers or
+     * a date on it, it is a set like any other. `adopted` is what typing into it
+     * wrote, before sets had dates.
      */
-    const SAMPLE_ID = '1';
-
-    const isSample = (set) => String(set.id) === SAMPLE_ID && !set.adopted;
+    const isOldSample = (set) => String(set.id) === '1' && !set.adopted;
 
     /*
      * The one set a pair of languages gets, the owner's call, 5 November 2026: the ten
@@ -5572,9 +5521,9 @@ function catalog(container) {
      * there have those ids, and this one of them should go on being the same set.
      * With its history, if it has one.
      */
-    const FIRST_LEVEL = 'Intermediate';
+    const FIRST_LEVEL = 'intermediate';
 
-    const isFirstSet = (set) => String(set.id).endsWith(`-${FIRST_LEVEL.toLowerCase()}`);
+    const isFirstSet = (set) => String(set.id).endsWith(`-${FIRST_LEVEL}`);
 
     /*
      * What somebody who skipped the question is learning until they say otherwise,
@@ -5586,35 +5535,6 @@ function catalog(container) {
      * English for somebody whose own language is Spanish: a pair is two languages.
      */
     const defaultLearn = (mine) => (mine === 'es' ? 'en' : 'es');
-
-    /*
-     * The title of the set the app ships with, in "Your language" and in the set itself.
-     *
-     * For a while titles were translated on the way to the screen, into the language
-     * of the interface, which was wrong twice over (the owner, 4 November 2026): the
-     * box of the form still said the English title, and the interface has no
-     * business in the contents of a set. So the title that is stored is the title.
-     *
-     * seed.js writes this set before anybody has named a language and it stands in for
-     * no language of its own, so its title follows the reader's, as often as that
-     * changes. A set off the shelf belongs to one pair and is born with the right title:
-     * see makeSets.
-     *
-     * Only while the title is word for word what the app wrote, so anything somebody
-     * typed stays, and no date is given: the app made this change and nobody else
-     * needs telling. See store.touch.
-     *
-     * Nothing else is renamed, the owner's call, 5 November 2026. The name and the words
-     * of the starter set are for people arriving now. Sets written before them keep what
-     * they have, touched or not, and are not worth a migration.
-     */
-    function retitleSample() {
-        const sample = store.allSets().find(isSample);
-
-        if (sample && tr.langs().some(tag => tr.of(tag, 'firstSet') === sample.title)) {
-            sample.title = tr.of(myLang, 'firstSet');
-        }
-    }
 
     /*
      * The order of the list: whatever happened last is on top.
@@ -5716,10 +5636,6 @@ function catalog(container) {
         // when the other half of the pair arrives.
         if (!myLang) return Promise.resolve();
 
-        // Every change of the reader's language comes through here, and it ends in
-        // a save whatever else happens below.
-        retitleSample();
-
         const made = [];
 
         learnLangs.filter(learn => learn === named || !writtenOnly(learn)).forEach(learn => {
@@ -5727,7 +5643,7 @@ function catalog(container) {
 
             if (!words) return;
 
-            const id = `${CATALOG_ID}${learn}-${myLang}-${FIRST_LEVEL.toLowerCase()}`;
+            const id = `${CATALOG_ID}${learn}-${myLang}-${FIRST_LEVEL}`;
 
             const saved = store.allSets().find(s => s.id === id);
             if (saved) {
@@ -5741,6 +5657,12 @@ function catalog(container) {
             // Both languages written on the set. The pair is known here, and a
             // ready-made set has no business leaving it to a detector to work out
             // that these ten lines are Greek.
+            //
+            // And its title in the language it is read in, once and for good. Titles
+            // were translated on the way to the screen for a while, into the language
+            // of the interface, which was wrong twice over (the owner, 4 November
+            // 2026): the box of the form still said the English title, and the
+            // interface has no business in the contents of a set.
             made.push({
                 id: id,
                 title: tr.of(myLang, 'firstSet'),
@@ -5778,10 +5700,10 @@ function catalog(container) {
      * sets rather than kept as a mark on the language, so that it reaches another
      * device with them and there is nothing new in the record of the languages.
      *
-     * The sample is nobody's writing.
+     * The old sample is nobody's writing.
      */
     function writtenOnly(tag) {
-        const sets = store.allSets().filter(set => set.originalLang === tag && !isSample(set));
+        const sets = store.allSets().filter(set => set.originalLang === tag && !isOldSample(set));
 
         return sets.length > 0 && sets.every(set => !String(set.id).startsWith(CATALOG_ID));
     }

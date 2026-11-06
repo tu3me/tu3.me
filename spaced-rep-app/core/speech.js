@@ -16,7 +16,7 @@
  * telling the truth.
  *
  * The language is written on the word: `originalLang` and `translationLang`,
- * put there by seed.js, by the person editing the set, or by store.label, which
+ * put there by makeSets, by the person editing the set, or by store.label, which
  * asks speech.languageOfAll. The column is read whole — every original, or every
  * translation — because that is the only way a set of ordinary-looking words
  * gets its language from the one word in it that happens to carry a letter of
@@ -498,31 +498,10 @@ function speech() {
     }
 
     /*
-     * Every language the detector can name outright — sixty-odd, and that is a fact
-     * about the evidence rather than about the world: a language is in here only
-     * if its script or one of its own letters gives it away. The shared letters
-     * can land on a handful more, which are not listed: they are guesses between
-     * candidates rather than languages the letters prove.
-     *
-     * Nothing calls this. It is kept as the honest count of what the table
-     * knows, against the far longer list below.
-     */
-    speech.languages = () => {
-        const tags = [];
-        SCRIPTS.forEach(script => {
-            if (!tags.includes(script.lang)) tags.push(script.lang);
-            (script.locals || []).forEach(([tag]) => {
-                if (!tags.includes(tag)) tags.push(tag);
-            });
-        });
-        return tags;
-    };
-
-    /*
      * Every language there is a two-letter code for — ISO 639-1, the whole of
      * it — for the person who knows what their set is in.
      *
-     * A far longer list than the one above, and it has to be: the detector can
+     * A far longer list than the detector could name, and it has to be: it can
      * only name a language whose letters give it away, while a person picking
      * from a list knows. Dutch, Swahili and Indonesian are not in the
      * detector's list and never will be, and none of that is a reason to stop
@@ -599,9 +578,6 @@ function speech() {
         });
         return codes;
     };
-
-    // The language of a single string, for a word that has to answer for itself
-    speech.languageOf = (text) => detect(text).lang;
 
     /*
      * The voice list arrives asynchronously, and on a page that has just loaded
@@ -1642,13 +1618,6 @@ function speech() {
             ? Array.from(GRAPHEMES.segment(line)).map(part => part.segment)
             : Array.from(line);
     };
-
-    // Every word its own target; everything between them left as it was written
-    speech.lineHtml = (text) => partsOf(text)
-        .map(part => (part.isWordLike
-            ? `<span class="say-word" data-press style="border-radius: 4px; transition: background 0.2s, color 0.2s;">${part.segment}</span>`
-            : part.segment))
-        .join('');
 
     /*
      * The speaker beside the line, and the only visible sign that any of this

@@ -395,6 +395,5 @@ function sync() {
 
     sync.run = run;
     sync.join = join;
-    sync.FORMAT = FORMAT;
 }
 sync();

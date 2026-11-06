@@ -1,5 +1,5 @@
 /**
- * Colours for the sandbox, taken off the reference mock-up.
+ * The app's colours, taken off the reference mock-up.
  *
  * The dark theme is the point of it: a deep sea-navy rather than the usual
  * blue-grey, with surfaces lifted in the same hue instead of towards black. The
