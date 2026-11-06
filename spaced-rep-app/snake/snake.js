@@ -3809,7 +3809,7 @@ function snake(container) {
         // A cell the snake is on
         const taken = (x, y) => snakeBody.some(s => s.x === x && s.y === y);
 
-        function spawnLetters(strangers = decoys) {
+        function spawnLetters(strangers) {
             lettersOnBoard = [];
 
             const free = [];
@@ -3939,6 +3939,79 @@ function snake(container) {
             return full;
         }
 
+        /*
+         * Whether the letter to eat next can be walked to from this end of the
+         * snake, over cells nothing stands on, with the board as it is now.
+         * Going through the wrap at the edges, as the snake does. The body is
+         * taken as it lies, though its tail moves off as it walks: this can
+         * only say no too often.
+         */
+        function wayFrom(end) {
+            const want = targetLetters[nextLetterIndex];
+            const cell = (x, y) => x + y * GRID_COUNT;
+            const letters = new Map(lettersOnBoard.filter(l => !l.isEaten).map(l => [cell(l.x, l.y), l.char]));
+            const seen = new Set(snakeBody.map(s => cell(s.x, s.y)));
+            const open = [end];
+
+            while (open.length) {
+                const { x, y } = open.pop();
+
+                for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                    const nx = (x + dx + GRID_COUNT) % GRID_COUNT;
+                    const ny = (y + dy + GRID_COUNT) % GRID_COUNT;
+                    const at = cell(nx, ny);
+
+                    if (seen.has(at)) continue;
+                    seen.add(at);
+
+                    const char = letters.get(at);
+                    if (char === want) return true;
+                    if (char === undefined) open.push({ x: nx, y: ny });
+                }
+            }
+
+            return false;
+        }
+
+        /*
+         * The word's letters laid out so as not to shut the snake in, which is the
+         * way every layout goes down: a new word, a round started over, the first
+         * of a session and the shuffle (the owner's call, 6 November 2026). Until
+         * then only the shuffle asked, and a new word could land in front of both
+         * ends at once, on a board of twelve by twelve, with the player paying a
+         * heart for what the layout had done.
+         *
+         * Laid at random as any layout is -- see spawnLetters -- and tried again
+         * until the head can reach the next letter, or failing that the tail, which
+         * the head can be sent to by a crash. A snake coiled shut round both ends
+         * keeps the first that did best, for no layout will help it.
+         *
+         * A word that fills the board goes down at once: there is nowhere for it
+         * to shut anything in, and the crown is about to end the session.
+         */
+        const WAY_TRIES = 20;
+
+        function layLetters(strangers = decoys) {
+            const head = snakeBody[0];
+            const tail = snakeBody[snakeBody.length - 1];
+            let best = null;
+            let bestWay = -1;
+
+            for (let tries = 0; tries < WAY_TRIES && bestWay < 2; tries++) {
+                if (spawnLetters(strangers)) return true;
+
+                const way = wayFrom(head) ? 2 : wayFrom(tail) ? 1 : 0;
+
+                if (way > bestWay) {
+                    best = lettersOnBoard;
+                    bestWay = way;
+                }
+            }
+
+            lettersOnBoard = best;
+            return false;
+        }
+
         function spawnHeart() {
             const lettered = (pos) => lettersOnBoard.some(l => !l.isEaten && l.x === pos.x && l.y === pos.y);
 
@@ -4060,7 +4133,7 @@ function snake(container) {
         board.isFrozen = () => isFrozen;
         board.crashPhase = () => crashPhase;
         board.progress = () => nextLetterIndex;
-        board.spawnLetters = spawnLetters;
+        board.layLetters = layLetters;
 
         board.acceptsInput = () => !inputCooldown && !(isFrozen && crashPhase === 1);
         board.releaseInput = () => { inputCooldown = false; };
@@ -4074,7 +4147,7 @@ function snake(container) {
             skipBlanks();
             phase = 'WORD';
             heartPos = null;
-            return spawnLetters();
+            return layLetters();
         };
 
         // The word's letters, all eaten, go, and the strangers put out with
@@ -4107,7 +4180,7 @@ function snake(container) {
             losingHeartIdx = -1;
             inputCooldown = false;
             crashPhase = 0;
-            spawnLetters();
+            layLetters();
         };
 
         // Second stage of a crash: the snake turns around, head where the tail was
@@ -4129,40 +4202,6 @@ function snake(container) {
             return true;
         };
 
-        /*
-         * Whether the letter to eat next can be walked to from this end of the
-         * snake, over cells nothing stands on, with the board as it is now.
-         * Going through the wrap at the edges, as the snake does. The body is
-         * taken as it lies, though its tail moves off as it walks: this can
-         * only say no too often.
-         */
-        function wayFrom(end) {
-            const want = targetLetters[nextLetterIndex];
-            const cell = (x, y) => x + y * GRID_COUNT;
-            const letters = new Map(lettersOnBoard.filter(l => !l.isEaten).map(l => [cell(l.x, l.y), l.char]));
-            const seen = new Set(snakeBody.map(s => cell(s.x, s.y)));
-            const open = [end];
-
-            while (open.length) {
-                const { x, y } = open.pop();
-
-                for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-                    const nx = (x + dx + GRID_COUNT) % GRID_COUNT;
-                    const ny = (y + dy + GRID_COUNT) % GRID_COUNT;
-                    const at = cell(nx, ny);
-
-                    if (seen.has(at)) continue;
-                    seen.add(at);
-
-                    const char = letters.get(at);
-                    if (char === want) return true;
-                    if (char === undefined) open.push({ x: nx, y: ny });
-                }
-            }
-
-            return false;
-        }
-
         board.canShuffle = () => phase === 'WORD' && snakeBody.some(s => s.char === '❤️');
 
         /*
@@ -4176,18 +4215,11 @@ function snake(container) {
          * the board does not freeze. One that was frozen already, turned round
          * and waiting for a press, stays that way.
          *
-         * Laid out at random like any word, a piece at a time (see
-         * spawnLetters), and what has been eaten is not laid again. The player
-         * is paying to get out, so a layout that shuts the way again is thrown
-         * back: tried until the head can reach the next letter, or failing
-         * that the tail, which the head can be sent to by a crash. A snake
-         * coiled shut round both ends gets the last best try, for no layout
-         * will help it.
+         * Laid out like any word (see layLetters), and what has been eaten is not
+         * laid again.
          *
          * Answers the letters as they stood, for the view to fly from.
          */
-        const SHUFFLE_TRIES = 20;
-
         board.shuffle = () => {
             const was = lettersOnBoard.filter(l => !l.isEaten);
             const strangers = was.filter(l => l.decoy).map(l => l.char);
@@ -4196,23 +4228,8 @@ function snake(container) {
             snakeBody[heartIdx].char = '🖤';
             inputQueue = [];
 
-            const head = snakeBody[0];
-            const tail = snakeBody[snakeBody.length - 1];
-            let best = null;
-            let bestWay = -1;
+            layLetters(strangers);
 
-            for (let tries = 0; tries < SHUFFLE_TRIES && bestWay < 2; tries++) {
-                spawnLetters(strangers);
-
-                const way = wayFrom(head) ? 2 : wayFrom(tail) ? 1 : 0;
-
-                if (way > bestWay) {
-                    best = lettersOnBoard;
-                    bestWay = way;
-                }
-            }
-
-            lettersOnBoard = best;
             return was;
         };
 
@@ -5275,7 +5292,7 @@ function snake(container) {
         board.setDecoys(decoysFor(currentItem));
 
         const fresh = board.load(state, targetWord, stageOf(currentItem));
-        if (fresh) board.spawnLetters();
+        if (fresh) board.layLetters();
 
         /*
          * A snake grown on into more words -- see growMore: the board is the
