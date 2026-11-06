@@ -1880,7 +1880,7 @@ function snake(container) {
         // page's own ink is pale too in the dark theme.
         const MEDAL_INK = '#0f2b3c';
 
-        const PRIZE_BEAT = 500;     // "You won!" on its own, before the first prize
+        const PRIZE_BEAT = 500;     // "You won!" on its own, before a first prize other than the crown
         const ARRIVE = 1200;        // out of the header to the middle of the board
         const POP_IN = 520;         // or up in the middle of it
         const SHINE = 900;
@@ -2964,8 +2964,13 @@ function snake(container) {
              * banner -- the owner's call, 28 October 2026. There was a rest of
              * 300 between them, which with four prizes was a second of the
              * ending spent on nothing.
+             *
+             * The crown has no beat before it: the board shakes as it comes, and
+             * half a second between the last cell filling and the shake read as a
+             * pause (the owner, 6 November 2026). The rain sets off at the same
+             * moment -- see fireworks below -- and comes down through the shake.
              */
-            let chain = wait(still() ? 0 : PRIZE_BEAT);
+            let chain = wait(still() || result.crown ? 0 : PRIZE_BEAT);
 
             prizes.forEach((prize, k) => {
                 chain = chain.then(() => {
