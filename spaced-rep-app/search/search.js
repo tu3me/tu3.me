@@ -797,7 +797,9 @@ function search(container) {
      * A hidden word is pressed to see it: the peek, which costs the answer
      * (see score). A word found shows itself, in the colour of what went
      * right. A word done takes the colour of the stage it has come to, and
-     * says itself when pressed.
+     * says itself when pressed. A phrase answered wrong is red until it is
+     * done, as searchlines painted its -- found words white on it then, the
+     * mint of a find being lost on red.
      *
      * `measure` is the word drawn to be measured, as it stands at the deal.
      */
@@ -809,6 +811,7 @@ function search(container) {
         const asked = live && state.ordered && current() === i && !struck;
 
         const blur = 'filter: blur(0.32em);';
+        const red = missed && !struck;
 
         const line = phrase.parts.map(part => {
             if (part.token === null) return escapeText(part.text);
@@ -817,7 +820,7 @@ function search(container) {
             const isFound = !struck && t < found;
             const peeked = live && state.shown[i][t];
             const hidden = phrase.hideOriginal && !struck && !isFound && !peeked;
-            const ink = isFound ? palette.ok : (peeked && !struck ? palette.err : 'inherit');
+            const ink = isFound ? (red ? '#ffffff' : palette.ok) : (peeked && !struck && !red ? palette.err : 'inherit');
 
             return hidden
                 ? `<span class="search-peek" data-press data-phrase="${i}" data-token="${t}" title="Peek at the word -- it then counts as not known" style="display: inline-block; ${blur} cursor: pointer;">${escapeText(part.text)}</span>`
@@ -827,9 +830,9 @@ function search(container) {
         const translation = item.word.translation;
         const hideTranslation = phrase.hideTranslation && !struck;
 
-        let bg = palette.surface;
-        let ink = palette.ink;
-        let edge = missed ? palette.err : palette.border;
+        let bg = red ? palette.err : palette.surface;
+        let ink = red ? palette.onResult : palette.ink;
+        let edge = red ? palette.err : palette.border;
 
         if (struck) {
             const stage = spacedRepetitions.getWordStats(item.word).stage || 0;
@@ -860,15 +863,22 @@ function search(container) {
      */
     let svg = null;
 
-    function lineXY(at) {
-        return `${at[1] * 10 + 5},${at[0] * 10 + 5}`;
-    }
+    /*
+     * A cell picked or found: a square with its corners rounded, under the
+     * letter, one to a cell and not run together into a line (the owner's
+     * call, 8 November 2026). Square, because a letter's accent, its tail and
+     * a mark above or below it did not go into the round line, which was
+     * narrower than the cell: Á, Ñ, ق and ि stood half out of it.
+     */
+    const MARK_SIDE = 8.6;
+    const MARK_ROUND = 2.4;
 
-    // A path through cells as a polyline's points; a path of one cell, a dot
-    const pointsOf = (cells) => (cells.length > 1 ? cells : [cells[0], cells[0]]).map(lineXY).join(' ');
+    const marksHtml = (cells) => cells.map(([r, c]) => `<rect x="${c * 10 + (10 - MARK_SIDE) / 2}" y="${r * 10 + (10 - MARK_SIDE) / 2}" width="${MARK_SIDE}" height="${MARK_SIDE}" rx="${MARK_ROUND}" />`).join('');
 
-    function lineHtml(path, colour, cls) {
-        return `<polyline class="${cls || 'search-line'}" points="${pointsOf(path.cells)}" stroke="${colour}" opacity="${LINE_OPACITY}" />`;
+    // At half strength as a group, not each square: two that ever overlap
+    // would be darker where they do
+    function marksGroup(cells, colour, cls) {
+        return `<g class="${cls}" fill="${colour}" opacity="${LINE_OPACITY}">${marksHtml(cells)}</g>`;
     }
 
     function drawGrid() {
@@ -876,8 +886,9 @@ function search(container) {
         const cell = fitted.cell;
 
         gridHost.innerHTML = `<svg class="search-grid" data-untracked viewBox="0 0 ${cols * 10} ${rows * 10}" width="${+(cols * cell).toFixed(2)}" height="${+(rows * cell).toFixed(2)}" style="display: block; box-sizing: border-box; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: ${+(cell * 0.3).toFixed(2)}px; cursor: pointer; overflow: hidden;">
-            <g class="search-lines" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7.2">
-                ${state.paths.map(p => lineHtml(p, LINE_COLOURS[p.phrase % LINE_COLOURS.length])).join('')}
+            <g class="search-lines">
+                ${state.paths.map(p => marksGroup(p.cells, LINE_COLOURS[p.phrase % LINE_COLOURS.length], 'search-line')).join('')}
+                ${pick ? marksGroup(pick.cells, palette.drawing, 'search-drawn') : ''}
             </g>
             <g class="search-letters" font-size="5.4" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${palette.ink}" style="pointer-events: none;">
                 ${cells.map((ch, k) => `<text x="${(k % cols) * 10 + 5}" y="${Math.floor(k / cols) * 10 + 5.3}">${escapeText(ch)}</text>`).join('')}
@@ -885,11 +896,30 @@ function search(container) {
         </svg>`;
 
         svg = gridHost.querySelector('svg');
+        if (pick) pick.el = svg.querySelector('.search-drawn');
         bindGrid();
     }
 
-    /* ------------------------------------------------------------- tracing */
+    /* ------------------------------------------------------------- picking */
 
+    /*
+     * The cells picked and not yet a word: by a swipe, by taps one cell at a
+     * time, or both. Taps are the owner's call, 8 November 2026: the finger
+     * that swipes covers the letters it is going over. So the pick stays
+     * when the finger is lifted, a swipe's as much as a tap's, and the next
+     * tap or swipe carries on from it:
+     *
+     *   - a tap on a cell next to the last one picked adds it;
+     *   - a tap on a cell already picked lets it go, and the ones after it;
+     *   - a tap anywhere else starts a new pick there;
+     *   - a swipe from the last cell picked, or from one next to it, carries
+     *     the pick on; from a cell picked earlier, it goes on from there; from
+     *     anywhere else it starts a new pick.
+     *
+     * Next to: along a row or a column, and across a corner while a word of
+     * the run may step that way (see DIAGONAL_FROM).
+     */
+    let pick = null;
     let drag = null;
 
     // The cell under the pointer, in cells and fractions of one
@@ -904,22 +934,108 @@ function search(container) {
     const inside = (r, c) => r >= 0 && c >= 0 && r < state.grid.rows && c < state.grid.cols;
     const same = (a, b) => a[0] === b[0] && a[1] === b[1];
 
+    const slanting = () => state.phrases.some((p, i) => !state.struck[i] && p.stage >= DIAGONAL_FROM);
+
+    function touching(a, b) {
+        const dr = Math.abs(a[0] - b[0]);
+        const dc = Math.abs(a[1] - b[1]);
+        return dr + dc === 1 || (dr === 1 && dc === 1 && slanting());
+    }
+
     /*
-     * The trace: the cells the finger has gone through, one after another.
-     * A cell is entered when the pointer comes within INNER of its middle
-     * rather than over its edge, so that a finger going past a corner does
-     * not take the cell beside it, and one resting on an edge does not
-     * flicker between two. Going back into the cell before takes the last
-     * step back; a cell the trace already holds is not entered again.
+     * The pick's sound -- the owner's call, 8 November 2026: a cell picked
+     * pops like a small bubble, a little higher with every letter of the
+     * phrase, and a new phrase starts from the bottom again. So the words of
+     * a phrase found one by one go on climbing where the last one stopped,
+     * counted from the letters of the phrase already found (phraseStep). A
+     * cell let go pops softer, a step lower -- at the pitch of the cell that
+     * is the pick's last now.
      *
-     * Across a corner only while a word of the run may step that way (see
-     * DIAGONAL_FROM), and then only when the finger kept further than CORNER
-     * from both cells beside it: a bend, as a finger draws one, is round and
-     * cuts its corner. Otherwise the trace goes round the corner, through
-     * whichever of the two the finger came nearer. A finger quick enough to
-     * jump cells gets the ones between.
+     * By what the pick has become rather than by what made it: a tap, a
+     * swipe and a finger jumping cells all end in setPick, and `heard` is
+     * what was last sounded. A pick that becomes a word goes quietly: the
+     * find has the cloud's sounds and the phrase said aloud.
+     */
+    const POP_STEP = 1 / 24;
+    const POP_GAP = 25;
+
+    let heard = { first: null, n: 0 };
+
+    // How far into the phrase being worked on its next letter is
+    function phraseStep() {
+        const i = current();
+        if (i < 0) return 0;
+
+        return state.phrases[i].tokens.slice(0, state.found[i]).reduce((n, t) => n + t.length, 0);
+    }
+
+    // A bubble popping, `step` letters into the phrase, `later` ms from now
+    function bubblePop(step, later, soft) {
+        const f = 520 * Math.pow(2, step * POP_STEP);
+        note(later, f * 0.7, f * 1.5, 0.07, soft ? 0.05 : 0.12);
+    }
+
+    function pickSound(cells) {
+        const was = heard;
+        const on = cells.length && was.first && same(was.first, cells[0]);
+        const base = phraseStep();
+
+        if (!cells.length) {
+            if (was.n) bubblePop(base - 1, 0, true);
+        } else if (!on) {
+            bubblePop(base + cells.length - 1, 0);
+        } else if (cells.length > was.n) {
+            for (let k = was.n; k < cells.length; k++) bubblePop(base + k, (k - was.n) * POP_GAP);
+        } else if (cells.length < was.n) {
+            bubblePop(base + cells.length - 1, 0, true);
+        }
+    }
+
+    // The pick drawn as `cells`; none, and it is gone. `quiet` when it went
+    // to a word
+    function setPick(cells, quiet) {
+        if (!quiet) pickSound(cells);
+        heard = { first: cells.length ? cells[0] : null, n: cells.length };
+
+        if (!cells.length) {
+            if (pick && pick.el) pick.el.remove();
+            pick = null;
+            return;
+        }
+
+        if (!pick) {
+            pick = { cells, el: $(svg.querySelector('.search-lines'), marksGroup(cells, palette.drawing, 'search-drawn')) };
+            return;
+        }
+
+        pick.cells = cells;
+        pick.el.innerHTML = marksHtml(cells);
+    }
+
+    // What a tap on `at` makes of the pick `before` it -- see pick above
+    function tapped(before, at) {
+        const k = before.findIndex(c => same(c, at));
+        if (k >= 0) return before.slice(0, k);
+
+        return before.length && touching(before[before.length - 1], at) ? before.concat([at]) : [at];
+    }
+
+    /*
+     * A swipe follows the pointer cell by cell. A cell is entered when the
+     * pointer comes within INNER of its middle rather than over its edge, so
+     * that a finger going past a corner does not take the cell beside it,
+     * and one resting on an edge does not flicker between two. Going back
+     * into the cell before takes the last step back; a cell the pick already
+     * holds is not entered again.
      *
-     * Round through a cell the trace already holds -- back, that is -- only
+     * Across a corner only while a word of the run may step that way, and
+     * then only when the finger kept further than CORNER from both cells
+     * beside it: a bend, as a finger draws one, is round and cuts its corner.
+     * Otherwise the pick goes round the corner, through whichever of the two
+     * the finger came nearer. A finger quick enough to jump cells gets the
+     * ones between.
+     *
+     * Round through a cell the pick already holds -- back, that is -- only
      * when the finger plainly went nearer it, by BACK_BIAS: a fast finger
      * leaves no points near either cell, and a step across a corner is then
      * a step on, not back over the word (found by tracing "hola" round its
@@ -929,17 +1045,15 @@ function search(container) {
     const CORNER = 0.6;
     const BACK_BIAS = 0.15;
 
-    const slanting = () => state.phrases.some((p, i) => !state.struck[i] && p.stage >= DIAGONAL_FROM);
-
-    // The next cell of the trace on its way to `to`
+    // The next cell of the pick on its way to `to`
     function stepToward(to) {
-        const at = drag.cells[drag.cells.length - 1];
+        const at = pick.cells[pick.cells.length - 1];
         const dr = Math.sign(to[0] - at[0]);
         const dc = Math.sign(to[1] - at[1]);
         if (!dr || !dc) return [at[0] + dr, at[1] + dc];
 
         const nearest = (cell) => Math.min(...drag.trail.map(p => Math.hypot(p[0] - cell[0], p[1] - cell[1])));
-        const cost = (cell) => nearest(cell) + (drag.cells.some(c => same(c, cell)) ? BACK_BIAS : 0);
+        const cost = (cell) => nearest(cell) + (pick.cells.some(c => same(c, cell)) ? BACK_BIAS : 0);
 
         const down = [at[0] + dr, at[1]];
         const across = [at[0], at[1] + dc];
@@ -949,15 +1063,15 @@ function search(container) {
     }
 
     /*
-     * Which word the trace spells, if any: the next unfound word of a phrase
+     * Which word the pick spells, if any: the next unfound word of a phrase
      * not yet done -- the words of a phrase are found in their order, as in
      * searchlines -- read either way along it, since a snake is traced from
      * whichever end the eye found first. A phrase already begun is preferred,
      * and in an ordered run only the phrase the order is at counts.
      *
-     * Any trace that spells the word counts, not only the snake it was laid
+     * Any pick that spells the word counts, not only the snake it was laid
      * along: the filler can spell a word by chance, and finding it there is
-     * finding it. Nothing found is kept from being traced again, so a find
+     * finding it. Nothing found is kept from being picked again, so a find
      * in the wrong place never leaves a word that cannot be found.
      */
     function spelled(letters) {
@@ -980,18 +1094,28 @@ function search(container) {
     }
 
     function bindGrid() {
+        /*
+         * A press shows at once what it would make of the pick: the pick
+         * carried on from the cell pressed, or a new one there. Whether it
+         * was a tap or a swipe is known only when the finger moves to
+         * another cell or is lifted.
+         */
         svg.addEventListener('pointerdown', (e) => {
             if (state.asking || drag || finishing) return;
 
             const point = pointAt(e);
-            const from = [Math.round(point[0]), Math.round(point[1])];
-            if (!inside(from[0], from[1])) return;
+            const at = [Math.round(point[0]), Math.round(point[1])];
+            if (!inside(at[0], at[1])) return;
 
             e.preventDefault();
             try { svg.setPointerCapture(e.pointerId); } catch (err) { }
 
-            const el = $(svg.querySelector('.search-lines'), `<polyline class="search-drawn" points="${pointsOf([from])}" stroke="${palette.drawing}" opacity="${LINE_OPACITY}" />`);
-            drag = { id: e.pointerId, cells: [from], trail: [point], slant: slanting(), el };
+            const before = pick ? pick.cells.slice() : [];
+            const k = before.findIndex(c => same(c, at));
+            const from = k >= 0 ? before.slice(0, k + 1) : tapped(before, at);
+
+            drag = { id: e.pointerId, at, before, moved: false, trail: [point], slant: slanting() };
+            setPick(from);
         });
 
         svg.addEventListener('pointermove', (e) => {
@@ -999,20 +1123,30 @@ function search(container) {
             follow(pointAt(e));
         });
 
-        const end = (e) => {
+        svg.addEventListener('pointerup', (e) => {
             if (!drag || drag.id !== e.pointerId) return;
-            if (e.type === 'pointerup' && check(true)) return;
 
-            const el = drag.el;
+            const { at, before, moved } = drag;
             drag = null;
 
-            // Not a word: the trace fades where it was drawn
-            el.animate([{ opacity: LINE_OPACITY }, { opacity: 0 }], { duration: 220, easing: 'ease-out' }).finished
-                .catch(() => null).then(() => el.remove());
-        };
+            // A swipe: what it picked stays picked, and was checked on every
+            // step but one -- back to a single cell, it is a press lifted
+            if (moved) {
+                if (pick && pick.cells.length === 1) check(true);
+                return;
+            }
 
-        svg.addEventListener('pointerup', end);
-        svg.addEventListener('pointercancel', end);
+            setPick(tapped(before, at));
+            if (pick) check(true);
+        });
+
+        svg.addEventListener('pointercancel', (e) => {
+            if (!drag || drag.id !== e.pointerId) return;
+
+            const { before } = drag;
+            drag = null;
+            setPick(before);
+        });
     }
 
     function follow(point) {
@@ -1021,7 +1155,7 @@ function search(container) {
         const to = [Math.round(point[0]), Math.round(point[1])];
         if (!inside(to[0], to[1]) || Math.hypot(point[0] - to[0], point[1] - to[1]) > INNER) return;
 
-        const cells = drag.cells;
+        const cells = pick.cells;
         let moved = false;
 
         // Each step closer to `to`, back or on, so this ends
@@ -1038,29 +1172,31 @@ function search(container) {
 
         if (!moved) return;
 
-        drag.el.setAttribute('points', pointsOf(cells));
+        drag.moved = true;
+        setPick(cells);
         check();
     }
 
     /*
-     * The moment the trace spells a word it is that word's: it takes the
+     * The moment the pick spells a word it is that word's: it takes the
      * word's colour and stays, whatever the finger does next -- searchlines'
      * rule, which is what makes a find feel like one.
      *
-     * Except a trace of one cell, which is a word only when the finger is
-     * `lifted` there. Taken at once, the "a" of "a la derecha" was found by
-     * every press on an A, and took the trace of "abierto" from its first
-     * cell (8 November 2026).
+     * Except a pick of one cell, which is a word only once the finger is
+     * `lifted` from it. Taken at the press, the "a" of "a la derecha" was
+     * found by every press on an A, and took the swipe of "abierto" from
+     * its first cell (8 November 2026). A tap on an A still finds it: a tap
+     * is a press lifted.
      */
     function check(lifted) {
-        if (drag.cells.length < 2 && !lifted) return false;
+        if (pick.cells.length < 2 && !lifted) return false;
 
         const { cols, cells } = state.grid;
-        const hit = spelled(drag.cells.map(([r, c]) => cells[r * cols + c]));
+        const hit = spelled(pick.cells.map(([r, c]) => cells[r * cols + c]));
         if (!hit) return false;
 
-        const path = { phrase: hit.phrase, token: hit.token, cells: drag.cells.slice() };
-        drag.el.remove();
+        const path = { phrase: hit.phrase, token: hit.token, cells: pick.cells.slice() };
+        setPick([], true);
         drag = null;
 
         found(path);
@@ -1073,7 +1209,7 @@ function search(container) {
         state.paths.push(path);
         state.found[i] += 1;
 
-        $(svg.querySelector('.search-lines'), lineHtml(path, LINE_COLOURS[i % LINE_COLOURS.length]));
+        $(svg.querySelector('.search-lines'), marksGroup(path.cells, LINE_COLOURS[i % LINE_COLOURS.length], 'search-line'));
 
         drawBoard();
         refreshDots();
@@ -1084,8 +1220,12 @@ function search(container) {
             speech.say(item.word.original, item.originalLang);
 
             if (item.word.translation) {
-                state.asking = { phrase: i, options: optionsFor(item), picked: null };
-                setTimeout(drawQuestion, 350);
+                state.asking = { phrase: i, options: optionsFor(item) };
+
+                // A moment to see the word marked, and the question comes in
+                // from its last letter -- see comeIn
+                const from = cellMiddle(path.cells[path.cells.length - 1]);
+                setTimeout(() => drawQuestion(from), QUESTION_AFTER);
             } else {
                 // Nothing to ask: the word is done once it is found
                 score(i, true);
@@ -1174,13 +1314,272 @@ function search(container) {
     let veil = null;
 
     /*
-     * The question after a find: the phrase, which can be heard, and its
-     * translation among others. Right, and it is done; wrong, and the right
-     * one is shown, pressed to go on -- and the phrase's lines come off the
-     * grid, to be found again (searchlines' rule). A phrase found again is
-     * asked again, and that answer writes nothing.
+     * The question comes in out of a cloud, as searchlines' did -- the
+     * owner's call, 8 November 2026: until then it covered the grid all at
+     * once, the moment the word was found. A puff flies from the word's last
+     * letter to where the question will stand, spinning and shrinking, and
+     * bursts there; puffs blow up over the question's place, and it shows
+     * through them as they clear, the options coming down from under the
+     * phrase one after another.
+     *
+     * Not searchlines' code -- CSS transitions set off by hand there, the Web
+     * Animations here, as everything else on this page moves -- but its
+     * cloud: a ball and four more round it. White on the dark theme, as
+     * there, and sky blue on the light one (palette.cloud, the owner's call):
+     * the grid there is white too, and a white cloud over it was seen only as
+     * letters going missing under it. With motion turned down the question
+     * only fades in.
      */
-    function drawQuestion() {
+    const QUESTION_AFTER = 250;
+    const CLOUD_SIZE = 18;
+    const CLOUD_FLIGHT = 600;
+    const PUFF_RUN = 700;
+
+    // searchlines' cloud: four balls round the first, offset in its sizes
+    const LUMPS = [[-0.5, 0.1], [-0.8, -1], [-0.1, -0.7], [-1, -0.3]];
+
+    // Where the five balls' middle is, from the first ball's own
+    const LUMPS_MIDDLE = [-0.48, -0.38];
+
+    // The middle of a cell of the grid, in the units the page is laid out in
+    function cellMiddle([r, c]) {
+        const box = appRect(svg);
+        const { rows, cols } = state.grid;
+        return [box.left + (c + 0.5) * box.width / cols, box.top + (r + 0.5) * box.height / rows];
+    }
+
+    // A cloud with its middle at x, y, each ball `size` across, in `colour`;
+    // `soft` blurs the four round the first, as searchlines' puffs had them.
+    // Unseen but for what its animation draws: the moment between the
+    // animation's end and the cloud's removal must not show it
+    function cloud(x, y, size, soft, colour) {
+        const blur = soft ? size * 0.2 : 0;
+        const lumps = LUMPS.map(([dx, dy]) => `${colour} ${dx * size}px ${dy * size}px ${blur}px`).join(', ');
+        const left = x - size / 2 - LUMPS_MIDDLE[0] * size;
+        const top = y - size / 2 - LUMPS_MIDDLE[1] * size;
+        const turnAt = `${(0.5 + LUMPS_MIDDLE[0]) * size}px ${(0.5 + LUMPS_MIDDLE[1]) * size}px`;
+
+        return $(container, `<div class="search-cloud" aria-hidden="true" style="position: fixed; left: ${left}px; top: ${top}px; width: ${size}px; height: ${size}px; border-radius: 50%; background: ${colour}; box-shadow: ${lumps}; transform-origin: ${turnAt}; opacity: 0; z-index: 10; pointer-events: none;"></div>`);
+    }
+
+    const gone = (el, run) => run.finished.catch(() => null).then(() => el.remove());
+
+    // A cloud blowing up where it stands and thinning to nothing
+    function puff(x, y, size, delay, colour) {
+        const el = cloud(x, y, size, true, colour || palette.cloud);
+        const turn = Math.random() * 360;
+
+        gone(el, el.animate([
+            { transform: `rotate(${turn}deg) scale(0.1)`, opacity: 0 },
+            { transform: `rotate(${turn}deg) scale(0.3)`, opacity: 1, offset: 0.1 },
+            { transform: `rotate(${turn}deg) scale(2)`, opacity: 0 }
+        ], { duration: PUFF_RUN, delay, easing: 'ease-out', fill: 'backwards' }));
+    }
+
+    /*
+     * The cloud's sounds -- the owner's call, 8 November 2026: a gust of wind
+     * for its flight, a soft pop where it bursts, and as it paints the phrase
+     * after an answer, a chime when right and a dull knock when wrong. The
+     * first sounds of the app that are not its voice; the cells picked pop
+     * with the same means (see pickSound).
+     *
+     * Made on the spot with Web Audio rather than played from files: nothing
+     * to fetch, nothing more for the service worker's list (SHELL in
+     * web/sw.js), and a chime that can climb with the stage. Under the game's
+     * sound switch, as the voice is -- off, and nothing plays -- and quiet,
+     * under the voice that says the phrase at the moment the cloud leaves.
+     */
+    let audio = null;
+    let hiss = null;
+
+    // The page's sound, or null when it is switched off or cannot be had
+    function sound() {
+        if (speech.muted()) return null;
+
+        try {
+            if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+            if (audio.state === 'suspended') audio.resume();
+        } catch (e) {
+            return null;
+        }
+
+        return audio;
+    }
+
+    // White noise, a second of it made once: what a gust and a pop are cut from
+    function noise(ctx) {
+        if (!hiss) {
+            hiss = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+            const data = hiss.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        }
+
+        const src = ctx.createBufferSource();
+        src.buffer = hiss;
+        return src;
+    }
+
+    // A level that rises from nothing to `peak` at `top` seconds and dies by `end`
+    function swell(ctx, t, peak, top, end) {
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(peak, t + top);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + end);
+        return gain;
+    }
+
+    // The flight, `length` ms from `delay` ms on: noise through a band that
+    // climbs and falls back, swelling to the middle and fading
+    function gust(delay, length) {
+        const ctx = sound();
+        if (!ctx) return;
+
+        const t = ctx.currentTime + delay / 1000;
+        const d = length / 1000;
+
+        const band = ctx.createBiquadFilter();
+        band.type = 'bandpass';
+        band.Q.value = 1.2;
+        band.frequency.setValueAtTime(400, t);
+        band.frequency.exponentialRampToValueAtTime(1800, t + d * 0.6);
+        band.frequency.exponentialRampToValueAtTime(700, t + d);
+
+        const src = noise(ctx);
+        src.connect(band).connect(swell(ctx, t, 0.16, d * 0.5, d)).connect(ctx.destination);
+        src.start(t);
+        src.stop(t + d + 0.05);
+    }
+
+    // A burst: a short breath of low noise, `long` seconds of it
+    function pop(delay, loud, long) {
+        const ctx = sound();
+        if (!ctx) return;
+
+        const t = ctx.currentTime + delay / 1000;
+        const d = long || 0.2;
+
+        const low = ctx.createBiquadFilter();
+        low.type = 'lowpass';
+        low.frequency.setValueAtTime(1400, t);
+        low.frequency.exponentialRampToValueAtTime(200, t + d);
+
+        const src = noise(ctx);
+        src.connect(low).connect(swell(ctx, t, loud, 0.008, d)).connect(ctx.destination);
+        src.start(t);
+        src.stop(t + d + 0.05);
+    }
+
+    // A note struck and dying away, sliding from `from` Hz to `to`
+    function note(delay, from, to, long, loud, wave) {
+        const ctx = sound();
+        if (!ctx) return;
+
+        const t = ctx.currentTime + delay / 1000;
+        const osc = ctx.createOscillator();
+        osc.type = wave || 'sine';
+        osc.frequency.setValueAtTime(from, t);
+        if (to !== from) osc.frequency.exponentialRampToValueAtTime(to, t + long);
+
+        osc.connect(swell(ctx, t, loud, 0.01, long)).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + long + 0.05);
+    }
+
+    // Right: two notes a major third apart, a semitone higher every two stages
+    function chime(stage) {
+        const base = 660 * Math.pow(2, Math.min(stage, 14) / 24);
+        note(0, base, base, 0.35, 0.11);
+        note(90, base * 1.26, base * 1.26, 0.55, 0.11);
+    }
+
+    // Wrong: a low knock sliding down, with a thud under it
+    function knock() {
+        note(0, 220, 110, 0.3, 0.2, 'triangle');
+        pop(0, 0.14, 0.15);
+    }
+
+    const middleOf = (el) => {
+        const box = appRect(el);
+        return [box.left + box.width / 2, box.top + box.height / 2];
+    };
+
+    // A cloud's flight, searchlines' vfxFlyCloud: two puffs where it leaves,
+    // a spin on the way, shrinking, and a burst where it lands CLOUD_FLIGHT
+    // later
+    function fly(from, to, size, colour) {
+        puff(from[0], from[1], size, 0, colour);
+        puff(from[0], from[1], size, 0, colour);
+
+        pop(0, 0.08);
+        gust(0, CLOUD_FLIGHT);
+        pop(CLOUD_FLIGHT, 0.22);
+
+        const flyer = cloud(from[0], from[1], size, false, colour);
+        const shift = `translate(${to[0] - from[0]}px, ${to[1] - from[1]}px)`;
+        const turn = (Math.random() - 0.5) * 1900 + 50;
+
+        gone(flyer, flyer.animate([
+            { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1 },
+            { transform: `${shift} rotate(${turn}deg) scale(0.5)`, opacity: 1, offset: 0.8 },
+            { transform: `${shift} rotate(${turn}deg) scale(2)`, opacity: 0 }
+        ], { duration: CLOUD_FLIGHT + 150, easing: 'ease-in' }));
+
+        puff(to[0], to[1], size, CLOUD_FLIGHT, colour);
+    }
+
+    const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function comeIn(from) {
+        const card = veil.querySelector('.search-question-card');
+        const options = [...veil.querySelectorAll('.search-option-btn')];
+
+        if (still()) {
+            veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+            return;
+        }
+
+        const area = appRect(card.parentElement);
+
+        fly(from, middleOf(card), CLOUD_SIZE, palette.cloud);
+
+        // And the cloud the question shows through, a longer breath
+        pop(CLOUD_FLIGHT + 120, 0.1, 0.45);
+
+        // The cloud the question shows through: searchlines' eight puffs,
+        // over the whole of the question rather than its phrase alone
+        [[0.1, 0.1, 1, 0], [0.9, 0.1, 1.1, 100], [0.9, 0.9, 1.2, 200], [0.1, 0.9, 1.2, 200],
+            [0.3, 0.3, 1, 100], [0.7, 0.3, 1.1, 0], [0.7, 0.7, 1.2, 300], [0.3, 0.7, 1.2, 300]]
+            .forEach(([fx, fy, grow, later]) => puff(area.left + area.width * fx, area.top + area.height * fy, CLOUD_SIZE * 1.2 * grow, CLOUD_FLIGHT + later));
+
+        // Nothing to press until it is there to be seen
+        veil.style.pointerEvents = 'none';
+
+        const shown = veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, delay: CLOUD_FLIGHT + 50, easing: 'ease-in', fill: 'backwards' });
+
+        card.animate([
+            { transform: 'scale(0.6)', opacity: 0 },
+            { transform: 'scale(1.04)', opacity: 1, offset: 0.7 },
+            { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 450, delay: CLOUD_FLIGHT, easing: 'ease-out', fill: 'backwards' });
+
+        options.forEach((btn, k) => btn.animate([
+            { transform: 'translateY(-24px)', opacity: 0 },
+            { transform: 'translateY(0px)', opacity: 1 }
+        ], { duration: 400, delay: CLOUD_FLIGHT + 200 + k * 60, easing: 'ease-out', fill: 'backwards' }));
+
+        const here = veil;
+        shown.finished.catch(() => null).then(() => { here.style.pointerEvents = ''; });
+    }
+
+    /*
+     * The question after a find: the phrase, which can be heard, and its
+     * translation among others -- see answer for what a press does.
+     *
+     * `from`, where it comes in from when a find opens it (see comeIn); drawn
+     * again for an answer, on a popup opened again or for the voices, it is
+     * simply there.
+     */
+    function drawQuestion(from) {
         if (veil) veil.remove();
         veil = null;
 
@@ -1188,7 +1587,6 @@ function search(container) {
         if (!ask) return;
 
         const item = state.sessionPool[ask.phrase];
-        const right = item.word.translation;
 
         veil = $(container, `<div class="search-question" style="position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 13.7px; box-sizing: border-box; background: ${palette.veil};">
             <div style="width: 100%; max-width: 330px;">
@@ -1210,70 +1608,100 @@ function search(container) {
                 <span>${escapeText(opt)}</span><span class="status-icon"></span>
             </button>`);
 
-            const isRight = opt === right;
-
-            if (ask.picked !== null) {
-                if (isRight) mark(btn, palette.ok, '✓');
-                else if (k === ask.picked) mark(btn, palette.err, '✕');
-                else btn.style.opacity = '0.5';
-            }
-
-            btn.addEventListener('click', () => {
-                if (ask.picked === null) {
-                    ask.picked = k;
-                    score(ask.phrase, isRight);
-                    refreshDots();
-
-                    if (isRight) {
-                        mark(btn, palette.ok, '✓');
-                        page.save();
-                        setTimeout(() => close(true), NEXT_AFTER);
-                        return;
-                    }
-
-                    drawQuestion();
-                    page.save();
-                } else if (isRight) {
-                    close(ask.picked === k);
-                }
-            });
+            btn.addEventListener('click', (e) => answer(k, btn, e));
         });
 
-        /*
-         * Answered right and closed in the 0.7s before the phrase was struck:
-         * it opens on the answer and goes on, as Wordcraft's word does -- a
-         * right answer with nothing left to press would be a question that
-         * cannot be closed.
-         */
-        if (ask.picked !== null && ask.options[ask.picked] === right) setTimeout(() => close(true), NEXT_AFTER);
+        if (from) comeIn(from);
     }
 
-    function mark(btn, fill, sign) {
-        btn.style.background = fill;
-        btn.style.borderColor = fill;
-        btn.style.color = palette.onResult;
-        btn.querySelector('.status-icon').textContent = sign;
-    }
+    /*
+     * An answer, either one, closes the question at once, as searchlines'
+     * did -- the owner's call, 8 November 2026: until then a wrong one stayed
+     * up with the right one shown, to be pressed to go on. A cloud flies
+     * from where the answer was pressed to the phrase above the grid and
+     * paints it as it lands, ANSWER_CLOUD the size of the question's: in the
+     * colour of the stage the phrase has come to when right, red when wrong.
+     *
+     * A wrong one takes the phrase's finds off the grid at once, to be found
+     * again (searchlines' rule), and the phrase is red until it is done. Found
+     * again it is asked again, and that answer writes nothing (see score).
+     *
+     * The run is changed and saved at the press, not when the cloud lands: a
+     * popup closed under the cloud opens with the answer given.
+     */
+    const ANSWER_CLOUD = 1.5;
 
-    function close(right) {
-        const i = state.asking ? state.asking.phrase : -1;
-        if (i < 0) return;
+    function answer(k, btn, e) {
+        const ask = state.asking;
+        if (!ask) return;
 
+        const i = ask.phrase;
+        const item = state.sessionPool[i];
+        const right = ask.options[k] === item.word.translation;
+
+        // From the finger, or from the option when no pointer pressed it
+        const scale = appScale();
+        const from = e && (e.clientX || e.clientY) ? [e.clientX / scale, e.clientY / scale] : middleOf(btn);
+
+        score(i, right);
         state.asking = null;
-        if (veil) veil.remove();
-        veil = null;
 
         if (right) {
-            strike(i);
+            state.struck[i] = true;
         } else {
             state.missed[i] = true;
             state.found[i] = 0;
             state.paths = state.paths.filter(p => p.phrase !== i);
             drawGrid();
-            drawBoard();
-            refreshDots();
-            page.save();
         }
+
+        refreshDots();
+        page.save();
+        leave();
+
+        const stage = spacedRepetitions.getWordStats(item.word).stage || 0;
+
+        const landed = () => {
+            drawBoard();
+            bounce(i);
+
+            if (right) chime(stage);
+            else knock();
+
+            if (right) checkDone();
+        };
+
+        const bubble = board.querySelector(`.search-bubble[data-phrase="${i}"]`);
+        if (still() || !bubble) return landed();
+
+        const colour = right ? tokens.stages()[Math.min(stage, tokens.stages().length - 1)].fill : palette.err;
+
+        fly(from, middleOf(bubble), CLOUD_SIZE * ANSWER_CLOUD, colour);
+        setTimeout(landed, CLOUD_FLIGHT);
+    }
+
+    // The question going, quicker than it came
+    function leave() {
+        const was = veil;
+        veil = null;
+        if (!was) return;
+
+        was.style.pointerEvents = 'none';
+        gone(was, was.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' }));
+    }
+
+    // The phrase above the grid taking its new colour, as searchlines'
+    // bounced
+    function bounce(i) {
+        const el = board.querySelector(`.search-bubble[data-phrase="${i}"]`);
+        if (!el || still()) return;
+
+        el.animate([
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.15)', offset: 0.35 },
+            { transform: 'scale(0.94)', offset: 0.7 },
+            { transform: 'scale(1)' }
+        ], { duration: 420, easing: 'ease-out' });
     }
 
     let finishing = false;
@@ -1283,15 +1711,42 @@ function search(container) {
         drawBoard();
         refreshDots();
         page.save();
+        checkDone();
+    }
 
+    function checkDone() {
         if (state.struck.every(Boolean)) {
             finishing = true;
             setTimeout(() => {
-                state.sessionPool = null;
+                over = true;
                 if (state.starLevel >= STAR_TOP) winStar();
-                else page.finish();
+                else runOver();
             }, NEXT_AFTER);
         }
+    }
+
+    /*
+     * The run over: the grid stays as the run left it, to be looked at, and
+     * a press anywhere goes back to the sets -- the owner's call, 8 November
+     * 2026. Until then the page went to the sets at once, and the last word
+     * found was the last of the run anybody saw. The run is ended straight
+     * away all the same (page.endSession): closed now, the popup opens on
+     * the sets.
+     *
+     * With the star full the star's own ending comes instead, which already
+     * waited for a press (see winStar). Drawn again -- a theme changed under
+     * it -- either ends as this one.
+     */
+    let over = false;
+
+    function runOver() {
+        page.endSession();
+        showOver();
+    }
+
+    function showOver() {
+        $(container, `<div class="search-over" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; cursor: pointer;"></div>`)
+            .addEventListener('click', () => page.home());
     }
 
     /* -------------------------------------------------------------- render */
@@ -1354,6 +1809,7 @@ function search(container) {
         drawGrid();
 
         if (state.asking) drawQuestion();
+        if (over) showOver();
 
         speech.onVoices(voicesKnown);
 
@@ -1408,6 +1864,10 @@ function search(container) {
             drawing: t.muted,
 
             starEdge: isDark ? STAR_GOLD : '#b7860f',
+
+            // The question's cloud: searchlines' white, and on the white grid
+            // of the light theme the sky blue of searchlines' hints
+            cloud: isDark ? '#ffffff' : '#abe1ff',
             veil: `color-mix(in srgb, ${t.ground} 82%, transparent)`
         };
     };
