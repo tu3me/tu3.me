@@ -1651,15 +1651,23 @@ function snake(container) {
          * start and leaves the end swaying.
          */
         const SHUDDER = 360;
-        const SWINGS = ['-6px 2px', '5px -2px', '-4px 1px', '3px -1px', '-1px 0'];
+        const SWINGS = ['-6px, 2px', '5px, -2px', '-4px, 1px', '3px, -1px', '-1px, 0px'];
         const SWINGS_IN_A_SHAKE = SWINGS.length + 1;    // and the way back to rest
 
+        /*
+         * By transform rather than by the translate property it was made with
+         * at first: an old phone's browser did not know that one (Chrome
+         * before 104) and left the board standing still -- the owner's phone,
+         * 8 November 2026. The board has no transform of its own for this to
+         * take the place of.
+         */
         view.shudder = (times = 1) => {
             if (still() || !svg) return;
 
             const held = Array.from({ length: (times - 1) * SWINGS_IN_A_SHAKE }, (_, k) => SWINGS[k % 2]);
+            const at = (swing) => `translate(${swing})`;
 
-            svg.animate({ translate: ['0 0', ...held, ...SWINGS, '0 0'] }, {
+            svg.animate({ transform: [at('0px, 0px'), ...held.map(at), ...SWINGS.map(at), at('0px, 0px')] }, {
                 duration: SHUDDER * times,
                 easing: times > 1 ? 'linear' : 'ease-out'
             });
@@ -2462,8 +2470,8 @@ function snake(container) {
             const grown = Math.max(1, Math.min(CLOUD_GROWN, board.width * CLOUD_ROOM / (w + h * 0.3)));
 
             const cloud = $(host, `<div class="snake-deal-cloud" aria-hidden="true" style="position: fixed; z-index: 8; left: ${centre.x - origin.left - w / 2}px; top: ${centre.y - origin.top - h / 2}px; width: ${w}px; height: ${h}px; pointer-events: none; transform: scale(${grown}); will-change: transform;">
-                <div class="snake-deal-body" style="position: absolute; inset: 0;">
-                    <div class="snake-deal-edges" style="position: absolute; inset: 0;">
+                <div class="snake-deal-body" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0;">
+                    <div class="snake-deal-edges" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0;">
                         ${puffsOf(w, h).map(p => `<span class="snake-deal-puff" style="position: absolute; left: ${p.x}px; top: ${p.y}px; width: ${p.w}px; height: ${p.h}px; border-radius: ${Math.min(p.w, p.h) / 2}px; background: ${palette.hintBg};"></span>`).join('')}
                     </div>
                     <div class="snake-deal-text" style="position: absolute; left: ${CLOUD_PAD_X}px; top: ${CLOUD_PAD_Y}px; width: ${tw}px; height: ${th}px; overflow: hidden; font-size: ${text.style.fontSize}; font-weight: 700; line-height: 1.25; color: ${palette.hintText}; text-align: center; word-break: break-word; overflow-wrap: anywhere;"></div>

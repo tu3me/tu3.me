@@ -133,8 +133,15 @@ function search(container) {
      * grid and is filled by the phrases done right, as the snake's goblet is
      * by its red hearts: a copy of each flies out of the board into it, a
      * share of it each. Only a run with every phrase right fills it; then it
-     * shines, goes into the set's achievements and stays. Short of full it
-     * turns red and is gone -- the wrong ones do not let it fill.
+     * shines, goes into the set's achievements and stays.
+     *
+     * The wrong ones come after, the owner's order: all the right ones first,
+     * filling it gold from the foot, then a pause, then the wrong ones, each
+     * filling its share in red over the gold. Then the red runs down the
+     * whole star, over the gold, from the top to the foot, and the star
+     * dissolves: a part of it red is all of it spoilt (the owner's calls).
+     * Until the same evening it turned red all at once when the right ones
+     * were in, and the wrong ones never flew.
      *
      * Right is what writes 1 (see score): the first answer right, nothing
      * peeked at. A phrase found again after a wrong answer is done, but it
@@ -153,8 +160,9 @@ function search(container) {
     const POUR_FLIGHT = 500;
     const FILLED_REST = 250;
     const SHINE_EVERY = 2600;
-    const RED_TURN = 350;
-    const RED_GONE = 600;
+    const WRONG_PAUSE = 450;      // between the right ones and the wrong
+    const SPOIL = 650;            // the red running down
+    const DISSOLVE = 900;
 
     const STAR_TIP_ROUND = 3.3;
     const STAR_HOLLOW_ROUND = 1.5;
@@ -200,24 +208,69 @@ function search(container) {
     })();
 
     /*
+     * How high the fill stands, in shares of the star's box, for `share` of
+     * its area. The star is wide through the middle and a point at the top:
+     * by height alone the last quarter was the tip, and two wrong phrases of
+     * eight showed as a red point hardly to be seen (8 November 2026). Worked
+     * out once from the star's corners, a slice at a time from the foot.
+     */
+    const STAR_SLICES = 200;
+
+    const STAR_AREA = (() => {
+        const top = STAR_BOX.y;
+        const foot = STAR_BOX.y + STAR_BOX.height;
+        const n = STAR_CORNERS.length;
+        const widths = [];
+
+        for (let k = 0; k < STAR_SLICES; k++) {
+            const y = foot - (k + 0.5) * (foot - top) / STAR_SLICES;
+            const xs = [];
+
+            for (let i = 0; i < n; i++) {
+                const [x1, y1] = STAR_CORNERS[i];
+                const [x2, y2] = STAR_CORNERS[(i + 1) % n];
+                if ((y1 <= y) !== (y2 <= y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+            }
+
+            xs.sort((a, b) => a - b);
+            let width = 0;
+            for (let i = 0; i + 1 < xs.length; i += 2) width += xs[i + 1] - xs[i];
+            widths.push(width);
+        }
+
+        const whole = widths.reduce((a, b) => a + b, 0);
+        let below = 0;
+        return widths.map(w => (below += w) / whole);
+    })();
+
+    function levelOf(share) {
+        if (share <= 0) return 0;
+        if (share >= 1) return 1;
+        return (STAR_AREA.findIndex(a => a >= share) + 1) / STAR_SLICES;
+    }
+
+    /*
      * The star: its body in the card's colour, so that the letters under it
      * do not show through; the gold, a rectangle clipped to the star and
-     * scaled up from its foot; the red it turns when it cannot be filled; and
-     * the edge over all of it.
+     * scaled up from its foot; the red, another such under the gold, scaled
+     * to the gold and the wrong ones together, so that it shows over the
+     * gold's top; the red again over the gold, scaled down from the top, for
+     * its running down the whole star; and the edge over all of it.
      */
     function endStarHtml() {
         return `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
             <defs>
                 <linearGradient id="search-end-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
+                <linearGradient id="search-end-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a80" /><stop offset="0.6" stop-color="#e53935" /><stop offset="1" stop-color="#b71c1c" /></linearGradient>
                 <linearGradient id="search-end-glint" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.85" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" /></linearGradient>
                 <clipPath id="search-end-shape"><path d="${STAR_PATH}" /></clipPath>
             </defs>
             <path d="${STAR_PATH}" fill="${palette.surface}" />
             <g clip-path="url(#search-end-shape)">
-                <rect class="search-end-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="url(#search-end-gold)" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); transition: transform 0.3s ease-out;" />
+                ${['wrong', 'fill'].map(cls => `<rect class="search-end-${cls}" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="url(#search-end-${cls === 'fill' ? 'gold' : 'red'})" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); transition: transform 0.3s ease-out;" />`).join('')}
+                <rect class="search-end-spoil" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="url(#search-end-red)" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0);" />
                 <rect class="search-end-glint" x="-4" y="0" width="5" height="24" fill="url(#search-end-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
             </g>
-            <path class="search-end-red" d="${STAR_PATH}" fill="${palette.err}" style="opacity: 0;" />
             <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="0.9" stroke-linejoin="round" />
         </svg>`;
     }
@@ -234,8 +287,9 @@ function search(container) {
      */
     async function endRun() {
         const right = state.sessionResults.map((r, i) => (r === 'correct' ? i : -1)).filter(i => i >= 0);
+        const wrong = state.sessionResults.map((r, i) => (r === 'correct' ? -1 : i)).filter(i => i >= 0);
         const total = state.sessionResults.length;
-        const full = right.length === total;
+        const full = !wrong.length;
 
         over = true;
         overFull = full;
@@ -250,12 +304,24 @@ function search(container) {
 
         const star = $(container, `<div class="search-end-star" aria-hidden="true" style="position: fixed; left: ${middle[0] - size / 2}px; top: ${middle[1] - size / 2}px; width: ${size}px; height: ${size}px; z-index: 10; pointer-events: none;">${endStarHtml()}</div>`);
         const gold = star.querySelector('.search-end-fill');
+        const red = star.querySelector('.search-end-wrong');
 
         if (still()) {
             if (full) gold.style.transform = 'scaleY(1)';
             else star.remove();
             return;
         }
+
+        // A start for each one that lands -- by transform, which every
+        // browser animates (an old phone's did not know the scale property)
+        const bump = () => star.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' });
+
+        // Bubbles one after another into the star, `landed` told how many are in
+        const pour = (list, landed) => {
+            const gap = Math.min(POUR_GAP, POUR_SPAN / Math.max(1, list.length - 1));
+            let poured = 0;
+            return Promise.all(list.map((i, k) => pause(k * gap).then(() => pourInto(i, middle)).then(() => landed(++poured))));
+        };
 
         await star.animate([
             { transform: 'scale(0.2)', opacity: 0, easing: 'ease-out' },
@@ -265,27 +331,20 @@ function search(container) {
 
         await pause(POUR_WAIT);
 
-        const gap = Math.min(POUR_GAP, POUR_SPAN / Math.max(1, right.length - 1));
-        let poured = 0;
-
-        await Promise.all(right.map((i, k) => pause(k * gap)
-            .then(() => pourInto(i, middle))
-            .then(() => {
-                poured += 1;
-                gold.style.transform = `scaleY(${poured / total})`;
-                star.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 220, easing: 'ease-out' });
-                bubblePop(poured * 2, 0);
-            })));
-
-        await pause(FILLED_REST);
+        await pour(right, (n) => {
+            gold.style.transform = `scaleY(${levelOf(n / total)})`;
+            bump();
+            bubblePop(n * 2, 0);
+        });
 
         if (full) {
+            await pause(FILLED_REST);
             chime(14);
 
             star.animate([
-                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 },
-                { filter: 'drop-shadow(0 0 18px rgba(255, 214, 92, 0.9))', scale: 1.06, offset: 0.5 },
-                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 }
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', transform: 'scale(1)' },
+                { filter: 'drop-shadow(0 0 18px rgba(255, 214, 92, 0.9))', transform: 'scale(1.06)', offset: 0.5 },
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', transform: 'scale(1)' }
             ], { duration: SHINE_EVERY, iterations: Infinity, easing: 'ease-in-out' });
 
             star.querySelector('.search-end-glint').animate([
@@ -296,16 +355,32 @@ function search(container) {
             return;
         }
 
-        // Short of full: red, and gone
-        knock();
-        star.querySelector('.search-end-red').animate([{ opacity: 0 }, { opacity: 0.92 }], { duration: RED_TURN, easing: 'ease-out', fill: 'forwards' });
-        await pause(RED_TURN + 200);
+        // The wrong ones, in red over the gold, each a step lower
+        await pause(WRONG_PAUSE);
+
+        await pour(wrong, (n) => {
+            red.style.transform = `scaleY(${levelOf((right.length + n) / total)})`;
+            bump();
+            bubblePop(-3 * n, 0);
+        });
+
+        // The red runs down the whole of it, over the gold, with a falling
+        // tone; and the star, spoilt, dissolves
+        await pause(FILLED_REST);
+        lose();
+
+        await star.querySelector('.search-end-spoil').animate([
+            { transform: 'scaleY(0)' },
+            { transform: 'scaleY(1)' }
+        ], { duration: SPOIL, easing: 'ease-in', fill: 'forwards' }).finished.catch(() => null);
+
+        await pause(FILLED_REST);
+        pop(0, 0.12, 0.6);
 
         gone(star, star.animate([
-            { transform: 'scale(1)', opacity: 1 },
-            { transform: 'scale(1.1)', opacity: 1, offset: 0.3 },
-            { transform: 'scale(0.2)', opacity: 0 }
-        ], { duration: RED_GONE, easing: 'ease-in', fill: 'forwards' }));
+            { transform: 'scale(1)', opacity: 1, filter: 'blur(0px)' },
+            { transform: 'scale(1.2)', opacity: 0, filter: 'blur(8px)' }
+        ], { duration: DISSOLVE, easing: 'ease-in', fill: 'forwards' }));
     }
 
     /*
@@ -1247,13 +1322,20 @@ function search(container) {
      * and the phrase it is in can no longer be a right answer: the answer
      * becomes the share of its words found before the first peek (see score).
      * Saved straight away, so that closing the popup does not refund it.
+     *
+     * The first peek into a phrase not yet answered is a mistake made, and
+     * sounds as one (see lose); a phrase already peeked into, or answered
+     * wrong, has made its mistake already.
      */
     function peekAt(i, t) {
         if (state.struck[i] || state.shown[i][t]) return;
 
         state.shown[i][t] = true;
 
-        if (state.peeked[i] === null) state.peeked[i] = state.found[i];
+        if (state.peeked[i] === null) {
+            state.peeked[i] = state.found[i];
+            if (!state.sessionResults[i]) lose();
+        }
 
         drawBoard();
         page.save();
@@ -1375,9 +1457,9 @@ function search(container) {
     /*
      * The cloud's sounds -- the owner's call, 8 November 2026: a gust of wind
      * for its flight, a soft pop where it bursts, and as it paints the phrase
-     * after an answer, a chime when right and a dull knock when wrong. The
-     * first sounds of the app that are not its voice; the cells picked pop
-     * with the same means (see pickSound).
+     * after an answer, a chime when right and the tone of a loss when wrong.
+     * The first sounds of the app that are not its voice; the cells picked
+     * pop with the same means (see pickSound).
      *
      * Made on the spot with Web Audio rather than played from files: nothing
      * to fetch, nothing more for the service worker's list (SHELL in
@@ -1488,10 +1570,16 @@ function search(container) {
         note(90, base * 1.26, base * 1.26, 0.55, 0.11);
     }
 
-    // Wrong: a low knock sliding down, with a thud under it
-    function knock() {
-        note(0, 220, 110, 0.3, 0.2, 'triangle');
-        pop(0, 0.14, 0.15);
+    /*
+     * A loss: a tone falling two octaves less a third, the length of the red
+     * running down a star that cannot be filled (see endRun). Heard there
+     * first; the owner then had it for every mistake as it is made -- a wrong
+     * answer as it paints the phrase red, the first peek into a phrase not
+     * yet answered (8 November 2026). A wrong answer was a short knock until
+     * then, and a peek made no sound.
+     */
+    function lose() {
+        note(0, 330, 110, SPOIL / 1000, 0.12, 'triangle');
     }
 
     const middleOf = (el) => {
@@ -1569,12 +1657,17 @@ function search(container) {
 
     /*
      * The question after a find: the phrase, which can be heard, and its
-     * translation among others -- see answer for what a press does.
+     * translation among others -- see answer for what a press does. The
+     * options narrower than the phrase over them, OPTIONS_INSET in from either
+     * side (the owner's call, 8 November 2026): the same width, they read as
+     * one column of cards with the phrase among them.
      *
      * `from`, where it comes in from when a find opens it (see comeIn); drawn
      * again for an answer, on a popup opened again or for the voices, it is
      * simply there.
      */
+    const OPTIONS_INSET = 20.5;
+
     function drawQuestion(from) {
         if (veil) veil.remove();
         veil = null;
@@ -1584,12 +1677,12 @@ function search(container) {
 
         const item = state.sessionPool[ask.phrase];
 
-        veil = $(container, `<div class="search-question" style="position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 13.7px; box-sizing: border-box; background: ${palette.veil};">
+        veil = $(container, `<div class="search-question" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 13.7px; box-sizing: border-box; background: ${palette.veil}; ${blurred()}">
             <div style="width: 100%; max-width: 330px;">
                 <div class="search-question-card" data-press style="padding: 17px 13.7px; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: 15.4px; text-align: center; margin-bottom: 10.2px; color: ${palette.ink}; font-size: 25.6px; font-weight: 700; word-break: break-word; cursor: pointer;">
                     ${speech.speakerHtml(item.word.original, item.originalLang, palette.sayIcon, 'margin: 0 0.4em 0 0; font-size: 0.8em; vertical-align: -0.1em;')}${escapeText(item.word.original)}
                 </div>
-                <div class="search-options" style="display: flex; flex-direction: column; gap: 6.8px;"></div>
+                <div class="search-options" style="display: flex; flex-direction: column; gap: 6.8px; margin: 0 ${OPTIONS_INSET}px;"></div>
             </div>
         </div>`);
 
@@ -1661,7 +1754,7 @@ function search(container) {
             bounce(i);
 
             if (right) chime(stage);
-            else knock();
+            else lose();
 
             if (right) checkDone();
         };
@@ -1731,7 +1824,7 @@ function search(container) {
 
     function showOver() {
         const cls = overFull ? 'search-won' : 'search-over';
-        $(container, `<div class="${cls}" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; cursor: pointer;"></div>`)
+        $(container, `<div class="${cls}" data-press title="Back to the sets" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9; cursor: pointer;"></div>`)
             .addEventListener('click', () => page.home());
     }
 
@@ -1845,9 +1938,36 @@ function search(container) {
             // The question's cloud: searchlines' white, and on the white grid
             // of the light theme the sky blue of searchlines' hints
             cloud: isDark ? '#ffffff' : '#abe1ff',
-            veil: `color-mix(in srgb, ${t.ground} 82%, transparent)`
+            veil: fade(t.ground, BLURS ? VEIL_BLURRED : VEIL_PLAIN)
         };
     };
+
+    /*
+     * The veil under the question: the page's ground over the grid, blurring
+     * it -- the owner's call, 8 November 2026, after an old phone showed the
+     * question with nothing under it at all, the grid plain between the
+     * options. The colour was a color-mix and the box was set by `inset`, and
+     * that phone's browser knew neither: a property it does not know it drops,
+     * and the veil had no colour and no size. Now rgba, and the four sides one
+     * by one, which every browser reads.
+     *
+     * Blurred where the browser can (backdrop-filter, -webkit- for Safari),
+     * and then lighter, the grid a soft shape behind the question; where it
+     * cannot, nearly solid, so that the letters do not show between the
+     * options.
+     */
+    const BLURS = !!(window.CSS && CSS.supports && (CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)')));
+    const VEIL_BLUR = 6;
+    const VEIL_BLURRED = 0.6;
+    const VEIL_PLAIN = 0.94;
+
+    // A colour of the tokens, #rrggbb, at `alpha`
+    function fade(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    const blurred = () => (BLURS ? `backdrop-filter: blur(${VEIL_BLUR}px); -webkit-backdrop-filter: blur(${VEIL_BLUR}px);` : '');
 
     search.start = (setId, allowEarly) => {
         state.selectedSetId = setId;

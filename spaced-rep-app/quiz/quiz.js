@@ -250,7 +250,7 @@ function quiz(container) {
 
         if (small && !still) await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => null);
 
-        const veil = $(container, `<div class="quiz-won" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
+        const veil = $(container, `<div class="quiz-won" data-press title="Back to the sets" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
             <svg class="quiz-won-star" viewBox="0 0 24 24" width="${WON_SIZE}" height="${WON_SIZE}" aria-hidden="true" style="display: block; overflow: visible;">
                 <defs>
                     <linearGradient id="quiz-won-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
@@ -1059,9 +1059,21 @@ function quiz(container) {
 
             // The page under a won star, most of the way to the page's own
             // ground, so that the star is the thing on it
-            veil: `color-mix(in srgb, ${t.ground} 82%, transparent)`
+            veil: fade(t.ground, 0.82)
         };
     };
+
+    /*
+     * A colour of the tokens, #rrggbb, at `alpha`, as rgba -- which every
+     * browser reads. The veil was a color-mix until 8 November 2026, and an
+     * old phone's browser did not know it (Chrome before 111, Safari before
+     * 16.2): a property a browser does not know it drops, and Word search's
+     * question, veiled the same way, stood there with nothing under it.
+     */
+    function fade(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
 
     // The third argument is the previous session, handed over even on a fresh
     // start so a game can carry its own settings across. Progress never rides along.

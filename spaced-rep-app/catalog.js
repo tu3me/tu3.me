@@ -1625,7 +1625,7 @@ function catalog(container) {
         pulsing.forEach(run => run.cancel());
         btn.querySelectorAll('.dict-settings-sound').forEach(el => el.remove());
 
-        const sound = $(btn, `<span class="dict-settings-sound" aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${SPEAKER_OFF}</span>`);
+        const sound = $(btn, `<span class="dict-settings-sound" aria-hidden="true" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${SPEAKER_OFF}</span>`);
 
         const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1741,7 +1741,7 @@ function catalog(container) {
         const gear = btn.querySelector('svg');
         if (!gear) return;
 
-        const mark = $(btn, `<span class="dict-settings-sign" aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${onboarding.sign()}</span>`);
+        const mark = $(btn, `<span class="dict-settings-sign" aria-hidden="true" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${onboarding.sign()}</span>`);
 
         const total = 4 * FLIP + FLIP_HOLD;
         const at = (ms) => ms / total;
@@ -2891,7 +2891,7 @@ function catalog(container) {
 
         // The set's id on the panel, for the analytics to read as they do off a
         // card: the panel is not inside one.
-        const overlay = $(container, `<div class="set-view-overlay" style="position: fixed; inset: 0; z-index: 100;">
+        const overlay = $(container, `<div class="set-view-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 100;">
             <div class="set-view-panel" data-set-id="${set.id}" style="position: absolute; box-sizing: border-box; width: 244px; background: ${palette.dialogBg}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 6.8px 10.2px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
                 ${viewMenuHtml(store.viewOf(set))}
             </div>
@@ -3023,9 +3023,14 @@ function catalog(container) {
      * strength under something that is still growing reads as two events, and it
      * is one.
      *
-     * Fixed and inset rather than sized in vw — app.css says why no rule here
-     * may be viewport-derived in a popup. inset: 0 is not: it takes whatever the
-     * viewport turns out to be instead of having an opinion about it.
+     * Fixed and held by its four sides rather than sized in vw — app.css says
+     * why no rule here may be viewport-derived in a popup. Sides at 0 are not:
+     * they take whatever the viewport turns out to be instead of having an
+     * opinion about it. Four of them rather than `inset: 0`, the same in one
+     * word, which an old phone's browser did not know (Chrome before 87,
+     * Safari before 14.1) and dropped -- found on 8 November 2026 under Word
+     * search's question, which was left with no size; every overlay here was
+     * the same.
      *
      * Two things in it. The light switch came out of the header, where it stood
      * next to the one button this app is for: a header of three controls where
@@ -3483,7 +3488,7 @@ function catalog(container) {
     function renderSettings(parent, rising) {
         const anchor = container.querySelector('#settings-btn');
 
-        const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
+        const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
             <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 256.1px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
                 <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
                     <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">${tr('settings')}</div>
@@ -4895,7 +4900,7 @@ function catalog(container) {
                     if (said) return;
                     said = true;
 
-                    $(tile, `<span class="set-tile-soon" style="position: absolute; inset: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
+                    $(tile, `<span class="set-tile-soon" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
                 });
             });
 
@@ -6119,7 +6124,7 @@ function catalog(container) {
             ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`)
             : '';
 
-        const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+        const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
             <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
                 <div class="early-dialog-title" style="display: flex; align-items: center; gap: 6.8px; font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">${tr('nothingYet')}${badge}</div>
                 <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">${tr('earlyText')}</div>
