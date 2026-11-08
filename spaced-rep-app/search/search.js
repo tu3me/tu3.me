@@ -117,7 +117,7 @@ function search(container) {
     function getEmptyState() {
         return {
             selectedSetId: null, allowEarly: false,
-            sessionPool: null, sessionAt: null, sessionResults: [], starLevel: 0,
+            sessionPool: null, sessionAt: null, sessionResults: [],
             phrases: [], grid: null, found: [], paths: [], peeked: [], shown: [],
             struck: [], missed: [], asking: null, ordered: false
         };
@@ -126,16 +126,35 @@ function search(container) {
     /* ---------------------------------------------------------------- star */
 
     /*
-     * The star beside the dots, as Quiz and Wordcraft have it: a run of right
-     * answers, and the set's achievement if it is full when the run ends.
-     * Written out here again rather than shared -- the owner's rule: each
-     * game's achievements are its own, and may go their own ways.
+     * The star of the run -- the owner's design, 8 November 2026. For the
+     * game's first day it was Quiz's: a star beside a row of dots in the
+     * header, filled by a run of right answers. Now nothing is over the grid
+     * while the run goes, and at its end a star comes up in the middle of the
+     * grid and is filled by the phrases done right, as the snake's goblet is
+     * by its red hearts: a copy of each flies out of the board into it, a
+     * share of it each. Only a run with every phrase right fills it; then it
+     * shines, goes into the set's achievements and stays. Short of full it
+     * turns red and is gone -- the wrong ones do not let it fill.
+     *
+     * Right is what writes 1 (see score): the first answer right, nothing
+     * peeked at. A phrase found again after a wrong answer is done, but it
+     * does not fly.
+     *
+     * Written out here rather than shared with the snake or Quiz -- the
+     * owner's rule: each game's achievements are its own, and may go their
+     * own ways.
      */
-    const STAR_FILL_STEP = 0.2;
-    const STAR_TOP = 1 + Math.ceil(1 / STAR_FILL_STEP);
-    const STAR_SIZE = 29;
-    const WON_SIZE = 168;
     const STAR_GOLD = '#f5bf3a';
+    const STAR_SHARE = 0.46;      // of the grid's width
+    const STAR_IN = 520;          // up out of nothing
+    const POUR_WAIT = 150;
+    const POUR_GAP = 160;
+    const POUR_SPAN = 1600;       // however many there are, poured in this
+    const POUR_FLIGHT = 500;
+    const FILLED_REST = 250;
+    const SHINE_EVERY = 2600;
+    const RED_TURN = 350;
+    const RED_GONE = 600;
 
     const STAR_TIP_ROUND = 3.3;
     const STAR_HOLLOW_ROUND = 1.5;
@@ -180,163 +199,142 @@ function search(container) {
         };
     })();
 
-    const starShare = (level) => (level > 1 ? Math.min(1, (level - 1) * STAR_FILL_STEP) : 0);
-
-    function starHtml(level) {
-        return `<svg class="search-star" viewBox="0 0 24 24" width="${STAR_SIZE}" height="${STAR_SIZE}" aria-hidden="true" style="display: block; flex: none; margin: 0 auto 0 8.5px; overflow: visible; opacity: ${level ? 1 : 0};">
-            <defs><clipPath id="search-star-shape"><path d="${STAR_PATH}" /></clipPath></defs>
-            <g clip-path="url(#search-star-shape)">
-                <rect class="search-star-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="${STAR_GOLD}" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(${starShare(level)});" />
+    /*
+     * The star: its body in the card's colour, so that the letters under it
+     * do not show through; the gold, a rectangle clipped to the star and
+     * scaled up from its foot; the red it turns when it cannot be filled; and
+     * the edge over all of it.
+     */
+    function endStarHtml() {
+        return `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" style="display: block; overflow: visible;">
+            <defs>
+                <linearGradient id="search-end-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
+                <linearGradient id="search-end-glint" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.85" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" /></linearGradient>
+                <clipPath id="search-end-shape"><path d="${STAR_PATH}" /></clipPath>
+            </defs>
+            <path d="${STAR_PATH}" fill="${palette.surface}" />
+            <g clip-path="url(#search-end-shape)">
+                <rect class="search-end-fill" x="${STAR_BOX.x}" y="${STAR_BOX.y}" width="${STAR_BOX.width}" height="${STAR_BOX.height}" fill="url(#search-end-gold)" style="transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); transition: transform 0.3s ease-out;" />
+                <rect class="search-end-glint" x="-4" y="0" width="5" height="24" fill="url(#search-end-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
             </g>
-            <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="1.1" stroke-linejoin="round" />
+            <path class="search-end-red" d="${STAR_PATH}" fill="${palette.err}" style="opacity: 0;" />
+            <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="0.9" stroke-linejoin="round" />
         </svg>`;
     }
 
-    const WAVE_START = 140;
-    const WAVE_STEP = 70;
-    const WAVE_PULSE = 320;
-    const DOT_SWELL_MS = 420;
-    const STAR_PULSE = 520;
+    const pause = (ms) => new Promise(done => setTimeout(done, ms));
 
-    let answered = null;
+    // Whether the ending's star was full, for the screen drawn again under it
+    let overFull = false;
 
-    const elapsed = () => (answered ? performance.now() - answered.at : Infinity);
+    /*
+     * The run's end: the run is closed at once (page.endSession) and a press
+     * anywhere goes back to the sets (showOver) -- the star is something to
+     * watch, not to wait for.
+     */
+    async function endRun() {
+        const right = state.sessionResults.map((r, i) => (r === 'correct' ? i : -1)).filter(i => i >= 0);
+        const total = state.sessionResults.length;
+        const full = right.length === total;
 
-    function waveDots(group) {
-        if (!answered || !group) return;
+        over = true;
+        overFull = full;
 
-        const gone = elapsed();
-        const dots = [...group.children];
-        const colour = answered.right ? palette.ok : palette.err;
+        if (full) store.achieve(state.selectedSetId, 'search', 'star', total);
+        page.endSession();
+        showOver();
 
-        const answeredDot = dots[answered.from];
-        if (answeredDot && gone < DOT_SWELL_MS) {
-            answeredDot.animate([
-                { scale: 1 }, { scale: 1.8, offset: 0.3 }, { scale: 0.84, offset: 0.65 }, { scale: 1 }
-            ], { duration: DOT_SWELL_MS, delay: -gone, easing: 'ease-out' });
+        const grid = appRect(svg);
+        const size = grid.width * STAR_SHARE;
+        const middle = [grid.left + grid.width / 2, grid.top + grid.height / 2];
+
+        const star = $(container, `<div class="search-end-star" aria-hidden="true" style="position: fixed; left: ${middle[0] - size / 2}px; top: ${middle[1] - size / 2}px; width: ${size}px; height: ${size}px; z-index: 10; pointer-events: none;">${endStarHtml()}</div>`);
+        const gold = star.querySelector('.search-end-fill');
+
+        if (still()) {
+            if (full) gold.style.transform = 'scaleY(1)';
+            else star.remove();
+            return;
         }
 
-        dots.slice(answered.from + 1).forEach((dot, k) => {
-            const delay = WAVE_START + k * WAVE_STEP - gone;
-            if (delay + WAVE_PULSE <= 0) return;
-
-            dot.animate([
-                { background: palette.dotIdle, transform: 'scale(1)' },
-                { background: colour, transform: 'scale(1.4)' },
-                { background: palette.dotIdle, transform: 'scale(1)' }
-            ], { duration: WAVE_PULSE, delay, easing: 'ease-in-out' });
-        });
-    }
-
-    function waveStar(star) {
-        if (!star) return;
-
-        const now = state.starLevel;
-        star.style.opacity = now ? '1' : '0';
-        star.querySelector('.search-star-fill').style.transform = `scaleY(${starShare(now)})`;
-
-        if (!answered) return;
-
-        const was = answered.was;
-        const delay = answered.arrives - elapsed();
-        if (delay + STAR_PULSE <= 0) return;
-
-        const up = now > was || (now === was && now >= STAR_TOP);
-        const turn = up ? 0.4 : 0.5;
-        const timing = { duration: STAR_PULSE, delay, easing: 'ease-out', fill: 'backwards' };
-
-        star.animate([
-            { transform: was ? 'scale(1)' : 'scale(0.4)', opacity: was ? 1 : 0 },
-            { transform: up ? 'scale(1.7)' : 'scale(0.5)', opacity: 1, offset: turn },
+        await star.animate([
+            { transform: 'scale(0.2)', opacity: 0, easing: 'ease-out' },
+            { transform: 'scale(1.12)', opacity: 1, offset: 0.6, easing: 'ease-in-out' },
             { transform: 'scale(1)', opacity: 1 }
-        ], timing);
+        ], { duration: STAR_IN }).finished.catch(() => null);
 
-        star.querySelector('.search-star-fill').animate([
-            { transform: `scaleY(${starShare(was)})` },
-            { transform: `scaleY(${starShare(now)})`, offset: turn },
-            { transform: `scaleY(${starShare(now)})` }
-        ], timing);
+        await pause(POUR_WAIT);
+
+        const gap = Math.min(POUR_GAP, POUR_SPAN / Math.max(1, right.length - 1));
+        let poured = 0;
+
+        await Promise.all(right.map((i, k) => pause(k * gap)
+            .then(() => pourInto(i, middle))
+            .then(() => {
+                poured += 1;
+                gold.style.transform = `scaleY(${poured / total})`;
+                star.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 220, easing: 'ease-out' });
+                bubblePop(poured * 2, 0);
+            })));
+
+        await pause(FILLED_REST);
+
+        if (full) {
+            chime(14);
+
+            star.animate([
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 },
+                { filter: 'drop-shadow(0 0 18px rgba(255, 214, 92, 0.9))', scale: 1.06, offset: 0.5 },
+                { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))', scale: 1 }
+            ], { duration: SHINE_EVERY, iterations: Infinity, easing: 'ease-in-out' });
+
+            star.querySelector('.search-end-glint').animate([
+                { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
+                { transform: 'translateX(30px) skewX(-20deg)', opacity: 1, offset: 0.55 },
+                { transform: 'translateX(30px) skewX(-20deg)', opacity: 0 }
+            ], { duration: SHINE_EVERY, iterations: Infinity, easing: 'ease-in-out' });
+            return;
+        }
+
+        // Short of full: red, and gone
+        knock();
+        star.querySelector('.search-end-red').animate([{ opacity: 0 }, { opacity: 0.92 }], { duration: RED_TURN, easing: 'ease-out', fill: 'forwards' });
+        await pause(RED_TURN + 200);
+
+        gone(star, star.animate([
+            { transform: 'scale(1)', opacity: 1 },
+            { transform: 'scale(1.1)', opacity: 1, offset: 0.3 },
+            { transform: 'scale(0.2)', opacity: 0 }
+        ], { duration: RED_GONE, easing: 'ease-in', fill: 'forwards' }));
     }
 
     /*
-     * The star hears about a word once: at its answer, or at the first peek
-     * if that came first -- a word peeked at can no longer be a right answer,
-     * and its dot goes red then, as Wordcraft's does for a word heard.
+     * A phrase done right, poured into the star: a copy of its bubble flies
+     * out of the board in an arc, shrinking, and is gone into the star -- the
+     * board keeps the phrase where it stands, to be looked at.
      */
-    function starAnswered(phrase, right) {
-        const was = Math.min(STAR_TOP, state.starLevel);
-        if (!right && !was) return;
+    function pourInto(i, to) {
+        const bubble = board.querySelector(`.search-bubble[data-phrase="${i}"]`);
+        if (!bubble) return Promise.resolve();
 
-        state.starLevel = right ? Math.min(STAR_TOP, was + 1) : 1;
+        const box = appRect(bubble);
+        const copy = bubble.cloneNode(true);
+        copy.className = 'search-pour';
+        ['data-press', 'data-phrase', 'title'].forEach(name => copy.removeAttribute(name));
+        Object.assign(copy.style, {
+            position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`,
+            margin: '0', zIndex: '11', pointerEvents: 'none', fontSize: board.style.fontSize
+        });
+        container.appendChild(copy);
 
-        const waiting = Math.max(0, state.sessionPool.length - phrase - 1);
-        answered = { at: performance.now(), from: phrase, right, was, arrives: WAVE_START + waiting * WAVE_STEP };
+        const dx = to[0] - (box.left + box.width / 2);
+        const dy = to[1] - (box.top + box.height / 2);
 
-        waveStar(container.querySelector('.search-star'));
-    }
-
-    const WON_FLIGHT = 1100;
-    const WON_TURN = 144;
-    const WON_SHINE = 1900;
-
-    // A run ended with the star full -- Quiz's ending, see winStar there
-    async function winStar() {
-        store.achieve(state.selectedSetId, 'search', 'star', state.sessionResults.filter(r => r === 'correct').length);
-        page.endSession();
-
-        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const small = container.querySelector('.search-star');
-
-        if (small && !still) await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => null);
-
-        const veil = $(container, `<div class="search-won" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
-            <svg class="search-won-star" viewBox="0 0 24 24" width="${WON_SIZE}" height="${WON_SIZE}" aria-hidden="true" style="display: block; overflow: visible;">
-                <defs>
-                    <linearGradient id="search-won-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a0" /><stop offset="0.6" stop-color="${STAR_GOLD}" /><stop offset="1" stop-color="#e3a51c" /></linearGradient>
-                    <linearGradient id="search-won-glint" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0" /><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.85" /><stop offset="1" stop-color="#ffffff" stop-opacity="0" /></linearGradient>
-                    <clipPath id="search-won-shape"><path d="${STAR_PATH}" /></clipPath>
-                </defs>
-                <path d="${STAR_PATH}" fill="url(#search-won-gold)" />
-                <g clip-path="url(#search-won-shape)">
-                    <rect class="search-won-glint" x="-4" y="0" width="5" height="24" fill="url(#search-won-glint)" style="transform-box: fill-box; transform-origin: center; transform: skewX(-20deg); opacity: 0;" />
-                </g>
-                <path d="${STAR_PATH}" fill="none" stroke="${palette.starEdge}" stroke-width="0.7" stroke-linejoin="round" />
-            </svg>
-        </div>`);
-
-        veil.addEventListener('click', () => page.home());
-
-        if (small) small.style.visibility = 'hidden';
-        if (still) return;
-
-        const big = veil.querySelector('.search-won-star');
-
-        if (small) {
-            const from = appRect(small);
-            const to = appRect(big);
-            const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-            const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-
-            big.animate([
-                { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}) rotate(${-WON_TURN}deg)`, easing: 'ease-in-out' },
-                { transform: 'translate(0px, 0px) scale(1.12) rotate(0deg)', offset: 0.8, easing: 'ease-out' },
-                { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }
-            ], { duration: WON_FLIGHT });
-        }
-
-        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: WON_FLIGHT * 0.5, easing: 'ease-out' });
-
-        big.animate([
-            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' },
-            { filter: 'drop-shadow(0 0 22px rgba(255, 214, 92, 0.9))', offset: 0.5 },
-            { filter: 'drop-shadow(0 0 0px rgba(255, 214, 92, 0))' }
-        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
-
-        veil.querySelector('.search-won-glint').animate([
-            { transform: 'translateX(0px) skewX(-20deg)', opacity: 1 },
-            { transform: 'translateX(30px) skewX(-20deg)', opacity: 1, offset: 0.55 },
-            { transform: 'translateX(30px) skewX(-20deg)', opacity: 0 }
-        ], { duration: WON_SHINE, delay: WON_FLIGHT, iterations: Infinity, easing: 'ease-in-out' });
+        return copy.animate([
+            { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+            { transform: `translate(${dx / 2}px, ${dy / 2 - 30}px) scale(0.75)`, opacity: 1, offset: 0.45 },
+            { transform: `translate(${dx}px, ${dy}px) scale(0.2)`, opacity: 0.5 }
+        ], { duration: POUR_FLIGHT, easing: 'ease-in-out' }).finished.catch(() => null).then(() => copy.remove());
     }
 
     /* --------------------------------------------------------------- words */
@@ -753,8 +751,6 @@ function search(container) {
     let board = null;
     let gridHost = null;
 
-    const STAGE_HINT = 'The stage of this word: how well you know it. The higher it is, the less it shows of itself.';
-
     // The word being worked on: the one asked about, the one the order is at,
     // or one with a word of it found
     function current() {
@@ -765,27 +761,6 @@ function search(container) {
 
         const started = open.find(i => state.found[i] > 0);
         return started === undefined ? -1 : started;
-    }
-
-    function dotsHtml() {
-        const now = current();
-
-        return state.sessionPool.map((item, i) => {
-            const res = state.sessionResults[i];
-            let bg = palette.dotIdle;
-            if (res === 'correct') bg = palette.ok;
-            if (res === 'wrong' || (!res && state.peeked[i] !== null)) bg = palette.err;
-
-            return page.dotHtml('search-dot', bg, i === now, item.word, palette, STAGE_HINT);
-        }).join('');
-    }
-
-    function refreshDots() {
-        const group = header && header.querySelector('.search-dots-group');
-        if (!group) return;
-
-        group.innerHTML = dotsHtml();
-        waveDots(group);
     }
 
     /*
@@ -801,8 +776,19 @@ function search(container) {
      * done, as searchlines painted its -- found words white on it then, the
      * mint of a find being lost on red.
      *
+     * And a phrase that was not right -- answered wrong, or peeked at, what
+     * keeps it out of the star (see endRun) -- keeps its word in red once it
+     * is done, to the end of the run, and a red edge round it (the owner's
+     * calls, 8 November 2026): the mistakes are there to be seen on the grid
+     * the run leaves. A deep red, MISS_INK: the err of the theme is a coral,
+     * and on the pale fills of the stages it could hardly be read. The edge
+     * two pixels, the second drawn inside as a shadow: a wider border would
+     * make the bubble wider than it was measured at the deal.
+     *
      * `measure` is the word drawn to be measured, as it stands at the deal.
      */
+    const MISS_INK = '#c62828';
+
     function bubbleHtml(phrase, i, item, measure) {
         const live = !measure;
         const struck = live && state.struck[i];
@@ -844,9 +830,14 @@ function search(container) {
 
         const ring = asked ? `outline: 2px solid ${palette.cursor};` : '';
         const press = struck ? ' data-press title="Say it"' : '';
+        const wrong = struck && state.sessionResults[i] === 'wrong';
+        const wordInk = wrong ? `color: ${MISS_INK};` : '';
 
-        return `<div class="search-bubble"${press} data-phrase="${i}" style="padding: 0.3em 0.6em; border-radius: 0.9em; background: ${bg}; color: ${ink}; border: 1px solid ${edge}; ${ring} text-align: center; line-height: 1.15; max-width: 100%; box-sizing: border-box; cursor: ${struck ? 'pointer' : 'default'}; user-select: none; -webkit-user-select: none;">
-            <div style="font-weight: 700; word-break: break-word;">${line}</div>
+        if (wrong) edge = MISS_INK;
+        const missEdge = wrong ? `box-shadow: inset 0 0 0 1px ${MISS_INK};` : '';
+
+        return `<div class="search-bubble"${press} data-phrase="${i}" style="padding: 0.3em 0.6em; border-radius: 0.9em; background: ${bg}; color: ${ink}; border: 1px solid ${edge}; ${missEdge} ${ring} text-align: center; line-height: 1.15; max-width: 100%; box-sizing: border-box; cursor: ${struck ? 'pointer' : 'default'}; user-select: none; -webkit-user-select: none;">
+            <div style="font-weight: 700; word-break: break-word; ${wordInk}">${line}</div>
             ${translation ? `<div style="font-size: 0.82em; opacity: ${struck ? 0.85 : 0.75}; word-break: break-word; ${hideTranslation ? blur : ''}">${escapeText(translation)}</div>` : ''}
         </div>`;
     }
@@ -865,20 +856,33 @@ function search(container) {
 
     /*
      * A cell picked or found: a square with its corners rounded, under the
-     * letter, one to a cell and not run together into a line (the owner's
-     * call, 8 November 2026). Square, because a letter's accent, its tail and
-     * a mark above or below it did not go into the round line, which was
-     * narrower than the cell: Á, Ñ, ق and ि stood half out of it.
+     * letter, one to a cell, and a link MARK_LINK wide from each to the next
+     * -- the owner's calls, 8 November 2026. Square, because a letter's
+     * accent, its tail and a mark above or below it did not go into the round
+     * line through the cells there was before, which was narrower than the
+     * cell: Á, Ñ, ق and ि stood half out of it. The links came the same
+     * evening, after a few hours of squares alone: without them a word bent
+     * round a corner did not say which way it went on.
+     *
+     * The links run from middle to middle under the squares; only what lies
+     * between two squares is seen.
      */
     const MARK_SIDE = 8.6;
     const MARK_ROUND = 2.4;
+    const MARK_LINK = 3.4;
 
-    const marksHtml = (cells) => cells.map(([r, c]) => `<rect x="${c * 10 + (10 - MARK_SIDE) / 2}" y="${r * 10 + (10 - MARK_SIDE) / 2}" width="${MARK_SIDE}" height="${MARK_SIDE}" rx="${MARK_ROUND}" />`).join('');
+    const marksHtml = (cells) => {
+        const link = cells.length > 1
+            ? `<polyline points="${cells.map(([r, c]) => `${c * 10 + 5},${r * 10 + 5}`).join(' ')}" fill="none" stroke-width="${MARK_LINK}" stroke-linejoin="round" />`
+            : '';
 
-    // At half strength as a group, not each square: two that ever overlap
-    // would be darker where they do
+        return link + cells.map(([r, c]) => `<rect x="${c * 10 + (10 - MARK_SIDE) / 2}" y="${r * 10 + (10 - MARK_SIDE) / 2}" width="${MARK_SIDE}" height="${MARK_SIDE}" rx="${MARK_ROUND}" stroke="none" />`).join('');
+    };
+
+    // At half strength as a group, not each shape: the squares and the
+    // links over them would be darker where they overlap
     function marksGroup(cells, colour, cls) {
-        return `<g class="${cls}" fill="${colour}" opacity="${LINE_OPACITY}">${marksHtml(cells)}</g>`;
+        return `<g class="${cls}" fill="${colour}" stroke="${colour}" opacity="${LINE_OPACITY}">${marksHtml(cells)}</g>`;
     }
 
     function drawGrid() {
@@ -1065,9 +1069,11 @@ function search(container) {
     /*
      * Which word the pick spells, if any: the next unfound word of a phrase
      * not yet done -- the words of a phrase are found in their order, as in
-     * searchlines -- read either way along it, since a snake is traced from
-     * whichever end the eye found first. A phrase already begun is preferred,
-     * and in an ordered run only the phrase the order is at counts.
+     * searchlines. From its first letter to its last only (the owner's call,
+     * 8 November 2026): until then a word picked from its end counted too,
+     * and with it the snake could be traced from either end. A phrase already
+     * begun is preferred, and in an ordered run only the phrase the order is
+     * at counts.
      *
      * Any pick that spells the word counts, not only the snake it was laid
      * along: the filler can spell a word by chance, and finding it there is
@@ -1075,8 +1081,7 @@ function search(container) {
      * in the wrong place never leaves a word that cannot be found.
      */
     function spelled(letters) {
-        const forward = letters.join('');
-        const backward = letters.slice().reverse().join('');
+        const spelt = letters.join('');
         const open = state.phrases.map((_, i) => i).filter(i => !state.struck[i] && !(state.asking && state.asking.phrase === i));
 
         const candidates = state.ordered ? open.slice(0, 1) : open.filter(i => state.found[i] > 0).concat(open.filter(i => state.found[i] === 0));
@@ -1087,7 +1092,7 @@ function search(container) {
             if (!token) continue;
 
             const word = token.join('');
-            if (word === forward || word === backward) return { phrase: i, token: tokenAt };
+            if (word === spelt) return { phrase: i, token: tokenAt };
         }
 
         return null;
@@ -1212,7 +1217,6 @@ function search(container) {
         $(svg.querySelector('.search-lines'), marksGroup(path.cells, LINE_COLOURS[i % LINE_COLOURS.length], 'search-line'));
 
         drawBoard();
-        refreshDots();
 
         // The whole phrase: said, and asked about
         if (state.found[i] >= state.phrases[i].tokens.length) {
@@ -1241,22 +1245,17 @@ function search(container) {
     /*
      * A hidden word shown on request. It stays shown for the rest of the run,
      * and the phrase it is in can no longer be a right answer: the answer
-     * becomes the share of its words found before the first peek (see score),
-     * and its dot goes red at once. Saved straight away, so that closing the
-     * popup does not refund it.
+     * becomes the share of its words found before the first peek (see score).
+     * Saved straight away, so that closing the popup does not refund it.
      */
     function peekAt(i, t) {
         if (state.struck[i] || state.shown[i][t]) return;
 
         state.shown[i][t] = true;
 
-        if (state.peeked[i] === null) {
-            state.peeked[i] = state.found[i];
-            if (!state.sessionResults[i]) starAnswered(i, false);
-        }
+        if (state.peeked[i] === null) state.peeked[i] = state.found[i];
 
         drawBoard();
-        refreshDots();
         page.save();
     }
 
@@ -1304,9 +1303,6 @@ function search(container) {
 
         store.recordRepetition(state.sessionPool[i], share, 'search', { at: state.sessionAt, size: state.sessionPool.length });
         state.sessionResults[i] = share === 1 ? 'correct' : 'wrong';
-
-        // A peek told the star already -- see peekAt
-        if (peeked === null) starAnswered(i, share === 1);
 
         store.save();
     }
@@ -1655,7 +1651,6 @@ function search(container) {
             drawGrid();
         }
 
-        refreshDots();
         page.save();
         leave();
 
@@ -1709,7 +1704,6 @@ function search(container) {
     function strike(i) {
         state.struck[i] = true;
         drawBoard();
-        refreshDots();
         page.save();
         checkDone();
     }
@@ -1717,35 +1711,27 @@ function search(container) {
     function checkDone() {
         if (state.struck.every(Boolean)) {
             finishing = true;
-            setTimeout(() => {
-                over = true;
-                if (state.starLevel >= STAR_TOP) winStar();
-                else runOver();
-            }, NEXT_AFTER);
+            setTimeout(endRun, NEXT_AFTER);
         }
     }
 
     /*
-     * The run over: the grid stays as the run left it, to be looked at, and
-     * a press anywhere goes back to the sets -- the owner's call, 8 November
-     * 2026. Until then the page went to the sets at once, and the last word
-     * found was the last of the run anybody saw. The run is ended straight
-     * away all the same (page.endSession): closed now, the popup opens on
-     * the sets.
+     * The run over: the grid stays as the run left it, to be looked at, with
+     * the star of the run over it (see endRun), and a press anywhere goes
+     * back to the sets -- the owner's call, 8 November 2026. Until then the
+     * page went to the sets at once, and the last word found was the last of
+     * the run anybody saw.
      *
-     * With the star full the star's own ending comes instead, which already
-     * waited for a press (see winStar). Drawn again -- a theme changed under
-     * it -- either ends as this one.
+     * search-won with the star full, as the full star's own screen was
+     * called before, and search-over without it -- see ANALYTICS.md. Drawn
+     * again, a theme changed under it, the screen keeps the way out and not
+     * the star.
      */
     let over = false;
 
-    function runOver() {
-        page.endSession();
-        showOver();
-    }
-
     function showOver() {
-        $(container, `<div class="search-over" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; cursor: pointer;"></div>`)
+        const cls = overFull ? 'search-won' : 'search-over';
+        $(container, `<div class="${cls}" data-press title="Back to the sets" style="position: fixed; inset: 0; z-index: 9; cursor: pointer;"></div>`)
             .addEventListener('click', () => page.home());
     }
 
@@ -1760,7 +1746,6 @@ function search(container) {
             <div class="search-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="search-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: ${page.DOT_GAP}px;"></div>
         </div>`);
 
         header.querySelector('.back-btn').addEventListener('click', (e) => {
@@ -1770,9 +1755,6 @@ function search(container) {
         });
 
         page.muteButton(header, palette.backBtn, palette.chromeBorder);
-
-        const end = header.querySelector('.game-header-end');
-        if (end) end.insertAdjacentHTML('afterbegin', starHtml(state.starLevel));
 
         board = $(container, `<div class="search-board" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4.5px; margin-bottom: ${GRID_GAP}px;"></div>`);
         gridHost = $(container, `<div class="search-grid-host"></div>`);
@@ -1800,10 +1782,6 @@ function search(container) {
         }
 
         fit(board);
-
-        header.querySelector('.search-dots-group').innerHTML = dotsHtml();
-        waveDots(header.querySelector('.search-dots-group'));
-        waveStar(header.querySelector('.search-star'));
 
         drawBoard();
         drawGrid();
@@ -1846,7 +1824,6 @@ function search(container) {
         const t = tokens.of(isDark);
 
         palette = {
-            dotIdle: t.border,
             chromeBorder: t.chrome,
             cursor: t.progress,
             stageInk: t.muted,
@@ -1883,7 +1860,6 @@ function search(container) {
         sessionPool: state.sessionPool,
         sessionAt: state.sessionAt,
         sessionResults: state.sessionResults,
-        starLevel: state.starLevel,
 
         // The grid is random and is the run: saved whole, so that a popup
         // closed and opened again shows the same letters in the same places

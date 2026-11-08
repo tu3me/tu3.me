@@ -3,7 +3,7 @@
  * GAME_FACES in core/icons.js. Loaded by the catalog alone; the game's page
  * has no tile to draw.
  *
- * The tile carries the stars the game has won on the set (see winStar in
+ * The tile carries the stars the game has won on the set (see endRun in
  * search.js and store.achieve), drawn as Quiz and Wordcraft draw theirs and
  * written out here again rather than shared: the owner's rule, each game's
  * achievements are its own and may go their own ways.
