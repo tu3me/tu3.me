@@ -25,33 +25,34 @@
     const COLOR = '#2f9e6e';
 
     /*
-     * The puzzle itself: a grid of letters with the found words struck
-     * through, as it was drawn for the tile of the game still to come --
-     * three by three, a dot to a letter, two rows and a diagonal over them.
-     * On the game's own colour now, so in white like every drawing here: the
-     * runs at nearly full strength, a dot under a run cut out of it in the
-     * tile's colour, and a dot no run crosses white at half -- found and not
-     * found, as the outline said them by colour and weight.
+     * The puzzle itself: a grid of letters with a found word traced over it
+     * -- three by three, a dot to a letter, and one word bending its way up
+     * as the game's words lie since 8 November 2026. Until the same day they
+     * ran straight, and the tile had two rows and a diagonal, which read as
+     * a Z. One word and not two: on three by three any two runs lie on
+     * neighbouring dots and run together into a letter, an E when tried. In
+     * white on the game's own colour, like every drawing here: the run at
+     * nearly full strength, a dot under it cut out of it in the tile's
+     * colour, and a dot it does not go over white at half -- found and not
+     * found.
      */
     const DRAWING = `
-        <g stroke="currentColor" stroke-width="6.4" stroke-linecap="round" opacity="0.92">
-            <path d="M5 5h14" />
-            <path d="M5 19h14" />
-            <path d="M5 19 19 5" />
+        <g stroke="currentColor" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.92">
+            <path d="M5 19V12H12V5H19" />
         </g>
         <g stroke="none">
             <g fill="${COLOR}">
-                <circle cx="5" cy="5" r="2.2" />
+                <circle cx="5" cy="19" r="2.2" />
+                <circle cx="5" cy="12" r="2.2" />
+                <circle cx="12" cy="12" r="2.2" />
                 <circle cx="12" cy="5" r="2.2" />
                 <circle cx="19" cy="5" r="2.2" />
-                <circle cx="12" cy="12" r="2.2" />
-                <circle cx="5" cy="19" r="2.2" />
-                <circle cx="12" cy="19" r="2.2" />
-                <circle cx="19" cy="19" r="2.2" />
             </g>
             <g fill="currentColor" opacity="0.5">
-                <circle cx="5" cy="12" r="2.2" />
+                <circle cx="5" cy="5" r="2.2" />
                 <circle cx="19" cy="12" r="2.2" />
+                <circle cx="12" cy="19" r="2.2" />
+                <circle cx="19" cy="19" r="2.2" />
             </g>
         </g>`;
 

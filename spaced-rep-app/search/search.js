@@ -1,13 +1,15 @@
 /**
- * "Word search": the words of a run hidden in a grid of letters, found by
- * drawing a line over them, and every one found asked about -- which of these
- * is its translation.
+ * "Word search": the words of a run hidden in a grid of letters, each phrase
+ * a snake of cells, found by tracing it, and every one found asked about --
+ * which of these is its translation.
  *
  * Brought over from searchlines, the owner's own game of April 2026, on
- * 8 November 2026. The puzzle and the question after a find are searchlines';
- * the words, the ladder, the saving, the voice and the star are the app's, and
- * nothing of the old file's own spaced repetition came along. See
- * docs/ARCHITECTURE.md, "Word search", for every decision below and why.
+ * 8 November 2026. The question after a find is searchlines'; the words, the
+ * ladder, the saving, the voice and the star are the app's, and nothing of
+ * the old file's own spaced repetition came along. The same evening the words
+ * stopped running in straight lines, searchlines' way, and began to bend:
+ * a long word made everything small. See docs/ARCHITECTURE.md, "Word search",
+ * for every decision below and why.
  */
 function search(container) {
     /*
@@ -75,28 +77,22 @@ function search(container) {
     }
 
     /*
-     * Which ways a word may run in the grid, by its stage -- the difficulty
-     * every game here takes from the stage, and searchlines did not:
-     * right and down at the bottom, the two diagonals that read forward from
-     * the fourth step, and all eight, backwards too, from the seventh.
+     * How a phrase steps from a letter to the next, by its stage -- the
+     * difficulty every game here takes from the stage: to the cell beside,
+     * above or below, any of the four, until DIAGONAL_FROM, and across a
+     * corner too from there, the words of a month and more (the owner's
+     * call, 8 November 2026).
      *
-     * A script written from the right is mirrored, because "forward" is its
-     * own way: an Arabic word laid left to right reads backwards to anyone who
-     * can read it.
+     * Two rungs where the straight lines had three, with "forward" mirrored
+     * for a script written from the right: a snake goes every way along a
+     * row or a column anyway, so there is no forward left to keep.
      */
-    const STRAIGHT = [[0, 1], [1, 0]];
-    const SLANTED = [[1, 1], [-1, 1]];
-    const BACKWARDS = [[0, -1], [-1, 0], [-1, -1], [1, -1]];
+    const DIAGONAL_FROM = 10;
 
-    const RTL = /[֐-ࣿיִ-﷿ﹰ-﻿]/;
+    const ORTHOGONAL = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+    const EVERY_WAY = ORTHOGONAL.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
 
-    function directionsFor(phrase) {
-        let dirs = STRAIGHT.slice();
-        if (phrase.stage >= 3) dirs = dirs.concat(SLANTED);
-        if (phrase.stage >= 6) return dirs.concat(BACKWARDS);
-
-        return phrase.rtl ? dirs.map(([dr, dc]) => [dr, dc ? -dc : 0]) : dirs;
-    }
+    const stepsFor = (phrase) => (phrase.stage >= DIAGONAL_FROM ? EVERY_WAY : ORTHOGONAL);
 
     /*
      * The colour of each word's line, by its place in the run: ten that are
@@ -107,17 +103,22 @@ function search(container) {
     const LINE_COLOURS = ['#1e9bff', '#35d16b', '#c62ff7', '#ff9f1c', '#ff4f8b', '#16c7c7', '#8f7bff', '#d8b800', '#ff6b4a', '#4cc0ff'];
     const LINE_OPACITY = 0.5;
 
-    // Placement attempts at each size of the grid before the next size is tried
-    const TRIES = 16;
-
     let state = getEmptyState();
     let palette = {};
 
+    /*
+     * `paths` are the words found, each the cells it was traced through.
+     * Until the words began to bend (8 November 2026) a find was a line from
+     * one cell to another and was saved as `lines`; the new name is what
+     * keeps a run saved then from being read as paths -- it opens with its
+     * finds unmarked on the grid, and no translation was written for it
+     * (the owner's call: no migration for a game a day old).
+     */
     function getEmptyState() {
         return {
             selectedSetId: null, allowEarly: false,
             sessionPool: null, sessionAt: null, sessionResults: [], starLevel: 0,
-            phrases: [], grid: null, found: [], lines: [], peeked: [], shown: [],
+            phrases: [], grid: null, found: [], paths: [], peeked: [], shown: [],
             struck: [], missed: [], asking: null, ordered: false
         };
     }
@@ -376,8 +377,9 @@ function search(container) {
 
     /*
      * A word or a phrase of the set as this game needs it: the parts its line
-     * is written in, the words of it to be found -- each with its own line in
-     * the grid, in order, as in searchlines -- and what it shows of itself.
+     * is written in, the words of it to be found -- one after another along
+     * its snake, each traced on its own and in order, as searchlines found
+     * them -- and what it shows of itself.
      *
      * Words as speech.words cuts them, which is spaces unless the player asked
      * for the dictionary's answer: a Chinese phrase with no spaces in it is
@@ -404,119 +406,182 @@ function search(container) {
 
         return {
             parts, tokens, stage,
-            rtl: RTL.test(item.word.original || ''),
             hideOriginal: mask.original,
             hideTranslation: mask.translation && !!item.word.translation
         };
     }
 
-    const longestOf = (phrase) => Math.max(...phrase.tokens.map(t => t.length));
+    // Every letter of a phrase: the length of its snake
+    const lengthOf = (phrase) => phrase.tokens.reduce((sum, t) => sum + t.length, 0);
 
     /* ---------------------------------------------------------------- grid */
 
     /*
-     * The words laid into a grid of `rows` by `cols`, or null when this try
-     * did not manage it.
+     * The grid: GRID_SIDE cells a side, whatever the run -- the owner's call,
+     * 8 November 2026, when the words began to bend. A straight word needed
+     * a side as long as itself: fifteen letters on a popup 335 across made
+     * cells too small to read, and the words above the grid, growing by the
+     * same factor (see fit), stayed small with them. A snake folds into any
+     * square, and eight cells across that popup are 42 pixels each.
      *
-     * Longest first, the way these puzzles are made: the long word is the
-     * one with the fewest places it can go, and the short ones fill what is
-     * left. Each takes one of the places it fits, at random, and a place where
-     * it crosses a word already down is taken half the time there is one --
-     * which is what lets a tight grid be made at all.
-     *
-     * A word never lies wholly on top of another: "the" of "the bill" and of
-     * "the exit" are two lines in two places, not one line found twice.
-     *
-     * Every place is looked at, rather than searchlines' walk from a random
-     * cell through the ways in their order -- that walk took the first way
-     * that fitted, which put nearly every word on the first diagonal it
-     * tried, and its edge test turned away places that end on the first row
-     * or column.
+     * Bigger only for a first phrase that does not go into it alone -- see
+     * deal.
      */
-    function tryLay(words, rows, cols) {
-        const cells = new Array(rows * cols).fill(null);
-
-        for (const w of words) {
-            const len = w.letters.length;
-            const spots = [];
-            const crossing = [];
-
-            for (const [dr, dc] of w.dirs) {
-                for (let r = 0; r < rows; r++) {
-                    const endR = r + dr * (len - 1);
-                    if (endR < 0 || endR >= rows) continue;
-
-                    for (let c = 0; c < cols; c++) {
-                        const endC = c + dc * (len - 1);
-                        if (endC < 0 || endC >= cols) continue;
-
-                        let crosses = 0;
-                        let fits = true;
-
-                        for (let i = 0; i < len; i++) {
-                            const here = cells[(r + dr * i) * cols + c + dc * i];
-                            if (here === null) continue;
-                            if (here !== w.letters[i]) { fits = false; break; }
-                            crosses++;
-                        }
-
-                        if (!fits || crosses === len) continue;
-
-                        const spot = { r, c, dr, dc };
-                        spots.push(spot);
-                        if (crosses) crossing.push(spot);
-                    }
-                }
-            }
-
-            if (!spots.length) return null;
-
-            const from = crossing.length && Math.random() < 0.5 ? crossing : spots;
-            const { r, c, dr, dc } = from[Math.floor(Math.random() * from.length)];
-
-            for (let i = 0; i < len; i++) cells[(r + dr * i) * cols + c + dc * i] = w.letters[i];
-        }
-
-        return cells;
-    }
+    const GRID_SIDE = 8;
 
     /*
-     * The smallest grid the phrases lie in, no wider than `mostCols` and no
-     * taller than `mostRows`, in the shape of the room they were measured
-     * against -- or null when not even the largest will do.
+     * A phrase lies as one snake, the owner's design: its words one after
+     * another, each beginning in a cell next to the last letter of the one
+     * before, so that the next word of a phrase is found where the last one
+     * ended. Each word is still traced on its own.
      *
-     * Smallest, because whatever is left over the grid gives back as size:
-     * the letters grow to fill the screen (see fit).
+     * The snake goes on straight STRAIGHT_ON of the times it can, and turns
+     * otherwise: one turning at every letter cannot be followed by eye, and
+     * a straight one could not fold. Walked depth first, backing out of dead
+     * ends, for at most SNAKE_STEPS steps before the try is given up -- a
+     * snake that will not go into what is left only gets slower to fail.
+     *
+     * No two phrases share a cell, and no two steps across corners cross in
+     * one square of four. A letter shared on a bend is not seen as shared --
+     * the straight lines crossed only so that a tight grid could be made at
+     * all -- and two lines crossing make an X neither can be followed through.
      */
-    function layOut(phrases, mostCols, mostRows) {
-        const words = [];
-        phrases.forEach(p => {
-            const dirs = directionsFor(p);
-            p.tokens.forEach(letters => words.push({ letters, dirs }));
-        });
-        words.sort((a, b) => b.letters.length - a.letters.length);
+    const STRAIGHT_ON = 2 / 3;
+    const SNAKE_STEPS = 600;
 
-        const letters = words.reduce((sum, w) => sum + w.letters.length, 0);
-        const aspect = mostRows / mostCols;
+    function shuffled(list) {
+        const out = list.slice();
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [out[i], out[j]] = [out[j], out[i]];
+        }
+        return out;
+    }
 
-        // A way the word can run at this size at all
-        const fitsAt = (w, rows, cols) => w.dirs.some(([dr, dc]) => w.letters.length <= (dr ? rows : Infinity) && w.letters.length <= (dc ? cols : Infinity));
+    // A grid with nothing in it yet: which cells are taken, which squares of
+    // four a step across a corner has crossed, and each phrase's snake
+    function emptyLay(side) {
+        return { rows: side, cols: side, taken: new Array(side * side).fill(false), slants: new Set(), snakes: [] };
+    }
 
-        for (let cols = 1; cols <= mostCols; cols++) {
-            const rows = Math.min(mostRows, Math.max(1, Math.round(cols * aspect)));
+    function copyLay(lay) {
+        return { ...lay, taken: lay.taken.slice(), slants: new Set(lay.slants), snakes: lay.snakes.slice() };
+    }
 
-            // However much the words cross, a cell rarely carries more than
-            // one and a half of them
-            if (rows * cols < letters * 0.6) continue;
-            if (!words.every(w => fitsAt(w, rows, cols))) continue;
+    const freeIn = (lay) => lay.taken.reduce((n, t) => n + (t ? 0 : 1), 0);
 
-            for (let k = 0; k < TRIES; k++) {
-                const cells = tryLay(words, rows, cols);
-                if (cells) return { rows, cols, cells };
+    // A snake `length` cells long in what `lay` has left, or null
+    function snakeIn(lay, length, steps) {
+        const { rows, cols, taken, slants } = lay;
+        const path = [];
+        const mine = new Set();
+        const crossed = [];
+        let left = SNAKE_STEPS;
+
+        function walk(at, way) {
+            if (left-- <= 0) return false;
+
+            path.push(at);
+            mine.add(at);
+            if (path.length === length) return true;
+
+            const r = Math.floor(at / cols);
+            const c = at % cols;
+
+            let ways = shuffled(steps.map((_, k) => k).filter(k => k !== way));
+            if (way >= 0) ways = Math.random() < STRAIGHT_ON ? [way].concat(ways) : ways.concat([way]);
+
+            for (const k of ways) {
+                const [dr, dc] = steps[k];
+                const nr = r + dr;
+                const nc = c + dc;
+                if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+
+                const next = nr * cols + nc;
+                if (taken[next] || mine.has(next)) continue;
+
+                const square = dr && dc ? Math.min(r, nr) * cols + Math.min(c, nc) : -1;
+                if (square >= 0 && (slants.has(square) || crossed.includes(square))) continue;
+
+                if (square >= 0) crossed.push(square);
+                if (walk(next, k)) return true;
+                if (square >= 0) crossed.pop();
+
+                if (left <= 0) break;
             }
+
+            path.pop();
+            mine.delete(at);
+            return false;
+        }
+
+        const starts = shuffled(taken.map((t, k) => (t ? -1 : k)).filter(k => k >= 0));
+
+        for (const start of starts) {
+            if (walk(start, -1)) return { path, crossed };
+            if (left <= 0) break;
         }
 
         return null;
+    }
+
+    // Phrase `i` laid into `lay`, which it changes; false when it does not go
+    function layIn(lay, phrase, i) {
+        const snake = snakeIn(lay, lengthOf(phrase), stepsFor(phrase));
+        if (!snake) return false;
+
+        snake.path.forEach(k => { lay.taken[k] = true; });
+        snake.crossed.forEach(square => lay.slants.add(square));
+        lay.snakes[i] = snake.path;
+        return true;
+    }
+
+    /*
+     * The phrases laid afresh into a grid `side` cells a side, or null when
+     * TRIES tries did not manage it. Longest first, the way these puzzles
+     * are made: the long one has the fewest places it can go, and the short
+     * ones fill what it leaves.
+     */
+    const TRIES = 12;
+
+    function layOut(phrases, side) {
+        const order = phrases.map((_, i) => i).sort((a, b) => lengthOf(phrases[b]) - lengthOf(phrases[a]));
+
+        for (let k = 0; k < TRIES; k++) {
+            const lay = emptyLay(side);
+            if (order.every(i => layIn(lay, phrases[i], i))) return lay;
+        }
+
+        return null;
+    }
+
+    /*
+     * Phrase `i` added to a grid the others already lie in: into the room
+     * they left, a few tries, and only then all of them laid again -- their
+     * snakes, random as they are, may have left that room in pieces too
+     * small for it.
+     */
+    const ADD_TRIES = 4;
+
+    function layMore(lay, phrases, i) {
+        for (let k = 0; k < ADD_TRIES; k++) {
+            const more = copyLay(lay);
+            if (layIn(more, phrases[i], i)) return more;
+        }
+
+        return layOut(phrases, lay.rows);
+    }
+
+    // The letters on the cells the snakes took, null on the rest
+    function lettersIn(lay, phrases) {
+        const cells = new Array(lay.rows * lay.cols).fill(null);
+
+        lay.snakes.forEach((path, i) => {
+            const letters = [].concat(...phrases[i].tokens);
+            path.forEach((k, n) => { cells[k] = letters[n]; });
+        });
+
+        return cells;
     }
 
     /*
@@ -560,24 +625,28 @@ function search(container) {
     }
 
     /*
-     * The run: words due, laid into the grid for as long as the screen holds
-     * them -- the owner's design, 8 November 2026.
+     * The run: phrases due, laid into the grid for as long as the grid and
+     * the screen hold them -- the owner's design, 8 November 2026.
      *
-     * The longest due word first. Taken where it fell in the shuffle, a long
-     * word would come up when the room was already spent and be passed over
-     * every time; first, it is in the run, and it sets how long the grid's
-     * side has to be. The rest in duePool's shuffle, up to MOST_PHRASES.
+     * The longest due phrase first. Taken where it fell in the shuffle, a
+     * long phrase would come up when the grid was already full and be passed
+     * over every time. The rest in duePool's shuffle, up to MOST_PHRASES.
      *
-     * A word is kept when the words above the grid still fit at MIN_FONT and
-     * the grid at MIN_CELL with it laid in. One that does not is passed over,
-     * not the end of the run: the next may be short. Passed over words stay
-     * due, for this game's next run and every other game's.
+     * A phrase is kept when its snake goes into the grid and the words above
+     * it still fit at MIN_FONT with the grid at MIN_CELL. One that does not is
+     * passed over, not the end of the run: the next may be short. After
+     * MOST_PASSED passed over in a row the grid counts as full -- each costs
+     * about as much as laying the run again, and a set can have hundreds due.
+     * Passed over phrases stay due, for this game's next run and every other
+     * game's.
      *
      * The first is kept whatever it takes: the catalog has already said there
      * is something to repeat, and a run of nothing would be a page that lied.
-     * A word too long for the narrowest screen at MIN_CELL is laid smaller
-     * than it -- 2 of 5959 words in the live sets on 8 November 2026.
+     * A phrase too long for the grid gets a grid of its own size, a cell more
+     * a side at a time.
      */
+    const MOST_PASSED = 20;
+
     function deal(board) {
         const due = store.duePool(state.selectedSetId, state.allowEarly)
             .map(item => ({ item, phrase: phraseOf(item) }))
@@ -585,47 +654,52 @@ function search(container) {
 
         if (due.length > 1) {
             let at = 0;
-            due.forEach((x, i) => { if (longestOf(x.phrase) > longestOf(due[at].phrase)) at = i; });
+            due.forEach((x, i) => { if (lengthOf(x.phrase) > lengthOf(due[at].phrase)) at = i; });
             due.unshift(due.splice(at, 1)[0]);
         }
 
-        const width = widthOf(board);
-        const mostCols = Math.max(1, Math.floor(width / MIN_CELL));
-
         let chosen = [];
-        let grid = null;
+        let lay = null;
+        let passed = 0;
 
         for (const next of due) {
-            if (chosen.length >= MOST_PHRASES) break;
+            if (chosen.length >= MOST_PHRASES || passed >= MOST_PASSED) break;
 
             const trial = chosen.concat([next]);
             const phrases = trial.map(x => x.phrase);
-            const room = roomBelow(board) - boardHeight(board, phrases, trial.map(x => x.item), MIN_FONT) - GRID_GAP;
-            const mostRows = Math.floor(room / MIN_CELL);
+            let laid = null;
 
-            let laid = mostRows >= 1 ? layOut(phrases, mostCols, mostRows) : null;
+            if (!lay) {
+                for (let side = GRID_SIDE; !laid && side <= GRID_SIDE * 4; side++) laid = layOut(phrases, side);
+            } else if (lengthOf(next.phrase) <= freeIn(lay)) {
+                laid = layMore(lay, phrases, chosen.length);
 
-            if (!laid && !chosen.length) {
-                const side = Math.max(longestOf(next.phrase), mostCols, mostRows, 1);
-                for (let grow = 0; !laid && grow < 30; grow++) laid = layOut(phrases, side + grow, Math.max(mostRows, side) + grow);
+                if (laid) {
+                    const room = roomBelow(board) - boardHeight(board, phrases, trial.map(x => x.item), MIN_FONT) - GRID_GAP;
+                    if (room < laid.rows * MIN_CELL) laid = null;
+                }
             }
 
-            if (!laid) continue;
+            if (!laid) {
+                passed++;
+                continue;
+            }
 
             chosen = trial;
-            grid = laid;
+            lay = laid;
+            passed = 0;
         }
 
         state.sessionPool = chosen.map(x => x.item);
         state.phrases = chosen.map(x => x.phrase);
-        state.grid = grid ? { rows: grid.rows, cols: grid.cols, cells: fill(grid.cells) } : null;
+        state.grid = lay ? { rows: lay.rows, cols: lay.cols, cells: fill(lettersIn(lay, state.phrases)) } : null;
         state.sessionResults = chosen.map(() => null);
         state.found = chosen.map(() => 0);
         state.peeked = chosen.map(() => null);
         state.shown = chosen.map(x => x.phrase.tokens.map(() => false));
         state.struck = chosen.map(() => false);
         state.missed = chosen.map(() => false);
-        state.lines = [];
+        state.paths = [];
         state.asking = null;
         state.ordered = chosen.length > 0 && chosen.every(x => x.phrase.stage >= ORDERED_FROM);
 
@@ -780,7 +854,7 @@ function search(container) {
     }
 
     /*
-     * The grid: letters on cells ten units square, the lines found under
+     * The grid: letters on cells ten units square, the words found under
      * them. Raw input, the whole of it, so the analytics leave it alone
      * (data-untracked, as Snake's d-pad).
      */
@@ -790,8 +864,11 @@ function search(container) {
         return `${at[1] * 10 + 5},${at[0] * 10 + 5}`;
     }
 
-    function lineHtml(line, colour, cls) {
-        return `<polyline class="${cls || 'search-line'}" points="${lineXY(line.from)} ${lineXY(line.to)}" stroke="${colour}" opacity="${LINE_OPACITY}" />`;
+    // A path through cells as a polyline's points; a path of one cell, a dot
+    const pointsOf = (cells) => (cells.length > 1 ? cells : [cells[0], cells[0]]).map(lineXY).join(' ');
+
+    function lineHtml(path, colour, cls) {
+        return `<polyline class="${cls || 'search-line'}" points="${pointsOf(path.cells)}" stroke="${colour}" opacity="${LINE_OPACITY}" />`;
     }
 
     function drawGrid() {
@@ -799,8 +876,8 @@ function search(container) {
         const cell = fitted.cell;
 
         gridHost.innerHTML = `<svg class="search-grid" data-untracked viewBox="0 0 ${cols * 10} ${rows * 10}" width="${+(cols * cell).toFixed(2)}" height="${+(rows * cell).toFixed(2)}" style="display: block; box-sizing: border-box; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: ${+(cell * 0.3).toFixed(2)}px; cursor: pointer; overflow: hidden;">
-            <g class="search-lines" fill="none" stroke-linecap="round" stroke-width="7.2">
-                ${state.lines.map(l => lineHtml(l, LINE_COLOURS[l.phrase % LINE_COLOURS.length])).join('')}
+            <g class="search-lines" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7.2">
+                ${state.paths.map(p => lineHtml(p, LINE_COLOURS[p.phrase % LINE_COLOURS.length])).join('')}
             </g>
             <g class="search-letters" font-size="5.4" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${palette.ink}" style="pointer-events: none;">
                 ${cells.map((ch, k) => `<text x="${(k % cols) * 10 + 5}" y="${Math.floor(k / cols) * 10 + 5.3}">${escapeText(ch)}</text>`).join('')}
@@ -811,7 +888,7 @@ function search(container) {
         bindGrid();
     }
 
-    /* ------------------------------------------------------------- drawing */
+    /* ------------------------------------------------------------- tracing */
 
     let drag = null;
 
@@ -825,51 +902,63 @@ function search(container) {
     }
 
     const inside = (r, c) => r >= 0 && c >= 0 && r < state.grid.rows && c < state.grid.cols;
+    const same = (a, b) => a[0] === b[0] && a[1] === b[1];
 
     /*
-     * The line from where it was started toward the pointer, held to the
-     * eight ways a word can run: the nearest of them by angle, as long as the
-     * pointer has gone along it, and stopped at the grid's edge.
+     * The trace: the cells the finger has gone through, one after another.
+     * A cell is entered when the pointer comes within INNER of its middle
+     * rather than over its edge, so that a finger going past a corner does
+     * not take the cell beside it, and one resting on an edge does not
+     * flicker between two. Going back into the cell before takes the last
+     * step back; a cell the trace already holds is not entered again.
      *
-     * By angle rather than searchlines' "only when the pointer stands exactly
-     * on a row, a column or a diagonal": a finger is never exactly anywhere,
-     * and a line that refuses to follow it until it is reads as stuck.
+     * Across a corner only while a word of the run may step that way (see
+     * DIAGONAL_FROM), and then only when the finger kept further than CORNER
+     * from both cells beside it: a bend, as a finger draws one, is round and
+     * cuts its corner. Otherwise the trace goes round the corner, through
+     * whichever of the two the finger came nearer. A finger quick enough to
+     * jump cells gets the ones between.
+     *
+     * Round through a cell the trace already holds -- back, that is -- only
+     * when the finger plainly went nearer it, by BACK_BIAS: a fast finger
+     * leaves no points near either cell, and a step across a corner is then
+     * a step on, not back over the word (found by tracing "hola" round its
+     * bend in two moves, 8 November 2026).
      */
-    function snap(from, point) {
-        const dr = point[0] - from[0];
-        const dc = point[1] - from[1];
-        if (Math.abs(dr) < 0.5 && Math.abs(dc) < 0.5) return from;
+    const INNER = 0.45;
+    const CORNER = 0.6;
+    const BACK_BIAS = 0.15;
 
-        const k = Math.round(Math.atan2(dr, dc) / (Math.PI / 4));
-        const sr = Math.round(Math.sin(k * Math.PI / 4));
-        const sc = Math.round(Math.cos(k * Math.PI / 4));
+    const slanting = () => state.phrases.some((p, i) => !state.struck[i] && p.stage >= DIAGONAL_FROM);
 
-        let n = Math.round(sr && sc ? (Math.abs(dr) + Math.abs(dc)) / 2 : Math.max(Math.abs(dr), Math.abs(dc)));
-        while (n > 0 && !inside(from[0] + sr * n, from[1] + sc * n)) n--;
+    // The next cell of the trace on its way to `to`
+    function stepToward(to) {
+        const at = drag.cells[drag.cells.length - 1];
+        const dr = Math.sign(to[0] - at[0]);
+        const dc = Math.sign(to[1] - at[1]);
+        if (!dr || !dc) return [at[0] + dr, at[1] + dc];
 
-        return [from[0] + sr * n, from[1] + sc * n];
-    }
+        const nearest = (cell) => Math.min(...drag.trail.map(p => Math.hypot(p[0] - cell[0], p[1] - cell[1])));
+        const cost = (cell) => nearest(cell) + (drag.cells.some(c => same(c, cell)) ? BACK_BIAS : 0);
 
-    function lettersAlong(from, to) {
-        const dr = Math.sign(to[0] - from[0]);
-        const dc = Math.sign(to[1] - from[1]);
-        const len = Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1])) + 1;
-        const { cols, cells } = state.grid;
+        const down = [at[0] + dr, at[1]];
+        const across = [at[0], at[1] + dc];
 
-        return Array.from({ length: len }, (_, i) => cells[(from[0] + dr * i) * cols + from[1] + dc * i]);
+        if (drag.slant && Math.min(nearest(down), nearest(across)) > CORNER) return [at[0] + dr, at[1] + dc];
+        return cost(down) <= cost(across) ? down : across;
     }
 
     /*
-     * Which word the line spells, if any: the next unfound word of a phrase
+     * Which word the trace spells, if any: the next unfound word of a phrase
      * not yet done -- the words of a phrase are found in their order, as in
-     * searchlines -- read either way along the line, since a word laid
-     * backwards is drawn from whichever end the eye found first. A phrase
-     * already begun is preferred, and in an ordered run only the phrase the
-     * order is at counts.
+     * searchlines -- read either way along it, since a snake is traced from
+     * whichever end the eye found first. A phrase already begun is preferred,
+     * and in an ordered run only the phrase the order is at counts.
      *
-     * Any line that spells the word counts, not only the one it was laid
+     * Any trace that spells the word counts, not only the snake it was laid
      * along: the filler can spell a word by chance, and finding it there is
-     * finding it.
+     * finding it. Nothing found is kept from being traced again, so a find
+     * in the wrong place never leaves a word that cannot be found.
      */
     function spelled(letters) {
         const forward = letters.join('');
@@ -901,10 +990,8 @@ function search(container) {
             e.preventDefault();
             try { svg.setPointerCapture(e.pointerId); } catch (err) { }
 
-            const el = $(svg.querySelector('.search-lines'), `<polyline class="search-drawn" points="${lineXY(from)} ${lineXY(from)}" stroke="${palette.drawing}" opacity="${LINE_OPACITY}" />`);
-            drag = { id: e.pointerId, from, to: from, el };
-
-            follow(point);
+            const el = $(svg.querySelector('.search-lines'), `<polyline class="search-drawn" points="${pointsOf([from])}" stroke="${palette.drawing}" opacity="${LINE_OPACITY}" />`);
+            drag = { id: e.pointerId, cells: [from], trail: [point], slant: slanting(), el };
         });
 
         svg.addEventListener('pointermove', (e) => {
@@ -914,11 +1001,12 @@ function search(container) {
 
         const end = (e) => {
             if (!drag || drag.id !== e.pointerId) return;
+            if (e.type === 'pointerup' && check(true)) return;
 
             const el = drag.el;
             drag = null;
 
-            // Not a word: the line fades where it was drawn
+            // Not a word: the trace fades where it was drawn
             el.animate([{ opacity: LINE_OPACITY }, { opacity: 0 }], { duration: 220, easing: 'ease-out' }).finished
                 .catch(() => null).then(() => el.remove());
         };
@@ -927,36 +1015,65 @@ function search(container) {
         svg.addEventListener('pointercancel', end);
     }
 
-    /*
-     * The line follows the pointer, and the moment it spells a word it is
-     * that word's: it takes the word's colour and stays, whatever the finger
-     * does next -- searchlines' rule, which is what makes a find feel like one.
-     */
     function follow(point) {
-        const to = snap(drag.from, point);
+        drag.trail.push(point);
 
-        if (to[0] !== drag.to[0] || to[1] !== drag.to[1] || to === drag.from) {
-            drag.to = to;
-            drag.el.setAttribute('points', `${lineXY(drag.from)} ${lineXY(to)}`);
+        const to = [Math.round(point[0]), Math.round(point[1])];
+        if (!inside(to[0], to[1]) || Math.hypot(point[0] - to[0], point[1] - to[1]) > INNER) return;
+
+        const cells = drag.cells;
+        let moved = false;
+
+        // Each step closer to `to`, back or on, so this ends
+        while (!same(cells[cells.length - 1], to)) {
+            const next = stepToward(to);
+
+            if (cells.length > 1 && same(next, cells[cells.length - 2])) cells.pop();
+            else if (cells.some(c => same(c, next))) break;
+            else cells.push(next);
+
+            moved = true;
+            drag.trail = [point];
         }
 
-        const hit = spelled(lettersAlong(drag.from, drag.to));
-        if (!hit) return;
+        if (!moved) return;
 
-        const line = { phrase: hit.phrase, token: hit.token, from: drag.from, to: drag.to };
+        drag.el.setAttribute('points', pointsOf(cells));
+        check();
+    }
+
+    /*
+     * The moment the trace spells a word it is that word's: it takes the
+     * word's colour and stays, whatever the finger does next -- searchlines'
+     * rule, which is what makes a find feel like one.
+     *
+     * Except a trace of one cell, which is a word only when the finger is
+     * `lifted` there. Taken at once, the "a" of "a la derecha" was found by
+     * every press on an A, and took the trace of "abierto" from its first
+     * cell (8 November 2026).
+     */
+    function check(lifted) {
+        if (drag.cells.length < 2 && !lifted) return false;
+
+        const { cols, cells } = state.grid;
+        const hit = spelled(drag.cells.map(([r, c]) => cells[r * cols + c]));
+        if (!hit) return false;
+
+        const path = { phrase: hit.phrase, token: hit.token, cells: drag.cells.slice() };
         drag.el.remove();
         drag = null;
 
-        found(line);
+        found(path);
+        return true;
     }
 
-    function found(line) {
-        const i = line.phrase;
+    function found(path) {
+        const i = path.phrase;
 
-        state.lines.push(line);
+        state.paths.push(path);
         state.found[i] += 1;
 
-        $(svg.querySelector('.search-lines'), lineHtml(line, LINE_COLOURS[i % LINE_COLOURS.length]));
+        $(svg.querySelector('.search-lines'), lineHtml(path, LINE_COLOURS[i % LINE_COLOURS.length]));
 
         drawBoard();
         refreshDots();
@@ -1151,7 +1268,7 @@ function search(container) {
         } else {
             state.missed[i] = true;
             state.found[i] = 0;
-            state.lines = state.lines.filter(l => l.phrase !== i);
+            state.paths = state.paths.filter(p => p.phrase !== i);
             drawGrid();
             drawBoard();
             refreshDots();
@@ -1313,7 +1430,7 @@ function search(container) {
         phrases: state.phrases,
         grid: state.grid,
         found: state.found,
-        lines: state.lines,
+        paths: state.paths,
         peeked: state.peeked,
         shown: state.shown,
         struck: state.struck,
