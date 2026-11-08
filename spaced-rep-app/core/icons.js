@@ -59,7 +59,8 @@
  * so its tile, last in every set's row, starts nothing: it is an outline, and
  * a press on it says "Coming soon". It is temporary by nature: it comes off
  * in the commit that adds the game's page. `wordcraft` wore it until exactly
- * that commit.
+ * that commit, and `search` (Word search) until 8 November 2026; no game
+ * wears it now, and the catalog's handling of it stays for the next one.
  *
  * There were two more until 29 October 2026, when every game went on every
  * set's row and the "All games" dialog went: `away`, which kept a game off

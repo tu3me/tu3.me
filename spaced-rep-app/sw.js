@@ -11,7 +11,7 @@
  * what makes the app instant offline — and what would serve stale code if the
  * name were left to a person to remember.
  */
-const CACHE = 'spaced-repetition-app-f937e9c5';
+const CACHE = 'spaced-repetition-app-d1ca994b';
 
 // Every file the app needs to start with no network. A new game means its
 // lines here -- the page, the game and its icon.js -- alongside its line in
@@ -53,6 +53,8 @@ const SHELL = [
     'snake',
     'snake/snake.js',
     'snake/icon.js',
+    'search',
+    'search/search.js',
     'search/icon.js',
     'icons/icon-192.png',
     'icons/icon-512.png'
