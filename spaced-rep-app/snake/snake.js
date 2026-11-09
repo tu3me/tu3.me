@@ -1928,21 +1928,27 @@ function snake(container) {
         const HEARTS_SPAN = 1600;
         const BANNER_BEAT = 1600;
 
-        // How long the hand stays on one of the two buttons before it goes to
-        // the other: one nudge of it -- see hand-nudge in app.css
-        const CHOICE_TURN = 1500;
+        /*
+         * How long the hand stays on one of the two buttons before it goes to
+         * the other, and its nudge (hand-nudge in app.css) made to fit in it:
+         * the two blink in turn, as a language picked twice does in the
+         * catalog -- the owner's call, 9 November 2026. It was 1500, the
+         * nudge's own length, from 3 November.
+         */
+        const CHOICE_TURN = 300;
 
         /*
          * How see-through a prize short of full stands in the row, from and
          * to as it flickers, and how long one flicker takes: down once and up
-         * once, evenly, in the time the hand stays on a button -- the row
-         * keeps one beat. It went down twice in a beat of 1700, a deep dip and
-         * a shallow one, and read as blinking in pairs; then once in 2400; then
-         * in step with the hand (the owner, all on 3 November 2026).
+         * once, evenly. It went down twice in a beat of 1700, a deep dip and a
+         * shallow one, and read as blinking in pairs; then once in 2400; then
+         * in step with the hand, 1500 (the owner, all on 3 November 2026). The
+         * hand went to 300 on 9 November and the flicker stayed: five of the
+         * hand's turns, still on its beat, where one of them would be a strobe.
          */
         const DIM_LOW = 0.25;
         const DIM_HIGH = 0.6;
-        const DIM_BEAT = CHOICE_TURN;
+        const DIM_BEAT = CHOICE_TURN * 5;
 
         // The two buttons, one either end of the row: the same size and the
         // same coral, so that the row stands even about the prizes -- the
@@ -2756,7 +2762,8 @@ function snake(container) {
                 const point = () => {
                     if (mine !== showing) return;
 
-                    pointingHand.at(turn % 2 ? grow : back, { into: host, size: HINT_HAND });
+                    const hand = pointingHand.at(turn % 2 ? grow : back, { into: host, size: HINT_HAND });
+                    if (hand) hand.style.animationDuration = `${CHOICE_TURN}ms`;
                     turn += 1;
                     wait(CHOICE_TURN).then(point);
                 };
@@ -4725,7 +4732,7 @@ function snake(container) {
             // Nothing was heard — no voice for this, or the sound is off — so
             // there is nothing to wait behind and the rest follows at once. The
             // mark still stands its minimum: see MARK_LEAST.
-            if (!speech.say(said.text, sayLang, after)) after();
+            if (!speech.say(said.text, sayLang, after, false, said.volume)) after();
         };
 
         next();
@@ -4780,16 +4787,20 @@ function snake(container) {
         // Each of the three can be switched off in the settings -- the owner's
         // call, 9 November 2026 -- see saysOn. A line of one word says its
         // word at the end, as the line: switched on as either.
-        if (!alone && saysOn('Letter') && worthSaying(letters[index])) {
-            queue.push({ text: letters[index], paint: () => view.sayLetter(index, spoken ? spoken.place : 0) });
+        if (!alone && saysAt('Letter') && worthSaying(letters[index])) {
+            queue.push({ text: letters[index], volume: saysHow('Letter'), paint: () => view.sayLetter(index, spoken ? spoken.place : 0) });
         }
 
-        if (closed && isPhrase && saysOn('Word') && worthSaying(word)) {
-            queue.push({ text: word, paint: () => view.sayWords([spoken]) });
+        if (closed && isPhrase && saysAt('Word') && worthSaying(word)) {
+            queue.push({ text: word, volume: saysHow('Word'), paint: () => view.sayWords([spoken]) });
         }
 
-        if (atEnd && (isPhrase ? saysOn('Phrase') : saysOn('Word') || saysOn('Phrase')) && worthSaying(phrase)) {
-            queue.push({ text: phrase.toLowerCase(), paint: () => view.sayWords(words) });
+        // A line of one word as loud as the louder of the two it is said as
+        const lineAt = isPhrase ? (saysAt('Phrase') ? saysHow('Phrase') : 0)
+            : Math.max(saysAt('Word') ? saysHow('Word') : 0, saysAt('Phrase') ? saysHow('Phrase') : 0);
+
+        if (atEnd && lineAt && worthSaying(phrase)) {
+            queue.push({ text: phrase.toLowerCase(), volume: lineAt, paint: () => view.sayWords(words) });
         }
 
         sayInTurn(queue, whenDone);
@@ -4804,11 +4815,21 @@ function snake(container) {
      */
     const saysOn = (what) => page.setting('snakeSay' + what, true);
 
+    // And how loud, 0.05 to 1, from the slider each of the three is (the
+    // owner's call, 9 November 2026): never silent, quiet is the switch's job
+    const saysHow = (what) => Math.max(0.05, page.setting('snakeSay' + what + 'Volume', 1));
+    const saysAt = (what) => saysOn(what);
+
     function settingsLines() {
         const says = (name, what, label) => ({
             name, label,
+            sound: true,
             on: () => saysOn(what),
-            set: (value) => page.saveSetting('snakeSay' + what, value)
+            set: (value) => page.saveSetting('snakeSay' + what, value),
+            volume: {
+                get: () => saysHow(what),
+                set: (value) => page.saveSetting('snakeSay' + what + 'Volume', value)
+            }
         });
 
         return [

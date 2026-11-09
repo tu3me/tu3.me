@@ -708,7 +708,7 @@ function speech() {
             // "yes" while the voice list was still empty, and the list that
             // finally arrived may have nothing for this language — the caller
             // was told it would be said, so it has to be told that it was not.
-            if (word && !speak(word.text, word.lang, word.done, word.asked, word.since)) {
+            if (word && !speak(word.text, word.lang, word.done, word.asked, word.since, word.volume)) {
                 stopWaves();
                 if (word.done) word.done();
             }
@@ -1250,7 +1250,7 @@ function speech() {
 
     // `since` for a word that waited for the voice list: the wait is the
     // person's from the moment they asked, the list's arrival included.
-    function speak(text, lang, whenDone, asked, since) {
+    function speak(text, lang, whenDone, asked, since, volume) {
         const voice = voiceOf(text, lang);
 
         // Counted rather than written each time: a missing voice is missing
@@ -1270,6 +1270,10 @@ function speech() {
         line.lang = voice.lang;
         line.rate = again.rate;
         line.pitch = again.pitch;
+
+        // How loud, where the caller says: the snake's narration, by the
+        // sliders in its settings
+        if (typeof volume === 'number') line.volume = Math.max(0, Math.min(1, volume));
 
         // Whatever was being said is over as of this line, whoever was waiting
         // on it included.
@@ -1460,7 +1464,7 @@ function speech() {
      * The analytics hear it, though, counted like a missing voice -- what the
      * switch kept quiet, which since `asked` is never a speaker.
      */
-    speech.say = (text, lang, whenDone, asked) => {
+    speech.say = (text, lang, whenDone, asked, volume) => {
         if (!text || !speech.available()) return false;
 
         if (muted && !asked) {
@@ -1476,13 +1480,13 @@ function speech() {
             }
 
             letGo(false);
-            held = { text: text, lang: lang, done: whenDone, asked: asked, since: performance.now() };
+            held = { text: text, lang: lang, done: whenDone, asked: asked, since: performance.now(), volume: volume };
             awaitVoice(asked);
             whenVoicesArrive();
             return true;
         }
 
-        return speak(text, lang, whenDone, asked);
+        return speak(text, lang, whenDone, asked, undefined, volume);
     };
 
     speech.hush = () => {

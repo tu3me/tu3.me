@@ -166,17 +166,146 @@ function page() {
         };
     }
 
-    // One of the game's switches: its name, and a track with the knob at
-    // the end it stands at
-    function lineHtml(line, c) {
-        const on = !!line.on();
+    /*
+     * Whether a line is on as it is shown. A line of sound (`sound`) is off
+     * with all the app's sound off -- the switch in the catalog's settings and
+     * at the head of this panel (speech.mute) -- whatever it says itself: the
+     * owner's call, 9 November 2026. Switched on then, it switches the app's
+     * sound back on with it -- see wirePanel.
+     */
+    const shownOn = (line) => !(line.sound && speech.muted()) && !!line.on();
 
-        return `<button class="game-setting" data-press="${line.name}" aria-pressed="${on}" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; width: 100%; box-sizing: border-box; margin-top: 5.1px; padding: 6.8px 8.5px; background: transparent; border: 1px solid ${c.edge}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${c.ink}; text-align: left; cursor: pointer;">
-            <span>${line.label}</span>
-            <span aria-hidden="true" style="position: relative; display: block; flex: none; width: 29px; height: 17px; border-radius: 8.5px; background: ${on ? c.lit : c.track}; transition: background 0.15s;">
-                <span style="position: absolute; top: 2px; left: ${on ? 14 : 2}px; width: 13px; height: 13px; border-radius: 50%; background: #ffffff; transition: left 0.15s;"></span>
-            </span>
-        </button>`;
+    // A track with the knob at the end it stands at
+    const switchHtml = (on, c) => `<span aria-hidden="true" style="position: relative; display: block; flex: none; width: 29px; height: 17px; border-radius: 8.5px; background: ${on ? c.lit : c.track}; transition: background 0.15s;">
+            <span style="position: absolute; top: 2px; left: ${on ? 14 : 2}px; width: 13px; height: 13px; border-radius: 50%; background: #ffffff; transition: left 0.15s;"></span>
+        </span>`;
+
+    /*
+     * One of the switches: its name, and the switch. A line that has a
+     * loudness (`volume`) is a slider as well -- the owner's call, 9 November
+     * 2026: its ground in two colours, the part from its left edge as loud
+     * as it is, and the boundary dragged anywhere from that edge to a rule
+     * standing up before the switch -- the switch as far from the rule as
+     * from the line's right edge (the owner's, the same evening; until then
+     * the boundary went as far as the switch itself). No figure: how loud is
+     * heard, not read. The switch is a button of its own inside it, so a
+     * press on it switches and never slides.
+     */
+    function lineHtml(line, c) {
+        const on = shownOn(line);
+        const row = `display: flex; justify-content: space-between; align-items: center; gap: 10.2px; width: 100%; box-sizing: border-box; margin-top: 5.1px; padding: 6.8px 8.5px; border: 1px solid ${c.edge}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${c.ink}; text-align: left;`;
+
+        if (!line.volume) {
+            return `<button class="game-setting" data-press="${line.name}" aria-pressed="${on}" style="${row} background: transparent; cursor: pointer;">
+                <span>${line.label}</span>
+                ${switchHtml(on, c)}
+            </button>`;
+        }
+
+        const level = Math.round(line.volume.get() * 100);
+
+        return `<div class="game-volume" data-name="${line.name}" role="slider" tabindex="0" aria-label="${line.label}, volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${level}" style="${row} gap: 0; position: relative; cursor: ew-resize; touch-action: none; user-select: none; -webkit-user-select: none;">
+            <span style="flex: 1; min-width: 0; pointer-events: none;">${line.label}</span>
+            <span class="game-volume-rule" aria-hidden="true" style="align-self: stretch; flex: none; width: 1px; margin: -6.8px ${SWITCH_AIR}px -6.8px 10.2px; background: ${c.edge}; pointer-events: none;"></span>
+            <button class="game-setting" data-press="${line.name}" aria-pressed="${on}" title="${on ? 'On' : 'Off'}" style="display: block; flex: none; padding: 0; background: transparent; border: none; cursor: pointer;">${switchHtml(on, c)}</button>
+        </div>`;
+    }
+
+    /*
+     * The least a slider goes down to: 5%, so that a sliver of it is always
+     * there to be seen and taken hold of -- the owner's call, 9 November
+     * 2026. Quiet is the switch's job.
+     */
+    const LEAST_LEVEL = 0.05;
+
+    const levelIn = (level) => Math.max(LEAST_LEVEL, Math.min(1, level));
+
+    // The air either side of a slider's switch: the line's own padding on the
+    // right, and the same between the switch and the rule on the left
+    const SWITCH_AIR = 8.5;
+
+    // A colour of the tokens, #rrggbb, at `alpha`
+    function fade(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    /*
+     * The slider's ground, `level` of the way from its left edge to the rule
+     * before the switch: the switch's colour, faint, while it is on, the
+     * quiet ink's while it is off. In pixels from the measured rule, which is
+     * where the owner put the far end.
+     */
+    function paintLevel(slider, level, on) {
+        const c = colours();
+        const end = slider.querySelector('.game-volume-rule').offsetLeft;
+        const x = Math.round(level * end * 10) / 10;
+        const fill = on ? fade(c.lit, 0.3) : fade(c.quiet, 0.22);
+
+        slider.style.background = `linear-gradient(to right, ${fill} ${x}px, transparent ${x}px)`;
+        slider.setAttribute('aria-valuenow', Math.round(level * 100));
+    }
+
+    // Dragged, pressed, or moved by the arrows a tenth at a time; told to
+    // the line, and to the analytics, once let go
+    function wireSlider(slider, line) {
+        const rule = slider.querySelector('.game-volume-rule');
+        let level = levelIn(line.volume.get());
+
+        const on = () => shownOn(line);
+
+        // From the inside of the line's border, where its ground starts
+        const at = (x) => {
+            const box = slider.getBoundingClientRect();
+            const from = box.left + slider.clientLeft * (box.width / slider.offsetWidth);
+            const end = rule.getBoundingClientRect().left - from;
+            return levelIn((x - from) / Math.max(1, end));
+        };
+
+        const settle = () => {
+            line.volume.set(level);
+            track('setting', `${line.name}_volume`, level.toFixed(2), gameId);
+        };
+
+        paintLevel(slider, level, on());
+
+        slider.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.game-setting')) return;
+
+            e.preventDefault();
+            try { slider.setPointerCapture(e.pointerId); } catch (err) { }
+
+            level = at(e.clientX);
+            paintLevel(slider, level, on());
+
+            const move = (ev) => {
+                if (ev.pointerId !== e.pointerId) return;
+                level = at(ev.clientX);
+                paintLevel(slider, level, on());
+            };
+
+            const up = (ev) => {
+                if (ev.pointerId !== e.pointerId) return;
+                slider.removeEventListener('pointermove', move);
+                slider.removeEventListener('pointerup', up);
+                slider.removeEventListener('pointercancel', up);
+                settle();
+            };
+
+            slider.addEventListener('pointermove', move);
+            slider.addEventListener('pointerup', up);
+            slider.addEventListener('pointercancel', up);
+        });
+
+        slider.addEventListener('keydown', (e) => {
+            const by = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 0.1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -0.1 : 0;
+            if (!by) return;
+
+            e.preventDefault();
+            level = levelIn(Math.round((level + by) * 10) / 10);
+            paintLevel(slider, level, on());
+            settle();
+        });
     }
 
     // Every line of the panel: the sound effects first, then the game's own
@@ -184,6 +313,7 @@ function page() {
         return [{
             name: 'effects',
             label: 'Sound effects',
+            sound: true,
             on: () => sfx.on(),
             set: (value) => {
                 sfx.enable(value);
@@ -191,6 +321,16 @@ function page() {
 
                 // Heard, switched on: the switch answers in the voice it is for
                 if (value) sfx.chime(0);
+            },
+            volume: {
+                get: () => sfx.volume(),
+                set: (value) => {
+                    sfx.setVolume(value);
+                    page.saveSetting('effectsVolume', sfx.volume());
+
+                    // And heard at the loudness it was left at
+                    sfx.chime(0);
+                }
             }
         }].concat(gameLines);
     }
@@ -237,8 +377,13 @@ function page() {
     function wirePanel(panel) {
         const lines = allLines();
 
+        panel.querySelectorAll('.game-volume').forEach(slider => {
+            const line = lines.find(l => l.name === slider.dataset.name);
+            if (line) wireSlider(slider, line);
+        });
+
         panel.querySelectorAll('.game-setting').forEach(el => {
-            el.addEventListener('click', () => {
+            el.addEventListener('click', async () => {
                 const name = el.dataset.press;
 
                 if (name === 'theme') return switchTheme();
@@ -246,7 +391,19 @@ function page() {
                 const line = lines.find(l => l.name === name);
                 if (!line) return;
 
-                const value = !line.on();
+                const value = !shownOn(line);
+
+                // A line of sound switched on under all the app's sound off
+                // switches that back on first -- see shownOn. Written before
+                // the line's own setting and not beside it: two writes of the
+                // one record at once and the second puts back what the first
+                // took out (see saveSetting)
+                if (value && line.sound && speech.muted()) {
+                    speech.mute(false);
+                    track('sound', 'on', 'game');
+                    await saveSetting('muted', false);
+                }
+
                 line.set(value);
                 track('setting', name, value ? 'on' : 'off', gameId);
                 drawPanel();
@@ -503,6 +660,7 @@ async function bootGame(id, module) {
     // The sound effects, on unless switched off -- see sfx.js -- and the rest
     // of the record kept for the games' own settings (page.setting)
     sfx.enable(!(settings && settings.effects === false));
+    sfx.setVolume(settings && typeof settings.effectsVolume === 'number' ? settings.effectsVolume : sfx.VOLUME);
     page.useSettings(settings);
 
     await store.load();

@@ -2697,6 +2697,10 @@ function catalog(container) {
         const overlay = container.querySelector('.dict-settings-overlay');
         stopWatching();
 
+        // The reader's own language among those learned goes as the panel
+        // does -- see blinkSame. Nothing to save: it was never saved
+        learnLangs = learnedReally();
+
         if (!overlay) {
             settingsOpen = false;
             fillLearnLangs();
@@ -2743,10 +2747,15 @@ function catalog(container) {
      */
     let learnEmptied = false;
 
-    function saveLearnLangs() {
-        learnEmptied = !learnLangs.length;
+    // Without the reader's own language, which can stand on the list on the
+    // screen only -- see blinkSame
+    const learnedReally = () => learnLangs.filter(tag => tag !== shownMyLang());
 
-        return saveSetting('learnLangs', learnEmptied ? [defaultLearn(shownMyLang())] : learnLangs);
+    function saveLearnLangs() {
+        const learned = learnedReally();
+        learnEmptied = !learned.length;
+
+        return saveSetting('learnLangs', learnEmptied ? [defaultLearn(shownMyLang())] : learned);
     }
 
     function fillLearnLangs() {
@@ -3234,6 +3243,53 @@ function catalog(container) {
     }
 
     /*
+     * The reader's own language picked among those to learn -- the owner's
+     * call, 9 November 2026. Until then the list to learn left it out, and a
+     * reader looking for it there did not find it and could not tell why. Now
+     * the list is whole, and the language picked twice stays on the screen:
+     * its field under "Your language" and its chip under "Languages to learn"
+     * blink red in turn, SAME_BLINK each, until one of them is changed. Left
+     * as it is, it goes on the way out -- Start on the first screen, the
+     * panel closing in the settings -- so what is kept is what was kept
+     * before: the reader's own language is never one being learned. Never
+     * saved either, and not told to the analytics: it is a mistake on the
+     * screen, not an answer.
+     *
+     * Red, the heart's, as on the snake's board: a colour no control of the
+     * catalog wears. Standing still with motion turned down.
+     */
+    const SAME_BLINK = 300;
+    const SAME_RED = '#e5364b';
+
+    function blinkSame(root, mineSelector, chipSelector) {
+        const mine = root.querySelector(mineSelector);
+        const chip = root.querySelector(chipSelector);
+        if (!mine || !chip) return;
+
+        const n = parseInt(SAME_RED.slice(1), 16);
+        const lit = { borderColor: SAME_RED, backgroundColor: `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.28)` };
+        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        [mine, chip].forEach((el, k) => {
+            const style = getComputedStyle(el);
+            const was = { borderColor: style.borderColor, backgroundColor: style.backgroundColor };
+
+            if (still) {
+                el.style.borderColor = lit.borderColor;
+                el.style.backgroundColor = lit.backgroundColor;
+                return;
+            }
+
+            el.animate([
+                { ...lit, offset: 0 },
+                { ...lit, offset: 0.5 },
+                { ...was, offset: 0.5 },
+                { ...was, offset: 1 }
+            ], { duration: SAME_BLINK * 2, iterations: Infinity, iterationStart: k * 0.5 });
+        });
+    }
+
+    /*
      * The two answers from the first screen, where they can be changed.
      *
      * Here and not on a screen of their own, because after the first run they
@@ -3268,7 +3324,7 @@ function catalog(container) {
                 .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
                 .join('');
 
-        const chip = (tag) => `<span style="display: inline-flex; align-items: center; gap: 3.4px; padding: 2.6px 3.4px 2.6px 6.8px; background: ${palette.cardBg}; color: ${palette.dialogText}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 11.3px; font-weight: 600;">
+        const chip = (tag) => `<span class="dict-lang-chip" data-tag="${tag}" style="display: inline-flex; align-items: center; gap: 3.4px; padding: 2.6px 3.4px 2.6px 6.8px; background: ${palette.cardBg}; color: ${palette.dialogText}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 11.3px; font-weight: 600;">
                 ${languageName(tag)}
                 <button class="dict-lang-drop" data-tag="${tag}" title="${tr('remove')}" style="display: inline-flex; align-items: center; justify-content: center; width: 13.7px; height: 13.7px; padding: 0; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer;">×</button>
             </span>`;
@@ -3301,7 +3357,7 @@ function catalog(container) {
 
                 <div style="margin-top: 8.5px;">${caption(tr('languagesToLearn'))}</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 3.4px; margin-bottom: ${learnLangs.length ? '3.4px' : '0'};">${learnLangs.map(chip).join('')}</div>
-                <select class="dict-learn-lang" style="${field}">${options(tr('addOne'), [mine].concat(learnLangs), null)}</select>`;
+                <select class="dict-learn-lang" style="${field}">${options(tr('addOne'), learnLangs, null)}</select>`;
     }
 
     /*
@@ -3518,6 +3574,8 @@ function catalog(container) {
         const panel = overlay.querySelector('.dict-settings-panel');
         const body = panel.querySelector('.dict-settings-body');
 
+        blinkSame(panel, '.dict-my-lang', `.dict-lang-chip[data-tag="${shownMyLang()}"]`);
+
         // Placed before anything is shown, because where it is placed is also
         // where it grows from: the button's own middle, in the panel's
         // coordinates — above its top edge, which a transform origin is allowed
@@ -3533,9 +3591,10 @@ function catalog(container) {
         // The panel is redrawn by the same render() the switch asks for, and it
         // stays open through it: the row comes back saying the other theme, over
         // a catalog that is already wearing it.
+        // A language that is also among those learned stays there, and the two
+        // blink until one of them is changed -- see blinkSame
         overlay.querySelector('.dict-my-lang').addEventListener('change', async (e) => {
             myLang = e.target.value;
-            learnLangs = learnLangs.filter(tag => tag !== myLang);
 
             await saveSetting('myLang', myLang);
             await saveLearnLangs();
@@ -3560,6 +3619,15 @@ function catalog(container) {
         overlay.querySelector('.dict-learn-lang').addEventListener('change', async (e) => {
             if (!e.target.value) return;
 
+            // The reader's own language picked to learn: on the list to be
+            // seen, and in nothing else -- not saved, not told to the
+            // analytics, no sets made -- until it goes; see blinkSame
+            if (e.target.value === shownMyLang()) {
+                learnLangs = learnLangs.concat(e.target.value);
+                render();
+                return;
+            }
+
             // The row above has been showing an inherited answer, and this is the
             // first moment anything depends on it. Written down now rather than
             // left standing: makeSets has nothing to read a set in without it,
@@ -3582,7 +3650,12 @@ function catalog(container) {
 
         overlay.querySelectorAll('.dict-lang-drop').forEach(button => {
             button.addEventListener('click', async () => {
+                const same = button.dataset.tag === shownMyLang();
                 learnLangs = learnLangs.filter(tag => tag !== button.dataset.tag);
+
+                // The reader's own language taken off: nothing had been
+                // saved or told -- see blinkSame
+                if (same) return render();
 
                 await saveLearnLangs();
                 await langsChanged('drop');
@@ -5691,7 +5764,7 @@ function catalog(container) {
 
         // Nothing to say when it was the interface that changed and not the pair:
         // that is an event of its own, see setUiLang.
-        if (how) track('langs', how, myLang, learnLangs);
+        if (how) track('langs', how, myLang, learnedReally());
 
         syncCatalog();
     }
@@ -5845,7 +5918,10 @@ function catalog(container) {
      * still two questions and a button.
      */
     function askLanguages(parent) {
-        const ready = picking.learn.length > 0;
+        // The reader's own language among those to learn does not count -- see
+        // blinkSame
+        const learning = picking.learn.filter(t => t !== picking.mine);
+        const ready = learning.length > 0;
 
         const options = (label, skip, chosenTag) => (label ? `<option value="">${label}</option>` : '')
             + CATALOG_CHOICES.concat(extra(picking.mine))
@@ -5904,7 +5980,7 @@ function catalog(container) {
 
             <div style="margin-top: 27.3px;">${caption(tr('languagesToLearn'))}</div>
             <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
-            <select class="dict-start-learn" style="${field}">${options(tr('addOne'), [picking.mine].concat(picking.learn), null)}</select>
+            <select class="dict-start-learn" style="${field}">${options(tr('addOne'), picking.learn, null)}</select>
 
             <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">${tr('startNote')}</div>
 
@@ -5921,7 +5997,7 @@ function catalog(container) {
         panel.querySelector('.dict-start-mine').addEventListener('change', (e) => {
             setUiLang(tr.forLang(e.target.value), 'follow');
 
-            picking = { mine: e.target.value, learn: picking.learn.filter(t => t !== e.target.value) };
+            picking = { mine: e.target.value, learn: picking.learn };
             mineChosen = true;
             render();
         });
@@ -5930,6 +6006,8 @@ function catalog(container) {
             setUiLang(e.target.value, 'pick');
             render();
         });
+
+        blinkSame(panel, '.dict-start-mine', `.dict-start-chip[data-tag="${picking.mine}"]`);
 
         panel.querySelector('.dict-start-learn').addEventListener('change', (e) => {
             if (!e.target.value) return;
@@ -5980,7 +6058,7 @@ function catalog(container) {
             if (!ready) return;
 
             myLang = picking.mine;
-            learnLangs = picking.learn;
+            learnLangs = learning;
             langsAsked = true;
 
             await saveSetting('myLang', myLang);

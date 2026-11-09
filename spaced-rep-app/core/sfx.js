@@ -23,18 +23,57 @@
 function sfx() {
     let on = true;
     let audio = null;
+    let out = null;
     let hiss = null;
 
     sfx.on = () => on;
     sfx.enable = (value) => { on = !!value; };
 
-    // The page's sound, or null when it is switched off or cannot be had
+    /*
+     * How loud, 0 to 1, from the slider the switch's line is in the games'
+     * settings (the owner's call, 9 November 2026): every sound's level is
+     * LOUDER times this much of what it was made at. VOLUME, the slider's
+     * place until somebody moves it, is where the two come to the level the
+     * sounds were made at -- the owner asked the same evening for room to go
+     * louder, the slider standing at 40% and sounding as before: 0.4 x 2.5.
+     * Nobody had moved the slider yet (it had not been published), so no
+     * level saved before needed turning down.
+     */
+    sfx.VOLUME = 0.4;
+    const LOUDER = 1 / sfx.VOLUME;
+
+    let volume = sfx.VOLUME;
+
+    sfx.volume = () => volume;
+    sfx.setVolume = (value) => { volume = Math.max(0, Math.min(1, +value || 0)); };
+
+    /*
+     * The page's sound, or null when it is switched off or cannot be had
+     * (the slider goes no lower than 5%: see LEAST_LEVEL in game-page.js). Off too with all the app's sound off -- the
+     * switch in the catalog's settings and at the head of the games' (see
+     * speech.mute), which is over this one: the owner's call, 9 November
+     * 2026.
+     */
     function sound() {
-        if (!on) return null;
+        if (!on || volume < 0.01) return null;
+        if (typeof speech !== 'undefined' && speech.muted()) return null;
 
         try {
             if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
             if (audio.state === 'suspended') audio.resume();
+
+            // Everything through a limiter on its way out: at the top of the
+            // slider a fanfare's notes and a gust together come past full
+            // scale, and a sound past it cracks. Below that it does nothing
+            if (!out) {
+                out = audio.createDynamicsCompressor();
+                out.threshold.value = -3;
+                out.knee.value = 6;
+                out.ratio.value = 12;
+                out.attack.value = 0.003;
+                out.release.value = 0.15;
+                out.connect(audio.destination);
+            }
         } catch (e) {
             return null;
         }
@@ -59,7 +98,7 @@ function sfx() {
     function swell(ctx, t, peak, top, end) {
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(peak, t + top);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * volume * LOUDER), t + top);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + end);
         return gain;
     }
@@ -81,7 +120,7 @@ function sfx() {
         band.frequency.exponentialRampToValueAtTime(700, t + d);
 
         const src = noise(ctx);
-        src.connect(band).connect(swell(ctx, t, loud || 0.16, d * 0.5, d)).connect(ctx.destination);
+        src.connect(band).connect(swell(ctx, t, loud || 0.16, d * 0.5, d)).connect(out);
         src.start(t);
         src.stop(t + d + 0.05);
     };
@@ -100,7 +139,7 @@ function sfx() {
         low.frequency.exponentialRampToValueAtTime(200, t + d);
 
         const src = noise(ctx);
-        src.connect(low).connect(swell(ctx, t, loud, 0.008, d)).connect(ctx.destination);
+        src.connect(low).connect(swell(ctx, t, loud, 0.008, d)).connect(out);
         src.start(t);
         src.stop(t + d + 0.05);
     };
@@ -116,7 +155,7 @@ function sfx() {
         osc.frequency.setValueAtTime(from, t);
         if (to !== from) osc.frequency.exponentialRampToValueAtTime(to, t + long);
 
-        osc.connect(swell(ctx, t, loud, 0.01, long)).connect(ctx.destination);
+        osc.connect(swell(ctx, t, loud, 0.01, long)).connect(out);
         osc.start(t);
         osc.stop(t + long + 0.05);
     };

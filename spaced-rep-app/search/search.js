@@ -1062,7 +1062,7 @@ function search(container) {
         const cell = fitted.cell;
 
         gridHost.innerHTML = `<svg class="search-grid" data-untracked viewBox="0 0 ${cols * 10} ${rows * 10}" width="${+(cols * cell).toFixed(2)}" height="${+(rows * cell).toFixed(2)}" style="display: block; box-sizing: border-box; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: ${+(cell * 0.3).toFixed(2)}px; cursor: pointer; overflow: hidden;">
-            <g class="search-lines">
+            <g class="search-lines" style="pointer-events: none;">
                 ${state.paths.map(p => marksGroup(p.cells, LINE_COLOURS[p.phrase % LINE_COLOURS.length], 'search-line', p.phrase, !!state.asking && state.asking.phrase === p.phrase)).join('')}
                 ${pick ? marksGroup(pick.cells, palette.drawing, 'search-drawn') : ''}
             </g>
@@ -1077,6 +1077,16 @@ function search(container) {
     }
 
     /* ------------------------------------------------------------- picking */
+
+    /*
+     * Nothing on the grid but the grid itself takes a press -- the letters
+     * and the marks are pointer-events: none -- so the press is always the
+     * svg's, wherever it lands. A mark under the finger was the target of a
+     * press on a picked cell, and setPick replaces the pick's marks at once:
+     * an old phone's browser lost the touch with the node it began on and
+     * cancelled it, and a second swipe from inside a pick never moved, the
+     * pick snapping back (found by the owner, 9 November 2026).
+     */
 
     /*
      * The cells picked and not yet a word: by a swipe, by taps one cell at a
