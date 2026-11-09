@@ -46,7 +46,11 @@ function search(container) {
      */
     const POPUP_MOST = 600;
 
-    // How many answers the question after a find offers: the quiz's numbers
+    // How many answers the question after a find offers: one more than the
+    // phrase's stage -- searchlines' stage wrong ones and the right one --
+    // two at the least and six at the most (the owner's call, 9 November
+    // 2026). Until then the quiz's, stage + 2: three on the first day after
+    // the word was met
     const LEAST_OPTIONS = 2;
     const MOST_OPTIONS = 6;
 
@@ -955,9 +959,40 @@ function search(container) {
     };
 
     // At half strength as a group, not each shape: the squares and the
-    // links over them would be darker where they overlap
-    function marksGroup(cells, colour, cls) {
-        return `<g class="${cls}" fill="${colour}" stroke="${colour}" opacity="${LINE_OPACITY}">${marksHtml(cells)}</g>`;
+    // links over them would be darker where they overlap. `phrase`, the
+    // phrase a found word's marks are of, and `hidden` while it is asked
+    // about -- see hideMarks
+    function marksGroup(cells, colour, cls, phrase, hidden) {
+        const of = phrase === undefined ? '' : ` data-phrase="${phrase}"`;
+        const gone = hidden ? ' style="opacity: 0;"' : '';
+        return `<g class="${cls}"${of} fill="${colour}" stroke="${colour}" opacity="${LINE_OPACITY}"${gone}>${marksHtml(cells)}</g>`;
+    }
+
+    /*
+     * A found phrase's marks on the grid: gone while it is asked about --
+     * its cells have flown up into the question (see comeIn) -- and back
+     * only for a right answer, as the question goes; a wrong one takes the
+     * finds off the grid, and the marks with them (the owner's call,
+     * 9 November 2026). Until then they were back under the veil as soon as
+     * the squares had gone.
+     *
+     * Kept by the run, not only by the page: drawn again while the question
+     * is up -- the popup opened again, the theme changed -- they are drawn
+     * gone (see drawGrid).
+     */
+    const MARKS_BACK = 400;
+
+    const phraseMarks = (i) => svg.querySelectorAll(`.search-line[data-phrase="${i}"]`);
+
+    function hideMarks(i) {
+        phraseMarks(i).forEach(g => { g.style.opacity = '0'; });
+    }
+
+    function showMarks(i) {
+        phraseMarks(i).forEach(g => {
+            g.style.opacity = '';
+            if (!still()) g.animate([{ opacity: 0 }, { opacity: LINE_OPACITY }], { duration: MARKS_BACK, easing: 'ease-out' });
+        });
     }
 
     function drawGrid() {
@@ -966,7 +1001,7 @@ function search(container) {
 
         gridHost.innerHTML = `<svg class="search-grid" data-untracked viewBox="0 0 ${cols * 10} ${rows * 10}" width="${+(cols * cell).toFixed(2)}" height="${+(rows * cell).toFixed(2)}" style="display: block; box-sizing: border-box; margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: ${+(cell * 0.3).toFixed(2)}px; cursor: pointer; overflow: hidden;">
             <g class="search-lines">
-                ${state.paths.map(p => marksGroup(p.cells, LINE_COLOURS[p.phrase % LINE_COLOURS.length], 'search-line')).join('')}
+                ${state.paths.map(p => marksGroup(p.cells, LINE_COLOURS[p.phrase % LINE_COLOURS.length], 'search-line', p.phrase, !!state.asking && state.asking.phrase === p.phrase)).join('')}
                 ${pick ? marksGroup(pick.cells, palette.drawing, 'search-drawn') : ''}
             </g>
             <g class="search-letters" font-size="5.4" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${palette.ink}" style="pointer-events: none;">
@@ -1033,7 +1068,7 @@ function search(container) {
      * By what the pick has become rather than by what made it: a tap, a
      * swipe and a finger jumping cells all end in setPick, and `heard` is
      * what was last sounded. A pick that becomes a word goes quietly: the
-     * find has the cloud's sounds and the phrase said aloud.
+     * find has its flight's sounds and the phrase said aloud.
      */
     const POP_STEP = 1 / 24;
     const POP_GAP = 25;
@@ -1289,7 +1324,7 @@ function search(container) {
         state.paths.push(path);
         state.found[i] += 1;
 
-        $(svg.querySelector('.search-lines'), marksGroup(path.cells, LINE_COLOURS[i % LINE_COLOURS.length], 'search-line'));
+        $(svg.querySelector('.search-lines'), marksGroup(path.cells, LINE_COLOURS[i % LINE_COLOURS.length], 'search-line', i));
 
         drawBoard();
 
@@ -1301,10 +1336,9 @@ function search(container) {
             if (item.word.translation) {
                 state.asking = { phrase: i, options: optionsFor(item) };
 
-                // A moment to see the word marked, and the question comes in
-                // from its last letter -- see comeIn
-                const from = cellMiddle(path.cells[path.cells.length - 1]);
-                setTimeout(() => drawQuestion(from), QUESTION_AFTER);
+                // A moment to see the word marked, and its letters fly up
+                // into the question -- see comeIn
+                setTimeout(() => drawQuestion(true), QUESTION_AFTER);
             } else {
                 // Nothing to ask: the word is done once it is found
                 score(i, true);
@@ -1347,7 +1381,7 @@ function search(container) {
     function optionsFor(item) {
         const right = item.word.translation;
         const stage = spacedRepetitions.getWordStats(item.word).stage || 0;
-        const count = Math.min(stage + LEAST_OPTIONS, MOST_OPTIONS);
+        const count = Math.max(LEAST_OPTIONS, Math.min(stage + 1, MOST_OPTIONS));
 
         const others = [];
         store.wordsOf(item.setId).forEach(({ word }) => {
@@ -1392,26 +1426,54 @@ function search(container) {
     let veil = null;
 
     /*
-     * The question comes in out of a cloud, as searchlines' did -- the
-     * owner's call, 8 November 2026: until then it covered the grid all at
-     * once, the moment the word was found. A puff flies from the word's last
-     * letter to where the question will stand, spinning and shrinking, and
-     * bursts there; puffs blow up over the question's place, and it shows
-     * through them as they clear, the options coming down from under the
-     * phrase one after another.
+     * The question comes in out of the phrase's own cells -- the owner's
+     * calls, 9 November 2026. Each cell of the phrase marked on the grid
+     * lifts off it, its square and its letter as the grid draws them, one
+     * after another in the phrase's order, and flies along an arc to its
+     * letter in the question's phrase, the square shrinking to the letter's
+     * height and the letter growing to the phrase's size. On the way the
+     * grid's letter gives way to the phrase's -- upper case to the case it
+     * is written in -- so that what lands is the phrase as it will stand
+     * (the owner's call: changed on landing, the capitals lined up on the
+     * card and then turned small all along it). An Arabic letter still
+     * lands alone and joins on landing: a letter alone cannot be drawn in a
+     * form that depends on its neighbours. While they line up, the veil and the card come in under them; with all of them there
+     * the squares go and the letters stay, and the options fall from under
+     * the phrase one after another.
      *
-     * Not searchlines' code -- CSS transitions set off by hand there, the Web
-     * Animations here, as everything else on this page moves -- but its
-     * cloud: a ball and four more round it. White on the dark theme, as
-     * there, and sky blue on the light one (palette.cloud, the owner's call):
-     * the grid there is white too, and a white cloud over it was seen only as
-     * letters going missing under it. With motion turned down the question
-     * only fades in.
+     * The squares overlap once lined up -- a letter is narrower than the
+     * line is tall -- and run under the phrase as one band, the way the marks
+     * run along the grid with the links between them.
+     *
+     * Earlier the same morning each cell flew as a cloud and turned into its
+     * letter, and the veil came only with the phrase whole; the evening
+     * before, one cloud flew from the word's last letter and burst where the
+     * question would stand, the question showing through puffs as they
+     * cleared; before that the question covered the grid all at once.
+     *
+     * With motion turned down the question only fades in.
      */
     const QUESTION_AFTER = 250;
     const CLOUD_SIZE = 18;
     const CLOUD_FLIGHT = 600;
     const PUFF_RUN = 700;
+
+    const LETTER_FLIGHT = 700;    // a cell, the grid to its letter
+    const LETTERS_SPAN = 600;     // however many letters, all off within this
+    const LETTER_GAP = 70;        // and never further apart than this
+    const FLIGHT_FRAMES = 10;
+    const TILE_TILT = 25;         // degrees at most, halfway, back to none
+    const TILE_FIT = 0.95;        // of the letter's height
+    const GRID_FONT = 0.54;       // of a cell: the grid's font-size, 5.4 of 10
+    const SWAP_AT = 0.3;          // of the flight: the grid's letter into the phrase's
+    const SWAP_FOR = 0.35;        // of the flight, the two letters crossing
+    const REST_IN = 220;          // spaces and marks, with the last letter
+    const GROUND_IN = 400;        // from the first landing, under the rest
+    const TILES_REST = 250;       // all landed, a moment, and the squares go
+    const TILES_OUT = 300;
+    const OPTIONS_AFTER = 100;    // from the squares going
+    const OPTION_GAP = 70;
+    const OPTION_FALL = 450;
 
     // searchlines' cloud: four balls round the first, offset in its sizes
     const LUMPS = [[-0.5, 0.1], [-0.8, -1], [-0.1, -0.7], [-1, -0.3]];
@@ -1444,7 +1506,7 @@ function search(container) {
 
     // A cloud blowing up where it stands and thinning to nothing
     function puff(x, y, size, delay, colour) {
-        const el = cloud(x, y, size, true, colour || palette.cloud);
+        const el = cloud(x, y, size, true, colour);
         const turn = Math.random() * 360;
 
         gone(el, el.animate([
@@ -1613,46 +1675,180 @@ function search(container) {
 
     const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    function comeIn(from) {
+    /*
+     * A marked cell lifting off: its square as the grid draws a mark --
+     * MARK_SIDE of the cell, rounded MARK_ROUND, in one solid colour -- and
+     * its letter as the grid writes it, with their middles at `at`.
+     *
+     * In the veil, each at its own height there: the squares over the veil's
+     * ground and the card (z-index 1), the phrase over the squares (2, see
+     * drawQuestion), and the grid's letters over all (3). Two elements and
+     * not one, the letters over every square: lined up the squares overlap,
+     * and the next one's would cover the last one's letter. Outside the veil,
+     * as the clouds before them flew, the squares covered the phrase's
+     * letters as they came in, and the phrase stood invisible on its band
+     * until the squares went.
+     */
+    function tile(at, cell, letter, colour) {
+        const side = cell * MARK_SIDE / 10;
+
+        const square = $(veil, `<div class="search-tile" aria-hidden="true" style="position: fixed; left: ${at[0] - side / 2}px; top: ${at[1] - side / 2}px; width: ${side}px; height: ${side}px; border-radius: ${side * MARK_ROUND / MARK_SIDE}px; background: ${colour}; z-index: 1; pointer-events: none;"></div>`);
+
+        const glyph = $(veil, `<div class="search-tile-letter" aria-hidden="true" style="position: fixed; left: ${at[0] - cell / 2}px; top: ${at[1] - cell / 2}px; width: ${cell}px; height: ${cell}px; display: flex; align-items: center; justify-content: center; font-size: ${cell * GRID_FONT}px; font-weight: 700; line-height: 1; color: ${palette.ink}; z-index: 3; pointer-events: none;">${escapeText(letter)}</div>`);
+
+        return { square, glyph, side };
+    }
+
+    /*
+     * The phrase's letter flown in by the grid's: the letter as the card
+     * writes it, in a box the size and font of its place there, with its
+     * middle at `at`. Landed and unscaled it covers the card's letter
+     * exactly -- the same glyph, the same baseline: the box's line is as
+     * tall as the letter's own, as an inline box is -- and gives way to it
+     * with nothing seen to change.
+     */
+    function phraseGlyph(at, box, font, letter) {
+        return $(veil, `<div class="search-tile-letter" aria-hidden="true" style="position: fixed; left: ${at[0] - box.width / 2}px; top: ${at[1] - box.height / 2}px; width: ${box.width}px; height: ${box.height}px; font-size: ${font}px; font-weight: 700; line-height: ${box.height}px; text-align: center; white-space: pre; color: ${palette.ink}; z-index: 3; pointer-events: none;">${escapeText(letter)}</div>`);
+    }
+
+    /*
+     * One flight, `later` ms from now: from `from` to `to` along an arc bent
+     * `bend` of the way to one side, tilting by up to `tilt` halfway and
+     * landing straight, scaled from `scale[0]` to `scale[1]`, and staying
+     * there. Eased by hand along the arc, so that the square and its
+     * letters, each flown by its own call, keep together.
+     */
+    function flight(el, from, to, [grown, grow], tilt, bend, later) {
+        const dx = to[0] - from[0];
+        const dy = to[1] - from[1];
+        const bx = dx / 2 - dy * bend;
+        const by = dy / 2 + dx * bend;
+        const frames = [];
+
+        for (let j = 0; j <= FLIGHT_FRAMES; j++) {
+            const u = j / FLIGHT_FRAMES;
+            const s = u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u);
+            const x = 2 * (1 - s) * s * bx + s * s * dx;
+            const y = 2 * (1 - s) * s * by + s * s * dy;
+
+            frames.push({ transform: `translate(${x}px, ${y}px) rotate(${tilt * Math.sin(Math.PI * s)}deg) scale(${grown + (grow - grown) * s})` });
+        }
+
+        return el.animate(frames, { duration: LETTER_FLIGHT, delay: later, fill: 'both' });
+    }
+
+    function comeIn(i) {
         const card = veil.querySelector('.search-question-card');
+        const ground = veil.querySelector('.search-question-ground');
         const options = [...veil.querySelectorAll('.search-option-btn')];
 
+        // The phrase's marks go with their squares -- see hideMarks
+        hideMarks(i);
+
         if (still()) {
-            veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+            // Not the veil itself: a parent fading would hide from the
+            // ground's blur what lies behind it, the blur coming in at the end
+            [...veil.children].forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }));
             return;
         }
 
-        const area = appRect(card.parentElement);
+        // The phrase's letters in its order, each with the cell it was found in
+        const flights = [];
+        const { cols, cells } = state.grid;
 
-        fly(from, middleOf(card), CLOUD_SIZE, palette.cloud);
+        state.paths.filter(p => p.phrase === i).sort((a, b) => a.token - b.token).forEach(p => {
+            p.cells.forEach((cell, k) => {
+                const letter = card.querySelector(`.search-question-letter[data-token="${p.token}"][data-k="${k}"]`);
+                if (letter) flights.push({ cell, letter, shown: cells[cell[0] * cols + cell[1]] });
+            });
+        });
 
-        // And the cloud the question shows through, a longer breath
-        pop(CLOUD_FLIGHT + 120, 0.1, 0.45);
-
-        // The cloud the question shows through: searchlines' eight puffs,
-        // over the whole of the question rather than its phrase alone
-        [[0.1, 0.1, 1, 0], [0.9, 0.1, 1.1, 100], [0.9, 0.9, 1.2, 200], [0.1, 0.9, 1.2, 200],
-            [0.3, 0.3, 1, 100], [0.7, 0.3, 1.1, 0], [0.7, 0.7, 1.2, 300], [0.3, 0.7, 1.2, 300]]
-            .forEach(([fx, fy, grow, later]) => puff(area.left + area.width * fx, area.top + area.height * fy, CLOUD_SIZE * 1.2 * grow, CLOUD_FLIGHT + later));
+        // The mark's colour as the grid shows it, at LINE_OPACITY over the grid
+        const colour = mix(LINE_COLOURS[i % LINE_COLOURS.length], palette.surface, LINE_OPACITY);
+        const cell = appRect(svg).width / cols;
+        const font = parseFloat(getComputedStyle(card).fontSize);
+        const gap = flights.length > 1 ? Math.min(LETTER_GAP, LETTERS_SPAN / (flights.length - 1)) : 0;
+        const landed = (k) => k * gap + LETTER_FLIGHT;
+        const last = flights.length ? landed(flights.length - 1) : 0;
+        const out = last + TILES_REST;
 
         // Nothing to press until it is there to be seen
         veil.style.pointerEvents = 'none';
 
-        const shown = veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, delay: CLOUD_FLIGHT + 50, easing: 'ease-in', fill: 'backwards' });
+        pop(0, 0.08);
+        if (flights.length) gust(0, last);
+
+        const going = flights.map(({ cell: at, letter, shown }, k) => {
+            const later = k * gap;
+            const from = cellMiddle(at);
+            const box = appRect(letter);
+            const to = [box.left + box.width / 2, box.top + box.height / 2];
+            const bend = (Math.random() - 0.5) * 0.4;
+            const tilt = (Math.random() < 0.5 ? -1 : 1) * TILE_TILT * (0.4 + Math.random() * 0.6);
+            const { square, glyph, side } = tile(from, cell, shown, colour);
+            const written = phraseGlyph(from, box, font, letter.textContent);
+            const sizes = font / (cell * GRID_FONT);
+
+            flight(square, from, to, [1, box.height * TILE_FIT / side], tilt, bend, later);
+            flight(glyph, from, to, [1, sizes], tilt, bend, later);
+            const flown = flight(written, from, to, [1 / sizes, 1], tilt, bend, later);
+
+            // On the way the grid's letter gives way to the phrase's
+            const swap = { duration: LETTER_FLIGHT * SWAP_FOR, delay: later + LETTER_FLIGHT * SWAP_AT };
+            gone(glyph, glyph.animate([{ opacity: 1 }, { opacity: 0 }], { ...swap, fill: 'forwards' }));
+            written.animate([{ opacity: 0 }, { opacity: 1 }], { ...swap, fill: 'backwards' });
+
+            // Landed, the card's own letter takes its place
+            gone(written, flown);
+            letter.animate([{ opacity: 0 }, { opacity: 0 }], { duration: landed(k) });
+
+            // Each lands as a picked cell pops, softer, climbing to the last
+            bubblePop(k, landed(k), true);
+
+            // And with all of them there, the squares go
+            const fading = square.animate([{ opacity: 1 }, { opacity: 0 }], { duration: TILES_OUT, delay: out, easing: 'ease-in', fill: 'forwards' });
+            gone(square, fading);
+            return fading;
+        });
+
+        // What is not a letter -- a space, an apostrophe, a "?" -- comes with
+        // the last of them
+        veil.querySelectorAll('.search-question-rest').forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: REST_IN, delay: last, easing: 'ease-out', fill: 'backwards' }));
+
+        // The veil and the card coming in under them as they line up, from
+        // the first landing, with a breath
+        const under = flights.length ? landed(0) : 0;
+        const timing = { duration: GROUND_IN, delay: under, easing: 'ease-out', fill: 'backwards' };
+
+        pop(under, 0.1, 0.45);
+
+        const shown = ground.animate([{ opacity: 0 }, { opacity: 1 }], timing);
 
         card.animate([
-            { transform: 'scale(0.6)', opacity: 0 },
-            { transform: 'scale(1.04)', opacity: 1, offset: 0.7 },
-            { transform: 'scale(1)', opacity: 1 }
-        ], { duration: 450, delay: CLOUD_FLIGHT, easing: 'ease-out', fill: 'backwards' });
+            { backgroundColor: 'transparent', borderColor: 'transparent' },
+            { backgroundColor: palette.surface, borderColor: palette.border }
+        ], timing);
 
+        const speaker = card.querySelector('.say-all');
+        if (speaker) speaker.animate([{ opacity: 0 }, { opacity: 1 }], timing);
+
+        // The options falling from under the phrase, one after another
         options.forEach((btn, k) => btn.animate([
-            { transform: 'translateY(-24px)', opacity: 0 },
+            { transform: 'translateY(-32px)', opacity: 0 },
+            { transform: 'translateY(4px)', opacity: 1, offset: 0.7 },
             { transform: 'translateY(0px)', opacity: 1 }
-        ], { duration: 400, delay: CLOUD_FLIGHT + 200 + k * 60, easing: 'ease-out', fill: 'backwards' }));
+        ], { duration: OPTION_FALL, delay: (flights.length ? out : under + GROUND_IN) + OPTIONS_AFTER + k * OPTION_GAP, easing: 'ease-out', fill: 'backwards' }));
 
+        // There: pressable, and the phrase plain text again -- see drawQuestion
+        const ready = going.length ? going[going.length - 1] : shown;
         const here = veil;
-        shown.finished.catch(() => null).then(() => { here.style.pointerEvents = ''; });
+        const original = state.sessionPool[i].word.original;
+
+        ready.finished.catch(() => null).then(() => {
+            here.style.pointerEvents = '';
+            const phrase = here.querySelector('.search-question-phrase');
+            if (phrase) phrase.textContent = original;
+        });
     }
 
     /*
@@ -1662,13 +1858,18 @@ function search(container) {
      * side (the owner's call, 8 November 2026): the same width, they read as
      * one column of cards with the phrase among them.
      *
-     * `from`, where it comes in from when a find opens it (see comeIn); drawn
-     * again for an answer, on a popup opened again or for the voices, it is
-     * simply there.
+     * Its phrase, when a find opens it, a letter to a span, each named by
+     * the word and the place in it its cell has in the run (data-token,
+     * data-k), for the cells to fly to -- over the squares they come on (see
+     * tile), and plain text again once they are gone: a browser that shapes
+     * each span apart would leave Arabic letters standing alone; and the veil's colour and blur a layer of their own under
+     * the question, to come in after the phrase. `fresh` when a find opens it
+     * (see comeIn); drawn again for an answer, on a popup opened again or for
+     * the voices, it is simply there.
      */
     const OPTIONS_INSET = 20.5;
 
-    function drawQuestion(from) {
+    function drawQuestion(fresh) {
         if (veil) veil.remove();
         veil = null;
 
@@ -1677,10 +1878,20 @@ function search(container) {
 
         const item = state.sessionPool[ask.phrase];
 
-        veil = $(container, `<div class="search-question" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 13.7px; box-sizing: border-box; background: ${palette.veil}; ${blurred()}">
-            <div style="width: 100%; max-width: 330px;">
+        const words = !fresh ? escapeText(item.word.original) : state.phrases[ask.phrase].parts.map(part => {
+            if (part.token === null) return `<span class="search-question-rest">${escapeText(part.text)}</span>`;
+
+            let k = 0;
+            return speech.letters(part.text).map(g => LETTER.test(g)
+                ? `<span class="search-question-letter" data-token="${part.token}" data-k="${k++}">${escapeText(g)}</span>`
+                : `<span class="search-question-rest">${escapeText(g)}</span>`).join('');
+        }).join('');
+
+        veil = $(container, `<div class="search-question" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 13.7px; box-sizing: border-box;">
+            <div class="search-question-ground" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: ${palette.veil}; ${blurred()}"></div>
+            <div style="position: relative; width: 100%; max-width: 330px;">
                 <div class="search-question-card" data-press style="padding: 17px 13.7px; background: ${palette.surface}; border: 1px solid ${palette.border}; border-radius: 15.4px; text-align: center; margin-bottom: 10.2px; color: ${palette.ink}; font-size: 25.6px; font-weight: 700; word-break: break-word; cursor: pointer;">
-                    ${speech.speakerHtml(item.word.original, item.originalLang, palette.sayIcon, 'margin: 0 0.4em 0 0; font-size: 0.8em; vertical-align: -0.1em;')}${escapeText(item.word.original)}
+                    ${speech.speakerHtml(item.word.original, item.originalLang, palette.sayIcon, 'margin: 0 0.4em 0 0; font-size: 0.8em; vertical-align: -0.1em;')}<span class="search-question-phrase" style="position: relative; z-index: 2;">${words}</span>
                 </div>
                 <div class="search-options" style="display: flex; flex-direction: column; gap: 6.8px; margin: 0 ${OPTIONS_INSET}px;"></div>
             </div>
@@ -1700,7 +1911,7 @@ function search(container) {
             btn.addEventListener('click', (e) => answer(k, btn, e));
         });
 
-        if (from) comeIn(from);
+        if (fresh) comeIn(ask.phrase);
     }
 
     /*
@@ -1737,6 +1948,7 @@ function search(container) {
 
         if (right) {
             state.struck[i] = true;
+            showMarks(i);
         } else {
             state.missed[i] = true;
             state.found[i] = 0;
@@ -1935,9 +2147,6 @@ function search(container) {
 
             starEdge: isDark ? STAR_GOLD : '#b7860f',
 
-            // The question's cloud: searchlines' white, and on the white grid
-            // of the light theme the sky blue of searchlines' hints
-            cloud: isDark ? '#ffffff' : '#abe1ff',
             veil: fade(t.ground, BLURS ? VEIL_BLURRED : VEIL_PLAIN)
         };
     };
@@ -1965,6 +2174,15 @@ function search(container) {
     function fade(hex, alpha) {
         const n = parseInt(hex.slice(1), 16);
         return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    // `a` of one colour of the tokens over another, both #rrggbb: what a
+    // mark at LINE_OPACITY looks like on the grid, as one solid colour
+    function mix(hex, under, a) {
+        const top = parseInt(hex.slice(1), 16);
+        const low = parseInt(under.slice(1), 16);
+        const at = (shift) => Math.round(((top >> shift) & 255) * a + ((low >> shift) & 255) * (1 - a));
+        return `rgb(${at(16)}, ${at(8)}, ${at(0)})`;
     }
 
     const blurred = () => (BLURS ? `backdrop-filter: blur(${VEIL_BLUR}px); -webkit-backdrop-filter: blur(${VEIL_BLUR}px);` : '');
