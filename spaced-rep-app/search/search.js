@@ -432,9 +432,11 @@ function search(container) {
      * searchlines laid them as words of their own, and a "!" was a cell to be
      * found.
      *
-     * Upper case where that leaves one letter, as Snake has it: 'ß' becomes
-     * 'SS', and a cell holds one. In the set's language, so that Turkish i
-     * comes out dotted.
+     * Kept as written, and shown in capitals unless the player switched them
+     * off in the settings (the owner's call, 9 November 2026; until then
+     * they were capitals, and stored so) -- see look. Upper case only where
+     * that leaves one letter, as Snake has it: 'ß' becomes 'SS', and a cell
+     * holds one. In the set's language, so that Turkish i comes out dotted.
      */
     const LETTER = /[\p{L}\p{N}]/u;
 
@@ -450,7 +452,68 @@ function search(container) {
         return speech.letters(upper).length === 1 ? upper : letter;
     }
 
-    const lettersOf = (text, lang) => speech.letters(text).filter(g => LETTER.test(g)).map(g => shownAs(g, lang));
+    const lettersOf = (text) => speech.letters(text).filter(g => LETTER.test(g));
+
+    /*
+     * A letter of the grid as it is shown, and as a pick is compared to the
+     * words by: what is seen is what is matched, so that two cells that look
+     * the same spell the same. A run dealt before the setting came keeps
+     * the capitals it stored, whatever the setting says.
+     */
+    const caps = () => page.setting('searchCaps', true);
+
+    const runLang = () => (state.sessionPool && state.sessionPool[0] && state.sessionPool[0].originalLang) || undefined;
+
+    const look = (letter) => (caps() ? shownAs(letter, runLang()) : letter);
+
+    /*
+     * How much of the grid's font a letter is drawn at to stay inside its
+     * mark: 1 for nearly every letter there is, less for one that would
+     * spill out -- the owner's call, 9 November 2026, after Tamil syllables
+     * ran into the cells beside them. A syllable of Tamil, Malayalam,
+     * Kannada or Telugu is a consonant with its vowel signs either side --
+     * போ, ಹೋ, ത്തേ -- two to three Latin letters wide; measured over the
+     * forty-nine languages of the starter sets, those four and Marathi drew
+     * wider than a cell, and Bengali, Gujarati and Hindi came near its edge.
+     *
+     * Measured by ink, and by a canvas, which measures without drawing: the
+     * font of the grid at ten times its size, so the figures are in tenths
+     * of the grid's units. Round the middle of the cell, where the letter
+     * is centred (dominant-baseline central), so a letter shrunk stays where
+     * the others stand. Once a letter, for the page.
+     */
+    const letterFits = new Map();
+    let measure = null;
+
+    function letterFit(letter) {
+        if (letterFits.has(letter)) return letterFits.get(letter);
+
+        if (!measure) {
+            measure = document.createElement('canvas').getContext('2d');
+            measure.font = `700 54px ${getComputedStyle(document.body).fontFamily}`;
+            measure.textAlign = 'center';
+            measure.textBaseline = 'middle';
+        }
+
+        const m = measure.measureText(letter);
+        // The mark less 0.3 of a unit either side, in tenths: the mark is
+        // what the letter has to fit in, outliers and marks and all (see
+        // MARK_SIDE, declared further down and read only once the grid is
+        // drawn)
+        const half = (MARK_SIDE - 0.6) * 10 / 2;
+        const across = Math.max(m.actualBoundingBoxLeft, m.actualBoundingBoxRight);
+        const down = Math.max(m.actualBoundingBoxAscent, m.actualBoundingBoxDescent);
+        const fit = Math.min(1, across ? half / across : 1, down ? half / down : 1);
+
+        letterFits.set(letter, fit);
+        return fit;
+    }
+
+    // The font-size of a letter that has to come down, for its <text>
+    const letterSize = (letter) => {
+        const fit = letterFit(letter);
+        return fit < 1 ? ` font-size="${+(5.4 * fit).toFixed(2)}"` : '';
+    };
 
     /*
      * A word or a phrase of the set as this game needs it: the parts its line
@@ -458,9 +521,8 @@ function search(container) {
      * its snake, each traced on its own and in order, as searchlines found
      * them -- and what it shows of itself.
      *
-     * Words as speech.words cuts them, which is spaces unless the player asked
-     * for the dictionary's answer: a Chinese phrase with no spaces in it is
-     * one word to find, which is what a reader of it would look for.
+     * Words as speech.words cuts them, which is at spaces: a Chinese phrase
+     * with no spaces in it is one word to find.
      */
     function phraseOf(item) {
         const stage = spacedRepetitions.getWordStats(item.word).stage || 0;
@@ -469,7 +531,7 @@ function search(container) {
         const tokens = [];
 
         speech.words(item.word.original || '').forEach(part => {
-            const letters = part.isWord ? lettersOf(part.text, lang) : [];
+            const letters = part.isWord ? lettersOf(part.text) : [];
 
             if (letters.length) {
                 parts.push({ text: part.text, token: tokens.length });
@@ -670,7 +732,7 @@ function search(container) {
     function fill(cells) {
         let pool = [];
         store.wordsOf(state.selectedSetId).forEach(item => {
-            pool = pool.concat(lettersOf(item.word.original || '', item.originalLang));
+            pool = pool.concat(lettersOf(item.word.original || ''));
         });
         if (!pool.length) pool = cells.filter(c => c !== null);
         if (!pool.length) pool = ['·'];
@@ -1005,7 +1067,7 @@ function search(container) {
                 ${pick ? marksGroup(pick.cells, palette.drawing, 'search-drawn') : ''}
             </g>
             <g class="search-letters" font-size="5.4" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="${palette.ink}" style="pointer-events: none;">
-                ${cells.map((ch, k) => `<text x="${(k % cols) * 10 + 5}" y="${Math.floor(k / cols) * 10 + 5.3}">${escapeText(ch)}</text>`).join('')}
+                ${cells.map((ch, k) => `<text x="${(k % cols) * 10 + 5}" y="${Math.floor(k / cols) * 10 + 5.3}"${letterSize(look(ch))}>${escapeText(look(ch))}</text>`).join('')}
             </g>
         </svg>`;
 
@@ -1070,7 +1132,6 @@ function search(container) {
      * what was last sounded. A pick that becomes a word goes quietly: the
      * find has its flight's sounds and the phrase said aloud.
      */
-    const POP_STEP = 1 / 24;
     const POP_GAP = 25;
 
     let heard = { first: null, n: 0 };
@@ -1084,10 +1145,7 @@ function search(container) {
     }
 
     // A bubble popping, `step` letters into the phrase, `later` ms from now
-    function bubblePop(step, later, soft) {
-        const f = 520 * Math.pow(2, step * POP_STEP);
-        note(later, f * 0.7, f * 1.5, 0.07, soft ? 0.05 : 0.12);
-    }
+    const bubblePop = sfx.bubble;
 
     function pickSound(cells) {
         const was = heard;
@@ -1191,7 +1249,7 @@ function search(container) {
      * in the wrong place never leaves a word that cannot be found.
      */
     function spelled(letters) {
-        const spelt = letters.join('');
+        const spelt = letters.map(look).join('');
         const open = state.phrases.map((_, i) => i).filter(i => !state.struck[i] && !(state.asking && state.asking.phrase === i));
 
         const candidates = state.ordered ? open.slice(0, 1) : open.filter(i => state.found[i] > 0).concat(open.filter(i => state.found[i] === 0));
@@ -1201,7 +1259,7 @@ function search(container) {
             const token = state.phrases[i].tokens[tokenAt];
             if (!token) continue;
 
-            const word = token.join('');
+            const word = token.map(look).join('');
             if (word === spelt) return { phrase: i, token: tokenAt };
         }
 
@@ -1523,126 +1581,18 @@ function search(container) {
      * The first sounds of the app that are not its voice; the cells picked
      * pop with the same means (see pickSound).
      *
-     * Made on the spot with Web Audio rather than played from files: nothing
-     * to fetch, nothing more for the service worker's list (SHELL in
-     * web/sw.js), and a chime that can climb with the stage. Under the game's
-     * sound switch, as the voice is -- off, and nothing plays -- and quiet,
-     * under the voice that says the phrase at the moment the cloud leaves.
-     */
-    let audio = null;
-    let hiss = null;
-
-    // The page's sound, or null when it is switched off or cannot be had
-    function sound() {
-        if (speech.muted()) return null;
-
-        try {
-            if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-            if (audio.state === 'suspended') audio.resume();
-        } catch (e) {
-            return null;
-        }
-
-        return audio;
-    }
-
-    // White noise, a second of it made once: what a gust and a pop are cut from
-    function noise(ctx) {
-        if (!hiss) {
-            hiss = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-            const data = hiss.getChannelData(0);
-            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-        }
-
-        const src = ctx.createBufferSource();
-        src.buffer = hiss;
-        return src;
-    }
-
-    // A level that rises from nothing to `peak` at `top` seconds and dies by `end`
-    function swell(ctx, t, peak, top, end) {
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(peak, t + top);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + end);
-        return gain;
-    }
-
-    // The flight, `length` ms from `delay` ms on: noise through a band that
-    // climbs and falls back, swelling to the middle and fading
-    function gust(delay, length) {
-        const ctx = sound();
-        if (!ctx) return;
-
-        const t = ctx.currentTime + delay / 1000;
-        const d = length / 1000;
-
-        const band = ctx.createBiquadFilter();
-        band.type = 'bandpass';
-        band.Q.value = 1.2;
-        band.frequency.setValueAtTime(400, t);
-        band.frequency.exponentialRampToValueAtTime(1800, t + d * 0.6);
-        band.frequency.exponentialRampToValueAtTime(700, t + d);
-
-        const src = noise(ctx);
-        src.connect(band).connect(swell(ctx, t, 0.16, d * 0.5, d)).connect(ctx.destination);
-        src.start(t);
-        src.stop(t + d + 0.05);
-    }
-
-    // A burst: a short breath of low noise, `long` seconds of it
-    function pop(delay, loud, long) {
-        const ctx = sound();
-        if (!ctx) return;
-
-        const t = ctx.currentTime + delay / 1000;
-        const d = long || 0.2;
-
-        const low = ctx.createBiquadFilter();
-        low.type = 'lowpass';
-        low.frequency.setValueAtTime(1400, t);
-        low.frequency.exponentialRampToValueAtTime(200, t + d);
-
-        const src = noise(ctx);
-        src.connect(low).connect(swell(ctx, t, loud, 0.008, d)).connect(ctx.destination);
-        src.start(t);
-        src.stop(t + d + 0.05);
-    }
-
-    // A note struck and dying away, sliding from `from` Hz to `to`
-    function note(delay, from, to, long, loud, wave) {
-        const ctx = sound();
-        if (!ctx) return;
-
-        const t = ctx.currentTime + delay / 1000;
-        const osc = ctx.createOscillator();
-        osc.type = wave || 'sine';
-        osc.frequency.setValueAtTime(from, t);
-        if (to !== from) osc.frequency.exponentialRampToValueAtTime(to, t + long);
-
-        osc.connect(swell(ctx, t, loud, 0.01, long)).connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + long + 0.05);
-    }
-
-    // Right: two notes a major third apart, a semitone higher every two stages
-    function chime(stage) {
-        const base = 660 * Math.pow(2, Math.min(stage, 14) / 24);
-        note(0, base, base, 0.35, 0.11);
-        note(90, base * 1.26, base * 1.26, 0.55, 0.11);
-    }
-
-    /*
+     * Made here until 9 November 2026, when every game was given sounds and
+     * the means went to core/sfx.js -- and with them the switch: under the
+     * game's own sound effects switch now, apart from the voice, where until
+     * then the voice's switch silenced these too.
+     *
      * A loss: a tone falling two octaves less a third, the length of the red
      * running down a star that cannot be filled (see endRun). Heard there
      * first; the owner then had it for every mistake as it is made -- a wrong
      * answer as it paints the phrase red, the first peek into a phrase not
-     * yet answered (8 November 2026). A wrong answer was a short knock until
-     * then, and a peek made no sound.
+     * yet answered (8 November 2026).
      */
-    function lose() {
-        note(0, 330, 110, SPOIL / 1000, 0.12, 'triangle');
-    }
+    const { gust, pop, note, chime, lose } = sfx;
 
     const middleOf = (el) => {
         const box = appRect(el);
@@ -1694,7 +1644,7 @@ function search(container) {
 
         const square = $(veil, `<div class="search-tile" aria-hidden="true" style="position: fixed; left: ${at[0] - side / 2}px; top: ${at[1] - side / 2}px; width: ${side}px; height: ${side}px; border-radius: ${side * MARK_ROUND / MARK_SIDE}px; background: ${colour}; z-index: 1; pointer-events: none;"></div>`);
 
-        const glyph = $(veil, `<div class="search-tile-letter" aria-hidden="true" style="position: fixed; left: ${at[0] - cell / 2}px; top: ${at[1] - cell / 2}px; width: ${cell}px; height: ${cell}px; display: flex; align-items: center; justify-content: center; font-size: ${cell * GRID_FONT}px; font-weight: 700; line-height: 1; color: ${palette.ink}; z-index: 3; pointer-events: none;">${escapeText(letter)}</div>`);
+        const glyph = $(veil, `<div class="search-tile-letter" aria-hidden="true" style="position: fixed; left: ${at[0] - cell / 2}px; top: ${at[1] - cell / 2}px; width: ${cell}px; height: ${cell}px; display: flex; align-items: center; justify-content: center; font-size: ${cell * GRID_FONT * letterFit(letter)}px; font-weight: 700; line-height: 1; color: ${palette.ink}; z-index: 3; pointer-events: none;">${escapeText(letter)}</div>`);
 
         return { square, glyph, side };
     }
@@ -1759,7 +1709,7 @@ function search(container) {
         state.paths.filter(p => p.phrase === i).sort((a, b) => a.token - b.token).forEach(p => {
             p.cells.forEach((cell, k) => {
                 const letter = card.querySelector(`.search-question-letter[data-token="${p.token}"][data-k="${k}"]`);
-                if (letter) flights.push({ cell, letter, shown: cells[cell[0] * cols + cell[1]] });
+                if (letter) flights.push({ cell, letter, shown: look(cells[cell[0] * cols + cell[1]]) });
             });
         });
 
@@ -1790,7 +1740,7 @@ function search(container) {
             const sizes = font / (cell * GRID_FONT);
 
             flight(square, from, to, [1, box.height * TILE_FIT / side], tilt, bend, later);
-            flight(glyph, from, to, [1, sizes], tilt, bend, later);
+            flight(glyph, from, to, [1, sizes / letterFit(shown)], tilt, bend, later);
             const flown = flight(written, from, to, [1 / sizes, 1], tilt, bend, later);
 
             // On the way the grid's letter gives way to the phrase's
@@ -2059,7 +2009,17 @@ function search(container) {
             page.home();
         });
 
-        page.muteButton(header, palette.backBtn, palette.chromeBorder);
+        // The settings, and the one line of this game's own: capitals --
+        // see look. The grid drawn again in the other case at once
+        page.settingsButton(header, palette.backBtn, palette.chromeBorder, [{
+            name: 'caps',
+            label: 'Capital letters',
+            on: caps,
+            set: (value) => {
+                page.saveSetting('searchCaps', value);
+                if (state.grid) drawGrid();
+            }
+        }]);
 
         board = $(container, `<div class="search-board" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4.5px; margin-bottom: ${GRID_GAP}px;"></div>`);
         gridHost = $(container, `<div class="search-grid-host"></div>`);

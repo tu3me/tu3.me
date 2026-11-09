@@ -1503,48 +1503,25 @@ function speech() {
      */
 
     /*
-     * Where one word ends and the next begins.
+     * Where one word ends and the next begins: at spaces and punctuation, and
+     * nowhere else -- see SPACED.
      *
-     * Not text.split(' '): a good part of the world writes without spaces —
-     * Japanese, Chinese and Thai run a line together — and there a tap would
-     * have nothing smaller than the whole line to land on. Intl.Segmenter knows
-     * where the breaks fall in all of them at once, which is the same reason
-     * snake.js leans on it for letters.
+     * Right wherever writing has spaces in it. Where writing has none --
+     * Japanese, Chinese and Thai run a line together -- it is honestly wrong:
+     * a Japanese line comes back as a single word, which is all a rule about
+     * spaces can say about a line without any. Somebody who wants the words
+     * of such a line apart puts the spaces in.
      *
-     * isWordLike separates the words from what sits between them: spaces,
-     * commas and question marks stay in the line as plain text, so the only
-     * thing that can be tapped is a thing that can be said.
+     * Until 9 November 2026 the settings offered the other answer beside this
+     * one, "Split words: by language", which asked Intl.Segmenter. Where the
+     * browser carries the dictionary for the scripts that run on, it finds the
+     * breaks inside them; where it does not -- some builds leave it out, phone
+     * browsers especially -- it falls back to rules that put a break between
+     * every pair of Han characters, and nothing in the API says which kind of
+     * browser it is. The owner took the setting out, and the code with it:
+     * spaces only, the same everywhere. A record that still carries
+     * `splitByLanguage` carries a field nobody reads.
      */
-    const WORDS = typeof Intl !== 'undefined' && Intl.Segmenter
-        ? new Intl.Segmenter(undefined, { granularity: 'word' })
-        : null;
-
-    /*
-     * Which of the two is asked, and why there are two.
-     *
-     * Spaces and punctuation is the plain answer and the one this starts on. It
-     * is right wherever writing has spaces in it, and where writing has none it
-     * is honestly wrong: a Japanese line comes back as a single word, which is
-     * all a rule about spaces can say about a line without any.
-     *
-     * Intl.Segmenter is the other. Where the browser carries the dictionary for
-     * the scripts that run on — Japanese, Chinese, Thai — it finds the breaks
-     * inside them, which nothing else here can do.
-     *
-     * The dictionary is a few hundred kilobytes and some builds leave it out,
-     * phone browsers especially. The API is there either way and answers either
-     * way: without it the segmenter falls back to rules, and the rules put a
-     * break between every pair of Han characters, so 日本語 comes back as three
-     * words. Nothing in the API says which kind of browser this is. That is why
-     * the dictionary's answer is offered rather than assumed: where it works it
-     * is the best there is, and where it does not it is wrong in a way that
-     * looks like working.
-     */
-    let byLanguage = false;
-
-    speech.splitsByLanguage = () => byLanguage;
-
-    speech.splitByLanguage = (on) => { byLanguage = !!on; };
 
     /*
      * A word as a language with spaces writes one: a run of letters, and of
@@ -1575,8 +1552,6 @@ function speech() {
     function partsOf(text) {
         const line = String(text || '');
         if (!line) return [];
-
-        if (byLanguage && WORDS) return Array.from(WORDS.segment(line));
 
         return (line.match(SPACED) || [])
             .map(part => ({ segment: part, isWordLike: LETTER.test(part) }));

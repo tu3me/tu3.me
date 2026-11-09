@@ -513,7 +513,7 @@ function flashcards(container) {
             page.home();
         });
 
-        page.muteButton(header, palette.backBtn, palette.chromeBorder);
+        page.settingsButton(header, palette.backBtn, palette.chromeBorder);
 
         const cardWrapper = $(container, `<div class="flashcards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
             <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
@@ -542,6 +542,9 @@ function flashcards(container) {
             if (state.hasBeenFlipped) return;
             state.hasBeenFlipped = true;
 
+            // A mistake made, and heard as one -- see sfx.lose
+            sfx.lose(120);
+
             store.recordRepetition(currentItem, 0, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
             state.sessionResults[state.currentIndex] = 'wrong';
             store.save();
@@ -553,6 +556,12 @@ function flashcards(container) {
             if (result !== undefined) {
                 store.recordRepetition(currentItem, result, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
                 state.sessionResults[state.currentIndex] = mark;
+
+                // Known: the chime of the stage the word has come to
+                sfx.chime(spacedRepetitions.getWordStats(currentItem.word).stage || 0);
+            } else {
+                // Only moving on: the card going
+                sfx.whoosh();
             }
 
             state.isFlipped = false;
@@ -594,6 +603,7 @@ function flashcards(container) {
             // half-second of animation, and rebuilding the card mid-turn would
             // start it again from wherever it had got to.
             actionButtons.querySelector('#btn-flip').addEventListener('click', () => {
+                sfx.whoosh();
                 markRevealed();
 
                 state.isFlipped = !state.isFlipped;

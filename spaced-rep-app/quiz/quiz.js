@@ -250,6 +250,9 @@ function quiz(container) {
 
         if (small && !still) await Promise.all(small.getAnimations({ subtree: true }).map(a => a.finished)).catch(() => null);
 
+        // The star out to the middle of the screen, to a fanfare
+        sfx.fanfare();
+
         const veil = $(container, `<div class="quiz-won" data-press title="Back to the sets" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: ${palette.veil}; cursor: pointer;">
             <svg class="quiz-won-star" viewBox="0 0 24 24" width="${WON_SIZE}" height="${WON_SIZE}" aria-hidden="true" style="display: block; overflow: visible;">
                 <defs>
@@ -729,7 +732,7 @@ function quiz(container) {
             page.home();
         });
 
-        page.muteButton(header, palette.backBtn, palette.chromeBorder);
+        page.settingsButton(header, palette.backBtn, palette.chromeBorder);
 
         // The star at the head of the sound's third, as Snake has it -- and
         // whatever light is still on its way to it, going on from where it was
@@ -943,6 +946,9 @@ function quiz(container) {
                         state.sessionResults[state.currentIndex] = 'correct';
                         starAnswered(true);
 
+                        // The chime of the stage the word has come to
+                        sfx.chime(spacedRepetitions.getWordStats(currentItem.word).stage || 0);
+
                         store.save();
                         refreshDots();
 
@@ -953,6 +959,7 @@ function quiz(container) {
                         store.recordRepetition(currentItem, 0, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'wrong';
                         starAnswered(false);
+                        sfx.lose();
 
                         store.save();
                         refreshDots();

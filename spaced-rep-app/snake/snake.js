@@ -261,10 +261,24 @@ function snake(container) {
         return `${weight ? weight + ' ' : ''}${px}px ${LETTER_FONT}`;
     }
 
-    function shownAs(letter) {
-        const upper = letter.toUpperCase();
+    /*
+     * In capitals unless the player switched them off in the settings -- the
+     * owner's call, 9 November 2026 -- and then as the word is read, which is
+     * in small letters (see targetWord). Either way only where the case
+     * leaves one letter. Both ways because the switch is turned in the
+     * middle of a word, over letters already on the board and in the snake --
+     * see recase.
+     */
+    const caps = () => page.setting('snakeCaps', true);
 
-        return lettersOf(upper).length === 1 ? upper : letter;
+    function caseAs(letter, upper) {
+        const turned = upper ? letter.toUpperCase() : letter.toLowerCase();
+
+        return lettersOf(turned).length === 1 ? turned : letter;
+    }
+
+    function shownAs(letter) {
+        return caseAs(letter, caps());
     }
 
     /*
@@ -853,8 +867,8 @@ function snake(container) {
 
             /*
              * Three groups of one third each: the way out, the dots, and the
-             * sound -- which page.muteButton hangs at the end in a group of its
-             * own.
+             * settings -- which page.settingsButton hangs at the end in a group
+             * of its own.
              *
              * The two ends have to stay equal: ten dots are wider than a third,
              * and what keeps them in the middle of the header is the two groups
@@ -882,9 +896,9 @@ function snake(container) {
                 e.preventDefault();
                 cb.onBack();
             });
-            page.muteButton(header, palette.backBtn, palette.chromeBorder);
+            page.settingsButton(header, palette.backBtn, palette.chromeBorder, cb.settings);
 
-            // The star at the head of the sound's third, as the medal stands
+            // The star at the head of the settings' third, as the medal stands
             // at the end of the way out's -- see starHtml
             const end = header.querySelector('.game-header-end');
             if (end) end.insertAdjacentHTML('afterbegin', starHtml());
@@ -3027,14 +3041,13 @@ function snake(container) {
          */
         let fits = new Map();
 
-        function fitOf(char, px, weight) {
-            const key = `${char}\n${px}\n${weight}`;
+        function fitOf(char, px, weight, room) {
+            const key = `${char}\n${px}\n${weight}\n${room || ''}`;
             let fit = fits.get(key);
 
             if (!fit) {
-                const font = fontOf(px, weight);
-                const size = fitSize(char, px, font);
-                const shown = size === px ? font : fontOf(size, weight);
+                const size = fitSize(char, px, weight, room || cellSize - 2);
+                const shown = fontOf(size, weight);
 
                 fit = { size, drop: inkOffset(char, shown) };
                 fits.set(key, fit);
@@ -3138,16 +3151,43 @@ function snake(container) {
          *
          * Shrinking rather than clipping: a Thai syllable with its tone mark cut
          * off is a different syllable.
+         *
+         * By height as well as width, and down to LEAST_PX rather than to 10,
+         * since 9 November 2026: a Tamil, Malayalam or Kannada syllable -- a
+         * consonant with its vowel signs either side, போ, ಹೋ, ത്തേ -- is two
+         * to three letters wide, and at 10px still wider than a cell; a
+         * Devanagari or Telugu cluster with a sign above and a consonant
+         * below, है, ప్ర, and a Vietnamese capital under two marks, Ệ, are
+         * taller than one (the owner found Tamil spilling over in Word
+         * search; measured then over the forty-nine languages of the starter
+         * sets). `room` is the cell less a pixel either side, or what a link
+         * of the snake leaves -- see the body's letters.
          */
-        function fitSize(char, nominal, font) {
-            const room = cellSize - 2;
-            measure.font = font;
+        const LEAST_PX = 6;
+
+        // The larger of the letter's ink across and down, at `px`
+        function inkOf(char, px, weight) {
+            measure.font = fontOf(px, weight);
             const m = measure.measureText(char);
-            const ink = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
 
-            if (!ink || ink <= room) return nominal;
+            return Math.max(m.actualBoundingBoxLeft + m.actualBoundingBoxRight, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent);
+        }
 
-            return Math.max(10, Math.floor(nominal * room / ink));
+        // Measured again at the size it came down to, and brought down again
+        // if need be: a font is not drawn to scale, and a letter shrunk in
+        // proportion came out a few percent wider than its room
+        function fitSize(char, nominal, weight, room) {
+            let size = nominal;
+
+            for (let k = 0; k < 3; k++) {
+                const ink = inkOf(char, size, weight);
+                if (!ink || ink <= room) return size;
+
+                size = Math.floor((size * room / ink) * 10) / 10;
+                if (size <= LEAST_PX) return LEAST_PX;
+            }
+
+            return size;
         }
 
         /*
@@ -3450,7 +3490,8 @@ function snake(container) {
                     return;
                 }
 
-                const fit = fitOf(part.char, 12.3, 'bold');
+                // In the link rather than the cell: the link is inset
+                const fit = fitOf(part.char, 12.3, 'bold', cellSize - SEG_INSET * 2 - 2);
 
                 put(letter, 'display', 'inline');
                 put(letter, 'x', (part.x + 0.5) * cellSize);
@@ -4458,12 +4499,12 @@ function snake(container) {
      * The words of the line, in order, as ranges of letters, each with the place
      * that decides its fill.
      *
-     * Asked of speech.words rather than read off the blanks. Where a word ends
-     * is a question about the language and the player has already answered it —
-     * the Split words setting — and answering it again here, with "wherever
-     * there is a space", is no answer at all in a script that does not use them.
-     * A Japanese line came out as one word: one colour across the whole of it,
-     * and a double tap anywhere in it reading the lot.
+     * Asked of speech.words rather than read off the blanks, so that the board
+     * and the cards agree on where a word ends -- at spaces and punctuation
+     * since 9 November 2026, when the Split words setting went (see
+     * speech.words). A line written without spaces, as Japanese is, is one
+     * word: one colour across the whole of it, and a double tap anywhere in
+     * it reading the lot.
      *
      * In letters rather than in characters, because everything else here counts
      * the way a reader does: й is two code units and न्न is three, and the board
@@ -4710,9 +4751,8 @@ function snake(container) {
         const atEnd = done === letters.length;
         const phrase = letters.join('');
 
-        // Where the words of this line end — see lineWords, and the Split words
-        // setting behind it. A word closes when its last letter is the one that
-        // has just been swallowed.
+        // Where the words of this line end — see lineWords. A word closes when
+        // its last letter is the one that has just been swallowed.
         const words = lineWords(letters);
         const isPhrase = words.length > 1;
 
@@ -4736,19 +4776,82 @@ function snake(container) {
         // behind all of its letters, the line filled a colour to a word. A
         // letter in no word at all is lit in the first of those colours — it is
         // a mark between words, and there is no word of its own to borrow from.
-        if (!alone && worthSaying(letters[index])) {
+        //
+        // Each of the three can be switched off in the settings -- the owner's
+        // call, 9 November 2026 -- see saysOn. A line of one word says its
+        // word at the end, as the line: switched on as either.
+        if (!alone && saysOn('Letter') && worthSaying(letters[index])) {
             queue.push({ text: letters[index], paint: () => view.sayLetter(index, spoken ? spoken.place : 0) });
         }
 
-        if (closed && isPhrase && worthSaying(word)) {
+        if (closed && isPhrase && saysOn('Word') && worthSaying(word)) {
             queue.push({ text: word, paint: () => view.sayWords([spoken]) });
         }
 
-        if (atEnd && worthSaying(phrase)) {
+        if (atEnd && (isPhrase ? saysOn('Phrase') : saysOn('Word') || saysOn('Phrase')) && worthSaying(phrase)) {
             queue.push({ text: phrase.toLowerCase(), paint: () => view.sayWords(words) });
         }
 
         sayInTurn(queue, whenDone);
+    }
+
+    /*
+     * The snake's own settings, under the sound effects in the panel behind
+     * the gear -- see page.settingsButton. The owner's, 9 November 2026: the
+     * three things the board says by itself, each on its own, and the
+     * capitals. Kept in the settings record, not in the run: a choice of how
+     * to play, which a new run keeps.
+     */
+    const saysOn = (what) => page.setting('snakeSay' + what, true);
+
+    function settingsLines() {
+        const says = (name, what, label) => ({
+            name, label,
+            on: () => saysOn(what),
+            set: (value) => page.saveSetting('snakeSay' + what, value)
+        });
+
+        return [
+            says('say_letter', 'Letter', 'Say each letter'),
+            says('say_word', 'Word', 'Say each word'),
+            says('say_phrase', 'Phrase', 'Say the phrase'),
+            {
+                name: 'caps',
+                label: 'Capital letters',
+                on: caps,
+                set: (value) => {
+                    page.saveSetting('snakeCaps', value);
+                    recase();
+                }
+            }
+        ];
+    }
+
+    // Whether the board is in play and can be drawn again from the state: not
+    // after the session's end, which render would take for a session to leave
+    const playing = () => !!state.sessionPool && state.currentIndex < state.sessionPool.length;
+
+    /*
+     * The board drawn again where it stands, in the case just chosen: every
+     * letter on it and in the snake turned, and the word read again in it.
+     * Through the state the board is saved in, and render, which is how a
+     * session comes back from a closed popup -- the one way the board is
+     * built from what it was.
+     */
+    function recase() {
+        if (!playing()) return;
+
+        board.persistTo(state);
+
+        const turn = (parts) => (parts || []).forEach(part => {
+            if (part && typeof part.char === 'string') part.char = shownAs(part.char);
+        });
+
+        turn(state.savedSnake);
+        turn(state.savedLettersOnBoard);
+
+        render();
+        page.save();
     }
 
     function render() {
@@ -4819,6 +4922,7 @@ function snake(container) {
         view.mount({
             translation: currentItem.word.translation,
             controlMode: state.controlMode,
+            settings: settingsLines(),
 
             onBack: () => {
                 cleanup();
@@ -5166,6 +5270,9 @@ function snake(container) {
 
             state.showHint = true;
             state.hadErrorThisRound = true;
+
+            // Asked to see it: a mistake, heard as one
+            sfx.lose();
 
             // The one thing the hand was there to say has now been done, and it
             // was done by the player. Kept on the session rather than in a
@@ -5654,6 +5761,7 @@ function snake(container) {
          * and that word is never spelled.
          */
         function showVictory(result) {
+            sfx.fanfare(300);
             view.victory(result);
         }
 
@@ -5875,8 +5983,13 @@ function snake(container) {
                 offerReveal();
             }
 
-            // The board starts at every crash -- see view.shudder
-            if (event === 'crashHeart' || event === 'crashRestart') view.shudder();
+            // The board starts at every crash -- see view.shudder -- with a
+            // knock, and a wrong letter eaten is a mistake heard as one
+            if (event === 'crashHeart' || event === 'crashRestart') {
+                view.shudder();
+                sfx.thud();
+                if (board.crashedOnLetter()) sfx.lose(120);
+            }
 
             if (event === 'crashHeart') {
                 board.persistTo(state);
@@ -5900,6 +6013,8 @@ function snake(container) {
 
             if (wasHeartPhase) {
                 if (event === 'heart') {
+                    sfx.caught();
+
                     state.currentIndex++;
                     state.savedSnake = null;
                     refreshDots();
@@ -5918,6 +6033,10 @@ function snake(container) {
                 paint();
                 return;
             }
+
+            // A letter eaten pops like a cell picked in Word search, a step
+            // higher with every letter of the line
+            if (event === 'letter' || event === 'wordDone') sfx.bubble(board.progress() - 1);
 
             if (event === 'letter') {
                 // Redrawn first, and then narrated. A redraw throws the boxes
@@ -5960,6 +6079,9 @@ function snake(container) {
                 const clean = !state.hadErrorThisRound;
 
                 if (clean) scoreRound(1);
+
+                // Spelled clean: the chime of the stage the word has come to
+                if (clean) sfx.chime(stageOf(currentItem), 90);
 
                 /*
                  * And the dot says so now, with the last letter, rather than
@@ -6062,6 +6184,17 @@ function snake(container) {
     }
 
     snake.render = render;
+
+    // The other theme, the board drawn again in it where it stands -- see
+    // recase -- and only the palette after the session's end
+    snake.retheme = (isDark) => {
+        snake.setTheme(isDark);
+        if (!playing()) return;
+
+        board.persistTo(state);
+        render();
+        page.save();
+    };
 
     snake.setTheme = (isDark) => {
         const t = tokens.of(isDark);

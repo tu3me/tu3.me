@@ -148,11 +148,6 @@ function catalog(container) {
     // the panel above -- see viewMenu.
     let viewFor = null;
 
-    // Whether the answer to the question mark is folded out. Panel state like
-    // the panel itself, and it outlives a redraw: switching the setting while
-    // reading about it should not put the reading away.
-    let splitHintOpen = false;
-
     /*
      * Whether everything under the theme switch is folded out.
      *
@@ -3508,22 +3503,7 @@ function catalog(container) {
                 </button>
                 <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
                 <div class="dict-advanced-body" style="padding-top: 6.8px;">
-                <div class="dict-split-line" style="display: flex; align-items: center; gap: 6.8px;">
-                    <button class="dict-split-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; flex: 1; min-width: 0; box-sizing: border-box; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
-                        <span>${tr('splitWords')}</span>
-                        <span class="dict-split-state">${tr(speech.splitsByLanguage() ? 'byLanguage' : 'bySpaces')}</span>
-                    </button>
-                    <button class="dict-split-help" aria-expanded="${splitHintOpen}" title="${tr('whatThisDoes')}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${palette.softColor}; cursor: pointer;">?</button>
-                </div>
-                <div class="dict-split-hint" style="overflow: hidden;"${splitHintOpen ? '' : ' hidden'}>
-                    <div style="padding-top: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">
-                        <div>${tr('splitWhere')}</div>
-                        <div style="margin-top: 5.1px;"><b>${tr('bySpaces')}</b> ${tr('splitSpaces')}</div>
-                        <div style="margin-top: 5.1px;"><b>${tr('byLanguage')}</b> ${tr('splitLang')}</div>
-                        <div style="margin-top: 6.8px;">${tr('splitNoCan')}</div>
-                    </div>
-                </div>
-                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 6.8px; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 0; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
                     <span class="dict-intervals-chevron" style="display: block; flex: none; transform: rotate(${intervalsOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                     <span style="flex: 1; text-align: left;">${tr('repetitionIntervals')}</span>
                 </button>
@@ -3616,7 +3596,7 @@ function catalog(container) {
          *
          * A round question mark, because that is the mark every one of those
          * cards carries -- see onboarding.js -- and it is already the app's word
-         * for "explain this": the Split words line uses the same one.
+         * for "explain this".
          *
          * Left of the theme switch because the two are the same kind of thing, a
          * small switch for how the screen looks rather than for what is on it.
@@ -3780,16 +3760,6 @@ function catalog(container) {
             foldOut(deep, advancedOpen);
         });
 
-        // The question mark unrolls its answer and rolls it back — see foldOut.
-        const help = overlay.querySelector('.dict-split-help');
-        const hint = overlay.querySelector('.dict-split-hint');
-
-        help.addEventListener('click', () => {
-            splitHintOpen = !splitHintOpen;
-            help.setAttribute('aria-expanded', splitHintOpen);
-            foldOut(hint, splitHintOpen);
-        });
-
         const ladder = overlay.querySelector('.dict-intervals-fold');
         const ladderLine = overlay.querySelector('.dict-intervals-line');
         const ladderTurn = overlay.querySelector('.dict-intervals-chevron');
@@ -3847,12 +3817,6 @@ function catalog(container) {
             saveSetting('intervals', spans);
             render();
         }
-
-        overlay.querySelector('.dict-split-row').addEventListener('click', () => {
-            speech.splitByLanguage(!speech.splitsByLanguage());
-            saveSetting('splitByLanguage', speech.splitsByLanguage());
-            render();
-        });
 
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeSettings();
@@ -6363,9 +6327,6 @@ async function bootCatalog() {
      * record with no theme in it, and the catalog came back in the light one.
      */
     const isDark = settings ? settings.isDark !== false : true;
-
-    // Words are split by spaces unless the player asked for the other way.
-    speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
 
 
     // Speaking unless the player has turned the sound off. An absent setting

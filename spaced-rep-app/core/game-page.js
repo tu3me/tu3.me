@@ -19,33 +19,67 @@ function page() {
     };
 
     /*
-     * The sound switch, on every game page, top right. The catalog kept it in
-     * the same corner until 26 October 2026 and keeps it behind the gear now;
-     * a game has no gear to put it behind, and a game is where the sound is
-     * heard most.
+     * The settings of a game, behind a gear at the top right of every game
+     * page -- the owner's call, 9 November 2026, in place of the sound switch
+     * that stood there. The gear opens a panel hung under it, the way the
+     * catalog's does (see renderSettings in catalog.js): the theme and the
+     * voice at the head of it, as there, and under them a switch to a line --
+     * the sound effects (see sfx.js), and whatever the game adds of its own:
+     * what the snake says by itself, and whether the snake and Word search
+     * write their letters in capitals.
      *
      * Here rather than in each game because this is the shell a game is drawn
      * inside — the same place page.home and page.save live. What a game keeps
      * to itself is how it answers a tap on a word, not what its header is made
-     * of, and three copies of one button is three places to fix a button.
+     * of, and five copies of one panel is five places to fix it. A game's own
+     * lines are handed in, each with what it is and what pressing it does.
      *
      * The icons are drawn again rather than borrowed from the catalog: the
      * catalog builds its own header and this builds the games', and a shared
-     * one would tie the two headers together for the sake of eight lines of
+     * one would tie the two headers together for the sake of a few lines of
      * path data.
      */
-    const SOUND_ICON = (body) => `<svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none"
+    const ICON = (body) => `<svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round"
         stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
 
-    const SPEAKER = SOUND_ICON(`
+    const SPEAKER = ICON(`
         <path d="M11 5L6 9H2v6h4l5 4V5z" />
         <path d="M15.5 8.5a5 5 0 0 1 0 7" />
         <path d="M18.8 5.2a9 9 0 0 1 0 13.6" />`);
 
-    const SPEAKER_OFF = SOUND_ICON(`
+    const SPEAKER_OFF = ICON(`
         <path d="M11 5L6 9H2v6h4l5 4V5z" />
         <path d="M16 9.5l5 5M21 9.5l-5 5" />`);
+
+    // The catalog's six-lobed cog, sun and moon -- see GEAR in catalog.js
+    const GEAR = ICON(`
+        <path d="M21.60 12.00 C21.60 12.69 20.40 13.54 19.73 14.07 C19.05 14.60 17.89 14.60 17.54 15.20 C17.20 15.80 17.78 16.80 17.66 17.66 C17.53 18.51 17.40 19.97 16.80 20.31 C16.20 20.66 14.87 20.05 14.07 19.73 C13.27 19.41 12.69 18.40 12.00 18.40 C11.31 18.40 10.73 19.41 9.93 19.73 C9.13 20.05 7.80 20.66 7.20 20.31 C6.60 19.97 6.47 18.51 6.34 17.66 C6.22 16.80 6.80 15.80 6.46 15.20 C6.11 14.60 4.95 14.60 4.27 14.07 C3.60 13.54 2.40 12.69 2.40 12.00 C2.40 11.31 3.60 10.46 4.27 9.93 C4.95 9.40 6.11 9.40 6.46 8.80 C6.80 8.20 6.22 7.20 6.34 6.34 C6.47 5.49 6.60 4.03 7.20 3.69 C7.80 3.34 9.13 3.95 9.93 4.27 C10.73 4.59 11.31 5.60 12.00 5.60 C12.69 5.60 13.27 4.59 14.07 4.27 C14.87 3.95 16.20 3.34 16.80 3.69 C17.40 4.03 17.53 5.49 17.66 6.34 C17.78 7.20 17.20 8.20 17.54 8.80 C17.89 9.40 19.05 9.40 19.73 9.93 C20.40 10.46 21.60 11.31 21.60 12.00 Z" />
+        <circle cx="12" cy="12" r="3" />`);
+
+    const SUN = ICON(`
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 2.6v1.6M12 19.8v1.6M4.2 4.2l1.2 1.2M18.6 18.6l1.2 1.2M2.6 12h1.6M19.8 12h1.6M4.2 19.8l1.2-1.2M18.6 5.4l1.2-1.2" />`);
+
+    const MOON = ICON(`
+        <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
+
+    /*
+     * The settings record, as it was read at boot and as this page has
+     * changed it since: what a game asks for its own lines by -- see
+     * page.setting -- without a read of its own.
+     */
+    let settingsRecord = {};
+
+    page.useSettings = (record) => { settingsRecord = record || {}; };
+
+    // A setting of the game's own, or `fallback` where nobody has chosen
+    page.setting = (key, fallback) => (key in settingsRecord ? settingsRecord[key] : fallback);
+
+    page.saveSetting = (key, value) => {
+        settingsRecord[key] = value;
+        return saveSetting(key, value);
+    };
 
     /*
      * A dot of the row along the top of a game: one to a word of the session,
@@ -77,21 +111,14 @@ function page() {
         return `<div class="${cls}"${waiting ? ` title="${hint}"` : ''} style="display: flex; align-items: center; justify-content: center; width: ${size}px; height: ${size}px; border-radius: 50%; background: ${bg}; ${ring} color: ${palette.stageInk}; font-size: ${page.DOT_FIGURE}px; font-weight: 800; line-height: 1; overflow: hidden; cursor: default; font-variant-numeric: tabular-nums; transition: all 0.2s; flex-shrink: 0;">${stage}</div>`;
     };
 
-    function drawMute(btn) {
-        btn.innerHTML = speech.muted() ? SPEAKER_OFF : SPEAKER;
-        btn.title = speech.muted() ? 'Sound off' : 'Sound on';
-    }
-
     /*
      * Hung on the end of a game's header, which is why the game passes its own
-     * header in and its own colour with it: the three of them paint their
-     * chrome differently and none of them should learn the others' palette.
-     *
-     * The icon is swapped in place rather than by redrawing the screen. A game
-     * is mid-session when this is pressed, and a redraw would be a redraw of a
-     * board, a card mid-turn or a question already answered.
+     * header in and its own colour with it: the games paint their chrome
+     * differently and none of them should learn the others' palette. `lines`,
+     * the game's own switches, each { name, label, on(), set(value) } -- see
+     * page.settingsButton's panel below.
      */
-    page.muteButton = (header, colour, border) => {
+    page.settingsButton = (header, colour, border, lines) => {
         if (!header) return null;
 
         // In a group of its own, and the group takes a third of the header the
@@ -103,36 +130,211 @@ function page() {
         // The share belongs to the group and not to the button: a button with a
         // third of the header in it is a button you press by aiming at nothing
         // in particular.
-        //
-        // Always a group of its own now. Snake kept a gear at this end until 26
-        // October 2026 and built the group with it, and the switch hung off
-        // that; the gear went with the snake's speeds.
         const end = $(header, `<div class="game-header-end" style="display: flex; flex: 1; justify-content: flex-end; align-items: center;"></div>`);
 
-        const btn = $(end, `<button class="game-mute-btn" id="mute-btn" title="Sound" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 10.2px; color: ${colour}; cursor: pointer;"></button>`);
+        const btn = $(end, `<button class="game-settings-btn" id="settings-btn" title="Settings" style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; flex: none; padding: 0; background: transparent; border: 1px solid ${border}; border-radius: 10.2px; color: ${colour}; cursor: pointer;">${GEAR}</button>`);
 
-        drawMute(btn);
+        gameLines = lines || [];
+        btn.addEventListener('click', () => (panelOpen() ? closeSettings() : openSettings(btn)));
 
-        // What the press left the sound at, the same as the catalog's switch,
-        // and the same tip when what it switched on cannot be heard -- asked
-        // about the words of the set being played, in the set's language.
-        btn.addEventListener('click', () => {
+        return btn;
+    };
+
+    let gameLines = [];
+
+    /*
+     * The panel. On the page itself and not in the game's container: a game
+     * draws itself again whole -- the theme changed under the panel does it --
+     * and the panel stays open through that, the way the catalog's does,
+     * saying the other theme over a game that is already wearing it.
+     */
+    const RISE_IN = 160;
+    const RISE_OUT = 120;
+
+    let overlay = null;
+    let anchor = null;
+    let onKey = null;
+
+    const panelOpen = () => !!overlay;
+
+    function colours() {
+        const t = tokens.of(theme.isDark());
+
+        return {
+            bg: t.surface, ink: t.ink, quiet: t.muted, edge: t.border,
+            track: t.border, lit: theme.isDark() ? t.progress : t.progressFill
+        };
+    }
+
+    // One of the game's switches: its name, and a track with the knob at
+    // the end it stands at
+    function lineHtml(line, c) {
+        const on = !!line.on();
+
+        return `<button class="game-setting" data-press="${line.name}" aria-pressed="${on}" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; width: 100%; box-sizing: border-box; margin-top: 5.1px; padding: 6.8px 8.5px; background: transparent; border: 1px solid ${c.edge}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${c.ink}; text-align: left; cursor: pointer;">
+            <span>${line.label}</span>
+            <span aria-hidden="true" style="position: relative; display: block; flex: none; width: 29px; height: 17px; border-radius: 8.5px; background: ${on ? c.lit : c.track}; transition: background 0.15s;">
+                <span style="position: absolute; top: 2px; left: ${on ? 14 : 2}px; width: 13px; height: 13px; border-radius: 50%; background: #ffffff; transition: left 0.15s;"></span>
+            </span>
+        </button>`;
+    }
+
+    // Every line of the panel: the sound effects first, then the game's own
+    function allLines() {
+        return [{
+            name: 'effects',
+            label: 'Sound effects',
+            on: () => sfx.on(),
+            set: (value) => {
+                sfx.enable(value);
+                page.saveSetting('effects', value);
+
+                // Heard, switched on: the switch answers in the voice it is for
+                if (value) sfx.chime(0);
+            }
+        }].concat(gameLines);
+    }
+
+    function panelHtml() {
+        const c = colours();
+        const chip = `display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${c.edge}; border-radius: 8.5px; cursor: pointer; color: ${c.quiet};`;
+
+        return `<div class="game-settings-panel" style="position: absolute; box-sizing: border-box; width: 230px; background: ${c.bg}; color: ${c.ink}; border: 1px solid ${c.edge}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 5.1px;">
+                <div style="font-size: 14.3px; font-weight: 700;">Settings</div>
+                <div style="display: flex; align-items: center; gap: 5.1px; flex: none;">
+                    <button class="game-setting" data-press="theme" title="${theme.isDark() ? 'Dark theme' : 'Light theme'}" style="${chip}">${theme.isDark() ? MOON : SUN}</button>
+                    <button class="game-voice-btn" title="${speech.muted() ? 'Voice off' : 'Voice on'}" style="${chip}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
+                </div>
+            </div>
+            ${allLines().map(line => lineHtml(line, c)).join('')}
+        </div>`;
+    }
+
+    // What the panel says, drawn again in place after a press
+    function drawPanel() {
+        if (!overlay) return;
+
+        const was = overlay.querySelector('.game-settings-panel');
+        const scrolled = was ? was.scrollTop : 0;
+        if (was) was.remove();
+
+        const panel = $(overlay, panelHtml());
+        panel.style.transformOrigin = hangUnder(panel, anchorNow());
+        panel.scrollTop = scrolled;
+
+        wirePanel(panel);
+        return panel;
+    }
+
+    // The gear the panel hangs from, which a game drawn again has replaced
+    function anchorNow() {
+        const fresh = document.querySelector('.game-settings-btn');
+        if (fresh) anchor = fresh;
+        return anchor;
+    }
+
+    function wirePanel(panel) {
+        const lines = allLines();
+
+        panel.querySelectorAll('.game-setting').forEach(el => {
+            el.addEventListener('click', () => {
+                const name = el.dataset.press;
+
+                if (name === 'theme') return switchTheme();
+
+                const line = lines.find(l => l.name === name);
+                if (!line) return;
+
+                const value = !line.on();
+                line.set(value);
+                track('setting', name, value ? 'on' : 'off', gameId);
+                drawPanel();
+            });
+        });
+
+        // The voice, as the switch in the header was until now: what the press
+        // left it at goes to the analytics, and the same tip when what it
+        // switched on cannot be heard -- asked about the words of the set
+        // being played, in the set's language
+        panel.querySelector('.game-voice-btn').addEventListener('click', () => {
             speech.mute(!speech.muted());
             track('sound', speech.muted() ? 'off' : 'on', 'game');
             saveSetting('muted', speech.muted());
-            drawMute(btn);
 
+            const fresh = drawPanel();
             if (speech.muted()) return;
 
             const playing = (module && module.getState()) || {};
             const words = store.wordsOf(playing.selectedSetId)
                 .map(item => ({ text: item.word.original, lang: item.originalLang }));
 
-            speech.explainSilence(btn, words, 'game');
+            speech.explainSilence(fresh.querySelector('.game-voice-btn'), words, 'game');
+        });
+    }
+
+    /*
+     * The other theme, on the page and on the game, which is drawn again in it
+     * -- by the game's own retheme where drawing it again is not simply
+     * render (snake's board is mid-move), and by render where it is.
+     */
+    function switchTheme() {
+        const dark = !theme.isDark();
+
+        theme.set(dark);
+        track('setting', 'theme', dark ? 'dark' : 'light', gameId);
+
+        if (module.retheme) module.retheme(dark);
+        else {
+            module.setTheme(dark);
+            module.render();
+        }
+
+        drawPanel();
+    }
+
+    function openSettings(btn) {
+        anchor = btn;
+
+        overlay = $(document.body, `<div class="game-settings-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;"></div>`);
+
+        const panel = drawPanel();
+
+        // Out of the gear: grown from its middle, as the catalog's
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            overlay.animate([{ opacity: 0 }, { opacity: 1 }], { duration: RISE_IN, easing: 'ease-out' });
+            panel.animate([{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: RISE_IN, easing: 'ease-out' });
+        }
+
+        // Two ways out besides the gear, which the wash covers: a press on
+        // the wash itself, and Escape. A press inside the panel bubbles up to
+        // the wash and must not close it
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeSettings();
         });
 
-        return btn;
-    };
+        onKey = (e) => {
+            if (e.key === 'Escape') closeSettings();
+        };
+        document.addEventListener('keydown', onKey);
+    }
+
+    function closeSettings() {
+        const was = overlay;
+        overlay = null;
+        if (!was) return;
+
+        document.removeEventListener('keydown', onKey);
+
+        const panel = was.querySelector('.game-settings-panel');
+        was.style.pointerEvents = 'none';
+
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches || !panel) return was.remove();
+
+        panel.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.6)', opacity: 0 }], { duration: RISE_OUT, easing: 'ease-in', fill: 'forwards' });
+        was.animate([{ opacity: 1 }, { opacity: 0 }], { duration: RISE_OUT, easing: 'ease-in', fill: 'forwards' })
+            .finished.catch(() => null).then(() => was.remove());
+    }
 
     /*
      * Whether this session has been declared over.
@@ -294,13 +496,14 @@ async function bootGame(id, module) {
      */
     const isDark = settings ? settings.isDark !== false : true;
 
-    // Where a word ends, which is what a tap on a card lands on: spaces, unless
-    // the player asked for the dictionary's answer instead.
-    speech.splitByLanguage(settings ? !!settings.splitByLanguage : false);
-
-    // And whether anything is said at all. The switch is in the game's header
-    // and in the catalog's settings; both write the same setting.
+    // And whether anything is said at all. The switch is in the game's
+    // settings and in the catalog's; both write the same setting.
     speech.mute(!!(settings && settings.muted));
+
+    // The sound effects, on unless switched off -- see sfx.js -- and the rest
+    // of the record kept for the games' own settings (page.setting)
+    sfx.enable(!(settings && settings.effects === false));
+    page.useSettings(settings);
 
     await store.load();
 
