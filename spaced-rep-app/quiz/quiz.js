@@ -856,8 +856,14 @@ function quiz(container) {
 
         // Air at the sides for the block the cursor grows (see CURSOR_SCALE),
         // which otherwise ran up against the popup's edges, and under the last
-        // one -- the owner's call, 11 November 2026
-        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 22px;"></div>`);
+        // one -- the owner's call, 11 November 2026.
+        //
+        // And nothing that moves sideways ever widens the page: a phone takes
+        // a page wider than its screen as a cue to zoom out, and the whole game
+        // shrank under the answer (see answered). Clipped across only -- the
+        // grown block, the shake and the stamp all fit in the side padding --
+        // and clip, not hidden, which would make the list scroll down as well.
+        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 22px; overflow-x: clip;"></div>`);
 
         const BLOCK_UP = `${BLOCK_EDGE}px ${BLOCK_EDGE}px 0 ${BLOCK_LINE}`;
         const BLOCK_DOWN = `1px 1px 0 ${BLOCK_LINE}`;
@@ -928,8 +934,8 @@ function quiz(container) {
          * What the screen does with an answer, once it is given:
          *
          * Right -- the block lifts and bumps, a tick is stamped on it, the
-         * label gives a little hop, and the other blocks slide off to the
-         * side one after another.
+         * label gives a little hop, and the other blocks drop and fade one
+         * after another.
          *
          * Wrong -- the block shakes its head, fades to grey and is stamped
          * with a cross; a beat later the right one lifts and is stamped with
@@ -952,10 +958,14 @@ function quiz(container) {
 
                 if (label) label.animate([{ translate: '0px 0px' }, { translate: '0px -5px', offset: 0.4 }, { translate: '0px 0px' }], { duration: 360, easing: 'ease-out' });
 
+                // Dropped and faded where they stand, not slid off to the side:
+                // slid a block's width to the right they stuck out past the
+                // page, and a phone answered the wider page by zooming the
+                // whole game out (the owner, 11 November 2026)
                 optionButtons.filter(b => b !== picked).forEach((b, k) => b.animate([
-                    { translate: '0px 0px', rotate: '0deg', opacity: 1 },
-                    { translate: '110% 0px', rotate: '6deg', opacity: 0 }
-                ], { duration: 420, delay: 160 + k * 60, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }));
+                    { translate: '0px 0px', scale: 1, opacity: 1 },
+                    { translate: '0px 12px', scale: 0.92, opacity: 0 }
+                ], { duration: 380, delay: 160 + k * 60, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }));
 
                 return;
             }
