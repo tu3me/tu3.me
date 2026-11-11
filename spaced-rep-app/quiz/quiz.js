@@ -24,6 +24,42 @@ function quiz(container) {
     const LEAST_OPTIONS = 2;
     const MOST_OPTIONS = 6;
 
+    /*
+     * The look of a game -- the owner's call, 11 November 2026, chosen out of
+     * three drawn up that evening ("B, colour blocks"). The question is a
+     * paper label stuck on at a slant; the options are bold blocks in muted
+     * colours -- mint, lavender, sky, peach, butter, rose -- in a thick dark
+     * outline on a hard shadow BLOCK_EDGE down and to the right, pressed into
+     * it by a finger, each with its speaker in a ring at its head where the
+     * language has a voice. They are dealt onto the table as the question
+     * comes (see enter). A right answer lifts its block and slams a stamp on
+     * it, and the others slide off; a wrong one shakes its head, fades and is
+     * stamped with a cross, and the right one lifts and is stamped beside it.
+     *
+     * Before it the same day: cards of cream stock in the craft look of
+     * Wordcraft, then the same cards darkened, and both were dull. A green
+     * ring round the right answer after a mistake was drawn too, and did not
+     * sit on the light theme; the lift and the stamp mark it on both.
+     *
+     * The same blocks and outline on both themes: they are the page's
+     * colour, not the theme's. Only the label's paper follows the theme.
+     */
+    const BLOCK_EDGE = 4;
+    const BLOCK_LINE = '#061820';
+
+    /*
+     * The next word comes this long after a right answer. 700 until 11
+     * November 2026, when the right answer began to take a bow in that beat,
+     * and 700 cut it short. Wordcraft made the same move the same day.
+     */
+    const NEXT_AFTER = 1000;
+
+    const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // The question whose entrance has been played, and when: drawn again in
+    // the middle of it -- the voices arriving -- it goes on from where it was
+    let introduced = { key: null, at: 0 };
+
     let state = getEmptyState();
     let palette = {};
 
@@ -333,11 +369,18 @@ function quiz(container) {
 
 
     // Shown on the option the cursor is on: the key you press to send it.
-    // Drawn on the same 24-unit grid and 2-unit stroke as every other icon here.
-    const SUBMIT_ARROW = `<svg width="13.7" height="13.7" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+    // Drawn on the same 24-unit grid as every other icon here, at the size
+    // of the options' 17px type and a stroke as heavy as their letters -- it
+    // was 13.7px and a hairline beside them (the owner, 11 November 2026).
+    const SUBMIT_ARROW = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.8" stroke-linecap="round"
         stroke-linejoin="round" aria-hidden="true" style="display: block;">
         <path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
+
+    // The stamp an answered option is marked with: a tick or a cross on a
+    // white disc in the blocks' outline, put down at a slant as a rubber
+    // stamp is -- see stamp
+    const STAMP = (ok) => `<span style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; box-sizing: border-box; border-radius: 50%; background: #ffffff; border: 2.5px solid ${BLOCK_LINE}; color: ${ok ? '#2f9e6e' : '#d9543f'};"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ok ? '<path d="M5 12.5l4.5 4.5L19 7.5" />' : '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />'}</svg></span>`;
 
     // A word off a card goes straight into markup, and a word is whatever
     // somebody typed into the box.
@@ -742,8 +785,9 @@ function quiz(container) {
         waveDots(header.querySelector('.quiz-dots-group'));
         waveStar(header.querySelector('.quiz-star'));
 
-        const questionCard = $(container, `<div class="quiz-question-card" data-press style="width: 100%; padding: 20.5px 13.7px; background: ${palette.questionBg}; border: 1px solid ${palette.questionBorder}; border-radius: 15.4px; text-align: center; margin-bottom: 13.7px; box-sizing: border-box; cursor: pointer;">
-            <div class="quiz-question-word" style="font-size: ${WORD_SIZE}px; font-weight: 700; color: ${palette.questionText}; margin-top: 5.1px; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
+        // The question: a paper label stuck on at a slant -- see BLOCK_EDGE
+        const questionCard = $(container, `<div class="quiz-question-card" data-press style="width: 100%; padding: 14px 6px 4px; text-align: center; margin-bottom: 20px; box-sizing: border-box; cursor: pointer;">
+            <div class="quiz-question-word" style="display: inline-block; max-width: calc(100% - 12px); box-sizing: border-box; padding: 6px 18px 8px; background: ${palette.label}; border: 2px solid ${BLOCK_LINE}; border-radius: 12px; box-shadow: ${BLOCK_EDGE}px ${BLOCK_EDGE}px 0 ${BLOCK_LINE}; transform: rotate(-2deg); font-size: ${WORD_SIZE}px; font-weight: 800; color: ${palette.blockInk}; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.labelMuted, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
         </div>`);
 
         /*
@@ -810,7 +854,168 @@ function quiz(container) {
         const selectedOptions = [correctTranslation, ...distractors.slice(0, countToTake)];
         selectedOptions.sort(() => Math.random() - 0.5);
 
-        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 6.8px;"></div>`);
+        // Air at the sides for the block the cursor grows (see CURSOR_SCALE),
+        // which otherwise ran up against the popup's edges, and under the last
+        // one -- the owner's call, 11 November 2026
+        const optionsList = $(container, `<div class="quiz-options-list" style="display: flex; flex-direction: column; gap: 12px; padding: 0 12px 22px;"></div>`);
+
+        const BLOCK_UP = `${BLOCK_EDGE}px ${BLOCK_EDGE}px 0 ${BLOCK_LINE}`;
+        const BLOCK_DOWN = `1px 1px 0 ${BLOCK_LINE}`;
+        const BLOCK_LIFT = `${BLOCK_EDGE + 2}px ${BLOCK_EDGE + 2}px 0 ${BLOCK_LINE}`;
+        const BLOCK_IN = `translate(${BLOCK_EDGE - 1}px, ${BLOCK_EDGE - 1}px)`;
+
+        // How a block stands when nothing is pressing it: up on its shadow, or
+        // a little higher once it is shown to be the right answer (see lift).
+        // A sunk one stays where it was put.
+        function rest(button) {
+            if (button.dataset.sunk) return;
+
+            const lifted = !!button.dataset.lifted;
+
+            button.style.transform = lifted ? 'translate(-2px, -2px)' : '';
+            button.style.boxShadow = lifted ? BLOCK_LIFT : BLOCK_UP;
+        }
+
+        // Pushed into its shadow while the finger is on it, and back to rest
+        // when it lets go
+        function squish(button) {
+            button.addEventListener('pointerdown', () => {
+                if (button.dataset.sunk) return;
+
+                button.style.transform = BLOCK_IN;
+                button.style.boxShadow = BLOCK_DOWN;
+            });
+
+            ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => button.addEventListener(type, () => rest(button)));
+        }
+
+        function lift(button) {
+            button.dataset.lifted = '1';
+            rest(button);
+        }
+
+        // A block out of play: pushed into the table and faded
+        function sink(button) {
+            button.dataset.sunk = '1';
+            button.style.transform = BLOCK_IN;
+            button.style.boxShadow = 'none';
+            button.style.opacity = '0.45';
+            button.style.filter = 'saturate(0.4)';
+        }
+
+        /*
+         * The stamp put down on an answered block: dropped from above at a
+         * slant, hitting a shade small and settling -- a rubber stamp.
+         */
+        function stamp(button, ok) {
+            const icon = button.querySelector('.status-icon');
+            if (!icon) return;
+
+            icon.innerHTML = STAMP(ok);
+            icon.style.display = 'block';
+            icon.style.transform = 'rotate(-14deg)';
+
+            if (still()) return;
+
+            icon.animate([
+                { transform: 'rotate(-14deg) scale(1.9)', opacity: 0 },
+                { transform: 'rotate(-14deg) scale(0.86)', opacity: 1, offset: 0.65 },
+                { transform: 'rotate(-14deg) scale(1)', opacity: 1 }
+            ], { duration: 260, easing: 'ease-in' });
+        }
+
+        /*
+         * What the screen does with an answer, once it is given:
+         *
+         * Right -- the block lifts and bumps, a tick is stamped on it, the
+         * label gives a little hop, and the other blocks slide off to the
+         * side one after another.
+         *
+         * Wrong -- the block shakes its head, fades to grey and is stamped
+         * with a cross; a beat later the right one lifts and is stamped with
+         * a tick, and the rest sink into the table.
+         *
+         * On `scale`, `translate` and `rotate` rather than on transform,
+         * which a press and a sunk block are using.
+         */
+        function answered(picked, right) {
+            const rightBtn = optionButtons.find(b => b.querySelector('.quiz-option-label').textContent === correctTranslation);
+            const label = questionCard.querySelector('.quiz-question-word');
+
+            if (right) {
+                lift(picked);
+                stamp(picked, true);
+
+                if (still()) return;
+
+                picked.animate([{ scale: 1 }, { scale: 1.03, offset: 0.4 }, { scale: 1 }], { duration: 320, easing: 'ease-out' });
+
+                if (label) label.animate([{ translate: '0px 0px' }, { translate: '0px -5px', offset: 0.4 }, { translate: '0px 0px' }], { duration: 360, easing: 'ease-out' });
+
+                optionButtons.filter(b => b !== picked).forEach((b, k) => b.animate([
+                    { translate: '0px 0px', rotate: '0deg', opacity: 1 },
+                    { translate: '110% 0px', rotate: '6deg', opacity: 0 }
+                ], { duration: 420, delay: 160 + k * 60, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }));
+
+                return;
+            }
+
+            // Out of play, but not sunk: it is the one being shown wrong
+            picked.dataset.sunk = '1';
+            picked.style.filter = 'grayscale(1) brightness(0.85)';
+            stamp(picked, false);
+
+            if (rightBtn) {
+                lift(rightBtn);
+                setTimeout(() => { if (rightBtn.isConnected) stamp(rightBtn, true); }, still() ? 0 : 260);
+            }
+
+            optionButtons.forEach(b => { if (b !== picked && b !== rightBtn) sink(b); });
+
+            if (still()) return;
+
+            picked.animate([
+                { translate: '0px 0px' },
+                { translate: '-8px 0px', offset: 0.15 },
+                { translate: '7px 0px', offset: 0.35 },
+                { translate: '-4px 0px', offset: 0.55 },
+                { translate: '2px 0px', offset: 0.75 },
+                { translate: '0px 0px' }
+            ], { duration: 380, easing: 'ease-out' });
+
+            if (rightBtn) rightBtn.animate([{ scale: 1 }, { scale: 1.03, offset: 0.5 }, { scale: 1 }], { duration: 340, delay: 260, easing: 'ease-out' });
+        }
+
+        /*
+         * The question coming on: the label is stuck on, dropped in at more of
+         * a slant than it settles at, and the blocks are dealt onto the table
+         * one after another. Once a question -- see `introduced`.
+         */
+        function enter() {
+            const key = `${state.sessionAt}:${state.currentIndex}`;
+
+            if (introduced.key !== key) introduced = { key, at: performance.now() };
+
+            if (still()) return;
+
+            const gone = performance.now() - introduced.at;
+            const play = (el, frames, timing) => {
+                if (timing.delay + timing.duration - gone <= 0) return;
+                el.animate(frames, { ...timing, delay: timing.delay - gone, fill: 'backwards' });
+            };
+
+            const label = questionCard.querySelector('.quiz-question-word');
+
+            if (label) play(label, [
+                { translate: '0px -10px', rotate: '-6deg', opacity: 0 },
+                { translate: '0px 0px', rotate: '0deg', opacity: 1 }
+            ], { duration: 340, delay: 0, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' });
+
+            optionButtons.forEach((b, k) => play(b, [
+                { translate: '0px -10px', rotate: `${k % 2 ? 2.5 : -2.5}deg`, opacity: 0 },
+                { translate: '0px 0px', rotate: '0deg', opacity: 1 }
+            ], { duration: 320, delay: 120 + k * 60, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' }));
+        }
 
         const optionButtons = [];
         let selectedIndex = -1;
@@ -834,36 +1039,26 @@ function quiz(container) {
         let isAnswered = !!state.sessionResults[state.currentIndex];
         let wasWrong = state.sessionResults[state.currentIndex] === 'wrong';
 
-        // The keyboard cursor is an outline against the button's own edge, plus
-        // an arrow in the option's right gutter saying which key sends it. Both
-        // are dropped the moment an answer is given: from then on the fill
-        // carries the result, and a cursor sitting on top of it only makes that
-        // harder to read.
-        //
-        // No offset. Standing two pixels clear of the border, the cursor read as
-        // the option growing when it was pointed at -- an outline is painted
-        // outside the box and takes no room in the layout, so nothing moved, but
-        // one option four pixels wider than the rest is an option that looks
-        // wider than the rest.
+        /*
+         * The keyboard cursor: the block pointed at grows a little and stands
+         * over its neighbours, with an arrow at its end saying which key sends
+         * it. Both are dropped the moment an answer is given: from then on the
+         * stamps carry the result.
+         *
+         * By `scale` rather than by anything that takes room: a transform is
+         * drawn, not laid out, so the block grows over the gap round it and
+         * nothing else moves -- the owner's call, 11 November 2026, when this
+         * took the place of a green outline. The outline was another colour
+         * on the block's own thick one, and on the light theme it did not sit.
+         * `scale` and not `transform`, which a press is using.
+         */
+        const CURSOR_SCALE = 1.035;
+
         function showCursor(button, on) {
-            button.style.outline = on ? `2px solid ${palette.cursor}` : 'none';
-            button.style.outlineOffset = '0';
+            button.style.scale = on ? String(CURSOR_SCALE) : '';
+            button.style.zIndex = on ? '1' : '';
             const arrow = button.querySelector('.quiz-option-arrow');
             if (arrow) arrow.style.display = on ? 'block' : 'none';
-        }
-
-        /*
-         * The ink an answered option is written in — the speaker along with the
-         * rest of it. It carries a colour of its own, so it would otherwise stay
-         * muted on top of the fill, which is both where it is least readable and
-         * where it is most wanted: after a mistake the right answer is showing,
-         * and that is the one worth hearing.
-         */
-        function inkOnResult(button) {
-            button.style.color = palette.onResult;
-
-            const speaker = button.querySelector('.say-all');
-            if (speaker) speaker.style.color = palette.onResult;
         }
 
         function highlight(index) {
@@ -891,18 +1086,23 @@ function quiz(container) {
         }
 
         selectedOptions.forEach((opt, optIndex) => {
-            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: 100%; padding: 12px 13.7px; background: ${palette.optionBg}; border: 2px solid ${palette.optionBorder}; border-radius: 12px; font-weight: 600; font-size: 14.3px; color: ${palette.optionText}; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8.5px;">
-                <span class="quiz-option-left" style="display: flex; align-items: center; gap: 8.5px; min-width: 0;">
-                    ${speech.speakerHtml(opt, optionLang, palette.sayIcon, 'margin-top: 0; font-size: 15.4px; flex: none;')}
+            // The speaker sits at the head of the block in a ring of the
+            // block's own outline, where a letter of the option would be in a
+            // quiz show -- and only where the language has a voice: no voice,
+            // no ring (the owner's call, 11 November 2026)
+            const optBtn = $(optionsList, `<button class="quiz-option-btn" style="width: calc(100% - ${BLOCK_EDGE}px); min-height: 50px; padding: 8px 12px; background: ${palette.blocks[optIndex % palette.blocks.length]}; border: 2px solid ${BLOCK_LINE}; border-radius: 12px; box-shadow: ${BLOCK_UP}; font-family: inherit; font-weight: 800; font-size: 17px; color: ${palette.blockInk}; cursor: pointer; transition: filter 0.25s, opacity 0.25s, scale 0.15s; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <span class="quiz-option-left" style="display: flex; align-items: center; gap: 11px; min-width: 0;">
+                    ${speech.speakerHtml(opt, optionLang, palette.blockInk, `margin-top: 0; flex: none; width: 30px; height: 30px; box-sizing: border-box; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.6); border: 2px solid ${BLOCK_LINE}; font-size: 15px;`)}
                     <span class="quiz-option-label">${escapeText(opt)}</span>
                 </span>
                 <span class="quiz-option-right" style="display: flex; align-items: center; flex: none;">
                     <span class="quiz-option-icon status-icon" style="font-size: 14.3px;"></span>
-                    <span class="quiz-option-arrow" style="display: none; color: ${palette.cursor};">${SUBMIT_ARROW}</span>
+                    <span class="quiz-option-arrow" style="display: none; color: ${palette.blockInk};">${SUBMIT_ARROW}</span>
                 </span>
             </button>`);
 
             optionButtons.push(optBtn);
+            squish(optBtn);
 
             /*
              * The speaker is the one spot on an option that does not answer with
@@ -937,10 +1137,7 @@ function quiz(container) {
                     optionButtons.forEach(b => showCursor(b, false));
 
                     if (isCorrect) {
-                        optBtn.style.background = palette.okFill;
-                        optBtn.style.borderColor = palette.okFill;
-                        inkOnResult(optBtn);
-                        optBtn.querySelector('.status-icon').textContent = '✓';
+                        answered(optBtn, true);
 
                         store.recordRepetition(currentItem, 1, 'quiz', { at: state.sessionAt, size: state.sessionPool.length });
                         state.sessionResults[state.currentIndex] = 'correct';
@@ -952,7 +1149,7 @@ function quiz(container) {
                         store.save();
                         refreshDots();
 
-                        setTimeout(advance, 700);
+                        setTimeout(advance, NEXT_AFTER);
                     } else {
                         wasWrong = true;
 
@@ -964,25 +1161,12 @@ function quiz(container) {
                         store.save();
                         refreshDots();
 
-                        // Reveal the right answer, mark the wrong pick, dim the rest
-                        const allBtns = optionsList.querySelectorAll('.quiz-option-btn');
-                        allBtns.forEach(b => {
-                            const text = b.querySelector('.quiz-option-label').textContent;
-                            if (text === correctTranslation) {
-                                b.style.background = palette.okFill;
-                                b.style.borderColor = palette.okFill;
-                                inkOnResult(b);
-                                b.querySelector('.status-icon').textContent = '✓';
-                            } else if (b === optBtn) {
-                                b.style.background = palette.errFill;
-                                b.style.borderColor = palette.errFill;
-                                inkOnResult(b);
-                                b.querySelector('.status-icon').textContent = '✕';
-                                b.dataset.disabled = 'true';
-                            } else {
-                                b.style.opacity = '0.5';
-                                b.dataset.disabled = 'true';
-                            }
+                        // Reveal the right answer, mark the wrong pick, sink the
+                        // rest -- see answered. Only the right one still does
+                        // anything.
+                        answered(optBtn, false);
+                        optionButtons.forEach(b => {
+                            if (b.querySelector('.quiz-option-label').textContent !== correctTranslation) b.dataset.disabled = 'true';
                         });
 
                         // The right answer is the only option that still does anything,
@@ -997,7 +1181,25 @@ function quiz(container) {
             });
         });
 
+        enter();
+
         bindKeys((code) => {
+            /*
+             * Answered, ↑/↓ have nothing to do: the cursor is not drawn after
+             * an answer, and moving it about unseen only took → away from the
+             * right option, where it had been put -- the owner found → doing
+             * nothing after a mistake, 11 November 2026. So → presses the
+             * right option whatever happened, which after a mistake is the way
+             * on to the next word, and after a right answer does nothing.
+             */
+            if (isAnswered) {
+                if (code !== 'ArrowRight') return;
+
+                const right = optionButtons.find(b => b.querySelector('.quiz-option-label').textContent === correctTranslation);
+                if (right) right.click();
+                return;
+            }
+
             if (code === 'ArrowUp') highlight(selectedIndex < 0 ? -1 : selectedIndex - 1);
             else if (code === 'ArrowDown') highlight(selectedIndex + 1);
             else if (optionButtons[selectedIndex]) optionButtons[selectedIndex].click();
@@ -1026,27 +1228,16 @@ function quiz(container) {
             stageInk: t.muted,
             backBtn: t.muted,
 
-            // Flat panels, no gradients: the question and the answers already
-            // differ by shape and position, which is enough.
-            questionBg: t.surface,
-            questionBorder: t.border,
-            questionText: t.ink,
+            // The label the question is written on: paper, a shade warmer on
+            // the dark theme so that it does not glare -- see BLOCK_EDGE
+            label: isDark ? '#f3efe4' : '#fffdf7',
+            labelMuted: '#6b6256',
 
-            optionBg: t.surface,
-            optionBorder: t.border,
-            optionText: t.ink,
-
-            // An answered option keeps its surface and states itself through the
-            // border, the way the reference does.
-            // An answered option is filled solid rather than tinted: the result
-            // is the loudest thing on the screen for the moment it is shown.
-            //
-            // The ink is dark, not white. White on the dark theme's mint is
-            // 2.1:1 — unreadable — where this ink is 6.9:1, and it clears 3.6:1
-            // or better on all four fills, which white manages on exactly one.
-            okFill: t.ok,
-            errFill: t.err,
-            onResult: '#0f2b3c',
+            // The blocks, in this order down the list -- mint, lavender, sky,
+            // peach, butter, rose -- and the ink written on them: the same on
+            // both themes, see BLOCK_EDGE
+            blocks: ['#b7e4c7', '#cbbdf3', '#a7d3f2', '#f6c8a6', '#f3e1a0', '#f2b8c6'],
+            blockInk: '#10232d',
 
             // Nothing here for what is being said: letter, word and line are
             // all marked off the bubble ramp — see sayLater.

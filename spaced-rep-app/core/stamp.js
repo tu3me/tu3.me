@@ -3,4 +3,4 @@
  * after every change, never by hand. See there, and buildLine and updated
  * in catalog.js.
  */
-const CODE_STAMP = { version: '0.2.9', changed: '2026-11-09T20:56:56+05:00' };
+const CODE_STAMP = { version: '0.2.9', changed: '2026-11-11T22:24:34+05:00' };

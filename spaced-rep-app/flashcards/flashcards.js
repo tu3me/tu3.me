@@ -590,13 +590,67 @@ function flashcards(container) {
          *
          * Drawn once. Nothing about them changes any more, so nothing rebuilds
          * them.
+         *
+         * Icons rather than words -- the owner's call, 11 November 2026: the
+         * game is played by people learning a language, often in an interface
+         * language that is not theirs, and "Flip" and "Know" had to be read
+         * before they could be pressed. A tick for Know, and a card being
+         * turned for Flip (see FLIP_ICON). Before it the same evening: a card
+         * inside a ring of two arrows, which read as "reload", and a card
+         * beside itself turned edgeways under an arc, which was still not
+         * obvious (the owner).
+         *
+         * The arrows at the outer ends stay: they are the keys (← and →) and
+         * need no language either. Drawn rather than typed, in the stroke of
+         * the way-out arrow in the header: a typed arrow is a hairline in
+         * most fonts and a different one in each. The words stay too, as the
+         * buttons' names for a screen reader and the tooltip.
          */
+        const ICON = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+        /*
+         * Flip, after the picture the owner gave the same evening: a card
+         * tipped over, and a heavy arrow that comes in from beside it, swings
+         * down and round and points back into it -- the card being turned.
+         * The button has one colour, so the picture's two blues are white,
+         * the card half see-through; and where the arrow crosses the card a
+         * gap is cut round it, as in the picture, so the two do not run into
+         * one shape. The mask is on a group rather than on the card: on the
+         * card it would be turned with the card's own tilt.
+         */
+        const FLIP_ARROW = 'M18.8 7.2C22.2 9.6 20.8 16.6 12.2 13.6';
+        const FLIP_HEAD = 'M8.6 12.35L13.4 11.15L11.6 16.25Z';
+
+        // The card both icons stand on, cut round whatever is drawn over it
+        // -- the mask, whose id has to be the icon's own, as both are on the
+        // page at once
+        const onCard = (gap, over) => `<svg ${ICON} width="28" height="28">`
+            + `<defs><mask id="${gap}" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">`
+            + `<rect width="24" height="24" fill="white" />${over.replace(/<path /g, '<path stroke="black" ').replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${+w + 2.8}"`).replace(/fill="currentColor"/g, 'fill="black"')}`
+            + '</mask></defs>'
+            + `<g mask="url(#${gap})"><rect x="3.5" y="3" width="13" height="17.5" rx="2.6" transform="rotate(-10 10 11.75)" fill="currentColor" fill-opacity="0.5" stroke="none" /></g>`
+            + `${over}</svg>`;
+
+        const FLIP_ICON = onCard('flashcards-flip-gap', `<path d="${FLIP_ARROW}" stroke-width="2.8" /><path d="${FLIP_HEAD}" stroke-width="1.4" fill="currentColor" />`);
+
+        // Know on the same card -- the owner's call, the same evening: a
+        // tick laid on it, running out past its edge as Flip's arrow does
+        const KNOW_ICON = onCard('flashcards-know-gap', '<path d="M6.5 12.5l4 4L20.5 6" stroke-width="3" />');
+
+        const KEY_LEFT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.7;"><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></svg>`;
+        const KEY_RIGHT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.7;"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>`;
+
+        // 44px tall: the icons the size the owner asked for (28 and 26, from 20),
+        // with less air round them than round the 20px ones, and the buttons
+        // taller (35px before) -- the owner's call, 11 November 2026
+        const BUTTON = 'flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 8px; box-sizing: border-box; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s;';
+
         function renderActionButtons() {
             actionsContainer.innerHTML = '';
 
             const actionButtons = $(actionsContainer, `<div class="flashcards-buttons-row" style="display: flex; gap: 6.8px;">
-                <button class="flashcards-btn-flip" id="btn-flip" style="flex: 1; padding: 9.4px; background: ${palette.noBg}; color: ${palette.noText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">← Flip</button>
-                <button class="flashcards-btn-know" id="btn-know" style="flex: 1; padding: 9.4px; background: ${palette.yesBg}; color: ${palette.yesText}; border: none; border-radius: 12px; font-weight: 700; font-size: 13.3px; cursor: pointer; transition: all 0.2s;">✓ Know →</button>
+                <button class="flashcards-btn-flip" id="btn-flip" aria-label="Flip" title="Flip the card" style="${BUTTON} background: ${palette.noBg}; color: ${palette.noText};">${KEY_LEFT}${FLIP_ICON}</button>
+                <button class="flashcards-btn-know" id="btn-know" aria-label="Know" title="I know it" style="${BUTTON} background: ${palette.yesBg}; color: ${palette.yesText};">${KNOW_ICON}${KEY_RIGHT}</button>
             </div>`);
 
             // The card is turned by hand rather than by a redraw: the flip is a
