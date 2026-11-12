@@ -246,6 +246,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Разбивайте слова на части и собирайте заново — с каждым уровнем сложнее.',
         pitch_snake: 'Превратите скучное время у экрана в быстрое повторение слов.',
         pitch_search: 'Мысленное повторение во время поиска спрятанных слов надёжно закрепляет их в памяти.',
+        pitch_search2: 'Ищите спрятанные слова на сетке из шестиугольников: они изгибаются в любую сторону.',
 
         firstSet: 'Стартовый набор',
 
@@ -408,6 +409,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Розбивайте слова на частини та збирайте знову — з кожним рівнем складніше.',
         pitch_snake: 'Нудний час біля екрана перетворюється на швидке повторення слів.',
         pitch_search: 'Повторення слів подумки під час пошуку прихованих слів міцно закріплює їх у пам’яті.',
+        pitch_search2: 'Шукайте приховані слова на сітці з шестикутників: вони вигинаються в будь-який бік.',
 
         firstSet: 'Стартовий набір',
 
@@ -570,6 +572,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Divide las palabras en fragmentos y vuelve a unirlos: más difícil en cada nivel.',
         pitch_snake: 'Convierte el tiempo aburrido ante la pantalla en un repaso rápido de vocabulario.',
         pitch_search: 'La repetición mental mientras buscas palabras ocultas las fija en tu memoria.',
+        pitch_search2: 'Busca palabras ocultas en una cuadrícula de hexágonos, donde se tuercen en cualquier dirección.',
 
         firstSet: 'Set inicial',
 
@@ -732,6 +735,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Découpez les mots en fragments et reconstituez-les : c’est plus difficile à chaque niveau.',
         pitch_snake: 'Transformez le temps perdu devant l’écran en révision rapide du vocabulaire.',
         pitch_search: 'La répétition mentale en cherchant les mots cachés les ancre dans votre mémoire.',
+        pitch_search2: 'Cherchez les mots cachés dans une grille d’hexagones, où ils serpentent dans tous les sens.',
 
         firstSet: 'Série de départ',
 
@@ -894,6 +898,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Zerlege Wörter in Teile und setze sie wieder zusammen – mit jedem Level schwieriger.',
         pitch_snake: 'Mach aus langweiliger Bildschirmzeit eine schnelle Vokabelrunde.',
         pitch_search: 'Wer beim Suchen versteckter Wörter im Kopf wiederholt, prägt sie sich dauerhaft ein.',
+        pitch_search2: 'Suche versteckte Wörter in einem Wabengitter, in dem sie sich in alle Richtungen winden.',
 
         firstSet: 'Starter-Set',
 
@@ -1056,6 +1061,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Spezza le parole in frammenti e ricomponile: ogni livello è più difficile.',
         pitch_snake: 'Trasforma la noia davanti allo schermo in un rapido ripasso del lessico.',
         pitch_search: 'La ripetizione mentale mentre cerchi le parole nascoste le imprime nella memoria.',
+        pitch_search2: 'Cerca le parole nascoste in una griglia di esagoni, dove si snodano in ogni direzione.',
 
         firstSet: 'Set iniziale',
 
@@ -1218,6 +1224,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Divida as palavras em fragmentos e monte-as de novo: cada nível é mais difícil.',
         pitch_snake: 'Transforme o tempo entediante de tela em uma revisão rápida de vocabulário.',
         pitch_search: 'A repetição mental enquanto você procura palavras escondidas ajuda a fixá-las na memória.',
+        pitch_search2: 'Procure palavras escondidas em uma grade de hexágonos, onde elas se curvam em qualquer direção.',
 
         firstSet: 'Conjunto inicial',
 
@@ -1380,6 +1387,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Breek woorden in stukjes en zet ze weer in elkaar: elk niveau is moeilijker.',
         pitch_snake: 'Maak van saaie schermtijd een snelle woordjesherhaling.',
         pitch_search: 'In gedachten herhalen terwijl je verborgen woorden zoekt, prent ze in je geheugen.',
+        pitch_search2: 'Zoek verborgen woorden in een raster van zeshoeken, waar ze alle kanten op kronkelen.',
 
         firstSet: 'Startset',
 
@@ -1542,6 +1550,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Dziel słowa na fragmenty i składaj je z powrotem: każdy poziom jest trudniejszy.',
         pitch_snake: 'Zamień nudny czas przed ekranem w szybką powtórkę słówek.',
         pitch_search: 'Powtarzanie w myślach podczas szukania ukrytych słów utrwala je w pamięci.',
+        pitch_search2: 'Szukaj ukrytych słów na siatce sześciokątów, gdzie wiją się w każdą stronę.',
 
         firstSet: 'Zestaw startowy',
 
@@ -1704,6 +1713,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Kelimeleri parçalara ayırın ve yeniden birleştirin: her seviye daha zor.',
         pitch_snake: 'Sıkıcı ekran süresini hızlı bir kelime tekrarına dönüştürün.',
         pitch_search: 'Gizli kelimeleri ararken zihinden tekrar etmek onları hafızanıza kazır.',
+        pitch_search2: 'Altıgenlerden oluşan bir ızgarada gizli kelimeleri arayın: kelimeler her yöne kıvrılır.',
 
         firstSet: 'Başlangıç Seti',
 
@@ -1866,6 +1876,7 @@ const UI_STRINGS = {
         pitch_wordcraft: '単語を分解して組み立て直します。レベルが上がるほど難しくなります。',
         pitch_snake: '画面を見ている退屈な時間を、手軽な単語の復習に変えましょう。',
         pitch_search: '隠れた単語を探しながら頭の中で繰り返すと、記憶にしっかり定着します。',
+        pitch_search2: '六角形のマスに隠れた単語を探そう。単語はあらゆる方向に曲がりくねっています。',
 
         firstSet: 'スターターセット',
 
@@ -2028,6 +2039,7 @@ const UI_STRINGS = {
         pitch_wordcraft: '단어를 조각내고 다시 맞춰 보세요. 레벨이 오를수록 어려워집니다.',
         pitch_snake: '화면을 보는 지루한 시간을 빠른 단어 복습으로 바꿔 보세요.',
         pitch_search: '숨은 단어를 찾으며 머릿속으로 반복하면 기억에 단단히 새겨집니다.',
+        pitch_search2: '육각형 칸에 숨은 단어를 찾아보세요. 단어는 어느 방향으로든 구불구불 이어져요.',
 
         firstSet: '스타터 세트',
 
@@ -2190,6 +2202,7 @@ const UI_STRINGS = {
         pitch_wordcraft: '把单词拆成碎片再拼回去，每一关都更难。',
         pitch_snake: '把无聊的屏幕时间变成快速的单词复习。',
         pitch_search: '在寻找隐藏单词时反复回想，帮你牢牢记住它们。',
+        pitch_search2: '在六边形网格中寻找隐藏的单词，单词可向任意方向弯折。',
 
         firstSet: '入门卡组',
 
@@ -2352,6 +2365,7 @@ const UI_STRINGS = {
         pitch_wordcraft: 'Tách từ thành các mảnh rồi ghép lại: mỗi cấp độ lại khó hơn.',
         pitch_snake: 'Biến thời gian nhàm chán trước màn hình thành một lượt ôn từ nhanh.',
         pitch_search: 'Nhẩm lại trong đầu khi tìm từ ẩn giúp từ vựng khắc sâu vào trí nhớ.',
+        pitch_search2: 'Tìm từ ẩn trên lưới lục giác, nơi các từ uốn lượn theo mọi hướng.',
 
         firstSet: 'Bộ thẻ khởi đầu',
 

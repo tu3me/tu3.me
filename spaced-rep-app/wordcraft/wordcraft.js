@@ -9,7 +9,7 @@
  * can come out of a different handful of tiles, and somebody who spelled the
  * word spelled the word. A piece that does not go there goes up to the line,
  * is turned back and returns to its place, and the first such piece is the
- * round's verdict -- see reject.
+ * round's verdict -- see reject. Undo came back the next day -- see undo.
  *
  * Both numbers come off the word's own stage, the way the quiz takes its option
  * count from it: a word seen once is cut in two with nothing standing beside
@@ -122,6 +122,10 @@ function wordcraft(container) {
      * The banner's own margin and the page's padding are part of the air, so
      * the board's padding is what is left of it: BANNER_GAP and PAGE_PAD are
      * those two, written out here because the board has to know them.
+     *
+     * Since 12 November 2026 the button stands in the air under the pieces --
+     * Undo, see drawActions -- the way Finish! did on a last word: the
+     * board's own bottom padding over it, and the whole air under it.
      */
     const PIECES_AIR = 37;
     const BANNER_GAP = 10.2;
@@ -143,24 +147,10 @@ function wordcraft(container) {
     // middle of it goes on from where it was rather than starting it again
     let introduced = { key: null, at: 0 };
 
-    /*
-     * Every how many pieces laid one leaves a wet print rather than a blot
-     * (see wetPrint), and which tiles have: "round:tile". Outside render, so
-     * that a redraw keeps the print where it was; not saved, so a popup
-     * opened again shows a blot there -- the count goes on (piecesLaid), the
-     * print is only a joke.
-     */
-    const WET_EVERY = 20;
-    const wet = new Set();
-
     function getEmptyState() {
         return {
             selectedSetId: null, currentIndex: 0, sessionResults: [], sessionPool: null,
-            sessionAt: null, allowEarly: false, round: null, starLevel: 0,
-
-            // Every piece laid in the session, for the wet print left by
-            // every WET_EVERY-th of them -- see wetPrint
-            piecesLaid: 0
+            sessionAt: null, allowEarly: false, round: null, starLevel: 0
         };
     }
 
@@ -382,17 +372,17 @@ function wordcraft(container) {
 
     /*
      * Keyboard: ←/→ move over the pieces still in play, ↑ takes the one pointed
-     * at -- the owner's call, 4 November 2026. ↓ took back the last piece until
-     * 11 November, when Undo went (see reject); ↑ with the line full was Check.
-     * And ↑ on a last word presses Finish!, pointed at or not: there is no piece
-     * left to point at, and it is the only way out of a last word for somebody
-     * on the keyboard.
+     * at -- the owner's call, 4 November 2026 -- and ↓ presses Undo. ↓ did
+     * nothing for a day in between, 11 November, when Undo had gone (see
+     * reject); ↑ with the line full was Check until then. And ↑ on a last word
+     * presses Finish!, pointed at or not: there is no piece left to point at,
+     * and it is the only way out of a last word for somebody on the keyboard.
      *
      * Nothing is pointed at until a key asks, as in the quiz: → then lands on the
      * first piece and ← on the last. Nothing on the screen says the keys exist,
      * which is also the owner's call.
      */
-    const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp'];
+    const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
     let keyHandler = null;
 
@@ -1402,8 +1392,8 @@ function wordcraft(container) {
          *
          * keptPrefix still trims the line first. Nothing wrong is ever laid
          * now, but a round saved before 11 November 2026 can come back with
-         * a wrong piece down from the days of Check, and with Undo gone this
-         * is the one way past it.
+         * a wrong piece down from the days of Check, and for the day Undo was
+         * gone this was the one way past it.
          */
         function giveAway() {
             if (round.shown) return;
@@ -1492,11 +1482,13 @@ function wordcraft(container) {
 
         const trayEl = $(boardEl, `<div class="wordcraft-tray" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: ${10 + TILE_EDGE}px 9px;"></div>`);
 
-        // Under them the round's one button, Finish!, on a last word that is
-        // spelled -- see drawActions. No room is kept for it: it comes once a
-        // run, at its end, and the screen grows by it then. Kept, the room
-        // was the empty band at the bottom of every word.
-        const actionsEl = $(container, '<div class="wordcraft-actions" style="display: flex; justify-content: center; align-items: center;"></div>');
+        // Under them the round's button: Undo, and on a last word that is
+        // spelled Finish! in its place -- see drawActions. The same air under
+        // it as over it, see PIECES_AIR.
+        const actionsEl = $(container, `<div class="wordcraft-actions" style="display: flex; justify-content: center; align-items: center; padding-bottom: ${PIECES_AIR - PAGE_PAD}px;"></div>`);
+
+        // Undo while it is on the screen -- see refreshUndo
+        let undoEl = null;
 
         // Which round this is, for its entrance -- see `introduced`
         const key = `${state.sessionAt}:${state.currentIndex}`;
@@ -1515,26 +1507,32 @@ function wordcraft(container) {
         const TILE_IN = `translate(${TILE_EDGE - 1}px, ${TILE_EDGE - 1}px)`;
 
         /*
-         * Four things a tile can be.
+         * Five things a tile can be.
          *
          * `live`, to be pressed. `laid`, gone up to the line or on its way
-         * back: what is left on the board is a blot where it lay (see
-         * blotOf), so the row keeps its shape and the eye can see where the
-         * piece came from. `off`, too long for the room left on the line:
+         * back to the board after Undo: what is left on the board is a blot
+         * where it lay (see blotOf), so the row keeps its shape and the eye
+         * can see where the piece came from. `away`, a wrong piece up at the
+         * line and on its way back (see reject), and `gone`, every tile not
+         * in the word once it is spelled, swept off the board (see sweep):
+         * both leave a wet print instead (see wetPrint), and a gone one
+         * leaves it for good. `off`, too long for the room left on the line:
          * pushed in and faded, because a tile that answers a press by doing
          * nothing reads as the game being broken, not as the piece not
-         * fitting. And `gone`, every tile not in the word once it is spelled:
-         * swept off the board (see sweep), and still holding its place.
+         * fitting.
          */
         function pieceStyle(kind, at) {
             const base = `position: relative; box-sizing: border-box; padding: 7px 13px 8px; border-radius: 7px; font-family: inherit; font-weight: 700; font-size: ${TILE_FONT}px; line-height: 1.2; white-space: pre; transition: opacity 0.25s;`;
 
             // The blots of a spelled word turn green with it: the board says
-            // what the line says, rather than sitting there emptied. The
-            // border is kept, unseen, so that the blot takes up exactly the
-            // room the tile did and nothing in the row moves.
-            if (kind === 'laid') return base + ` background: ${blotOf(at, round.done ? palette.okBlot : palette.blot)} center / 100% 100% no-repeat border-box; border: 1.5px solid transparent; color: transparent; box-shadow: none; cursor: default;`;
-            if (kind === 'gone') return base + TILE_FACE + ' box-shadow: none; opacity: 0; cursor: default;';
+            // what the line says, rather than sitting there emptied. The wet
+            // prints stay the board's shade -- they are what was not the
+            // word. The border is kept, unseen, so that the mark takes up
+            // exactly the room the tile did and nothing in the row moves.
+            const mark = (look, soaked) => base + ` background: ${blotOf(at, look, soaked)} center / 100% 100% no-repeat border-box; border: 1.5px solid transparent; color: transparent; box-shadow: none; cursor: default;`;
+
+            if (kind === 'laid') return mark(round.done ? palette.okBlot : palette.blot, false);
+            if (kind === 'away' || kind === 'gone') return mark(palette.blot, true);
             if (kind === 'off') return base + TILE_FACE + ` box-shadow: none; transform: ${TILE_IN}; opacity: 0.35; cursor: default;`;
 
             return base + TILE_FACE + ` box-shadow: ${TILE_UP}; cursor: pointer;`;
@@ -1553,11 +1551,10 @@ function wordcraft(container) {
          */
         const blots = new Map();
 
-        function blotOf(at, look) {
+        function blotOf(at, look, soaked) {
             const tile = tiles[at];
             const w = Math.max(1, Math.round(tile.offsetWidth));
             const h = Math.max(1, Math.round(tile.offsetHeight));
-            const soaked = wet.has(`${key}:${at}`);
 
             let shape = blots.get(at);
 
@@ -1581,10 +1578,15 @@ function wordcraft(container) {
          * A wet print where somebody sat down in wet trousers, instead of a
          * blot: two round halves side by side, each a little lumpy, the way
          * wet cloth does not print a clean edge, and the drops that ran off
-         * underneath -- left by every
-         * WET_EVERY-th piece laid (the owner's call, 11 November 2026: a
-         * joke for whoever plays long enough to find it). Wetter than a blot,
-         * which is what tells it from one at a glance.
+         * underneath. Wetter than a blot, which is what tells it from one at
+         * a glance.
+         *
+         * What a wrong piece leaves, and only a wrong one -- the owner's
+         * call, 12 November 2026: under a piece turned back while it is away
+         * (see reject), and under every piece the spelled word did not use,
+         * swept off the board (see sweep). A right piece leaves a blot. From
+         * 11 November until then it was every twentieth piece laid, right or
+         * not, a joke for whoever played long enough to find it.
          *
          * Drawn in a frame of its own, 135 by 100, and fitted into the tile
          * whole: a print stretched to a tile one letter wide would no longer
@@ -1694,16 +1696,28 @@ function wordcraft(container) {
         }
 
         /*
-         * The one button left, Finish!, is cut from the same card as the
-         * tiles: outlined in ink, on the same hard shadow, in the colour this
-         * app paints the thing to press. Check and Undo stood beside it until
-         * 11 November 2026 -- see reject.
+         * The buttons are cut from the same card as the tiles: outlined in
+         * ink, on the same hard shadow. Finish! in the colour this app paints
+         * the thing to press; Undo in the tiles' own card on the light theme
+         * and in the chrome's outline on the dark one, where a cream button
+         * would shout as loud as the tiles.
+         *
+         * Both the same height, because Finish! takes Undo's place on a last
+         * word, and the screen is not to move by a hair when it does. Undo
+         * has no word on it, only the arrow -- the owner's call, 12 November
+         * 2026, when it came back: a word on it is a word in English.
          */
-        const ACTION = 'display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 9px 20px; border-radius: 8px; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; letter-spacing: 0.02em;';
+        const ACTION = 'display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; height: 38px; padding: 0 20px; border-radius: 8px; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; letter-spacing: 0.02em;';
 
         const ACCENT_UP = TILE_UP;
         const ACCENT_DOWN = TILE_DOWN;
         const ACCENT_FACE = `background: ${palette.accent}; color: ${palette.onAccent}; border: 1.5px solid ${palette.tileLine}; box-shadow: ${ACCENT_UP}; cursor: pointer;`;
+
+        const PLAIN_UP = `${TILE_EDGE}px ${TILE_EDGE}px 0 ${palette.undoShadow}`;
+        const PLAIN_DOWN = `1px 1px 0 ${palette.undoShadow}`;
+        const UNDO_FACE = `padding: 0 24px; background: ${palette.undoBg}; color: ${palette.undoInk}; border: 1.5px solid ${palette.undoLine}; transition: opacity 0.2s;`;
+
+        const UNDO_ICON = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>';
 
         // Pushed into its shadow while the finger is on it, and back out
         // when it lets go
@@ -2044,10 +2058,6 @@ function wordcraft(container) {
 
             round.laid.push(at);
 
-            // Every WET_EVERY-th piece leaves a wet print -- see wetPrint
-            state.piecesLaid += 1;
-            if (state.piecesLaid % WET_EVERY === 0) wet.add(`${key}:${at}`);
-
             // The last piece is the word spelled: written down now, and shown
             // once the piece is down -- see spelled
             const whole = laidOut().length === slots.length;
@@ -2078,7 +2088,8 @@ function wordcraft(container) {
          * A piece that does not go there: up to the line all the same, where
          * it turns red and shakes its head, and back to its place -- the
          * owner's call, 11 November 2026, when Check and Undo went. Its blot
-         * stays on the board while it is away.
+         * stays on the board while it is away. Undo came back the next day,
+         * for the pieces that are right -- see undo.
          *
          * The first one is the round's verdict, as the first Check was: the
          * share of the word laid right before it, two decimals, truncated --
@@ -2106,7 +2117,9 @@ function wordcraft(container) {
                 return;
             }
 
-            const token = {};
+            // Wrong: away, it leaves a wet print rather than a blot -- see
+            // kindOf and wetPrint
+            const token = { wrong: true };
             const home = appRect(tile);
             const target = slotsRect(slotRange(before, size));
 
@@ -2177,6 +2190,58 @@ function wordcraft(container) {
         }
 
         /*
+         * Undo: the last piece laid flies back off the line to its blot.
+         *
+         * Back on 12 November 2026, the owner's call, a day after it went
+         * with Check. Every piece on the line is right, but right letters
+         * can still be the wrong cut, and then the word cannot be finished:
+         * "abcab" cut a|bc|ab takes "ab" first, and nothing on the board
+         * starts with the "c" that comes next. A stranger can do the same,
+         * carrying the start of the word cut differently. Undo is the way
+         * back out of that.
+         *
+         * The last piece only -- a piece out of the middle would leave the
+         * letters after it standing in boxes they no longer belong to, and
+         * what a player wants from the middle of a line is to try again from
+         * there, which is this button pressed twice. Nothing about it is
+         * written down: the piece was right, and a mistake already made is
+         * not taken back with it. Not once the word is spelled: that is
+         * written down, and the next word is on its way.
+         */
+        function undo() {
+            if (round.done || round.laid.length === 0) return;
+
+            landNow();
+
+            // Measured where it stands, before the line is drawn without it
+            sendHome(round.laid.length - 1);
+
+            round.laid.pop();
+
+            // Softer, at the letter that is the line's last now
+            sfx.bubble(laidOut().length - 1, 0, true);
+
+            drawBar();
+            refreshTray();
+            page.save();
+        }
+
+        // Pressable while there is something to take back -- otherwise
+        // pushed into the page and faded, the way a tile that does not fit
+        // is. Restyled only when that changes, so that a piece landing does
+        // not lift it out from under a finger pressing it.
+        function refreshUndo() {
+            if (!undoEl) return;
+
+            const can = !round.done && round.laid.length > 0;
+            if (undoEl.dataset.can === String(can)) return;
+
+            undoEl.dataset.can = String(can);
+            undoEl.disabled = !can;
+            undoEl.style.cssText = `${ACTION} ${UNDO_FACE} box-shadow: ${can ? PLAIN_UP : 'none'}; transform: ${can ? 'none' : TILE_IN}; cursor: ${can ? 'pointer' : 'default'}; opacity: ${can ? '1' : '0.4'};`;
+        }
+
+        /*
          * The word spelled, once its last piece is down: the line takes its
          * bow, the chime of the stage the word has come to, the word said,
          * and the round's buttons -- the next word by itself, or Finish!.
@@ -2200,19 +2265,31 @@ function wordcraft(container) {
             return tile;
         });
 
-        // The tiles that are not in the word, off the board once it is
-        // spelled: tipped over and slid away, one after another
+        /*
+         * The tiles that are not in the word, off the board once it is
+         * spelled: tipped over and slid away, one after another, each
+         * leaving a wet print where it sat.
+         *
+         * What slides away is a copy of the card, fixed to the screen over
+         * the tile, and the tile itself is the print by then (pieceStyle,
+         * `gone`) -- the way a laid piece is the blot it leaves and the
+         * card that flies is a copy. Taken whole, the tile would take its
+         * print with it.
+         */
         let swept = 0;
 
         function sweep(tile) {
             if (still()) return;
 
             const turn = (swept % 2 ? 1 : -1) * (6 + Math.random() * 6);
+            const from = appRect(tile);
 
-            tile.animate([
+            const card = $(container, `<div class="wordcraft-flying" aria-hidden="true" style="position: fixed; left: ${from.left}px; top: ${from.top}px; width: ${from.width}px; height: ${from.height}px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; ${TILE_FACE} border-radius: 7px; box-shadow: ${TILE_UP}; font-weight: 700; font-size: ${TILE_FONT}px; line-height: 1.2; white-space: pre; pointer-events: none; z-index: 7;">${escapeText(tile.textContent)}</div>`);
+
+            card.animate([
                 { transform: 'translateY(0px) rotate(0deg)', opacity: 1 },
                 { transform: `translateY(22px) rotate(${turn}deg)`, opacity: 0 }
-            ], { duration: 480, delay: 220 + swept * 45, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'backwards' });
+            ], { duration: 480, delay: 220 + swept * 45, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'both' }).finished.then(() => card.remove(), () => card.remove());
 
             swept += 1;
         }
@@ -2225,10 +2302,13 @@ function wordcraft(container) {
          *
          * A tile turning `gone` here is swept off; one drawn `gone` from the
          * start -- the screen drawn again after the word was spelled -- is
-         * simply not there.
+         * only its wet print.
          */
         function kindOf(at) {
-            if (round.laid.includes(at) || returning.has(at)) return 'laid';
+            const away = returning.get(at);
+
+            if (away && away.wrong) return 'away';
+            if (round.laid.includes(at) || away) return 'laid';
             if (round.done) return 'gone';
             if (boxesOf(round.tray[at]).length > slots.length - laidOut().length) return 'off';
 
@@ -2246,9 +2326,10 @@ function wordcraft(container) {
 
                 if (kind === 'gone' && was && was !== 'gone') sweep(tile);
 
-                // The blot spreading where the tile was lifted from, the way
-                // ink runs into paper
-                if (kind === 'laid' && was === 'live' && !still()) {
+                // The blot, or the print, spreading where the tile was
+                // lifted from, the way ink runs into paper. Not under a tile
+                // swept off: the copy sliding away uncovers it.
+                if ((kind === 'laid' || kind === 'away') && was === 'live' && !still()) {
                     tile.animate([
                         { transform: 'scale(0.4)', opacity: 0 },
                         { transform: 'scale(1.05)', opacity: 1, offset: 0.65 },
@@ -2258,6 +2339,7 @@ function wordcraft(container) {
             });
 
             settleCursor();
+            refreshUndo();
         }
 
         /*
@@ -2448,28 +2530,38 @@ function wordcraft(container) {
                 { transform: `translateY(-10px) rotate(${k % 2 ? 5 : -5}deg)`, opacity: 0 },
                 { transform: 'translateY(0px) rotate(0deg)', opacity: 1 }
             ], { duration: 340, delay: 120 + k * 45, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' }));
+
+            // Undo after the last of them, up from under them. One keyframe:
+            // it comes up to whatever it is, faded while there is nothing
+            // to take back.
+            if (undoEl) play(undoEl, [
+                { translate: '0px 8px', opacity: 0, offset: 0 }
+            ], { duration: 260, delay: 120 + tiles.length * 45, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' });
         }
 
         /*
-         * The round's one button, and only at its end.
+         * The round's button: Undo while the word is being put together --
+         * see undo -- and still there, faded, in the second before the next
+         * word comes, so that nothing under the pieces moves.
          *
          * Once the word is spelled the next word comes by itself, NEXT_AFTER
          * later -- the owner's call, 3 November 2026, the way a right answer
          * moves the quiz on. Until then there was a Next button for it.
          *
          * Except on the last word of a run with the star short of full, which
-         * keeps its button, "Finish!" -- the owner's call the same day. What
-         * is behind it there is not another word but the way out, and a run
-         * that ends by itself, with no star to fly out, ends without anybody
-         * noticing it has. A full star ends it by flying -- see winStar.
+         * keeps its button, "Finish!", in Undo's place -- the owner's call the
+         * same day. What is behind it there is not another word but the way
+         * out, and a run that ends by itself, with no star to fly out, ends
+         * without anybody noticing it has. A full star ends it by flying --
+         * see winStar.
          *
          * Nobody is trapped before that. A wrong piece goes back to the board,
-         * so every piece the word needs is always there, and a word that was
-         * given away is on the line to copy. And the way out of the game is
-         * where it always is, in the corner: leaving keeps the session, and
+         * a right one that leads nowhere comes back with Undo, and a word that
+         * was given away is on the line to copy. And the way out of the game
+         * is where it always is, in the corner: leaving keeps the session, and
          * the catalog offers to continue it.
          *
-         * Undo and Check stood here until 11 November 2026 -- see reject.
+         * Check stood beside Undo until 11 November 2026 -- see reject.
          */
         /*
          * A button the round has just earned comes up into place. Once: the
@@ -2491,14 +2583,11 @@ function wordcraft(container) {
 
         function drawActions() {
             actionsEl.innerHTML = '';
-            actionsEl.style.paddingBottom = '';
+            undoEl = null;
 
             const last = state.currentIndex >= pool.length - 1;
 
             if (round.done && last && state.starLevel < STAR_TOP) {
-                // The same air under it as over it -- see PIECES_AIR
-                actionsEl.style.paddingBottom = `${PIECES_AIR - PAGE_PAD}px`;
-
                 const finish = $(actionsEl, `<button class="wordcraft-next" style="${ACTION} ${ACCENT_FACE}">Finish!</button>`);
 
                 squish(finish, ACCENT_UP, ACCENT_DOWN);
@@ -2511,6 +2600,12 @@ function wordcraft(container) {
 
             shown = '';
 
+            undoEl = $(actionsEl, `<button class="wordcraft-undo" aria-label="Undo" title="Undo">${UNDO_ICON}</button>`);
+
+            squish(undoEl, PLAIN_UP, PLAIN_DOWN);
+            undoEl.addEventListener('click', undo);
+            refreshUndo();
+
             if (round.done) moveOn();
         }
 
@@ -2520,9 +2615,20 @@ function wordcraft(container) {
         enter();
 
         // Through the buttons' own clicks, so that a key does exactly what the
-        // press does -- the analytics included
+        // press does -- the analytics included. Undo points back at the piece
+        // it returned: taken back, that is where the player was.
         bindKeys((code) => {
             if (code === 'ArrowLeft' || code === 'ArrowRight') return moveCursor(code === 'ArrowRight' ? 1 : -1);
+
+            if (code === 'ArrowDown') {
+                if (!undoEl || undoEl.disabled) return;
+
+                const back = tiles[round.laid[round.laid.length - 1]];
+
+                undoEl.click();
+                pointAt(back);
+                return;
+            }
 
             const action = actionsEl.querySelector('.wordcraft-next');
 
@@ -2635,6 +2741,14 @@ function wordcraft(container) {
             accent: t.accent,
             onAccent: t.onAccent,
 
+            // Undo is cream card on the light theme, and on the dark one only
+            // an outline, the chrome's way: cream there is the tiles', and
+            // the brightest thing under the word is to be the pieces
+            undoBg: isDark ? 'transparent' : '#fbf7ee',
+            undoInk: isDark ? '#efe6d3' : '#2b2621',
+            undoLine: isDark ? 'rgba(239, 230, 211, 0.45)' : '#2b2621',
+            undoShadow: isDark ? 'rgba(0, 0, 0, 0.55)' : '#2b2621',
+
             // The scraps that go up off a spelled word: terracotta, mustard,
             // sage, deep teal and the card itself -- earth colours, not the
             // ladder's pastels
@@ -2694,11 +2808,7 @@ function wordcraft(container) {
         allowEarly: state.allowEarly,
 
         // The star is the session's and goes with it -- see STAR_TOP
-        starLevel: state.starLevel,
-
-        // So that a popup closed and opened again goes on counting rather
-        // than starting over -- see wetPrint
-        piecesLaid: state.piecesLaid
+        starLevel: state.starLevel
     });
 
     wordcraft.setState = (snap) => {

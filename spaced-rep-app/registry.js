@@ -48,6 +48,10 @@ const GAMES = [
     {
         id: 'search',
         pitch: 'Mental repetition while searching for hidden words wires them straight into your memory.'
+    },
+    {
+        id: 'search2',
+        pitch: 'Hunt for hidden words on a honeycomb grid, where they twist and turn every way.'
     }
 ];
 
