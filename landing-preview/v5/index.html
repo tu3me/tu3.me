@@ -94,13 +94,14 @@ section { padding: 72px 0; }
 .btn.dark:hover { background: rgba(255,255,255,.18); border-color: #fff; }
 
 /* header */
-header.top { position: sticky; top: 0; z-index: 20; background: rgba(20,40,58,.96); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(255,255,255,.08); color: #fff; }
+header.top { position: sticky; top: 0; z-index: 20; background: rgba(20,40,58,.96); border-bottom: 1px solid rgba(255,255,255,.08); color: #fff; }
 .bar { display: flex; align-items: center; gap: 18px; min-height: 64px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: #fff; text-decoration: none; margin-right: auto; font-size: 1.05rem; }
 .brand img { width: 34px; height: 34px; border-radius: 9px; }
 nav.links { display: flex; gap: 22px; }
 nav.links a { color: #d3e0ea; text-decoration: none; font-weight: 600; font-size: .96rem; }
 nav.links a:hover { color: #8fe0bd; }
+.ui-lang[hidden] { display: none; }
 .ui-lang { font: inherit; font-weight: 600; font-size: .92rem; min-height: 40px; padding: 4px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.22); background: var(--navy-2); color: #fff; color-scheme: dark; }
 @media (max-width: 820px) { nav.links { display: none; } }
 
@@ -118,7 +119,7 @@ nav.links a:hover { color: #8fe0bd; }
 /* overlaps the empty strip at the bottom of the picture: the percentage is the picture's free space under the lowest device (width-based, like the stage), minus a 12px gap */
 .pk-slot { position: relative; z-index: 25; margin-top: calc(12px - 14.4%); }
 .picker.stuck { position: fixed; top: 76px; z-index: 50; }
-.picker { display: grid; gap: 10px; background: rgba(255, 255, 255, .9); border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; box-shadow: 0 10px 28px rgba(20, 40, 58, .12); backdrop-filter: blur(8px); }
+.picker { display: grid; gap: 10px; background: rgba(255, 255, 255, .98); border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; box-shadow: 0 10px 28px rgba(20, 40, 58, .12); }
 .pk-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .85rem; font-weight: 600; text-transform: lowercase; max-width: 340px; }
 .pk-or::before { content: ""; width: 22px; height: 1px; background: var(--line); }
 .pk-or::after { content: ""; flex: 1; height: 1px; background: var(--line); } /* a short stub, then "or", then the line runs on */
@@ -132,15 +133,22 @@ nav.links a:hover { color: #8fe0bd; }
 .pk-drop[aria-expanded="true"]::after { transform: rotate(180deg); }
 .pk-wrap { position: relative; display: inline-block; max-width: 100%; }
 .pk-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* drop chips keep one fixed length whatever is chosen; a long name is cut, and on wide screens nothing wraps */
-.pk-drop { width: 11em; max-width: 100%; justify-content: space-between; }
-#pk-learn .pk-drop { width: 8em; }
-.pk-chip { min-width: 0; }
-#pk-learn .pk-chip:not(.pk-drop) { flex: none; } /* the fixed chips keep their size; only the "More" chip gives way when the column is tight */
-#pk-learn .pk-wrap { min-width: 5.5em; }
-.pk-wrap { min-width: 0; flex: 0 1 auto; }
-.pk-chips { min-width: 0; }
-@media (min-width: 521px) { .pk-row, .pk-chips { flex-wrap: nowrap; } }
+/* every chip (English, Spanish, Chinese, More) has the same fixed length whatever is chosen; a long name is cut with an ellipsis, and nothing wraps */
+.pk-chip { --w: 6.8em; width: var(--w); flex: none; min-width: 0; max-width: 100%; justify-content: center; }
+.pk-drop { justify-content: space-between; }
+.pk-wrap { min-width: 0; flex: none; }
+.pk-chips { min-width: 0; flex-wrap: nowrap; }
+.pk-row { flex-wrap: wrap; }
+@media (min-width: 521px) { .pk-row { flex-wrap: nowrap; } }
+/* on a phone the whole form scales with its own width (container units): every size below is in em of one font-size, so nothing re-wraps */
+@media (max-width: 520px) {
+  .pk-slot { container-type: inline-size; margin-inline: -10px; } /* the form reaches closer to the screen edge than the 20px page gutter */
+  .picker { font-size: min(3.4cqw, 16px); padding: .85em 1em; gap: .6em; }
+  .pk-row { flex-wrap: nowrap; gap: .6em; }
+  .pk-label { font-size: 1em; }
+  .pk-chip { --w: 6.1em; font-size: 1em; min-height: 2.3em; padding: .15em .6em; gap: .35em; }
+  .pk-chips { gap: .4em; }
+}
 .pk-menu { position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; min-width: 200px; max-height: 270px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(20,40,58,.18); padding: 6px; display: none; }
 .pk-menu.open { display: block; }
 .pk-menu button { display: block; width: 100%; text-align: left; font: inherit; font-weight: 600; font-size: .95rem; padding: 8px 12px; border: 0; border-radius: 9px; background: none; color: var(--ink); cursor: pointer; }
@@ -163,8 +171,7 @@ nav.links a:hover { color: #8fe0bd; }
 .stage-in { position: relative; width: 100%; aspect-ratio: 1200 / 1100; }
 /* ambient layer behind the devices: soft stripes, dots, letters and confetti */
 .fx { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; -webkit-mask-image: radial-gradient(ellipse closest-side at 50% 50%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse closest-side at 50% 50%, #000 60%, transparent 100%); }
-.fx .orb { position: absolute; left: var(--x); top: var(--y); width: var(--sz); height: var(--sz); margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2); border-radius: 50%; background: var(--c); filter: blur(34px); opacity: .55; animation: orb var(--t, 16s) ease-in-out infinite alternate; animation-delay: var(--dl, 0s); }
-@keyframes orb { from { transform: translate(-6%, -5%) scale(.9); } to { transform: translate(7%, 6%) scale(1.15); } }
+.fx .orb { position: absolute; left: var(--x); top: var(--y); width: var(--sz); height: var(--sz); margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2); border-radius: 50%; background: radial-gradient(closest-side, var(--c), transparent); opacity: .55; } /* static: the soft edge is a gradient, not a blur filter, and the drift is gone (both cost a repaint of a big layer) */
 .fx .glow { position: absolute; left: 50%; top: 52%; width: 90%; height: 80%; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(255, 244, 214, .9), rgba(214, 238, 224, .45) 55%, transparent); animation: glow 7s ease-in-out infinite alternate; }
 @keyframes glow { from { opacity: .55; transform: translate(-50%, -50%) scale(.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } }
 .fx .star { position: absolute; left: var(--x); top: var(--y); width: var(--sz); height: var(--sz); background: var(--c); clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); opacity: 0; animation: twinkle var(--t, 4s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
@@ -187,11 +194,10 @@ nav.links a:hover { color: #8fe0bd; }
 .dev:hover { z-index: 9; transform: rotate(0deg) scale(var(--s, 1.1)); filter: drop-shadow(0 10px 12px rgba(20,40,58,.32)); transition-delay: 0s; }
 .dev.active, .dev.active:hover { z-index: 19; transform: translate(var(--tx, 0), var(--ty, 0)) rotate(0deg) scale(var(--as, 1)); filter: drop-shadow(0 3px 5px rgba(20,40,58,.3)); cursor: default; transition-delay: 0s; }
 .dev.active .dev-in { animation-play-state: paused; }
-/* z-index changes at once on the way in (an enlarged device must never sit under the flying letters, not even for a moment) and only after the move on the way out */
-.stage .dev { transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .45s, z-index 0s .6s; }
-.stage .dev:hover, .stage .dev.active { transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .45s, z-index 0s 0s; }
-.phone-clip { transition: z-index 0s .6s; }
-.phone-clip:has(.dev:hover), .phone-clip:has(.dev.active) { transition: z-index 0s 0s; }
+/* z-index never transitions: a hovered device is on top at once (a delayed drop on the one just left made the new one wait under it for 0.6s). The device just left keeps a middle level (.was, set by JS for the length of its move back) so it settles under the hovered one and above the rest. */
+.stage .dev { transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .45s; }
+.stage .dev.was { z-index: 8; }
+.phone-clip:has(.dev.was) { z-index: 8; }
 .stage.zoomed .dev:not(.active) { opacity: .4; filter: blur(2px) saturate(.8); pointer-events: none; z-index: 1; }
 .dev:focus-visible { outline: 3px solid var(--green); outline-offset: 6px; border-radius: 12px; }
 .dev-in { animation: float 6s ease-in-out infinite; animation-delay: var(--d, 0s); }
@@ -213,41 +219,34 @@ nav.links a:hover { color: #8fe0bd; }
 
 /* words */
 .words { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.words-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: center; }
+.words-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 40px; align-items: center; }
 @media (max-width: 900px) { .words-grid { grid-template-columns: 1fr; gap: 32px; } }
-.lang-pick { margin: 4px 0 24px; }
-.pick-label { font-weight: 700; margin-bottom: 10px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.chip { font: inherit; font-weight: 700; font-size: .95rem; min-height: 42px; padding: 6px 16px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
-.chip:hover { border-color: var(--green); }
-.chip[aria-checked="true"] { background: var(--green); border-color: var(--green); color: #fff; }
-.chip.mine { border-style: dashed; border-color: var(--green); color: var(--green); background: var(--green-soft); }
-.chip.mine[aria-checked="true"] { color: #fff; background: var(--green); border-style: solid; }
-.more-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.more-row label { color: var(--muted); font-size: .92rem; }
-.more-row select { font: inherit; font-weight: 600; min-height: 42px; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 200px; }
-.more-row select.on { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft); }
-.add-row { display: flex; flex-wrap: wrap; gap: 12px; }
-.add-note { color: var(--muted); font-size: .92rem; margin: 14px 0 0; }
-
+.wotd-mark { background: #ffe9a8; color: inherit; padding: 1px 5px; border-radius: 5px; }
+.sets { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+.sets .set { flex: 1 1 240px; min-width: 0; }
+/* an empty outline where the next set will sit */
+.newset { flex: 1 1 240px; min-width: 0; border: 2px dashed var(--green-line); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; background: var(--green-soft); }
+.newset b { font-size: 1.05rem; }
+.newset p { margin: 0 0 4px; color: var(--muted); font-size: .92rem; }
+.newset .btn { justify-content: center; text-align: center; }
 .set { background: var(--navy); border-radius: 24px; padding: 20px; box-shadow: var(--shadow); color: #fff; }
 .set-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .set-head b { font-size: 1.05rem; }
 .set-head span { background: var(--navy-2); border-radius: 8px; padding: 2px 10px; font-size: .8rem; color: #b9cad8; }
 .set-head small { margin-left: auto; color: #8fa6b8; font-size: .82rem; }
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.wc {
-  border: 0; border-radius: 12px; padding: 10px 12px 8px; text-align: center; cursor: pointer; font: inherit;
-  background: #eef0f3; color: #1b2430;
-}
-.wc:nth-child(4n+1), .wc:nth-child(4n+4) { background: var(--amber-soft); }
-.wc:hover { filter: brightness(.96); }
-.wc .w { display: block; font-weight: 700; font-size: 1.15rem; line-height: 1.3; }
-.wc .r { display: block; font-size: .72rem; color: #7b8590; min-height: 1em; }
-.wc .t { display: block; font-size: .85rem; color: #6b5f2a; font-weight: 600; margin-top: 2px; }
-.wc:nth-child(4n+2) .t, .wc:nth-child(4n+3) .t { color: #566170; }
-.set-games { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.1); align-items: center; }
-.set-games span { color: #8fa6b8; font-size: .88rem; margin-right: 4px; }
+/* compact word bubbles, as in the app: they flow and wrap, each one as wide as its word */
+.cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.wc { border: 0; border-radius: 14px; padding: 6px 13px 6px; text-align: center; cursor: pointer; font: inherit; background: #f4f6f8; color: #1b2430; box-shadow: 0 2px 0 rgba(0,0,0,.18); transition: transform .12s; }
+.wc:nth-child(4n+1) { background: #fff; }
+.wc:nth-child(4n+2) { background: #f3e7c6; }
+.wc:nth-child(4n+3) { background: #d6efe6; }
+.wc:nth-child(4n) { background: #e4def7; }
+.wc:hover { transform: translateY(-2px); }
+.wc:active { transform: translateY(0); }
+.wc .w { display: block; font-weight: 700; font-size: 1.02rem; line-height: 1.25; }
+.wc .r { display: block; font-size: .66rem; color: #7b8590; line-height: 1.15; }
+.wc .r:empty { display: none; }
+.wc .t { display: block; font-size: .72rem; color: #5a6672; font-weight: 600; line-height: 1.25; }
 
 /* catalog */
 /* store-style game rows */
@@ -267,17 +266,6 @@ nav.links a:hover { color: #8fe0bd; }
 .scr { flex: none; width: 236px; border-radius: 16px; overflow: hidden; scroll-snap-align: start; background: #0f2233; box-shadow: 0 0 0 1px rgba(0,0,0,.12), 0 6px 16px rgba(20,40,58,.12); }
 .scr img { display: block; width: 100%; height: auto; }
 
-/* game of the day */
-.featured { padding: 0 0 8px; }
-.feature { display: grid; grid-template-columns: 1fr 1.1fr; border-radius: 28px; overflow: hidden; color: #fff; min-height: 300px; box-shadow: var(--shadow); background: linear-gradient(120deg, #2f7fd6, #173f78); }
-@media (max-width: 760px) { .feature { grid-template-columns: 1fr; } }
-.feature-text { padding: 36px 36px 32px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
-.feature-text .kicker { font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
-.feature-text h2 { font-size: clamp(1.8rem, 3.4vw, 2.5rem); margin: 0; color: #fff; }
-.feature-text p { margin: 0; opacity: .92; max-width: 420px; }
-.feature-text .btn { align-self: flex-start; background: #fff; color: #111; border-color: #fff; margin-top: 8px; }
-.feature-art { display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0,0,0,.14); }
-.feature-art img { width: 100%; max-width: 250px; max-height: 340px; object-fit: cover; object-position: top; border-radius: 22px; box-shadow: 0 14px 36px rgba(0,0,0,.3); }
 
 /* see also */
 .also { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -315,14 +303,13 @@ footer .copy { border-top: 1px solid rgba(255,255,255,.12); padding-top: 20px; m
   <div class="wrap bar">
     <a class="brand" href="#top" aria-label="Vocabulary Games home"><img src="img/logo.png" alt="">Vocabulary Games</a>
     <nav class="links" aria-label="Main">
-      <a href="#words">Starter set</a>
+      <a href="#words">Your vocabulary</a>
       <a href="#games">Games</a>
       <a href="#faq">FAQ</a>
       <a href="#also">Articles</a>
     </nav>
-    <!-- Mock-up: the interface is English only for now; the list is here to show where the switch will be. -->
-    <!-- The language chosen here is "my language" in the word set below. -->
-    <select class="ui-lang" id="ui-lang" aria-label="Site language">
+    <!-- Not shown in the header any more: the select stays hidden because it holds the language list and the value behind the "my language" chip of the picker. -->
+    <select class="ui-lang" id="ui-lang" aria-label="Site language" hidden>
       <option value="en">English</option><option value="ar">العربية</option><option value="de">Deutsch</option><option value="el">Ελληνικά</option><option value="es">Español</option><option value="et">Eesti</option><option value="fi">Suomi</option><option value="fr">Français</option><option value="hi">हिन्दी</option><option value="hr">Hrvatski</option><option value="hu">Magyar</option><option value="id">Indonesia</option><option value="it">Italiano</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="nl">Nederlands</option><option value="no">Norsk</option><option value="pl">Polski</option><option value="pt">Português (Portugal)</option><option value="pt-BR">Português (Brasil)</option><option value="ru">Русский</option><option value="sv">Svenska</option><option value="th">ไทย</option><option value="fil">Filipino</option><option value="zh">中文 (简体)</option><option value="tr">Türkçe</option><option value="uk">Українська</option><option value="vi">Tiếng Việt</option>
     </select>
   </div>
@@ -363,48 +350,24 @@ footer .copy { border-top: 1px solid rgba(255,255,255,.12); padding-top: 20px; m
     </div>
   </section>
 
-  <section class="featured" aria-labelledby="feat-title" style="padding-top:56px">
-    <div class="wrap">
-      <div class="feature">
-        <div class="feature-text">
-          <span class="kicker">Game of the day</span>
-          <h2 id="feat-title">Snake</h2>
-          <p>Steer the snake through the letters of the word in the right order. A wrong letter ends the run, so you look at every letter.</p>
-          <a class="btn" href="/games/snake/">&#9654; Play Snake</a>
-        </div>
-        <div class="feature-art"><img src="img/snake-1.webp" alt="Snake: collect the letters of the word in order" width="640" height="560"></div>
-      </div>
-    </div>
-  </section>
-
   <section class="words" id="words" aria-labelledby="words-title">
     <div class="wrap words-grid">
       <div>
-        <h2 id="words-title">Start with a ready word set</h2>
+        <h2 id="words-title">Your vocabulary</h2>
         <p class="lead" id="words-lead"></p>
-        <div class="lang-pick">
-          <div class="pick-label">I want to learn</div>
-          <div class="chips" id="chips" role="radiogroup" aria-label="Language to learn"></div>
-          <div class="more-row">
-            <label for="more">Other languages</label>
-            <select id="more"></select>
-          </div>
+        <p class="lead">Every day the AI also offers a <mark class="wotd-mark">word of the day</mark>, based on the words you already have, to add to your vocabulary.</p>
+      </div>
+      <div class="sets">
+        <div class="set" aria-live="polite">
+          <div class="set-head"><b id="set-title">Starter Set</b><span id="set-lang">Spanish</span></div>
+          <div class="cards" id="cards"></div>
         </div>
-        <div class="add-row">
+        <div class="newset">
+          <b>New set</b>
+          <p>Your own words, in any language.</p>
           <!-- Placeholders: both lead to the add-words screen of the app once the site has one. -->
           <a class="btn primary" href="/play/add-words">&#43; Add your words</a>
-          <a class="btn" href="/play/add-with-ai">&#10024; Add words with AI</a>
-        </div>
-        <p class="add-note">Paste a list or a spreadsheet column, or let an AI write a list on any topic for you.</p>
-      </div>
-      <div class="set" aria-live="polite">
-        <div class="set-head"><b id="set-title">Starter Set</b><span id="set-lang">Spanish</span><small>tap a card to listen</small></div>
-        <div class="cards" id="cards"></div>
-        <div class="set-games">
-          <span>Play this set:</span>
-          <a class="btn dark small" href="/games/flashcards/">Flashcards</a>
-          <a class="btn dark small" href="/games/quiz/">Quiz</a>
-          <a class="btn dark small" href="/games/snake/">Snake</a>
+          <a class="btn" href="/play/add-with-ai">&#10024; Add new words with AI</a>
         </div>
       </div>
     </div>
@@ -492,7 +455,7 @@ const MINE = {
   ru: { name: "Русский", voice: "ru-RU", w: [["эфемерный", "недолговечный, мимолётный"], ["вездесущий", "присутствующий повсюду"], ["прагматичный", "практичный, расчётливый"], ["амбивалентный", "двойственный, противоречивый"], ["скрупулёзный", "предельно тщательный, дотошный"], ["красноречивый", "убедительно говорящий"], ["откровенный", "прямой, искренний"], ["стойкий", "выносливый, неломкий"], ["неоднозначный", "допускающий разные толкования"], ["великодушный", "добрый, щедрый"]] }
 };
 const POPULAR = ["es", "fr", "de", "it", "ja"];
-const uiSel = $("#ui-lang"), cards = $("#cards"), chips = $("#chips"), more = $("#more");
+const uiSel = $("#ui-lang"), cards = $("#cards");
 let picked = "es"; // a LANGS key, or "mine"
 
 function renderSet() {
@@ -501,8 +464,8 @@ function renderSet() {
   $("#set-title").textContent = mine ? "Hard Words" : "Starter Set";
   $("#set-lang").textContent = mine ? M.name : L.name;
   $("#words-lead").textContent = mine
-    ? "Ten rich words in your own language, each with a short definition or a pair of synonyms instead of a translation. Tap a card to hear it."
-    : "Ten travel phrases to try every game on. Pick the language you want to learn and the set changes. Tap a card to hear it.";
+    ? "Ten rich words in your own language, each with a short definition or a pair of synonyms instead of a translation. Tap a word to hear it."
+    : "Ten travel phrases to try every game on. Change the language in the form above and the set follows. Tap a word to hear it.";
   cards.innerHTML = "";
   (mine ? M.w : L.w).forEach((row, i) => {
     const w = row[0], reading = mine ? "" : row[1], meaning = mine ? row[1] : EN[i];
@@ -512,29 +475,15 @@ function renderSet() {
     b.addEventListener("click", () => speak(w, mine ? M.voice : L.voice));
     cards.append(b);
   });
-  chips.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-checked", c.dataset.k === picked));
-  more.classList.toggle("on", !POPULAR.includes(picked) && picked !== "mine");
-  more.value = POPULAR.includes(picked) || picked === "mine" ? "" : picked;
 }
-function mkChip(k, text, cls) {
-  const c = el("button", "chip" + (cls ? " " + cls : ""), text); c.type = "button";
-  c.setAttribute("role", "radio"); c.dataset.k = k;
-  c.addEventListener("click", () => { picked = k; renderSet(); });
-  chips.append(c); return c;
-}
-const mineChip = mkChip("mine", "", "mine");
-POPULAR.forEach(k => mkChip(k, LANGS[k].name));
-more.append(el("option", "", "More languages…")); more.firstChild.value = "";
-Object.keys(LANGS).filter(k => !POPULAR.includes(k)).forEach(k => { const o = el("option", "", LANGS[k].name + " · " + LANGS[k].native); o.value = k; more.append(o); });
-more.addEventListener("change", () => { if (more.value) { picked = more.value; renderSet(); } });
-function renderMine() { mineChip.textContent = "My language: " + uiSel.selectedOptions[0].textContent; }
-uiSel.addEventListener("change", () => { renderMine(); renderSet(); });
-renderMine(); renderSet();
+/* the language is chosen only in the hero picker, which wraps renderSet and drives the select below */
+uiSel.addEventListener("change", () => renderSet());
+renderSet();
 
 /* ---------- hero language picker: one choice only, either "improve my language" or one language to learn ---------- */
 (function () {
   const learn = $("#pk-learn"), mineSlot = $("#pk-mine-slot");
-  const HERO_POP = ["es", "fr", "de"]; /* the rest of the languages sit under "More" so the row stays on one line */
+  const HERO_POP = ["es", "zh"]; /* the rest of the languages sit under "More" so the row stays on one line */
   const menus = [];
   const closeAll = except => menus.forEach(m => { if (m.menu !== except) { m.menu.classList.remove("open"); m.chip.setAttribute("aria-expanded", "false"); } });
   document.addEventListener("click", () => closeAll());
@@ -650,8 +599,10 @@ GAMES.forEach(g => {
     d.style.setProperty("--tx", (sw / 2 - (d.offsetLeft + w / 2)) + "px");
     d.style.setProperty("--ty", ty + "px");
   }
+  /* keeps a device above the resting ones while it moves back (see .was in the CSS) */
+  function linger(d) { d.classList.add("was"); clearTimeout(d._was); d._was = setTimeout(() => d.classList.remove("was"), 600); }
   function reset() {
-    devs.forEach(x => { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
+    devs.forEach(x => { if (x.classList.contains("active")) linger(x); x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
     stage.classList.remove("zoomed");
   }
   function open(d) {
@@ -660,6 +611,8 @@ GAMES.forEach(g => {
     d.classList.add("active"); d.setAttribute("aria-pressed", "true");
   }
   devs.forEach(d => {
+    d.addEventListener("mouseenter", () => { clearTimeout(d._was); d.classList.remove("was"); });
+    d.addEventListener("mouseleave", () => { if (!stage.classList.contains("zoomed")) linger(d); });
     d.addEventListener("click", e => { e.stopPropagation(); open(d); });
     d.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(d); } });
   });
