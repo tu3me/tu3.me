@@ -120,9 +120,6 @@ nav.links a:hover { color: #8fe0bd; }
 .pk-slot { position: relative; z-index: 25; margin-top: calc(12px - 14.4%); }
 .picker.stuck { position: fixed; top: 76px; z-index: 50; }
 .picker { display: grid; gap: 10px; background: rgba(255, 255, 255, .98); border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; box-shadow: 0 10px 28px rgba(20, 40, 58, .12); }
-.pk-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .85rem; font-weight: 600; text-transform: lowercase; max-width: 340px; }
-.pk-or::before { content: ""; width: 22px; height: 1px; background: var(--line); }
-.pk-or::after { content: ""; flex: 1; height: 1px; background: var(--line); } /* a short stub, then "or", then the line runs on */
 .pk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .pk-label { font-weight: 700; color: var(--ink); font-size: 1rem; flex: none; }
 .pk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -219,20 +216,23 @@ nav.links a:hover { color: #8fe0bd; }
 
 /* words */
 .words { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.words-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 40px; align-items: center; }
+.words-grid { display: grid; grid-template-columns: .6fr 1.4fr; gap: 32px; align-items: center; }
 @media (max-width: 900px) { .words-grid { grid-template-columns: 1fr; gap: 32px; } }
 .wotd-mark { background: #ffe9a8; color: inherit; padding: 1px 5px; border-radius: 5px; }
 .sets { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
-.sets .set { flex: 1 1 240px; min-width: 0; }
+.sets .set { flex: 1 1 340px; min-width: 0; }
 /* an empty outline where the next set will sit */
-.newset { flex: 1 1 240px; min-width: 0; border: 2px dashed var(--green-line); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; background: var(--green-soft); }
+.newset { flex: 1 1 340px; min-width: 0; border: 2px dashed var(--green-line); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 10px; background: var(--green-soft); }
 .newset b { font-size: 1.05rem; }
 .newset p { margin: 0 0 4px; color: var(--muted); font-size: .92rem; }
 .newset .btn { justify-content: center; text-align: center; }
+.newset .or { align-self: center; color: var(--muted); font-size: .9rem; font-weight: 600; }
 .set { background: var(--navy); border-radius: 24px; padding: 20px; box-shadow: var(--shadow); color: #fff; }
 .set-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .set-head b { font-size: 1.05rem; }
-.set-head span { background: var(--navy-2); border-radius: 8px; padding: 2px 10px; font-size: .8rem; color: #b9cad8; }
+.set-head select { font: inherit; font-size: .8rem; background-color: var(--navy-2); color: #b9cad8; border: 0; border-radius: 8px; padding: 3px 24px 3px 10px; cursor: pointer; max-width: 11em; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23b9cad8' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+.set-head select:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.set-head select option { color: #14283a; background: #fff; }
 .set-head small { margin-left: auto; color: #8fa6b8; font-size: .82rem; }
 /* compact word bubbles, as in the app: they flow and wrap, each one as wide as its word */
 .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
@@ -341,9 +341,8 @@ footer .copy { border-top: 1px solid rgba(255,255,255,.12); padding-top: 20px; m
       </div>
         <div class="pk-slot" id="pk-slot">
 <div class="picker" id="picker">
-          <div class="pk-row"><span class="pk-label">I want to improve my language</span><span id="pk-mine-slot"></span></div>
-          <div class="pk-or" aria-hidden="true"><span>or</span></div>
-          <div class="pk-row"><span class="pk-label">I want to learn</span><div class="pk-chips" id="pk-learn" role="radiogroup" aria-label="Language to learn"></div></div>
+          <div class="pk-row"><span class="pk-label">Level up your language:</span><span id="pk-mine-slot"></span></div>
+          <div class="pk-row"><span class="pk-label">Or learn</span><div class="pk-chips" id="pk-learn" role="radiogroup" aria-label="Language to learn"></div></div>
         </div>
       </div>
       </div>
@@ -359,14 +358,15 @@ footer .copy { border-top: 1px solid rgba(255,255,255,.12); padding-top: 20px; m
       </div>
       <div class="sets">
         <div class="set" aria-live="polite">
-          <div class="set-head"><b id="set-title">Starter Set</b><span id="set-lang">Spanish</span></div>
+          <div class="set-head"><b id="set-title">Starter Set</b><select id="set-lang" aria-label="Language of the set"><option>Spanish</option></select></div>
           <div class="cards" id="cards"></div>
         </div>
         <div class="newset">
           <b>New set</b>
-          <p>Your own words, in any language.</p>
+          <p>Import words from any source: YouTube, Google Translate, a paper book, any website.</p>
           <!-- Placeholders: both lead to the add-words screen of the app once the site has one. -->
           <a class="btn primary" href="/play/add-words">&#43; Add your words</a>
+          <span class="or">Or</span>
           <a class="btn" href="/play/add-with-ai">&#10024; Add new words with AI</a>
         </div>
       </div>
@@ -462,12 +462,25 @@ function renderSet() {
   const mine = picked === "mine", M = MINE[uiSel.value] || MINE.en;
   const L = mine ? null : LANGS[picked];
   $("#set-title").textContent = mine ? "Hard Words" : "Starter Set";
-  $("#set-lang").textContent = mine ? M.name : L.name;
+  /* the badge is a dropdown: choosing a language here is the same as choosing it in the hero picker */
+  const sl = $("#set-lang");
+  /* English is not a language to learn here: it is the "my language" chip of the picker, so choosing it selects that chip */
+  const opts = [["en", MINE.en.name], ...Object.keys(LANGS).map(k => [k, LANGS[k].name])];
+  if (mine && uiSel.value !== "en") opts.unshift(["mine", M.name]);
+  sl.replaceChildren(...opts.map(([v, t]) => { const o = el("option", "", t); o.value = v; return o; }));
+  sl.value = mine ? (uiSel.value === "en" ? "en" : "mine") : picked;
   $("#words-lead").textContent = mine
     ? "Ten rich words in your own language, each with a short definition or a pair of synonyms instead of a translation. Tap a word to hear it."
     : "Ten travel phrases to try every game on. Change the language in the form above and the set follows. Tap a word to hear it.";
   cards.innerHTML = "";
-  (mine ? M.w : L.w).forEach((row, i) => {
+  /* definitions differ a lot in length; pairing the longest bubble with the shortest keeps every row about the same width */
+  let order = (mine ? M.w : L.w).map((row, i) => i);
+  if (mine) {
+    const len = i => M.w[i][0].length + M.w[i][1].length, byLen = order.slice().sort((a, b) => len(b) - len(a));
+    order = []; for (let a = 0, b = byLen.length - 1; a <= b; a++, b--) { order.push(byLen[a]); if (a !== b) order.push(byLen[b]); }
+  }
+  order.forEach(i => {
+    const row = (mine ? M.w : L.w)[i];
     const w = row[0], reading = mine ? "" : row[1], meaning = mine ? row[1] : EN[i];
     const b = el("button", "wc"); b.type = "button";
     b.append(el("span", "w", w), el("span", "r", reading || ""), el("span", "t", meaning));
@@ -478,6 +491,11 @@ function renderSet() {
 }
 /* the language is chosen only in the hero picker, which wraps renderSet and drives the select below */
 uiSel.addEventListener("change", () => renderSet());
+$("#set-lang").addEventListener("change", e => {
+  const v = e.target.value;
+  if (v === "en") { picked = "mine"; uiSel.value = "en"; } else picked = v;
+  renderSet();
+});
 renderSet();
 
 /* ---------- hero language picker: one choice only, either "improve my language" or one language to learn ---------- */
