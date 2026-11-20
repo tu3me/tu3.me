@@ -1523,7 +1523,10 @@ function flashcards(container) {
         // back towards dark (the owner)
         const flicker = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
 
-        stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam').forEach(el => el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' }));
+        // The shade outside the cone with the light, not before it: a card on
+        // the table had its edges and its buttons dark before the lamp was on
+        // (the owner)
+        stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam, .flashcards-shade').forEach(el => el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' }));
         moveLamp(poseOf(false, L), poseOf(true, L), RISE);
         lightUp();
     }
