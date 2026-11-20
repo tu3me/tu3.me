@@ -1240,13 +1240,13 @@ function flashcards(container) {
 
             defs += `<mask id="fc-arrow-${i}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="${stageEl.offsetWidth + 40}" height="${stageEl.offsetHeight + 40}"><path class="flashcards-arrow-reveal" d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" /></mask>`;
 
+            // A line of round dots, with no shadow (the owner): dashes of no
+            // length, the round caps making each one a dot
             body += `<g class="flashcards-arrow" data-i="${i}">
                 <g mask="url(#fc-arrow-${i})">
-                    <path d="${d}" transform="translate(0.9 1.3)" fill="none" stroke="${p.arrowShade}" stroke-width="2.6" stroke-dasharray="6 4.4" stroke-linecap="round" />
-                    <path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-dasharray="6 4.4" stroke-linecap="round" />
+                    <path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />
                 </g>
                 <g class="flashcards-arrow-head" opacity="0">
-                    <path d="${head}" transform="translate(0.9 1.3)" fill="none" stroke="${p.arrowShade}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
                     <path d="${head}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
                 </g>
             </g>`;
@@ -2365,7 +2365,7 @@ function flashcards(container) {
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
             flip: '#dc9470', flipEdge: '#ae6c4d', know: '#90bd99', knowEdge: '#679773',
             wash: 'rgba(72, 50, 30, 0.42)',
-            arrow: '#fff7e6', arrowShade: 'rgba(50, 32, 18, 0.5)',
+            arrow: '#fff7e6',
             upRay: '#a8d4a2', downRay: '#eda083',
             lampArm: '#c09a6b', lampBase: '#5d4636', lampHead: '#8fb2a5', bulbOff: '#d8d2c2', menuBg: '#f3e8d2'
         };
@@ -2385,7 +2385,7 @@ function flashcards(container) {
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
             flip: '#c98466', flipEdge: '#94573f', know: '#7ea888', knowEdge: '#557a5e',
             wash: 'rgba(6, 8, 18, 0.55)',
-            arrow: '#fff1d2', arrowShade: 'rgba(0, 0, 0, 0.6)', menuBg: '#e3d6ba',
+            arrow: '#fff1d2', menuBg: '#e3d6ba',
             titleTone: { labelPaper: '#4a3b2f', labelInk: '#eadcc0', brass: '#6e5841', brassLight: '#806849', line: '#1c140e' }
         };
 
