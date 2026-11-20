@@ -1,18 +1,38 @@
 /**
- * The "Flashcards" game. Owns its state, its palette and its own rule for picking
- * words out of a set. Talks to the outside only through store, and through
- * app for navigation.
+ * The "Flashcards" game: a set seen as a shelf of boxes, one box to a stage --
+ * the Leitner box system, which is what the ladder in srs.js always was. Owns
+ * its state, its palette and its drawing. Talks to the outside only through
+ * store, and through page for navigation.
+ *
+ * Asked for by the owner on 20 November 2026, after two pictures of a craft
+ * cabinet of card boxes: the boxes are not a second model of the set but the
+ * same stages drawn as places, so nothing here decides where a card goes --
+ * srs.js does, from the answers, and the card flies to wherever it says.
  */
 function flashcards(container) {
-    // How many words this game takes per session — its own decision
-    const POOL_LIMIT = 10;
-
     let state = getEmptyState();
     let palette = {};
 
+    /*
+     * `sessionPool` is the run: the cards taken out of the box the player
+     * chose, one after another. Null on the shelf. The name and `sessionAt`
+     * are what page.save reads for the analytics (see noteRun there).
+     *
+     * `wide` is the fourteen-box shelf, kept once it has been shown in this
+     * session -- see layoutOf.
+     */
     function getEmptyState() {
-        return { selectedSetId: null, currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionResults: [], sessionPool: null, sessionAt: null, allowEarly: false };
+        return { selectedSetId: null, currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionPool: null, sessionAt: null, allowEarly: false, wide: false };
     }
+
+    const MINUTE = 60 * 1000;
+    const HOUR = 60 * MINUTE;
+    const DAY = 24 * HOUR;
+
+    // Animations are skipped, not slowed, for somebody who has asked for less
+    // motion: every one of them here is decoration on a change of state.
+    const MOTION = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dur = (ms) => (MOTION ? ms : 1);
 
     // Keyboard: ← turns the card over, → is done with this word
     const KEYS = ['ArrowLeft', 'ArrowRight'];
@@ -41,15 +61,11 @@ function flashcards(container) {
      * A card holds one word and shows it to a person who may be holding the
      * phone at arm's length, so the word should be the thing in the room rather
      * than something sitting politely in the middle of a card with space all
-     * round it. It was half again bigger for a while, which was too far: a card
-     * is 145.1px and the room inside it is 136, so at that size a phrase of any
-     * length was landing on the fitting below — four of the seeded seventy-four
-     * came out at a size this number had no say in. At this one none of them do.
+     * round it.
      *
-     * Not every word fits even here, and the card is not allowed to grow: it is
-     * 145.1px whatever is on it, because the deck has to look like a deck and not
-     * like a column of boxes of different heights. So the size is where the
-     * fitting starts rather than where it ends.
+     * Not every word fits even here, and the card is not allowed to grow: an
+     * index card is the size it is whatever is written on it. So the size is
+     * where the fitting starts rather than where it ends.
      *
      * The floor is where the word stops being readable at arm's length. A line
      * that cannot fit even there is a line that was never going to fit — it
@@ -76,9 +92,7 @@ function flashcards(container) {
      * that costs. The drawing fills two thirds of its own square — the 24-unit
      * path runs from y=4 to y=20 — and a capital in this face stands 0.7 of the
      * type size. So the box has to be larger than the type, not smaller, to put
-     * the same height of ink on the line: 0.7 over two thirds. It was 0.7 flat
-     * before, which was the cap height applied to the box instead of to the ink,
-     * and what arrived was two thirds of a capital.
+     * the same height of ink on the line: 0.7 over two thirds.
      *
      * And it has to hang a little lower. An inline-flex box rests its bottom
      * edge on the baseline, so the empty sixth below the drawing would hold the
@@ -86,10 +100,7 @@ function flashcards(container) {
      * foot of a capital stands.
      *
      * The gap is the same fraction of the icon that a quiz option leaves beside
-     * its own: ten pixels against eighteen. Written as em on the same element
-     * that sets the font-size, so the em here is the icon's own size and the
-     * margin is that fraction directly. Standing any nearer, the speaker stops
-     * being a thing in front of the word and starts reading as its first letter.
+     * its own: ten pixels against eighteen.
      */
     const SAY_INK = 2 / 3;
     const CAP_HEIGHT = 0.7;
@@ -106,19 +117,14 @@ function flashcards(container) {
      *
      * By the rendered height rather than by counting letters: what fits is
      * decided by the font, the script and where the browser puts the line
-     * breaks, and only the browser knows all three. A Japanese line of eight
-     * glyphs and an English line of eight letters take different room, and both
-     * take different room again in the light theme's face, which is the same
-     * size but holds the same text at a different weight.
+     * breaks, and only the browser knows all three.
      *
      * A pixel at a time, downwards, because the answer is usually one or two
      * steps away and a search would cost more reflows than the walk does.
      *
-     * The room is the whole of the face, less its padding. Nothing else is
-     * taken out for the speaker: it stands in the line now, so the height being
-     * measured already has it in it — and it is sized in em, so it comes down
-     * with every step of the walk instead of eating more of the line at each
-     * one.
+     * The room is the whole of the face, less its padding -- and the padding
+     * at the top is where the card's coloured band is, so the band is kept
+     * clear without a measurement of its own.
      */
     function fitWord(face) {
         const text = face && face.querySelector('.flashcards-word-text');
@@ -209,15 +215,9 @@ function flashcards(container) {
      * The colour goes on and comes off in the frame it is asked for, both ways.
      *
      * It used to fade in over a fifth of a second, which is measurable and was
-     * measured: the style is written 0.6ms after the tap, but the colour was a
-     * fifth of the way there at 30ms and only arrived at 200. That reads as the
-     * app thinking it over, and a tap wants answering.
-     *
-     * Going was faded too, for a while, on the grounds that a colour vanishing
-     * between two frames pulls the eye. It does, a little — and an animation
-     * whose whole argument is "a little" is an animation to do without. What is
-     * left has no transition in it at all, which is one fewer thing to reason
-     * about the next time these marks are touched.
+     * measured: the colour was a fifth of the way there at 30ms and only
+     * arrived at 200. That reads as the app thinking it over, and a tap wants
+     * answering.
      */
     function unlight() {
         lit.forEach(el => {
@@ -283,17 +283,13 @@ function flashcards(container) {
      * finger lands where it lands: a glyph is a couple of dozen pixels wide and
      * a fingertip is wider, so the second tap of a double tap often comes down
      * on the letter next door — and in Japanese, where 日本語 is one word of
-     * three glyphs, that is most of the time. Asking for the same letter twice
-     * made the second tap a fresh first one, which is exactly the word never
-     * being reached. The word is the thing being pointed at, so the word is what
-     * holds the count; a tap in a different word starts again at its letter.
+     * three glyphs, that is most of the time. The word is the thing being
+     * pointed at, so the word is what holds the count; a tap in a different
+     * word starts again at its letter.
      *
      * Each tap acts at once instead of waiting to see whether another is
      * coming. Waiting would put a quarter of a second between every single tap
      * and its answer, and a tap that answers late reads as a tap that missed.
-     * What it costs is a moment of the letter being said before the word cuts
-     * it off, which is at least the truth about what is happening: each press
-     * asks for more than the last one.
      */
     const TAP_GAP = 500;
 
@@ -304,11 +300,6 @@ function flashcards(container) {
      * Taken from the bubble ramp, four steps far enough apart to be told at a
      * glance and not close enough to read as a series: the words of a line are
      * not in an order that means anything, they are simply not each other.
-     *
-     * A word keeps its colour whether it is said on its own or as part of the
-     * line. It used to be mint alone and gold in the line, and that change was
-     * the loudest thing on the card at a moment when nothing had changed but
-     * the reason for looking.
      */
     const WORD_FILLS = [3, 6, 9, 12];
 
@@ -386,25 +377,13 @@ function flashcards(container) {
      * a stutter. With it the second tap arrives before the first has made a
      * sound, and what is heard is the one thing that was asked for.
      *
-     * Only the voice waits. A tap that is answered by nothing for a quarter of a
-     * second is a tap that missed, as far as the person doing the tapping can
-     * tell, so the mark goes up at once — before it is known whether the device
-     * even has a voice for this. If the asking comes back silent, the mark goes
-     * off again: better a colour that appears and leaves than a screen that sits
-     * still under a finger.
+     * Only the voice waits: the mark goes up at once, before it is known
+     * whether the device even has a voice for this. If the asking comes back
+     * silent, the mark goes off again.
      *
-     * All three depths are filled now, in one colour: the letter, the word it
-     * stands in, the line. The letter was the exception, written in a colour
-     * instead — one glyph wide, and a fill that size was judged to read as a
-     * typo rather than as a mark. The exception cost more than it saved. A mark
-     * made of ink says nothing wherever the letter already carries a colour,
-     * which on the games' bars is everywhere, and two ways of marking three
-     * depths is two things to learn instead of one.
-     *
-     * One colour because the three are one gesture going deeper: the mark
-     * widens from the letter to its word to the line, and the letter takes that
-     * word's colour off the same ramp — see WORD_FILLS. A colour kept for
-     * single letters would have been saying the next tap marks something else.
+     * All three depths are filled, in one colour: the mark widens from the
+     * letter to its word to the line, and the letter takes that word's colour
+     * off the same ramp — see WORD_FILLS.
      */
     function sayLater(text, lang, mark, asked) {
         clearTimeout(sayTimer);
@@ -421,10 +400,6 @@ function flashcards(container) {
     }
 
     function sayLetter(face, letter, lang) {
-        // Which word it stands in, because that is the colour it is marked in.
-        // A letter outside every word cannot be tapped — only the letters of a
-        // word are drawn as targets, see lineHtml — so there is no such case to
-        // answer for, and indexOf's -1 is kept out of the ramp regardless.
         const place = wordsIn(face).indexOf(letter.closest('.say-word'));
 
         sayLater(letter.textContent, lang, light([tint(letter, Math.max(0, place))]));
@@ -438,11 +413,1844 @@ function flashcards(container) {
 
     function sayLine(face, text, lang, asked) {
         // A colour each, so the line reads as the words it is made of rather
-        // than as one long stripe. They repeat past the fourth word, which is
-        // where a card stops being a card and starts being a sentence.
+        // than as one long stripe.
         sayLater(text, lang, light(wordsIn(face).map(tint)), asked);
     }
 
+    /*
+     * ---- The shelf ----
+     *
+     * One box per stage, numbered by the stage, as the settings panel numbers
+     * the rungs of the ladder -- except stages 0 and 1, which share box 1 (the
+     * owner's call, 20 November 2026). Both are the cards that wait for
+     * nothing: what nothing has happened to yet, and what an error has taken
+     * back to the floor. A box each made two boxes the player had to open one
+     * after the other to do the same thing in, and a box 0 nobody counts from.
+     * So the boxes are 1 to 14 and box N is stage N everywhere else.
+     *
+     * Five boxes to begin with, two to a shelf -- the first picture the owner
+     * gave -- and all fourteen, three to a shelf, once a card needs the sixth:
+     * the second picture. Five and not six, the owner's call the same day, so
+     * that both shelves end in a free place: a plant in a pot stands there by
+     * day, and the lamp that lights the card at night (see the night below).
+     * The shelf does not shrink back within the session when the card that
+     * grew it is later got wrong: a cabinet that rebuilt itself under the
+     * player twice in one sitting would be moving the boxes they had just
+     * learned the places of.
+     */
+    const FEW = 5;
+    const LAST = 14;
+
+    const boxOf = (stage) => Math.max(1, stage || 0);
+
+    /*
+     * Every length a box is drawn with, for each of the two shelves. The width
+     * is not here: it is what the shelf leaves once the gaps are taken out --
+     * see layoutOf.
+     *
+     * Two sets of numbers rather than one scaled: the boxes of the wide shelf
+     * are two thirds the size, and two thirds of the lettering is lettering
+     * nobody can read -- the figures on a box get a floor of their own (8.4px)
+     * while the cardboard around them shrinks freely.
+     *
+     *   padX, gap, rowGap   the wall showing round the boxes: wider than the
+     *                       first drawing, at the owner's word, with the boxes
+     *                       a little smaller for it
+     *   rimTop, frontTop    the top of the back wall, and of the front: the
+     *                       box is seen a little from above, so what lies
+     *                       between them is the opening, with the cards in it
+     *   inset               how much narrower the back wall looks than the
+     *                       front -- the side walls running away from the eye
+     *   layers, raise       how many cards at most stand in view, and how much
+     *                       higher a card ready to be repeated stands
+     *   plate*, foot*       the label holder, and the line of figures under it
+     *   aim                 where the night's desk lamp points from the free
+     *                       place, in radians: at the middle of the cabinet,
+     *                       where the card is laid
+     */
+    const LAYOUTS = {
+        few: {
+            name: 'few', cols: 2, count: FEW, padX: 16, gap: 20, rowGap: 14, plank: 9, boxH: 100,
+            rimTop: 7, frontTop: 36, inset: 7, round: 3, layers: 5, band: 4.8, raise: 5,
+            plateTop: 8, plateH: 21, platePad: 9, plateFont: 11.8, ear: 3.4, aim: -2.04,
+            footBottom: 9, footFont: 10.4, footIcon: 10, footGap: 6, pillPad: '2.6px 7px',
+            badgeFont: 11.3, badgeIcon: 13
+        },
+        all: {
+            name: 'all', cols: 3, count: LAST, padX: 11, gap: 13, rowGap: 10, plank: 8, boxH: 72,
+            rimTop: 5, frontTop: 26, inset: 5, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
+            plateTop: 5, plateH: 16, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
+            footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5, pillPad: '1.6px 4.6px',
+            badgeFont: 9.6, badgeIcon: 11
+        }
+    };
+
+    // The cabinet's own frame and the wall's edge, which the boxes stand inside
+    const FRAME_PAD = 8;
+    const FRAME_EDGE = 1.2;
+    const WALL_EDGE = 1;
+
+    const stageOf = (word) => spacedRepetitions.getWordStats(word).stage || 0;
+
+    /*
+     * The shelf in force, with the width of a box worked out from the room
+     * the page gives: written down, the width would be one more number to
+     * keep in step with the page's padding.
+     */
+    function layoutOf() {
+        const L = state.wide ? LAYOUTS.all : LAYOUTS.few;
+        const cs = getComputedStyle(container);
+        const room = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const wall = room - 2 * (FRAME_PAD + FRAME_EDGE + WALL_EDGE);
+        const w = Math.floor((wall - 2 * L.padX - (L.cols - 1) * L.gap) / L.cols * 10) / 10;
+
+        return { ...L, w };
+    }
+
+    /*
+     * The card out of its box: on the table being answered, or in the air
+     * between two boxes. It is counted in neither -- a card in the hand is not
+     * in a box -- so the box it came out of shows one fewer the moment it
+     * leaves, and the box it goes to one more only when it lands.
+     */
+    let held = null;
+
+    // Which box the run is being played out of, for the cheer when it is done
+    let openNumber = null;
+
+    // Whether the session was closed by finishing a run -- see openBox
+    let closed = false;
+
+    // A flight in the air; the shelf takes no presses until it lands
+    let busy = false;
+
+    // Bumped by every full redraw: a flight that lands on a screen drawn since
+    // it took off has nothing left to land on
+    let drawn = 0;
+
+    // The arrows over the shelf are shown once a page, when it opens
+    let introduced = false;
+
+    let stageEl = null;
+    let refreshTimer = null;
+
+    const same = (a, b) => !!a && !!b && a.word.original === b.word.original;
+
+    /*
+     * What every box holds: how many cards and of which stages, how many of
+     * them ready, and when the first of the rest will be. By box number, 1 to
+     * 14; the slot at 0 is empty.
+     *
+     * Ready is the store's own rule -- store.duePool -- so a set with the
+     * spaced repetition system switched off has every card ready, as it has in
+     * every other game.
+     */
+    function shelfCounts() {
+        const setId = state.selectedSetId;
+        const due = new Set(store.duePool(setId, false).map(i => i.word.original));
+        const boxes = Array.from({ length: LAST + 1 }, () => ({ total: 0, ready: 0, soonest: null, stages: [] }));
+
+        store.wordsOf(setId).forEach(item => {
+            if (same(item, held)) return;
+
+            const progress = spacedRepetitions.getWordProgress(item.word);
+            const box = boxes[boxOf(progress.stage)];
+
+            box.total += 1;
+            box.stages.push(progress.stage || 0);
+
+            if (due.has(item.word.original)) box.ready += 1;
+            else if (progress.nextRepetition && (!box.soonest || progress.nextRepetition < box.soonest)) box.soonest = progress.nextRepetition;
+        });
+
+        return boxes;
+    }
+
+    // The highest stage anything in the set has reached, the card in the hand
+    // included
+    function highest() {
+        return store.wordsOf(state.selectedSetId).reduce((top, item) => Math.max(top, stageOf(item.word)), 0);
+    }
+
+    /*
+     * The interval on a box, in the notation the settings panel writes it in
+     * and the bubbles wear: "45m", "2h", "14d" -- in the largest unit that
+     * divides it exactly, so a rung someone typed as 90m reads back as 90m.
+     * Box 1 waits as stage 1 does, which is for nothing unless somebody has
+     * changed it: what is in it is asked again now.
+     */
+    function spanText(box) {
+        const ms = spacedRepetitions.intervals()[box];
+        if (!ms) return 'now';
+        if (ms % DAY === 0) return `${ms / DAY}d`;
+        if (ms % HOUR === 0) return `${ms / HOUR}h`;
+        return `${Math.round(ms / MINUTE)}m`;
+    }
+
+    // How long until a moment, as the bubbles' badges say it
+    function timerText(at) {
+        const mins = Math.max(1, Math.ceil((at - Date.now()) / MINUTE));
+        if (mins < 60) return `${mins}m`;
+
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h`;
+
+        return `${Math.floor(hours / 24)}d`;
+    }
+
+    const CLOCK = (size, colour) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${colour}" stroke-width="2.6" stroke-linecap="round" aria-hidden="true" style="display: block; flex: none;"><circle cx="12" cy="12" r="8.6" /><path d="M12 7.4V12l3 2" /></svg>`;
+
+    /*
+     * The colour of a card: the band across its top, in the colour the
+     * bubbles wear on its stage -- softened, mixed a quarter of the way towards
+     * the kraft and taken down a little, because the owner's pictures are in
+     * the soft colours of a painted storybook, and the ramp's pastels are lit
+     * from behind beside them. Softened, they still climb the same way.
+     *
+     * The two stages of box 1 are told apart: a grey blue for a card nothing
+     * has happened to -- the stone of the ramp, which on cream paper is no
+     * colour at all -- and a soft salmon for one just got wrong, the red the
+     * catalog draws that state in, as soft as the rest.
+     */
+    const KRAFT_MIX = [0xea, 0xdf, 0xc6];
+
+    function soften(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        const rgb = [n >> 16, (n >> 8) & 255, n & 255];
+        return '#' + rgb.map((c, i) => Math.round((c * 0.74 + KRAFT_MIX[i] * 0.26) * 0.9).toString(16).padStart(2, '0')).join('');
+    }
+
+    function bandOf(stage) {
+        if (stage === 0) return '#c3d1d8';
+        if (stage === 1) return '#e8b29b';
+        return soften(tokens.stages()[stage].fill);
+    }
+
+    // How many cards stand in view for so many in the box: a few more as the
+    // box fills, never more than the box has room to show
+    function layersFor(total, most) {
+        const n = total <= 0 ? 0 : total === 1 ? 1 : total <= 3 ? 2 : total <= 7 ? 3 : total <= 14 ? 4 : 5;
+        return Math.min(most, n);
+    }
+
+    // The stages of the cards in view, spread over what the box holds: in box
+    // 1, the wrong ones at the back and the new ones in front of them
+    function bandsFor(info, k) {
+        const sorted = info.stages.slice().sort((a, b) => b - a);
+        if (sorted.length <= k) return sorted.slice(0, k).map(bandOf);
+
+        return Array.from({ length: k }, (_, i) => bandOf(sorted[Math.round(i * (sorted.length - 1) / Math.max(1, k - 1))]));
+    }
+
+    /*
+     * A box, drawn: an open cardboard box seen a little from above, as in the
+     * pictures. The front is a plain rectangle; above it the opening, its back
+     * wall narrower than the front as the side walls run away from the eye,
+     * the cut edge of the card showing light all round the rim. In the
+     * opening the cards stand on end one behind the other, as cards stand in
+     * a file -- the back ones higher, so that each shows the coloured band
+     * across its top -- and a card ready to be repeated stands a little
+     * higher than the others.
+     *
+     * Everything is drawn round with the same brown ink, as the pictures are:
+     * it is the line, more than the colours, that makes them look painted
+     * rather than rendered.
+     *
+     * And it has depth, which the first flat drawing of it lost (the owner,
+     * the same day): the front darker towards its foot and at both ends, as a
+     * box lit from above is; the inside darker the deeper it goes; the cards
+     * at the back in the box's shadow, each with the shadow of the one in
+     * front of it across it; and the whole box casting its shadow on the wall
+     * behind and on the shelf it stands on -- the drop-shadow on the drawing.
+     *
+     * In SVG, sized to the box in pixels, so that the lines fall on the same
+     * places at either size; the lettering stays HTML on top -- see boxInner.
+     */
+    function boxSvg(n, info, L) {
+        const p = palette;
+        const W = L.w;
+        const H = L.boxH;
+        const ft = L.frontTop;
+        const rt = L.rimTop;
+        const ins = L.inset;
+        const r = (v) => Math.round(v * 100) / 100;
+
+        const k = layersFor(info.total, L.layers);
+        const up = info.ready ? Math.max(1, Math.round(k * info.ready / info.total)) : 0;
+        const bands = bandsFor(info, k);
+
+        let cards = '';
+
+        // The inner face of a side wall, where it is at a height: the cards
+        // stand between the two, so a card further back is a narrower card
+        const wallTop = rt + 2.2;
+        const wallAt = (y) => (ins + 1.6) + (2.4 - (ins + 1.6)) * Math.min(1, Math.max(0, (y - wallTop) / (ft - wallTop)));
+
+        // Spread over the whole depth of the box, back to front, however many
+        // there are, so that every card shows its own strip; a single card
+        // stands a little way in from the back. Each sits a hair to one side
+        // or the other, as cards put in by hand do.
+        const JITTER = [0, 0.9, -0.7, 0.5, -1];
+
+        for (let i = 0; i < k; i++) {
+            const depth = k === 1 ? 0.3 : i / (k - 1);
+            const stand = rt + 3 + depth * (ft - rt - 9);
+            const y = stand - (i < up ? L.raise : 0);
+            const left = wallAt(stand) + 1.1 + JITTER[i];
+            const w = W - 2 * wallAt(stand) - 2.2;
+            const h = ft + 3 - y;
+            const rule = y + L.band + 2.6;
+
+            // Further back is further into the box's shadow
+            const paper = mixHex(p.paper, p.cardShade, (1 - depth) * 0.32);
+
+            // The shadow this card throws on the one behind it
+            const cast = i > 0 ? `<rect x="${r(left - 0.5)}" y="${r(y - 2.6)}" width="${r(w + 1)}" height="2.8" rx="1.4" fill="${p.cardCast}" />` : '';
+
+            cards += cast
+                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="${paper}" />`
+                + `<rect x="${r(left + 0.4)}" y="${r(y + 0.4)}" width="${r(w - 0.8)}" height="${L.band}" rx="1.2" fill="${mixHex(bands[i], p.cardShade, (1 - depth) * 0.22)}" />`
+                + (rule < ft - 1 ? `<path d="M${r(left + 3)} ${r(rule)}H${r(left + w * 0.55)}" stroke="${p.cardRule}" stroke-width="0.8" stroke-linecap="round" />` : '')
+                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="none" stroke="${p.cardLine}" stroke-width="0.9" />`;
+        }
+
+        const id = `fc-${L.name}-${n}`;
+        const front = `x="0.55" y="${ft}" width="${r(W - 1.1)}" height="${r(H - ft - 0.55)}" rx="${L.round}"`;
+
+        return `<svg class="flashcards-box-art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; filter: drop-shadow(${p.drop});">
+            <defs>
+                <linearGradient id="${id}-k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.kraft}" /><stop offset="0.55" stop-color="${p.kraftMid}" /><stop offset="1" stop-color="${p.kraftLow}" /></linearGradient>
+                <linearGradient id="${id}-e" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${p.edgeShade}" /><stop offset="0.14" stop-color="${p.edgeShade}" stop-opacity="0" /><stop offset="0.8" stop-color="${p.edgeShade}" stop-opacity="0" /><stop offset="1" stop-color="${p.edgeShade}" /></linearGradient>
+                <linearGradient id="${id}-i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.inside}" /><stop offset="1" stop-color="${p.insideLow}" /></linearGradient>
+            </defs>
+            <ellipse cx="${r(W / 2 + 2)}" cy="${H - 0.6}" rx="${r(W * 0.52)}" ry="2.8" fill="${p.boxShadow}" />
+            <polygon points="0.6,${ft} ${ins},${rt} ${r(W - ins)},${rt} ${r(W - 0.6)},${ft}" fill="${p.rim}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
+            <polygon points="${r(ins + 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${ft} ${r(ins + 1.6)},${ft}" fill="url(#${id}-i)" />
+            <polygon points="2.4,${ft} ${r(ins + 1.6)},${rt + 2.2} ${r(ins + 1.6)},${ft}" fill="${p.insideLeft}" />
+            <polygon points="${r(W - 2.4)},${ft} ${r(W - ins - 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${ft}" fill="${p.insideRight}" />
+            <path d="M${r(ins + 1.8)} ${rt + 2.9}H${r(W - ins - 1.8)}" stroke="${p.rimShade}" stroke-width="1.4" />
+            ${cards}
+            <rect x="1" y="${ft - 1.6}" width="${r(W - 2)}" height="3" fill="${p.frontCast}" />
+            <rect ${front} fill="url(#${id}-k)" stroke="${p.line}" stroke-width="1.1" />
+            <rect ${front} fill="url(#${id}-e)" />
+            <path d="M2.6 ${ft + 1.7}H${r(W - 2.6)}" stroke="${p.kraftLight}" stroke-width="1.2" stroke-linecap="round" />
+            ${info.ready ? garlandSvg(n, L) : ''}
+        </svg>`;
+    }
+
+    /*
+     * The fairy lights on a box: a string of small bulbs on every box with a
+     * card ready in it and on no other -- the owner's call, 20 November 2026,
+     * in place of a string round the whole cabinet and the neon stars between
+     * the boxes. So the boxes that want opening are the lit ones.
+     *
+     * Thrown over the box rather than strung along a line -- the owner, after
+     * a picture of Christmas lights on these boxes: a loose string that goes
+     * over the top and the opening, round a front corner, hangs down a side
+     * into the gap, or lies in a loop along the foot; bulbs at uneven steps
+     * and of uneven sizes. Which of four drapes, which way round, and every
+     * bend of it a little off, is the box's number's to say -- a seeded
+     * random -- so a box keeps its string from one look to the next. All of
+     * them keep clear of the label and the figures in the middle of the front.
+     *
+     * At night the light is deep and warm, amber rather than yellow: a hot
+     * white core in every bulb, a wide halo that lightens the cardboard round
+     * it (screened over the box's drawing), a soft band of light along the
+     * whole wire, the box itself warmed by it, and a few sparks in the air.
+     * Bulbs and sparks twinkle each in its own time (see twinkle). By day the
+     * string is off: glass the colour of the kraft and a thin wire, nothing
+     * that asks to be looked at -- the green figure on the box says the same
+     * thing by day.
+     */
+    const BULBS = ['#ffa63a', '#ffb44a', '#ff9d36', '#ffbe5a', '#ffaa44'];
+
+    // A small random that gives the same numbers for the same seed
+    function seeded(seed) {
+        let x = (seed * 7919 + 104729) % 233280;
+        return () => {
+            x = (x * 9301 + 49297) % 233280;
+            return x / 233280;
+        };
+    }
+
+    // The four drapes, as the points the string passes through: over the top
+    // and down a side past the front corner; across the top, round the other
+    // front corner and in a loop along the foot; heaped at the foot with an
+    // end thrown up over a back corner; down a side from across the top
+    const DRAPES = [
+        (W, H, ft, rt) => [[-5, rt + 1], [W * 0.18, rt - 7], [W * 0.5, rt + 9], [W * 0.8, rt - 2], [W + 3, ft + 3], [W + 5, ft + 22], [W + 1, H - 10]],
+        (W, H, ft, rt) => [[W + 6, rt - 4], [W * 0.62, rt + 7], [W * 0.3, rt - 3], [2, ft + 3], [-4, ft + 18], [W * 0.18, H + 1], [W * 0.55, H - 3], [W * 0.85, H + 1.5], [W + 4, H - 8]],
+        (W, H, ft, rt) => [[-5, H - 12], [W * 0.12, H + 1.5], [W * 0.34, H - 5], [W * 0.56, H + 1], [W * 0.8, H - 4], [W + 4, H - 14], [W + 6, ft + 6], [W - 6, rt - 5], [W * 0.62, rt + 3]],
+        (W, H, ft, rt) => [[W * 0.85, rt - 6], [W * 0.55, rt + 6], [W * 0.25, rt - 2], [-3, ft + 1], [-6, ft + 20], [-2, H - 16], [-5, H - 4]]
+    ];
+
+    // A smooth curve through the points, as Catmull-Rom is: the path, and
+    // the curve sampled finely, for the bulbs to be spaced along it
+    function smooth(pts) {
+        const f = (v) => Math.round(v * 10) / 10;
+        const samples = [];
+        let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[i - 1] || pts[i];
+            const p1 = pts[i];
+            const p2 = pts[i + 1];
+            const p3 = pts[i + 2] || p2;
+            const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+            const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+
+            d += `C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(p2[0])} ${f(p2[1])}`;
+
+            for (let k = 0; k < 12; k++) {
+                const t = k / 12;
+                const u = 1 - t;
+                samples.push({
+                    x: u * u * u * p1[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p2[0],
+                    y: u * u * u * p1[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p2[1]
+                });
+            }
+        }
+
+        const last = pts[pts.length - 1];
+        samples.push({ x: last[0], y: last[1] });
+
+        return { d, samples };
+    }
+
+    function garlandSvg(n, L) {
+        const p = palette;
+        const f = (v) => Math.round(v * 10) / 10;
+        const rnd = seeded(n * 31 + (L.name === 'few' ? 7 : 3));
+        const W = L.w;
+        const few = L.name === 'few';
+
+        const drape = DRAPES[n % DRAPES.length];
+        const mirror = rnd() < 0.5;
+        const jitter = few ? 2.6 : 1.8;
+
+        const pts = drape(W, L.boxH, L.frontTop, L.rimTop).map(([x, y]) => [
+            (mirror ? W - x : x) + (rnd() - 0.5) * 2 * jitter,
+            y + (rnd() - 0.5) * 2 * jitter
+        ]);
+
+        const { d, samples } = smooth(pts);
+
+        // Bulbs at uneven steps along the string
+        const run = [0];
+        for (let i = 1; i < samples.length; i++) run.push(run[i - 1] + Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y));
+
+        const pointAt = (dist) => {
+            let i = 1;
+            while (i < run.length - 1 && run[i] < dist) i++;
+            const k = (dist - run[i - 1]) / Math.max(0.001, run[i] - run[i - 1]);
+            return { x: samples[i - 1].x + (samples[i].x - samples[i - 1].x) * k, y: samples[i - 1].y + (samples[i].y - samples[i - 1].y) * k };
+        };
+
+        const length = run[run.length - 1];
+        const stops = [];
+        for (let dist = 6 + rnd() * 10; dist < length - 3; dist += (few ? 30 : 22) + rnd() * (few ? 14 : 10)) stops.push(dist);
+
+        let bulbs = '';
+        let sparks = '';
+
+        stops.forEach((dist, k) => {
+            const pt = pointAt(dist);
+            const c = Math.floor(rnd() * BULBS.length);
+            const big = 1 + rnd() * 0.55;
+            const x = f(pt.x);
+            const y = f(pt.y + 2.2 * big);
+            const socket = `<rect x="${f(pt.x - 0.9)}" y="${f(pt.y)}" width="1.8" height="1.2" fill="${p.line}" opacity="${isNight ? 1 : 0.5}" />`;
+
+            if (!isNight) {
+                bulbs += `${socket}<ellipse cx="${x}" cy="${y}" rx="${f(1.3 * big)}" ry="${f(1.8 * big)}" fill="${mixHex(BULBS[c], p.kraft, 0.62)}" stroke="${p.line}" stroke-opacity="0.45" stroke-width="0.5" />`;
+                return;
+            }
+
+            const halo = (few ? 15 : 11) * big * (0.85 + rnd() * 0.35);
+
+            bulbs += `<circle class="flashcards-bulb-bloom" cx="${x}" cy="${y}" r="${f(halo * 2.6)}" fill="url(#fc-bloom)" /><circle class="flashcards-bulb-glow" cx="${x}" cy="${y}" r="${f(halo)}" fill="url(#fc-bulb-${c})" />${socket}<ellipse cx="${x}" cy="${y}" rx="${f(1.7 * big)}" ry="${f(2.2 * big)}" fill="#ffd36a" stroke="#4a2a10" stroke-width="0.4" /><circle cx="${x}" cy="${f(pt.y + 2 * big)}" r="${f(1.2 * big)}" fill="#fff6d0" />`;
+
+            // Every so often a spark in the air beside the string
+            if (k % 2 === 0) {
+                const sx = pt.x + (rnd() - 0.5) * 22;
+                const sy = pt.y + (rnd() - 0.5) * 18;
+                sparks += `<circle class="flashcards-spark" cx="${f(sx)}" cy="${f(sy)}" r="${f(0.6 + rnd() * 0.7)}" fill="#ffe9b4" />`;
+            }
+        });
+
+        const wire = `<path d="${d}" fill="none" stroke="${isNight ? '#2a1a0e' : p.line}" stroke-opacity="${isNight ? 0.9 : 0.4}" stroke-width="0.8" stroke-linecap="round" />`;
+
+        if (!isNight) return `<g class="flashcards-garland">${wire}${bulbs}</g>`;
+
+        // The box warmed by its lights, and a band of light along the wire
+        const front = `x="0.55" y="${L.frontTop}" width="${f(W - 1.1)}" height="${f(L.boxH - L.frontTop - 0.55)}" rx="${L.round}"`;
+        const warm = `<rect ${front} fill="url(#fc-box-lit)" style="mix-blend-mode: screen;" />`;
+        const spill = `<path class="flashcards-bulb-glow" d="${d}" fill="none" stroke="#ff9a35" stroke-opacity="0.2" stroke-width="${few ? 20 : 15}" stroke-linecap="round" filter="url(#fc-garland-soft)" style="mix-blend-mode: screen;" />`;
+
+        return `<g class="flashcards-garland">${warm}${spill}${wire}${bulbs}${sparks}</g>`;
+    }
+
+    // Every lit bulb breathing in its own time, at night -- dimming a little,
+    // never going out -- and the sparks coming and going
+    function twinkle() {
+        if (!isNight || !MOTION || !stageEl) return;
+
+        stageEl.querySelectorAll('.flashcards-bulb-glow').forEach((el, i) => {
+            el.animate([{ opacity: 1 }, { opacity: 0.6 + (i % 3) * 0.1 }], { duration: 1100 + (i * 337) % 1300, delay: (i * 211) % 900, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+        });
+
+        stageEl.querySelectorAll('.flashcards-spark').forEach((el, i) => {
+            el.animate([{ opacity: 0.1 }, { opacity: 1 }], { duration: 700 + (i * 271) % 900, delay: (i * 157) % 1200, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+        });
+    }
+
+    // One colour `share` of the way to another, both #rrggbb
+    function mixHex(a, b, share) {
+        const x = parseInt(a.slice(1), 16);
+        const y = parseInt(b.slice(1), 16);
+        const ch = (v, s) => (v >> s) & 255;
+        return '#' + [16, 8, 0].map(s => Math.round(ch(x, s) + (ch(y, s) - ch(x, s)) * share).toString(16).padStart(2, '0')).join('');
+    }
+
+    // The label holder of a card file: a frame with a round ear at each end
+    // and a slip of paper in it
+    function plateHtml(text, size, pad, height, ear) {
+        const p = palette;
+        const earCss = (side) => `position: absolute; ${side}: 0; top: 50%; width: ${ear * 2}px; height: ${ear * 2}px; margin-top: -${ear}px; box-sizing: border-box; border-radius: 50%; background: ${p.brass}; border: 1px solid ${p.line};`;
+
+        return `<span style="position: relative; display: inline-flex; align-items: center; height: ${height}px; padding: 0 ${ear}px; box-sizing: border-box; filter: drop-shadow(0 1px 1px rgba(40, 24, 10, 0.3));">
+            <span style="${earCss('left')}"></span><span style="${earCss('right')}"></span>
+            <span style="position: relative; display: flex; align-items: center; height: 100%; min-width: 0; padding: 1.6px; box-sizing: border-box; border-radius: 3px; background: linear-gradient(180deg, ${p.brassLight}, ${p.brass}); border: 1px solid ${p.line};">
+                <span style="display: block; height: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 ${pad}px; box-sizing: border-box; border-radius: 1.6px; background: ${p.labelPaper}; box-shadow: inset 0 1px 1.5px rgba(84, 64, 47, 0.35); font-size: ${size}px; line-height: ${height - 5.2}px; font-weight: 700; color: ${p.labelInk}; white-space: nowrap;">${text}</span>
+            </span>
+        </span>`;
+    }
+
+    function boxInner(n, info, L) {
+        const p = palette;
+        const ready = info.ready > 0;
+
+        const plate = `<span style="position: absolute; left: 50%; top: ${L.frontTop + L.plateTop}px; transform: translateX(-50%); display: flex;">${plateHtml(`Box ${n}`, L.plateFont, L.platePad, L.plateH, L.ear)}</span>`;
+
+        const span = `<span style="display: inline-flex; align-items: center; gap: 2px; color: ${p.stampInk}; white-space: nowrap;">${CLOCK(L.footIcon, p.stampInk)}${spanText(n)}</span>`;
+
+        const pill = `<span style="display: inline-flex; align-items: baseline; padding: ${L.pillPad}; border-radius: 99px; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; border: 1px solid ${p.line}; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), 0 1px 0 rgba(255, 240, 215, 0.35); white-space: nowrap; font-variant-numeric: tabular-nums;"><span>${info.ready}</span><span style="opacity: 0.75;">/${info.total}</span></span>`;
+
+        const foot = `<span style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
+
+        return boxSvg(n, info, L) + plate + foot;
+    }
+
+    /*
+     * What a press on a box will do, for the analytics (data-press, see
+     * ANALYTICS.md): open it -- the number alone -- open it ahead of the
+     * timers, shake because nothing in it is ready, or shake because it is
+     * empty.
+     */
+    function pressOf(n, info) {
+        if (!info.total) return `${n}-empty`;
+        if (info.ready) return `${n}`;
+        return earlyAllowed() ? `${n}-early` : `${n}-wait`;
+    }
+
+    function labelOf(n, info) {
+        return `Box ${n}: ${info.ready} ready of ${info.total}, repeated ${spanText(n) === 'now' ? 'straight away' : `after ${spanText(n)}`}`;
+    }
+
+    /*
+     * Ahead of the timers, by the store's own rule: only when the player
+     * asked for it on the way in -- the catalog's "Play anyway" -- and only
+     * while nothing at all in the set is ready (see store.duePool). Then every
+     * box opens with all it holds. Otherwise a box with nothing ready only
+     * shakes and shows its timer: the owner's call, the same day, in place of
+     * a dialog asking whether to play early.
+     */
+    function earlyAllowed() {
+        return !!state.allowEarly && store.duePool(state.selectedSetId, false).length === 0;
+    }
+
+    // No focus ring: a box pressed and then played from the keyboard kept one
+    // round it, a white frame round a box just emptied (the owner)
+    function boxHtml(n, info, L) {
+        return `<button class="flashcards-box" data-box="${n}" data-press="${pressOf(n, info)}" aria-label="${labelOf(n, info)}" title="${labelOf(n, info)}" style="position: relative; display: block; width: ${L.w}px; height: ${L.boxH}px; padding: 0; margin: 0; border: none; outline: none; background: transparent; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent;">${boxInner(n, info, L)}</button>`;
+    }
+
+    /*
+     * The free place at the end of either shelf, and what stands in it: the
+     * desk lamp, in both themes -- switched off by day and on at night, and
+     * itself the switch between the two (the owner's call, 20 November 2026,
+     * in place of the plant in a pot that stood there by day). Pressed, it
+     * turns the light on, which is the room going dark round it, or off.
+     *
+     * A button, so that the press is counted (`flashcards-lamp`, see
+     * ANALYTICS.md) and the theme it switches to is written as the panel's
+     * switch writes it -- page.switchTheme.
+     */
+    function spareHtml(L) {
+        const label = isNight ? 'Turn the lamp off' : 'Turn the lamp on';
+        return `<button class="flashcards-lamp flashcards-spare" aria-label="${label}" title="${label}" style="position: relative; display: block; width: ${L.w}px; height: ${L.boxH}px; padding: 0; margin: 0; border: none; outline: none; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent;">${deskLampSvg(L)}</button>`;
+    }
+
+    /*
+     * The desk lamp: a heavy base, two brass arms, and a head turned up and
+     * to the left, where the table is -- so that when a card is out, the
+     * light falls on it (see beam). Its geometry in the place's own pixels,
+     * scaled with the shelf; where its light comes out is what lampSpot
+     * reads back.
+     */
+    function lampGeometry(L) {
+        const s = L.boxH / 100;
+        const W = L.w;
+        const H = L.boxH;
+        const base = { x: W * 0.64, y: H - 4 * s };
+        const knee = { x: base.x + 9 * s, y: H - 46 * s };
+        const pivot = { x: base.x - 15 * s, y: H - 69 * s };
+        const aim = L.aim;
+        const dir = { x: Math.cos(aim), y: Math.sin(aim) };
+        const mouth = { x: pivot.x + dir.x * 15 * s, y: pivot.y + dir.y * 15 * s };
+
+        return { s, base, knee, pivot, aim, dir, mouth };
+    }
+
+    /*
+     * The lamp's two poses, as two turns: of its upper arm about the elbow,
+     * and of its head about the joint at the end of the arm. Up, lit: the arm
+     * as drawn, the head at `aim`. Off: the arm let down and the head hanging
+     * towards the shelf (the owner) -- and switched on it lifts itself into
+     * the other pose before the light comes, see switchLamp.
+     */
+    const ARM_DOWN = -34;
+    const HEAD_DOWN = 104;
+
+    function poseOf(on, L) {
+        return on ? { arm: 0, head: L.aim * 180 / Math.PI } : { arm: ARM_DOWN, head: HEAD_DOWN - ARM_DOWN };
+    }
+
+    function deskLampSvg(L) {
+        const p = palette;
+        const g = lampGeometry(L);
+        const { s, base, knee, pivot, mouth } = g;
+        const f = (v) => Math.round(v * 10) / 10;
+        const pose = poseOf(isNight, L);
+        const arm = (a, b) => `<path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.line}" stroke-width="${f(3.6 * s + 0.6)}" stroke-linecap="round" /><path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.lampArm}" stroke-width="${f(1.8 * s + 0.2)}" stroke-linecap="round" />`;
+
+        // Lit: a glow round the head and a warm patch on the shelf under it,
+        // the bulb bright in the mouth. Off: the bulb a dull glass, and the
+        // lamp casts a shadow like the boxes beside it.
+        const lit = isNight
+            ? `<defs><radialGradient id="fc-lamp-glow"><stop offset="0" stop-color="#ffdc96" stop-opacity="0.7" /><stop offset="0.45" stop-color="#ffc56e" stop-opacity="0.22" /><stop offset="1" stop-color="#ffc56e" stop-opacity="0" /></radialGradient></defs>
+            <circle class="flashcards-lamp-glow" cx="${f(mouth.x)}" cy="${f(mouth.y)}" r="${f(46 * s)}" fill="url(#fc-lamp-glow)" />
+            <ellipse class="flashcards-lamp-glow" cx="${f(base.x)}" cy="${f(base.y + 2.6 * s)}" rx="${f(18 * s)}" ry="${f(3 * s)}" fill="rgba(255, 205, 135, 0.18)" />`
+            : `<ellipse cx="${f(base.x + 2)}" cy="${f(base.y + 3 * s)}" rx="${f(17 * s)}" ry="${f(2.8 * s)}" fill="${p.boxShadow}" />`;
+
+        // The head, drawn pointing to the right of its joint and turned from
+        // there
+        const hx = (dx) => f(pivot.x + dx * s);
+        const hy = (dy) => f(pivot.y + dy * s);
+
+        return `<svg width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;${isNight ? '' : ` filter: drop-shadow(${p.drop});`}">
+            ${lit}
+            ${arm(base, knee)}
+            <g class="flashcards-lamp-arm" transform="rotate(${f(pose.arm)} ${f(knee.x)} ${f(knee.y)})">
+                ${arm(knee, pivot)}
+                <g class="flashcards-lamp-head" transform="rotate(${f(pose.head)} ${f(pivot.x)} ${f(pivot.y)})">
+                    <ellipse cx="${hx(15)}" cy="${hy(0)}" rx="${f(2.6 * s)}" ry="${f(10.5 * s)}" fill="${isNight ? '#fff3c8' : p.bulbOff}" />
+                    <path d="M${hx(-3)} ${hy(-4.5)}L${hx(15)} ${hy(-10.5)}L${hx(15)} ${hy(10.5)}L${hx(-3)} ${hy(4.5)}Z" fill="${p.lampHead}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
+                    <path d="M${hx(2)} ${hy(-5.5)}L${hx(13)} ${hy(-9)}" stroke="rgba(255, 255, 255, 0.35)" stroke-width="${f(1.4 * s)}" stroke-linecap="round" />
+                    <ellipse cx="${hx(15)}" cy="${hy(0)}" rx="${f(1.6 * s)}" ry="${f(10.5 * s)}" fill="none" stroke="${p.line}" stroke-width="1" />
+                </g>
+                <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(2.4 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1" />
+            </g>
+            <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(2.6 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1" />
+            <path d="M${f(base.x - 15 * s)} ${f(base.y + 1)}Q${f(base.x - 13 * s)} ${f(base.y - 7 * s)} ${f(base.x)} ${f(base.y - 7.5 * s)}Q${f(base.x + 13 * s)} ${f(base.y - 7 * s)} ${f(base.x + 15 * s)} ${f(base.y + 1)}Z" fill="${p.lampBase}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
+        </svg>`;
+    }
+
+    /*
+     * The lamp moved from one pose to the other, a frame at a time: its arm
+     * and head are turned by their transform attributes, which hold the
+     * point they turn about -- simpler and surer than CSS transforms on
+     * nested SVG groups. Answers when it is done.
+     */
+    function moveLamp(from, to, ms) {
+        const lamp = stageEl && stageEl.querySelector('.flashcards-lamp');
+        const armEl = lamp && lamp.querySelector('.flashcards-lamp-arm');
+        const headEl = lamp && lamp.querySelector('.flashcards-lamp-head');
+        if (!armEl || !headEl) return Promise.resolve();
+
+        const L = layoutOf();
+        const { knee, pivot } = lampGeometry(L);
+        const f = (v) => Math.round(v * 100) / 100;
+
+        const set = (pose) => {
+            armEl.setAttribute('transform', `rotate(${f(pose.arm)} ${f(knee.x)} ${f(knee.y)})`);
+            headEl.setAttribute('transform', `rotate(${f(pose.head)} ${f(pivot.x)} ${f(pivot.y)})`);
+        };
+
+        set(from);
+        if (!MOTION) {
+            set(to);
+            return Promise.resolve();
+        }
+
+        // The head turns the short way round: down to up through pointing
+        // left, not a turn and a half through pointing right
+        const turn = ((to.head - from.head) % 360 + 540) % 360 - 180;
+        const goal = { arm: to.arm, head: from.head + turn };
+
+        // Out quickly, settling with a little give, as a sprung arm does
+        const ease = (t) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
+        const start = performance.now();
+
+        // And in the pose it was going to whatever happens to the frames: a
+        // page out of sight gets none, and the lamp must not stay half up
+        return new Promise(done => {
+            let over = false;
+            const finish = () => {
+                if (over) return;
+                over = true;
+                set(to);
+                done();
+            };
+
+            const step = (now) => {
+                if (over) return;
+                const t = Math.min(1, (now - start) / ms);
+                const k = ease(t);
+                set({ arm: from.arm + (goal.arm - from.arm) * k, head: from.head + (goal.head - from.head) * k });
+                if (t < 1 && armEl.isConnected) requestAnimationFrame(step);
+                else finish();
+            };
+
+            requestAnimationFrame(step);
+            setTimeout(finish, ms + 120);
+        });
+    }
+
+    // A five-pointed star of radius `R` round (cx, cy)
+    function starPath(cx, cy, R) {
+        const pts = [];
+        for (let i = 0; i < 10; i++) {
+            const a = -Math.PI / 2 + i * Math.PI / 5;
+            const rr = i % 2 ? R * 0.46 : R;
+            pts.push(`${Math.round((cx + Math.cos(a) * rr) * 10) / 10},${Math.round((cy + Math.sin(a) * rr) * 10) / 10}`);
+        }
+        return `M${pts.join('L')}Z`;
+    }
+
+    /*
+     * The order the boxes stand in: a snake, the owner's call, 20 November
+     * 2026 -- left to right along the first shelf, right to left along the
+     * second, and so on, so that the way from each box to the next is always
+     * to the box beside it or the box under it, and the arrows that draw that
+     * way never cross. The free place is the last:
+     *
+     *     1  2  3          1  2
+     *     6  5  4          4  3
+     *     7  8  9          5  .
+     *    12 11 10
+     *    13 14  .
+     */
+    function rowsOf(L) {
+        const rows = [];
+        const places = L.cols * Math.ceil((L.count + 1) / L.cols);
+
+        for (let first = 1, r = 0; first <= places; first += L.cols, r++) {
+            const row = Array.from({ length: L.cols }, (_, i) => first + i);
+            rows.push(r % 2 ? row.reverse() : row);
+        }
+
+        return rows;
+    }
+
+    /*
+     * The cabinet: a wooden frame, a back of boards, and the boxes standing
+     * on shelves in rows of two or three.
+     *
+     * Each shelf is a board seen a little from above, its top in light and
+     * its front edge in shade, and the boxes stand on its top rather than on
+     * its edge. Under each shelf the wall is in its shadow, and the wall's two
+     * ends are darker than its middle -- the inside of a cabinet.
+     */
+    function cabinetHtml() {
+        const p = palette;
+        const L = layoutOf();
+        const counts = shelfCounts();
+        const SINK = 4;
+
+        const rows = rowsOf(L).map(row => {
+            const cells = row.map(n => (n <= L.count ? boxHtml(n, counts[n], L) : spareHtml(L))).join('');
+
+            return `<div class="flashcards-row" style="position: relative; z-index: 2; display: grid; grid-template-columns: repeat(${L.cols}, ${L.w}px); justify-content: space-between; padding: ${L.rowGap}px ${L.padX}px 0; background: linear-gradient(180deg, ${p.rowShade} 0, transparent ${L.rowGap + 14}px);">${cells}</div>
+                <div class="flashcards-plank" style="position: relative; z-index: 1; margin-top: -${SINK}px; height: ${L.plank + SINK}px; box-sizing: border-box; border-bottom: 1px solid ${p.line}; background: linear-gradient(180deg, ${p.plankBack} 0, ${p.plankTop} ${SINK + 3}px, ${p.line} ${SINK + 3}px, ${p.line} ${SINK + 4}px, ${p.plankFront} ${SINK + 4}px, ${p.plankFrontLow} 100%); box-shadow: 0 3px 5px ${p.plankShade};"></div>`;
+        }).join('');
+
+        const boards = `repeating-linear-gradient(90deg, transparent 0 52px, ${p.wallSeam} 52px 53.2px), linear-gradient(90deg, ${p.sideShade} 0, transparent 22px, transparent calc(100% - 22px), ${p.sideShade} 100%)`;
+
+        return `<div class="flashcards-cabinet" data-layout="${L.name}" style="position: relative; padding: 9px ${FRAME_PAD}px ${FRAME_PAD}px; border-radius: 10px; border: ${FRAME_EDGE}px solid ${p.line}; background: linear-gradient(180deg, ${p.frame}, ${p.frameLow}); box-shadow: inset 0 1.5px 0 rgba(255, 236, 205, 0.25), inset 0 -2px 0 rgba(30, 18, 8, 0.25), ${p.cabinetShadow};">
+            <div class="flashcards-wall" style="position: relative; border-radius: 4px; overflow: hidden; border: ${WALL_EDGE}px solid ${p.line}; background: ${boards}, ${p.wall}; box-shadow: inset 0 4px 8px rgba(20, 10, 4, 0.3);">${rows}</div>
+        </div>`;
+    }
+
+    /*
+     * ---- The night ----
+     *
+     * The dark theme is not the shelf in darker colours but the room with the
+     * light off (the owner's call, 20 November 2026, after a picture of the
+     * same cabinet at night): the wood and the cardboard in shadow, and lit
+     * by what is in the room -- the desk lamp in the free place at the end of
+     * the shelf, whose light falls on the card when one is out, and the fairy
+     * lights on the boxes that have a card ready (see garlandSvg).
+     *
+     * The light and the shade are two layers laid over the cabinet: one that
+     * darkens (multiply), deepest in the corner farthest from the lamp, and
+     * one that lights (screen), warmest round the lamp. The fairy lights
+     * shine through both: their glow is drawn in the boxes' own drawing.
+     */
+    let isNight = false;
+
+    // Where the lamp's light comes out, in the stage's pixels
+    function lampSpot() {
+        const spare = stageEl && stageEl.querySelector('.flashcards-spare');
+        if (!spare) return null;
+
+        const at = offsetIn(spare);
+        const { mouth } = lampGeometry(layoutOf());
+
+        return { x: at.x + mouth.x, y: at.y + mouth.y };
+    }
+
+    function drawNight() {
+        if (!stageEl) return;
+
+        stageEl.querySelectorAll('.flashcards-night').forEach(el => el.remove());
+        if (!isNight) return;
+
+        const cabinet = stageEl.querySelector('.flashcards-cabinet');
+        const top = cabinet.offsetTop;
+        const W = cabinet.offsetWidth;
+        const H = cabinet.offsetHeight;
+        const lamp = lampSpot() || { x: W * 0.75, y: top + H * 0.85 };
+        const lx = Math.round(lamp.x / W * 100);
+        const ly = Math.round((lamp.y - top) / H * 100);
+        const place = `position: absolute; left: 0; top: ${top}px; width: ${W}px; height: ${H}px; border-radius: 10px; pointer-events: none;`;
+
+        // The shade: deepest in the corner farthest from the lamp
+        $(stageEl, `<div class="flashcards-night" style="${place} z-index: 1; mix-blend-mode: multiply; background: radial-gradient(ellipse 120% 95% at ${lx}% ${ly}%, rgba(255, 255, 255, 0) 18%, rgba(18, 20, 40, 0.66) 100%);"></div>`);
+
+        // The light: a warm pool round the lamp, and a glow along the side
+        // the fairy lights hang down
+        $(stageEl, `<div class="flashcards-night flashcards-lamplight" style="${place} z-index: 1; mix-blend-mode: screen; background: radial-gradient(ellipse 46% 28% at ${lx}% ${ly}%, rgba(255, 176, 95, 0.34), rgba(255, 176, 95, 0) 100%);"></div>`);
+
+        // The lamp's cone, over the boxes: above the shelves, which stand
+        // above the two layers -- see coneOf
+        const cone = coneOf();
+        if (cone) $(stageEl, lightSvg(cone, 'flashcards-night flashcards-lamplight flashcards-shelf-cone', 'fc-shelf-beam', `top: ${top}px; z-index: 2;`, BEAM_STRENGTH));
+
+        // The glow of the bulbs on the boxes, defined once for all of them
+        $(stageEl, `<svg class="flashcards-night" aria-hidden="true" width="0" height="0" style="position: absolute;"><defs><filter id="fc-garland-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" /></filter>${BULBS.map((c, i) => `<radialGradient id="fc-bulb-${i}"><stop offset="0" stop-color="#fff3c2" stop-opacity="1" /><stop offset="0.14" stop-color="#ffd067" stop-opacity="0.95" /><stop offset="0.32" stop-color="${c}" stop-opacity="0.62" /><stop offset="0.6" stop-color="#ff8a24" stop-opacity="0.2" /><stop offset="1" stop-color="#ff8a24" stop-opacity="0" /></radialGradient>`).join('')}<radialGradient id="fc-bloom"><stop offset="0" stop-color="#ff9a3a" stop-opacity="0.16" /><stop offset="0.5" stop-color="#ff9a3a" stop-opacity="0.06" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient><radialGradient id="fc-box-lit" cx="0.5" cy="0.15" r="0.85"><stop offset="0" stop-color="#ffa840" stop-opacity="0.3" /><stop offset="1" stop-color="#ffa840" stop-opacity="0.04" /></radialGradient></defs></svg>`);
+
+        twinkle();
+    }
+
+    function boxEl(n) {
+        return stageEl ? stageEl.querySelector(`.flashcards-box[data-box="${n}"]`) : null;
+    }
+
+    /*
+     * The figures and the cards of every box, drawn again in place: after a
+     * card leaves or lands, and every so often while the shelf is looked at,
+     * because a timer runs out without anybody pressing anything.
+     */
+    function refreshBoxes() {
+        if (!stageEl) return;
+
+        const L = layoutOf();
+        const counts = shelfCounts();
+
+        stageEl.querySelectorAll('.flashcards-box').forEach(box => {
+            const n = +box.dataset.box;
+            const info = counts[n];
+
+            box.innerHTML = boxInner(n, info, L);
+            box.dataset.press = pressOf(n, info);
+            box.setAttribute('aria-label', labelOf(n, info));
+            box.title = labelOf(n, info);
+        });
+
+        twinkle();
+    }
+
+    /*
+     * Where something is inside the stage, in the stage's own pixels.
+     *
+     * Walked up the offsets rather than read off getBoundingClientRect: the
+     * page stands inside a zoom (see app.css), and what a rectangle measures
+     * is the zoomed screen, where the transforms below are written in the
+     * layout's own units.
+     */
+    function offsetIn(el) {
+        let x = 0;
+        let y = 0;
+
+        for (let n = el; n && n !== stageEl; n = n.offsetParent) {
+            x += n.offsetLeft;
+            y += n.offsetTop;
+
+            const up = n.offsetParent;
+            if (up && up !== stageEl) {
+                x += up.clientLeft;
+                y += up.clientTop;
+            }
+        }
+
+        return { x, y };
+    }
+
+    // The middle of the box's opening: where a card comes out and goes in
+    function mouthOf(box) {
+        const L = layoutOf();
+        const at = offsetIn(box);
+        return { x: at.x + box.offsetWidth / 2, y: at.y + (L.rimTop + L.frontTop) / 2 };
+    }
+
+    /*
+     * ---- The arrows ----
+     *
+     * When the shelf opens, dashed arrows draw themselves from box to box, 1
+     * to 2 to 3 and on to the last -- the way a card travels when it is
+     * answered right, which is the whole of the game in one look (the owner's
+     * call, 20 November 2026; the dashed arrows are the pictures'). Along the
+     * shelf they arc over the gap; from the end of a shelf to the start of the
+     * next they sweep down across it. Then they fade.
+     *
+     * Once a page and not on every redraw, and not over a card already on the
+     * table. A press anywhere takes them away at once; they take no presses
+     * themselves.
+     */
+    function introArrows(token) {
+        if (!MOTION || token !== drawn || held || !stageEl) return;
+
+        const L = layoutOf();
+        const p = palette;
+        // In the order of their numbers, which on the snake is not the order
+        // they stand in on the page
+        const boxes = Array.from(stageEl.querySelectorAll('.flashcards-box')).sort((a, b) => a.dataset.box - b.dataset.box);
+        if (boxes.length < 2) return;
+
+        const spots = boxes.map(box => ({ ...offsetIn(box), w: box.offsetWidth, h: box.offsetHeight }));
+        const f = (v) => Math.round(v * 10) / 10;
+        const middle = stageEl.offsetWidth / 2;
+
+        const STEP = state.wide ? 120 : 190;
+        const DRAW = state.wide ? 300 : 380;
+
+        let defs = '';
+        let body = '';
+
+        const routes = spots.slice(1).map((b, i) => {
+            const a = spots[i];
+            let from, to, c1, c2;
+
+            if (Math.abs(a.y - b.y) < 2) {
+                // Along the shelf, whichever way this shelf runs: an arc over
+                // the gap between the two
+                const way = b.x > a.x ? 1 : -1;
+                from = { x: a.x + a.w * (way > 0 ? 0.72 : 0.28), y: a.y + L.rimTop + 2 };
+                to = { x: b.x + b.w * (way > 0 ? 0.28 : 0.72), y: b.y + L.rimTop + 2 };
+                c1 = { x: from.x + way * 6, y: a.y - L.rowGap - 4 };
+                c2 = { x: to.x - way * 6, y: b.y - L.rowGap - 4 };
+            } else {
+                // Down to the box under it, on the outer side, clear of the
+                // label and the figures, bowing out towards the cabinet's edge
+                const out = a.x + a.w / 2 > middle ? 1 : -1;
+                const side = out > 0 ? 0.86 : 0.14;
+                from = { x: a.x + a.w * side, y: a.y + a.h - 3 };
+                to = { x: b.x + b.w * side, y: b.y + L.rimTop + 2 };
+                c1 = { x: from.x + out * 9, y: from.y + 9 };
+                c2 = { x: to.x + out * 9, y: to.y - 9 };
+            }
+
+            return { from, to, c1, c2 };
+        });
+
+        routes.forEach((route, i) => {
+            const { from, to, c1, c2 } = route;
+            const d = `M${f(from.x)} ${f(from.y)}C${f(c1.x)} ${f(c1.y)} ${f(c2.x)} ${f(c2.y)} ${f(to.x)} ${f(to.y)}`;
+
+            // The head points the way the curve arrives
+            const ang = Math.atan2(to.y - c2.y, to.x - c2.x);
+            const wing = (turn) => `${f(to.x - Math.cos(ang + turn) * 6.5)} ${f(to.y - Math.sin(ang + turn) * 6.5)}`;
+            const head = `M${wing(0.5)}L${f(to.x)} ${f(to.y)}L${wing(-0.5)}`;
+
+            defs += `<mask id="fc-arrow-${i}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="${stageEl.offsetWidth + 40}" height="${stageEl.offsetHeight + 40}"><path class="flashcards-arrow-reveal" d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" /></mask>`;
+
+            body += `<g class="flashcards-arrow" data-i="${i}">
+                <g mask="url(#fc-arrow-${i})">
+                    <path d="${d}" transform="translate(0.9 1.3)" fill="none" stroke="${p.arrowShade}" stroke-width="2.6" stroke-dasharray="6 4.4" stroke-linecap="round" />
+                    <path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-dasharray="6 4.4" stroke-linecap="round" />
+                </g>
+                <g class="flashcards-arrow-head" opacity="0">
+                    <path d="${head}" transform="translate(0.9 1.3)" fill="none" stroke="${p.arrowShade}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="${head}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </g>
+            </g>`;
+        });
+
+        const layer = $(stageEl, `<svg class="flashcards-arrows" aria-hidden="true" width="${stageEl.offsetWidth}" height="${stageEl.offsetHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;"><defs>${defs}</defs>${body}</svg>`);
+
+        layer.querySelectorAll('.flashcards-arrow').forEach((arrow, i) => {
+            const reveal = layer.querySelector(`#fc-arrow-${i} .flashcards-arrow-reveal`);
+            const length = reveal.getTotalLength();
+
+            reveal.style.strokeDasharray = `${length}`;
+            reveal.style.strokeDashoffset = `${length}`;
+
+            reveal.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], { duration: DRAW, delay: i * STEP, easing: 'ease-in-out', fill: 'forwards' });
+            arrow.querySelector('.flashcards-arrow-head').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, delay: i * STEP + DRAW - 60, fill: 'forwards' });
+        });
+
+        const total = (routes.length - 1) * STEP + DRAW;
+
+        const leave = (quick) => {
+            if (!layer.isConnected || layer.dataset.leaving) return;
+            layer.dataset.leaving = '1';
+            settled(layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: quick ? 150 : 500, easing: 'ease-in', fill: 'forwards' })).then(() => layer.remove());
+        };
+
+        setTimeout(() => leave(false), total + 1300);
+        stageEl.addEventListener('pointerdown', () => leave(true), { once: true });
+    }
+
+    /*
+     * ---- The card on the table ----
+     */
+    const CARD_W = 268;
+    const CARD_H = 158;
+    const BAND = 22;
+
+    // The card lies a little askew, as a card put down by hand does
+    const TILT = -1.2;
+    const REST = `rotate(${TILT}deg)`;
+
+    /*
+     * An index card: cream paper drawn round in the shelf's ink, a band
+     * across the top in the soft colour of its stage on the front and plain
+     * kraft on the back -- so the two sides are told apart before a word of
+     * either is read -- a faint red rule under the band and faint blue ones
+     * down the rest.
+     */
+    function faceStyle(paper, band, rotate) {
+        const p = palette;
+
+        return `position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; ${rotate ? 'transform: rotateY(180deg);' : ''} box-sizing: border-box; border-radius: 10px; border: 1.3px solid ${p.line}; background: linear-gradient(180deg, ${band} 0, ${band} ${BAND}px, ${p.line} ${BAND}px, ${p.line} ${BAND + 1}px, ${p.margin} ${BAND + 1}px, ${p.margin} ${BAND + 2}px, transparent ${BAND + 2}px), repeating-linear-gradient(180deg, transparent 0 19px, ${p.rule} 19px 20px), ${paper}; box-shadow: ${p.cardHalo}; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: ${BAND + 9}px 14px 10px; cursor: pointer;`;
+    }
+
+    function cardHtml(item) {
+        const p = palette;
+        const stage = stageOf(item.word);
+        const tag = `<span style="position: absolute; left: 12px; top: 0; height: ${BAND}px; display: flex; align-items: center; font-size: 10.2px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${p.labelInk}; pointer-events: none;">Box ${boxOf(stage)}</span>`;
+        const word = `font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${p.ink}; text-align: center; word-break: break-word;`;
+
+        return `<div class="flashcards-card" style="position: absolute; left: 0; top: 0; width: ${CARD_W}px; height: ${CARD_H}px; perspective: 1000px; transform: ${REST};">
+            <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
+                <div class="card-face-front" data-press style="${faceStyle(p.tablePaper, bandOf(stage), false)}">
+                    ${tag}
+                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.original, item.originalLang, p.sayIcon, SAY_LEAD)}${lineHtml(item.word.original)}</div>
+                </div>
+                <div class="card-face-back" data-press style="${faceStyle(p.tablePaperBack, p.backBand, true)}">
+                    ${tag}
+                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.translation, item.translationLang, p.sayIcon, SAY_LEAD)}${item.word.translation ? lineHtml(item.word.translation) : '—'}</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    /*
+     * Two buttons, the same two throughout: turn the card over, or move on.
+     *
+     * Flip works every time it is pressed, and a player who wants to look at
+     * the two sides one after the other can.
+     *
+     * Icons rather than words -- the owner's call, 11 November 2026: the
+     * game is played by people learning a language, often in an interface
+     * language that is not theirs, and "Flip" and "Know" had to be read
+     * before they could be pressed. A tick for Know, and a card being
+     * turned for Flip (see FLIP_ICON).
+     *
+     * The arrows at the outer ends stay: they are the keys (← and →) and
+     * need no language either. The words stay too, as the buttons' names for
+     * a screen reader and the tooltip.
+     *
+     * Coloured as the buttons of the pictures, a terracotta and a sage, drawn
+     * round in the shelf's ink and raised on an edge of their own colour: a
+     * button in a cabinet of cardboard and wood is a thing that is pressed
+     * down, and shows it.
+     */
+    const ICON = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+    /*
+     * Flip, after the picture the owner gave on 11 November: a card tipped
+     * over, and a heavy arrow that comes in from beside it, swings down and
+     * round and points back into it -- the card being turned. Where the arrow
+     * crosses the card a gap is cut round it, so the two do not run into one
+     * shape. The mask is on a group rather than on the card: on the card it
+     * would be turned with the card's own tilt.
+     */
+    const FLIP_ARROW = 'M18.8 7.2C22.2 9.6 20.8 16.6 12.2 13.6';
+    const FLIP_HEAD = 'M8.6 12.35L13.4 11.15L11.6 16.25Z';
+
+    // The card both icons stand on, cut round whatever is drawn over it
+    // -- the mask, whose id has to be the icon's own, as both are on the
+    // page at once
+    const onCard = (gap, over) => `<svg ${ICON} width="28" height="28">`
+        + `<defs><mask id="${gap}" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">`
+        + `<rect width="24" height="24" fill="white" />${over.replace(/<path /g, '<path stroke="black" ').replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${+w + 2.8}"`).replace(/fill="currentColor"/g, 'fill="black"')}`
+        + '</mask></defs>'
+        + `<g mask="url(#${gap})"><rect x="3.5" y="3" width="13" height="17.5" rx="2.6" transform="rotate(-10 10 11.75)" fill="currentColor" fill-opacity="0.5" stroke="none" /></g>`
+        + `${over}</svg>`;
+
+    const FLIP_ICON = onCard('flashcards-flip-gap', `<path d="${FLIP_ARROW}" stroke-width="2.8" /><path d="${FLIP_HEAD}" stroke-width="1.4" fill="currentColor" />`);
+
+    // Know on the same card: a tick laid on it, running out past its edge as
+    // Flip's arrow does
+    const KNOW_ICON = onCard('flashcards-know-gap', '<path d="M6.5 12.5l4 4L20.5 6" stroke-width="3" />');
+
+    const KEY_LEFT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.8;"><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></svg>`;
+    const KEY_RIGHT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.8;"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>`;
+
+    const CLOSE_ICON = `<svg ${ICON} width="14" height="14" stroke-width="2.6"><path d="M6 6l12 12M18 6L6 18" /></svg>`;
+
+    const BUTTON = 'flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 46px; padding: 0 8px; box-sizing: border-box; border-radius: 13px; cursor: pointer; color: #ffffff; transition: transform 0.08s, box-shadow 0.08s;';
+
+    const lifted = (edge) => `0 3px 0 ${edge}, 0 6px 12px rgba(40, 25, 12, 0.22)`;
+    const raised = (edge) => `box-shadow: ${lifted(edge)};`;
+
+    // Pressed down onto its edge while the finger is on it
+    function press(btn, edge) {
+        const down = () => {
+            btn.style.transform = 'translateY(2px)';
+            btn.style.boxShadow = `0 1px 0 ${edge}, 0 3px 6px rgba(40, 25, 12, 0.2)`;
+        };
+        const up = () => {
+            btn.style.transform = '';
+            btn.style.boxShadow = lifted(edge);
+        };
+        btn.addEventListener('pointerdown', down);
+        btn.addEventListener('pointerup', up);
+        btn.addEventListener('pointerleave', up);
+        btn.addEventListener('pointercancel', up);
+    }
+
+    /*
+     * The table: the cabinet dimmed under a wash, the card on it and the two
+     * buttons under the card -- the card alone, with nothing showing under
+     * it: cards come out of a box one at a time (the owner). A press on the
+     * wash -- or on the cross in its corner -- puts the card back in its box
+     * and leaves the run, which is the way back to the shelf: a run is every
+     * ready card in a box, forty of them in a box of new words, and nobody
+     * should have to answer forty to choose another box.
+     */
+    function overlayHtml() {
+        const p = palette;
+
+        return `<div class="flashcards-overlay" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 13px;">
+            <div class="flashcards-wash" data-press style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 10px; background: ${p.wash}; cursor: pointer;"></div>
+            <button class="flashcards-close" aria-label="Back to the shelf" title="Back to the shelf" style="position: absolute; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; box-sizing: border-box; border-radius: 50%; background: ${p.labelPaper}; border: 1.3px solid ${p.line}; box-shadow: inset 0 0 0 2px ${p.brass}, 0 2px 4px rgba(30, 18, 8, 0.3); color: ${p.labelInk}; cursor: pointer;">${CLOSE_ICON}</button>
+            <div class="flashcards-card-slot" style="position: relative; width: ${CARD_W}px; height: ${CARD_H}px; flex: none;"></div>
+            <div class="flashcards-buttons-row" style="position: relative; display: flex; gap: 10px; width: ${CARD_W}px; flex: none;">
+                <button class="flashcards-btn-flip" id="btn-flip" aria-label="Flip" title="Flip the card" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.flip}; ${raised(p.flipEdge)}">${KEY_LEFT}${FLIP_ICON}</button>
+                <button class="flashcards-btn-know" id="btn-know" aria-label="Know" title="I know it" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.know}; ${raised(p.knowEdge)}">${KNOW_ICON}${KEY_RIGHT}</button>
+            </div>
+        </div>`;
+    }
+
+    const overlayEl = () => (stageEl ? stageEl.querySelector('.flashcards-overlay') : null);
+    const cardEl = () => (stageEl ? stageEl.querySelector('.flashcards-card') : null);
+
+    // The table's furniture, which comes and goes with the card on it
+    const TABLE = ['.flashcards-wash', '.flashcards-shade', '.flashcards-beam', '.flashcards-buttons-row', '.flashcards-close'];
+
+    /*
+     * The lamp pressed: the light on or off, which is the theme -- the panel's
+     * switch, see page.switchTheme -- with the click of a switch, and, going
+     * on, a flicker as the bulb catches.
+     *
+     * It is a switch with a card on the table too (the owner). The table is
+     * placed clear of it, and the wash has a hole round it, so it is in view
+     * -- see placeTable; but a press on it is still a press on the wash,
+     * which would put the card away, so the wash asks first whether the
+     * press landed on the lamp.
+     */
+    function switchLamp() {
+        if (busy) return;
+
+        sfx.note(0, 2600, 1700, 0.025, 0.08, 'triangle');
+        sfx.note(28, 900, 650, 0.035, 0.05);
+
+        page.switchTheme();
+
+        if (!stageEl) return;
+
+        const L = layoutOf();
+
+        if (!isNight) {
+            moveLamp(poseOf(true, L), poseOf(false, L), 420);
+            return;
+        }
+
+        if (!MOTION) return;
+
+        // Up first, in the dark; then the light, catching once
+        const RISE = 560;
+        const flicker = [{ opacity: 0 }, { opacity: 0.75, offset: 0.35 }, { opacity: 0.3, offset: 0.55 }, { opacity: 1 }];
+
+        stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam').forEach(el => el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' }));
+        moveLamp(poseOf(false, L), poseOf(true, L), RISE);
+    }
+
+    function onLamp(e) {
+        const lamp = stageEl && stageEl.querySelector('.flashcards-lamp');
+        if (!lamp) return false;
+
+        const box = lamp.getBoundingClientRect();
+        return e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom;
+    }
+
+    /*
+     * Where the card and its buttons stand: in the middle of the cabinet, or
+     * higher if the middle would put the buttons over the lamp -- on the
+     * narrow shelf it would, the lamp standing on the bottom shelf, under the
+     * Know button. The lamp is a switch with a card out as well (the owner),
+     * so it has to be there to press: clear of the table, and seen through a
+     * hole in the wash round it.
+     */
+    const TABLE_H = CARD_H + 13 + 46;
+
+    // How far down the stage the card stands, for a stage this tall
+    function tableTop(height) {
+        const lamp = stageEl.querySelector('.flashcards-spare');
+        const middle = (height - TABLE_H) / 2;
+        const clear = lamp ? offsetIn(lamp).y - TABLE_H - 6 : middle;
+
+        return Math.round(Math.max(10, Math.min(middle, clear)));
+    }
+
+    function placeTable(overlay) {
+        overlay.style.paddingTop = `${tableTop(overlay.offsetHeight)}px`;
+
+        const lamp = stageEl.querySelector('.flashcards-spare');
+        if (!lamp) return;
+
+        const at = offsetIn(lamp);
+        const f = (v) => Math.round(v * 10) / 10;
+        const h = lamp.offsetHeight;
+        const hole = `radial-gradient(circle at ${f(at.x + lamp.offsetWidth * 0.55)}px ${f(at.y + h * 0.55)}px, transparent ${f(h * 0.34)}px, #000 ${f(h * 0.62)}px)`;
+        const wash = overlay.querySelector('.flashcards-wash');
+
+        wash.style.webkitMaskImage = hole;
+        wash.style.maskImage = hole;
+    }
+
+    /*
+     * At night, the lamp's light: a cone from the lamp's head, in the free
+     * place at the end of the shelf, towards where the card is laid and on
+     * past it, fading as it goes -- wide, so that most of the card is in it.
+     *
+     * There whether a card is out or not (the owner): over the boxes on the
+     * shelf -- see drawNight -- and, with a card out, over the table as well.
+     * Both are worked out here, the same cone, aimed at where the card stands
+     * whether it is there yet or not, so that the one lies exactly on the
+     * other when the card comes.
+     *
+     * Wider on its lower side than on its upper (the owner): the lower edge
+     * runs low enough for more than half of the Flip button to be in the
+     * light. Turned ten degrees clockwise from the line to the card's middle
+     * (the owner, five and five more; the lamp's head with it, see `aim`). Long, and fading slowly
+     * all the way to the cabinet's edge, so that it never stops at a line. Its
+     * sides are near enough sharp -- the light of a lamp with a shade on it;
+     * blurred further, they were a glow and not a beam (the owner).
+     *
+     * Over the table, two layers over everything on it -- the wash, the card,
+     * the buttons (the owner) -- so that the cone shows across all three:
+     *
+     *   the shade   darkens what is outside the cone a little, more the
+     *               farther it is from the lamp -- a little: at first it went
+     *               nearly black, which was too much (the owner)
+     *   the light   lightens what is inside it (screen), warmest near the lamp
+     *
+     * The card is paper a shade darker at night for the light to show on
+     * (tablePaper). The cross in the corner is laid over both, to stay seen.
+     * Neither takes a press, see showTable.
+     */
+    // How strong the light is, the same over the shelf and over the table:
+    // with a card out the cone over the shelf goes, the one over the table
+    // comes, and the light is no brighter for it (the owner)
+    const BEAM_STRENGTH = 0.45;
+
+    const BEAM_UP = 0.5;
+    const BEAM_DOWN = 0.95;
+    const BEAM_TURN = 10 * Math.PI / 180;
+
+    function coneOf() {
+        const lamp = lampSpot();
+        if (!lamp) return null;
+
+        const f = (v) => Math.round(v * 10) / 10;
+        const W = stageEl.offsetWidth;
+        const H = stageEl.offsetHeight;
+
+        const centre = { x: W / 2, y: tableTop(H) + CARD_H / 2 };
+        const axis = Math.atan2(centre.y - lamp.y, centre.x - lamp.x) + BEAM_TURN;
+        const near = Math.hypot(centre.x - lamp.x, centre.y - lamp.y);
+        const reach = near * 3.2;
+        const ray = (turn) => [lamp.x + Math.cos(axis + turn) * reach, lamp.y + Math.sin(axis + turn) * reach];
+        const side = [-Math.sin(axis) * 4, Math.cos(axis) * 4];
+
+        const points = [
+            [lamp.x + side[0], lamp.y + side[1]],
+            ray(BEAM_UP),
+            ray(-BEAM_DOWN),
+            [lamp.x - side[0], lamp.y - side[1]]
+        ].map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
+
+        // Where the light has faded out: a good way past the card
+        const end = { x: lamp.x + Math.cos(axis) * near * 2.2, y: lamp.y + Math.sin(axis) * near * 2.2 };
+
+        return { lamp, near, points, end, W, H };
+    }
+
+    // The light of the cone, screened over whatever is under it, clipped to
+    // the cabinet: the light falls inside it, not on the page
+    function lightSvg(cone, cls, id, css, strength) {
+        const f = (v) => Math.round(v * 10) / 10;
+        const { lamp, end, points, W, H } = cone;
+        const k = strength || 1;
+        const stop = (at, alpha) => `<stop offset="${at}" stop-color="#ffd38c" stop-opacity="${Math.round(alpha * k * 1000) / 1000}" />`;
+
+        return `<svg class="${cls}" aria-hidden="true" width="${W}" height="${H}" style="position: absolute; left: 0; top: 0; overflow: hidden; border-radius: 10px; pointer-events: none; mix-blend-mode: screen; ${css || ''}">
+            <defs>
+                <linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${f(lamp.x)}" y1="${f(lamp.y)}" x2="${f(end.x)}" y2="${f(end.y)}">${stop(0, 0.58)}${stop(0.2, 0.38)}${stop(0.45, 0.2)}${stop(0.72, 0.08)}${stop(1, 0)}</linearGradient>
+                <filter id="${id}-edge" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.2" /></filter>
+            </defs>
+            <polygon points="${points}" fill="url(#${id})" filter="url(#${id}-edge)" />
+        </svg>`;
+    }
+
+    function beam(overlay) {
+        overlay.querySelectorAll('.flashcards-beam, .flashcards-shade').forEach(el => el.remove());
+
+        const cone = coneOf();
+        if (!cone) return;
+
+        const f = (v) => Math.round(v * 10) / 10;
+        const { lamp, near, points, W, H } = cone;
+
+        // The last things on the table, so that they lie over all the rest
+        $(overlay, `<svg class="flashcards-shade" aria-hidden="true" width="${W}" height="${H}" style="position: absolute; left: 0; top: 0; overflow: hidden; border-radius: 10px; pointer-events: none;">
+            <defs>
+                <filter id="fc-cone-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5" /></filter>
+                <mask id="fc-cone-cut" maskUnits="userSpaceOnUse" x="-40" y="-40" width="${W + 80}" height="${H + 80}"><rect x="-40" y="-40" width="${W + 80}" height="${H + 80}" fill="#ffffff" /><polygon points="${points}" fill="#000000" filter="url(#fc-cone-soft)" /></mask>
+                <radialGradient id="fc-shade-fall" gradientUnits="userSpaceOnUse" cx="${f(lamp.x)}" cy="${f(lamp.y)}" r="${f(near * 2.2)}"><stop offset="0" stop-color="#04050d" stop-opacity="0" /><stop offset="0.25" stop-color="#04050d" stop-opacity="0.1" /><stop offset="0.6" stop-color="#04050d" stop-opacity="0.2" /><stop offset="1" stop-color="#04050d" stop-opacity="0.3" /></radialGradient>
+            </defs>
+            <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="url(#fc-shade-fall)" mask="url(#fc-cone-cut)" />
+        </svg>`);
+
+        $(overlay, lightSvg(cone, 'flashcards-beam', 'fc-beam', '', BEAM_STRENGTH));
+
+        overlay.appendChild(overlay.querySelector('.flashcards-close'));
+    }
+
+    function ensureOverlay() {
+        let overlay = overlayEl();
+        if (overlay) return overlay;
+
+        overlay = $(stageEl, overlayHtml());
+        placeTable(overlay);
+        if (isNight) beam(overlay);
+
+        // Laid out unseen, and brought in by showTable
+        // (The beam is only there at night)
+        TABLE.forEach(sel => {
+            const el = overlay.querySelector(sel);
+            if (!el) return;
+            el.style.opacity = '0';
+            el.style.pointerEvents = 'none';
+        });
+
+        const wash = overlay.querySelector('.flashcards-wash');
+
+        // Marked before the click is counted (the analytics listen in the
+        // capture phase): `flashcards-wash|||lamp` is the lamp switched
+        // through the wash, the bare class the card put away
+        wash.addEventListener('pointerdown', (e) => { wash.dataset.press = onLamp(e) ? 'lamp' : ''; });
+        wash.addEventListener('click', (e) => (onLamp(e) ? switchLamp() : putBack()));
+        overlay.querySelector('.flashcards-close').addEventListener('click', putBack);
+
+        const flipBtn = overlay.querySelector('#btn-flip');
+        const knowBtn = overlay.querySelector('#btn-know');
+
+        press(flipBtn, palette.flipEdge);
+        press(knowBtn, palette.knowEdge);
+
+        flipBtn.addEventListener('click', flip);
+        knowBtn.addEventListener('click', know);
+
+        return overlay;
+    }
+
+    // The card for the item, laid in the slot and wired: a click on a face
+    // says the word it landed on, in that face's language -- see listen
+    function layCard(item) {
+        const overlay = ensureOverlay();
+        const slot = overlay.querySelector('.flashcards-card-slot');
+
+        const was = slot.querySelector('.flashcards-card');
+        if (was) was.remove();
+
+        const card = $(slot, cardHtml(item));
+
+        listen(card.querySelector('.card-face-front'), item.word.original, item.originalLang);
+        listen(card.querySelector('.card-face-back'), item.word.translation, item.translationLang);
+
+        // Both faces, and both now: the back is turned away but it is laid out
+        // all the same, and a size worked out only when it comes round would be
+        // worked out in the middle of the turn.
+        fitWord(card.querySelector('.card-face-front'));
+        fitWord(card.querySelector('.card-face-back'));
+
+        return card;
+    }
+
+    // The table's furniture in and out: the wash, the buttons, the cross, and
+    // at night the lamp's beam, drawn again each time -- the shelf may have
+    // grown under the table since it was last shown
+    function showTable(on) {
+        const overlay = overlayEl();
+        if (!overlay) return;
+
+        if (on) {
+            placeTable(overlay);
+
+            if (isNight) {
+                beam(overlay);
+                overlay.querySelectorAll('.flashcards-beam, .flashcards-shade').forEach(el => { el.style.opacity = '0'; });
+            }
+        }
+
+        const fade = (el, to) => {
+            if (!el) return;
+            // The beam and its shade are light, and never take a press: they
+            // lie over the wash and the lamp, and would swallow the presses
+            // meant for them
+            const light = el.classList.contains('flashcards-beam') || el.classList.contains('flashcards-shade');
+            el.style.pointerEvents = to && !light ? '' : 'none';
+            el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: to }], { duration: dur(220), easing: 'ease-out', fill: 'forwards' });
+        };
+
+        TABLE.forEach(sel => fade(overlay.querySelector(sel), on ? 1 : 0));
+
+        // The cone over the shelf gives way to the one over the table
+        const shelfCone = stageEl.querySelector('.flashcards-shelf-cone');
+        if (shelfCone) shelfCone.animate([{ opacity: getComputedStyle(shelfCone).opacity }, { opacity: on ? 0 : 1 }], { duration: dur(220), easing: 'ease-out', fill: 'forwards' });
+    }
+
+    /*
+     * ---- Flights ----
+     *
+     * A card out of a box: from the box's opening, small and askew, up out of
+     * it and over to the table, growing on the way. And back into one: lifted
+     * over the box, and dropped in.
+     *
+     * The wash goes while the card flies home, so that the box it lands in is
+     * seen as it lands, and comes back with the next card.
+     */
+    function flyOut(card, box) {
+        const from = mouthOf(box);
+        const at = offsetIn(card.parentNode);
+        const dx = from.x - (at.x + CARD_W / 2);
+        const dy = from.y - (at.y + CARD_H / 2);
+        const s = layoutOf().w * 0.62 / CARD_W;
+
+        return card.animate([
+            { transform: `translate(${dx}px, ${dy + 6}px) scale(${s}) rotate(-6deg)`, opacity: 0 },
+            { transform: `translate(${dx}px, ${dy - 16}px) scale(${s * 1.15}) rotate(-4deg)`, opacity: 1, offset: 0.22 },
+            { transform: REST, opacity: 1 }
+        ], { duration: dur(520), easing: 'cubic-bezier(0.3, 0.7, 0.2, 1)' });
+    }
+
+    function flyIn(card, box) {
+        const to = mouthOf(box);
+        const at = offsetIn(card.parentNode);
+        const dx = to.x - (at.x + CARD_W / 2);
+        const dy = to.y - (at.y + CARD_H / 2);
+        const s = layoutOf().w * 0.62 / CARD_W;
+
+        return card.animate([
+            { transform: REST, opacity: 1 },
+            { transform: `translate(${dx}px, ${dy - 24}px) scale(${s * 1.08}) rotate(5deg)`, opacity: 1, offset: 0.72 },
+            { transform: `translate(${dx}px, ${dy + 8}px) scale(${s}) rotate(3deg)`, opacity: 0 }
+        ], { duration: dur(560), easing: 'ease-in-out', fill: 'forwards' });
+    }
+
+    const settled = (animation) => animation.finished.catch(() => null);
+
+    // Rays round a box: a card landing up (sage), down (terracotta), or a box
+    // played out (gold, and wider)
+    function burst(box, colour, big) {
+        if (!box || !MOTION) return;
+
+        const at = offsetIn(box);
+        const size = Math.max(box.offsetWidth, box.offsetHeight) * (big ? 1.5 : 1.25);
+        const cx = at.x + box.offsetWidth / 2;
+        const cy = at.y + box.offsetHeight / 2 + 4;
+
+        const rays = Array.from({ length: 10 }, (_, i) => {
+            const a = (i / 10) * Math.PI * 2 + 0.3;
+            const r1 = 34;
+            const r2 = big ? 47 : 43;
+            return `<line x1="${50 + Math.cos(a) * r1}" y1="${50 + Math.sin(a) * r1}" x2="${50 + Math.cos(a) * r2}" y2="${50 + Math.sin(a) * r2}" />`;
+        }).join('');
+
+        const svg = $(stageEl, `<svg viewBox="0 0 100 100" aria-hidden="true" style="position: absolute; left: ${cx - size / 2}px; top: ${cy - size / 2}px; width: ${size}px; height: ${size}px; z-index: 4; pointer-events: none; overflow: visible;" fill="none" stroke="${colour}" stroke-width="${big ? 4 : 3.4}" stroke-linecap="round">${rays}</svg>`);
+
+        settled(svg.animate([
+            { transform: 'scale(0.7)', opacity: 0 },
+            { transform: 'scale(0.95)', opacity: 1, offset: 0.3 },
+            { transform: 'scale(1.18)', opacity: 0 }
+        ], { duration: big ? 720 : 520, easing: 'ease-out' })).then(() => svg.remove());
+    }
+
+    function bump(box) {
+        if (!box) return;
+        box.animate([
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.07, 0.95)', offset: 0.3 },
+            { transform: 'scale(0.98, 1.03)', offset: 0.65 },
+            { transform: 'scale(1)' }
+        ], { duration: dur(320), easing: 'ease-out' });
+    }
+
+    /*
+     * A box with nothing ready in it, pressed: it shakes, and a kitchen timer
+     * comes up on it with the time until its first card is ready, the hand
+     * ticking round -- the owner's call, 20 November 2026, in place of the
+     * dialog the catalog shows. An empty box only shakes.
+     */
+    function refuse(box, soonest) {
+        if (!box) return;
+
+        box.animate([
+            { transform: 'translateX(0) rotate(0)' },
+            { transform: 'translateX(-4px) rotate(-2deg)', offset: 0.15 },
+            { transform: 'translateX(4px) rotate(2deg)', offset: 0.35 },
+            { transform: 'translateX(-3px) rotate(-1.4deg)', offset: 0.55 },
+            { transform: 'translateX(2px) rotate(0.8deg)', offset: 0.75 },
+            { transform: 'translateX(0) rotate(0)' }
+        ], { duration: dur(460), easing: 'ease-out' });
+
+        if (!soonest) {
+            sfx.thud();
+            return;
+        }
+
+        // Tick, tock, tick, tock: a high and a lower click by turns
+        [0, 260, 520, 780].forEach((t, k) => sfx.note(t, k % 2 ? 1500 : 2100, k % 2 ? 1500 : 2100, 0.03, 0.07, 'triangle'));
+
+        const was = box.querySelector('.flashcards-timer');
+        if (was) was.remove();
+
+        const p = palette;
+        const L = layoutOf();
+
+        const timer = $(box, `<span class="flashcards-timer" aria-hidden="true" style="position: absolute; left: 50%; top: ${Math.max(0, L.rimTop - 6)}px; z-index: 2; display: inline-flex; align-items: center; gap: 3px; padding: 2.5px 7px 2.5px 4px; border-radius: 99px; background: ${p.labelPaper}; border: 1.3px solid ${p.line}; box-shadow: 0 3px 6px rgba(30, 18, 8, 0.3); font-size: ${L.badgeFont}px; font-weight: 700; line-height: 1; color: ${p.labelInk}; white-space: nowrap; transform: translateX(-50%); pointer-events: none;">
+            <svg viewBox="0 0 24 24" width="${L.badgeIcon}" height="${L.badgeIcon}" fill="none" stroke="${p.labelInk}" stroke-width="2.6" stroke-linecap="round" style="display: block; flex: none;">
+                <circle cx="12" cy="13" r="8.4" /><path d="M10 2.6h4M12 2.6v2" />
+                <path class="flashcards-timer-hand" d="M12 13V8.2" style="transform-box: view-box; transform-origin: 12px 13px;" />
+            </svg>${timerText(soonest)}</span>`);
+
+        timer.animate([
+            { transform: 'translateX(-50%) scale(0.5)', opacity: 0 },
+            { transform: 'translateX(-50%) scale(1.08)', opacity: 1, offset: 0.08 },
+            { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 0.14 },
+            { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: 0.86 },
+            { transform: 'translateX(-50%) scale(0.9)', opacity: 0 }
+        ], { duration: 2400, easing: 'linear', fill: 'forwards' }).finished.catch(() => null).then(() => timer.remove());
+
+        // The hand goes round in steps, as a timer's does
+        const hand = timer.querySelector('.flashcards-timer-hand');
+        if (MOTION) hand.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 2000, easing: 'steps(8, end)' });
+    }
+
+    /*
+     * ---- The run ----
+     *
+     * Choosing a box deals a run: its ready cards, shuffled, one after the
+     * other until none is left -- which is the goal the owner set, every card
+     * out of one box and into another. A new run on the same page after the
+     * last was played out goes the way snake's "Grow more" does: the session
+     * the last one ended is opened again (page.reopen), so that the run is
+     * written, saved and offered by the catalog like any other.
+     */
+    function openBox(n) {
+        if (busy || state.sessionPool) return;
+
+        const setId = state.selectedSetId;
+        const box = boxEl(n);
+        const inBox = store.wordsOf(setId).filter(item => boxOf(stageOf(item.word)) === n);
+
+        if (!inBox.length) return refuse(box, null);
+
+        const due = store.duePool(setId, false).filter(item => boxOf(stageOf(item.word)) === n);
+
+        if (!due.length && !earlyAllowed()) {
+            const soonest = inBox.reduce((first, item) => {
+                const at = spacedRepetitions.getWordProgress(item.word).nextRepetition;
+                return at && (!first || at < first) ? at : first;
+            }, null);
+
+            return refuse(box, soonest);
+        }
+
+        // Ahead of the timers, everything the box holds -- duePool's own
+        // answer when nothing is due, shuffled as it shuffles
+        const pool = due.length ? due : store.duePool(setId, true).filter(item => boxOf(stageOf(item.word)) === n);
+
+        if (closed) {
+            page.reopen();
+            closed = false;
+        }
+
+        state.sessionPool = pool;
+        state.currentIndex = 0;
+        state.isFlipped = false;
+        state.hasBeenFlipped = false;
+
+        // When this run was dealt its words, which is what every answer in it
+        // will be stamped with -- see store.recordRepetition. Kept in the
+        // saved state so that closing the popup mid-run does not start a
+        // second one in the records.
+        state.sessionAt = Date.now();
+
+        page.save();
+        takeOut();
+    }
+
+    // The next card of the run up out of its box and onto the table
+    function takeOut() {
+        busy = true;
+        const token = drawn;
+
+        held = state.sessionPool[state.currentIndex];
+        openNumber = boxOf(stageOf(held.word));
+        refreshBoxes();
+
+        const box = boxEl(openNumber);
+        const card = layCard(held);
+
+        showTable(true);
+        sfx.whoosh();
+
+        settled(flyOut(card, box)).then(() => {
+            if (token !== drawn) return;
+            busy = false;
+        });
+    }
+
+    /*
+     * Seeing the translation is the mistake itself, so it is recorded the
+     * moment the card turns. Once, not once per press: the card can be turned
+     * back and turned again, and none of that unsees what was already seen.
+     */
+    function markRevealed() {
+        if (state.hasBeenFlipped) return;
+        state.hasBeenFlipped = true;
+
+        // A mistake made, and heard as one -- see sfx.lose
+        sfx.lose(120);
+
+        store.recordRepetition(held, 0, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
+        store.save();
+    }
+
+    // The card is turned by hand rather than by a redraw: the flip is a
+    // half-second of animation, and rebuilding the card mid-turn would start
+    // it again from wherever it had got to.
+    function flip() {
+        if (busy || !held) return;
+
+        sfx.whoosh();
+        markRevealed();
+
+        state.isFlipped = !state.isFlipped;
+
+        const inner = stageEl.querySelector('#card-inner');
+        if (inner) inner.style.transform = state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+
+        page.save();
+    }
+
+    /*
+     * Right is "done with this one", and what that is worth depends on
+     * whether the card was turned.
+     *
+     * Untouched, it is the word answered from memory and counts. Turned, the
+     * mistake was written down at the turn and there is nothing left to score
+     * — pressing this then only moves on, and passing it a result would write
+     * a correct answer over the wrong one.
+     *
+     * Either way the card then goes to the box of the stage it is on now,
+     * which srs.js decides: up one for a right answer on time, nowhere for a
+     * right answer ahead of the timer, and down by the penalty for a wrong one
+     * (three stages, never below box 1). The game draws where it goes and has
+     * no say in it.
+     */
+    function know() {
+        if (busy || !held) return;
+
+        const item = held;
+
+        if (!state.hasBeenFlipped) {
+            store.recordRepetition(item, 1, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
+
+            // Known: the chime of the stage the word has come to
+            sfx.chime(stageOf(item.word));
+        } else {
+            sfx.whoosh();
+        }
+
+        state.currentIndex += 1;
+        state.isFlipped = false;
+        state.hasBeenFlipped = false;
+
+        const last = state.currentIndex >= state.sessionPool.length;
+
+        // Closed before the flight rather than after it: the popup may be shut
+        // while the card is in the air, and the run is over either way
+        if (last) closeRun('done');
+        else page.save();
+
+        store.save();
+
+        putAway(item, last ? 'done' : 'next');
+    }
+
+    // The card back into the box it is in now, and the run left -- see
+    // overlayHtml
+    function putBack() {
+        if (busy || !held) return;
+
+        const item = held;
+        sfx.whoosh();
+
+        closeRun('shelf');
+        putAway(item, 'shelf');
+    }
+
+    function closeRun(why) {
+        state.sessionPool = null;
+        state.currentIndex = 0;
+        state.isFlipped = false;
+        state.hasBeenFlipped = false;
+        state.sessionAt = null;
+
+        closed = true;
+        store.save();
+
+        // `why` for the analytics: `done`, every card of the run answered;
+        // `shelf`, put back half way -- see ANALYTICS.md
+        page.endSession(why);
+    }
+
+    /*
+     * The card flies to the box of its stage, and what follows the landing:
+     * the next card out, or the end of the run.
+     *
+     * A card going to the sixth box while only five are standing grows the
+     * shelf first, and lands in the box that has just appeared.
+     */
+    function putAway(item, then) {
+        busy = true;
+        const token = drawn;
+        const from = openNumber;
+        const dest = boxOf(stageOf(item.word));
+
+        forgetTaps();
+        unlight();
+        showTable(false);
+
+        const go = () => {
+            const box = boxEl(dest);
+            const card = cardEl();
+
+            settled(flyIn(card, box)).then(() => {
+                if (token !== drawn) return;
+
+                held = null;
+                card.remove();
+                refreshBoxes();
+
+                bump(box);
+                sfx.pop(0, 0.14, 0.09);
+
+                if (dest > from) burst(box, palette.upRay);
+                if (dest < from) burst(box, palette.downRay);
+
+                if (then === 'next') return setTimeout(() => { if (token === drawn) takeOut(); }, dur(140));
+
+                const overlay = overlayEl();
+                if (overlay) overlay.remove();
+                busy = false;
+
+                // A box played out: every card that was ready in it has gone
+                if (then === 'done') {
+                    setTimeout(() => {
+                        if (token !== drawn) return;
+                        bump(boxEl(from));
+                        sfx.caught();
+                    }, dur(260));
+                }
+            });
+        };
+
+        if (dest > FEW && !state.wide) return widen(go);
+        go();
+    }
+
+    /*
+     * Five boxes become fourteen under a card in the air. The new shelf comes
+     * up a box at a time, and the card is held where it is on the screen
+     * while the cabinet grows taller under it.
+     */
+    function widen(then) {
+        state.wide = true;
+        page.save();
+
+        const old = stageEl.querySelector('.flashcards-cabinet');
+        const slot = stageEl.querySelector('.flashcards-card-slot');
+        const before = slot ? offsetIn(slot).y : 0;
+
+        old.insertAdjacentHTML('afterend', cabinetHtml());
+        old.remove();
+
+        drawNight();
+
+        stageEl.querySelectorAll('.flashcards-box, .flashcards-spare').forEach((box, i) => {
+            box.animate([{ transform: 'scale(0.82)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: dur(280), delay: dur(i * 22), easing: 'cubic-bezier(0.3, 1.4, 0.5, 1)', fill: 'backwards' });
+        });
+
+        const card = cardEl();
+        if (card && slot) {
+            const shift = before - offsetIn(slot).y;
+            card.animate([{ transform: `translateY(${shift}px) ${REST}` }, { transform: REST }], { duration: dur(300), easing: 'ease-out' });
+        }
+
+        setTimeout(then, dur(560));
+    }
+
+    /*
+     * ---- The screen ----
+     */
     function render() {
         container.innerHTML = '';
 
@@ -452,57 +2260,27 @@ function flashcards(container) {
         lit = [];
         forgetTaps();
 
-        if (!state.sessionPool) {
-            const pool = store.duePool(state.selectedSetId, state.allowEarly, POOL_LIMIT);
+        // Whatever was in the air belongs to the screen that is gone
+        drawn += 1;
+        busy = false;
+        clearInterval(refreshTimer);
 
-            state.sessionPool = pool;
-            state.sessionResults = new Array(pool.length).fill(null);
-            state.currentIndex = 0;
+        // A run whose last card was answered and whose flight was cut short:
+        // over, as know() had already said
+        if (state.sessionPool && state.currentIndex >= state.sessionPool.length) closeRun('done');
 
-            // When this run was dealt its words, which is what every answer in it
-            // will be stamped with -- see store.recordRepetition. Kept in the
-            // saved state so that closing the popup mid-run does not start a
-            // second one in the records.
-            state.sessionAt = Date.now();
-        }
+        state.wide = state.wide || boxOf(highest()) > FEW;
+        held = state.sessionPool ? state.sessionPool[state.currentIndex] : null;
+        openNumber = held ? boxOf(stageOf(held.word)) : null;
 
-        let pool = state.sessionPool;
-
-        if (pool.length === 0 || state.currentIndex >= pool.length) {
-            state.sessionPool = null;
-            state.allowEarly = false;
-            store.save();
-            page.finish();
-            return;
-        }
-
-        const currentItem = pool[state.currentIndex];
-
-        // Says nothing of what the stage changes: on a card, nothing
-        const STAGE_HINT = 'The stage of this word: how well you know it.';
-
-        const dotsHtml = () => pool.map((item, idx) => {
-            const res = state.sessionResults[idx];
-            let bg = palette.dotIdle;
-            if (res === 'correct') bg = palette.okText;
-            if (res === 'wrong') bg = palette.errText;
-
-            return page.dotHtml('flashcards-dot', bg, idx === state.currentIndex, item.word, palette, STAGE_HINT);
-        }).join('');
-
-        // The dots are redrawn mid-card now, not only when the next card is rendered
-        function refreshDots() {
-            const group = header.querySelector('.flashcards-dots-group');
-            if (group) group.innerHTML = dotsHtml();
-        }
+        const set = store.sets().find(s => s.id === state.selectedSetId);
+        const p = palette;
 
         const header = $(container, `<div class="flashcards-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
             <div class="flashcards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
-                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; color: ${palette.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
+                <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${p.chromeBorder}; border-radius: 10.2px; color: ${p.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="flashcards-dots-group" style="display: flex; flex: 1; justify-content: center; align-items: center; gap: ${page.DOT_GAP}px;">
-                ${dotsHtml()}
-            </div>
+            <div class="flashcards-title" style="display: flex; flex: 0 1 auto; min-width: 0; max-width: 214px; justify-content: center;">${plateHtml(escapeText((set && set.title) || 'Flashcards'), 12.3, 11, 26, 4)}</div>
         </div>`);
 
         header.querySelector('.back-btn').addEventListener('click', (e) => {
@@ -513,215 +2291,57 @@ function flashcards(container) {
             page.home();
         });
 
-        page.settingsButton(header, palette.backBtn, palette.chromeBorder);
+        page.settingsButton(header, p.backBtn, p.chromeBorder);
 
-        const cardWrapper = $(container, `<div class="flashcards-viewport" style="width: 100%; height: 145.1px; cursor: pointer; margin-bottom: 13.7px; perspective: 1000px;">
-            <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
+        stageEl = $(container, `<div class="flashcards-stage" style="position: relative;">${cabinetHtml()}</div>`);
+        drawNight();
 
-                <div class="card-face-front" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: ${palette.frontBg}; border: 1px solid ${palette.frontBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
-                    <div class="flashcards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.frontText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.original, currentItem.originalLang, palette.sayIcon, SAY_LEAD)}${lineHtml(currentItem.word.original)}</div>
-                </div>
+        stageEl.addEventListener('click', (e) => {
+            if (e.target.closest('.flashcards-lamp')) return switchLamp();
 
-                <div class="card-face-back" data-press style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotateY(180deg); background: ${palette.backBg}; border: 1px solid ${palette.backBorder}; border-radius: 15.4px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 13.7px; box-sizing: border-box;">
-                    <div class="flashcards-word-text" style="font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.backText}; text-align: center; word-break: break-word;">${speech.speakerHtml(currentItem.word.translation, currentItem.translationLang, palette.sayIcon, SAY_LEAD)}${currentItem.word.translation ? lineHtml(currentItem.word.translation) : '—'}</div>
-                </div>
+            const box = e.target.closest('.flashcards-box');
+            if (!box || e.target.closest('.flashcards-overlay')) return;
 
-            </div>
-        </div>`);
+            // Not left holding the focus, whose ring would stay round it
+            box.blur();
+            openBox(+box.dataset.box);
+        });
 
-        const actionsContainer = $(container, `<div class="flashcards-actions-group"></div>`);
-
-        // Seeing the translation is the mistake itself, so it is recorded the
-        // moment the card turns and shown on the dots there and then. Once, not
-        // once per press: the card can be turned back and turned again, and none
-        // of that unsees what was already seen.
-        //
-        // Flip is the only way to it — a click on the card says the word it
-        // landed on and turns nothing over.
-        function markRevealed() {
-            if (state.hasBeenFlipped) return;
-            state.hasBeenFlipped = true;
-
-            // A mistake made, and heard as one -- see sfx.lose
-            sfx.lose(120);
-
-            store.recordRepetition(currentItem, 0, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
-            state.sessionResults[state.currentIndex] = 'wrong';
-            store.save();
-            refreshDots();
+        if (held) {
+            layCard(held);
+            showTable(true);
         }
 
-        // Moves on to the next word, or ends the session on the last one
-        function advance(result, mark) {
-            if (result !== undefined) {
-                store.recordRepetition(currentItem, result, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
-                state.sessionResults[state.currentIndex] = mark;
-
-                // Known: the chime of the stage the word has come to
-                sfx.chime(spacedRepetitions.getWordStats(currentItem.word).stage || 0);
-            } else {
-                // Only moving on: the card going
-                sfx.whoosh();
-            }
-
-            state.isFlipped = false;
-            state.hasBeenFlipped = false;
-            state.currentIndex++;
-
-            store.save();
-
-            if (state.currentIndex >= pool.length) {
-                state.sessionPool = null;
-                page.finish();
-            } else {
-                render();
-                page.save();
-            }
+        // The arrows once a page, over the shelf the player arrives at
+        if (!introduced && !held) {
+            introduced = true;
+            const token = drawn;
+            setTimeout(() => introArrows(token), 350);
         }
 
-        /*
-         * Two buttons, the same two throughout: turn the card over, or move on.
-         *
-         * They used to be replaced by a single "Got it" as soon as the card was
-         * turned, which made the turn a one-way door — the front was gone and
-         * the only thing left to do was leave the word. Now the pair stays, Flip
-         * works every time it is pressed, and a player who wants to look at the
-         * two sides one after the other can.
-         *
-         * Drawn once. Nothing about them changes any more, so nothing rebuilds
-         * them.
-         *
-         * Icons rather than words -- the owner's call, 11 November 2026: the
-         * game is played by people learning a language, often in an interface
-         * language that is not theirs, and "Flip" and "Know" had to be read
-         * before they could be pressed. A tick for Know, and a card being
-         * turned for Flip (see FLIP_ICON). Before it the same evening: a card
-         * inside a ring of two arrows, which read as "reload", and a card
-         * beside itself turned edgeways under an arc, which was still not
-         * obvious (the owner).
-         *
-         * The arrows at the outer ends stay: they are the keys (← and →) and
-         * need no language either. Drawn rather than typed, in the stroke of
-         * the way-out arrow in the header: a typed arrow is a hairline in
-         * most fonts and a different one in each. The words stay too, as the
-         * buttons' names for a screen reader and the tooltip.
-         */
-        const ICON = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
-
-        /*
-         * Flip, after the picture the owner gave the same evening: a card
-         * tipped over, and a heavy arrow that comes in from beside it, swings
-         * down and round and points back into it -- the card being turned.
-         * The button has one colour, so the picture's two blues are white,
-         * the card half see-through; and where the arrow crosses the card a
-         * gap is cut round it, as in the picture, so the two do not run into
-         * one shape. The mask is on a group rather than on the card: on the
-         * card it would be turned with the card's own tilt.
-         */
-        const FLIP_ARROW = 'M18.8 7.2C22.2 9.6 20.8 16.6 12.2 13.6';
-        const FLIP_HEAD = 'M8.6 12.35L13.4 11.15L11.6 16.25Z';
-
-        // The card both icons stand on, cut round whatever is drawn over it
-        // -- the mask, whose id has to be the icon's own, as both are on the
-        // page at once
-        const onCard = (gap, over) => `<svg ${ICON} width="28" height="28">`
-            + `<defs><mask id="${gap}" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">`
-            + `<rect width="24" height="24" fill="white" />${over.replace(/<path /g, '<path stroke="black" ').replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${+w + 2.8}"`).replace(/fill="currentColor"/g, 'fill="black"')}`
-            + '</mask></defs>'
-            + `<g mask="url(#${gap})"><rect x="3.5" y="3" width="13" height="17.5" rx="2.6" transform="rotate(-10 10 11.75)" fill="currentColor" fill-opacity="0.5" stroke="none" /></g>`
-            + `${over}</svg>`;
-
-        const FLIP_ICON = onCard('flashcards-flip-gap', `<path d="${FLIP_ARROW}" stroke-width="2.8" /><path d="${FLIP_HEAD}" stroke-width="1.4" fill="currentColor" />`);
-
-        // Know on the same card -- the owner's call, the same evening: a
-        // tick laid on it, running out past its edge as Flip's arrow does
-        const KNOW_ICON = onCard('flashcards-know-gap', '<path d="M6.5 12.5l4 4L20.5 6" stroke-width="3" />');
-
-        const KEY_LEFT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.7;"><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></svg>`;
-        const KEY_RIGHT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.7;"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>`;
-
-        // 44px tall: the icons the size the owner asked for (28 and 26, from 20),
-        // with less air round them than round the 20px ones, and the buttons
-        // taller (35px before) -- the owner's call, 11 November 2026
-        const BUTTON = 'flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 8px; box-sizing: border-box; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s;';
-
-        function renderActionButtons() {
-            actionsContainer.innerHTML = '';
-
-            const actionButtons = $(actionsContainer, `<div class="flashcards-buttons-row" style="display: flex; gap: 6.8px;">
-                <button class="flashcards-btn-flip" id="btn-flip" aria-label="Flip" title="Flip the card" style="${BUTTON} background: ${palette.noBg}; color: ${palette.noText};">${KEY_LEFT}${FLIP_ICON}</button>
-                <button class="flashcards-btn-know" id="btn-know" aria-label="Know" title="I know it" style="${BUTTON} background: ${palette.yesBg}; color: ${palette.yesText};">${KNOW_ICON}${KEY_RIGHT}</button>
-            </div>`);
-
-            // The card is turned by hand rather than by a redraw: the flip is a
-            // half-second of animation, and rebuilding the card mid-turn would
-            // start it again from wherever it had got to.
-            actionButtons.querySelector('#btn-flip').addEventListener('click', () => {
-                sfx.whoosh();
-                markRevealed();
-
-                state.isFlipped = !state.isFlipped;
-
-                const inner = container.querySelector('#card-inner');
-                if (inner) inner.style.transform = state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
-
-                page.save();
-            });
-
-            /*
-             * Right is "done with this one", and what that is worth depends on
-             * whether the card was turned.
-             *
-             * Untouched, it is the word answered from memory and counts. Turned,
-             * the mistake was written down at the turn and there is nothing left
-             * to score — pressing this then only moves on, and passing it a
-             * result would write a correct answer over the wrong one and undo
-             * the very thing the turn admitted.
-             */
-            actionButtons.querySelector('#btn-know').addEventListener('click', () => {
-                if (state.hasBeenFlipped) return advance();
-                advance(1, 'correct');
-            });
-        }
-
-        /*
-         * Saying the word is all a click on the card does now.
-         *
-         * It used to turn the card over as well, and to say the original
-         * whichever side was up — the translation being in a language the player
-         * already has. Both are gone. Turning it over is what Flip is for, and a
-         * click now points at a particular word on a particular side, so that
-         * word is what is said, in that side's own language: pointing at one
-         * word and hearing another would be nonsense.
-         *
-         * Each face is wired on its own because each has its own language. Only
-         * the face in front is ever clicked — the other one is turned away, and
-         * a backface-hidden element is not painted and so not hit either.
-         */
-        listen(cardWrapper.querySelector('.card-face-front'), currentItem.word.original, currentItem.originalLang);
-        listen(cardWrapper.querySelector('.card-face-back'), currentItem.word.translation, currentItem.translationLang);
-
-        // Both faces, and both now: the back is turned away but it is laid out
-        // all the same, and a size worked out only when it comes round would be
-        // worked out in the middle of the turn.
-        fitWord(cardWrapper.querySelector('.card-face-front'));
-        fitWord(cardWrapper.querySelector('.card-face-back'));
-
-        renderActionButtons();
-
-        // Drawn before the voices were known, which means the speaker beside
-        // the word was drawn on trust. One redraw when the list lands settles
-        // it: a card in a language this device cannot say loses the offer it
-        // could not have kept.
-        speech.onVoices(render);
-
-        // One key each, and both buttons are always there to press.
+        // One key each, and both buttons are there to press while a card is
+        // on the table. Clicked rather than called, so that a key is counted
+        // as the press it stands for.
         bindKeys((code) => {
-            const btn = container.querySelector(code === 'ArrowLeft' ? '#btn-flip' : '#btn-know');
+            if (busy || !held) return;
+            const btn = stageEl.querySelector(code === 'ArrowLeft' ? '#btn-flip' : '#btn-know');
             if (btn) btn.click();
         });
 
+        // The figures again every so often: a card's timer runs out while the
+        // shelf is being looked at, and the box it is in becomes ready.
+        refreshTimer = setInterval(() => { if (!busy) refreshBoxes(); }, 20000);
+
+        // Drawn before the voices were known, which means the speaker beside
+        // the word was drawn on trust. One redraw when the list lands settles
+        // it -- unless a card is in the air, which the next card drawn settles.
+        speech.onVoices(voicesKnown);
+
         page.save();
+    }
+
+    function voicesKnown() {
+        if (!busy) render();
     }
 
     flashcards.render = render;
@@ -729,55 +2349,81 @@ function flashcards(container) {
     flashcards.setTheme = (isDark) => {
         const t = tokens.of(isDark);
 
-        palette = {
-            dotIdle: t.border,
+        isNight = isDark;
 
-            // The way out and the sound stand on the page, like dict's header
+        /*
+         * Wood, cardboard and paper in the soft, warm colours of the owner's
+         * pictures -- a painted storybook rather than a photograph: nothing
+         * saturated, and everything drawn round in one dark brown ink
+         * (`line`), with the shading that gives it depth -- the shadow under
+         * each shelf, at the wall's two ends, inside the boxes and behind
+         * them (`drop`).
+         *
+         * The dark theme is the same room at night (see the night above): the
+         * same things in shadow, cooler and a good deal darker, for the lamp
+         * and the fairy lights to light. The card on the table is lit by the
+         * lamp, so it stays warm paper (`tablePaper`) with a glow round it.
+         * Only the way out and the gear are the app's, in its own chrome --
+         * they are the page's furniture, not the cabinet's.
+         */
+        const light = {
+            line: '#54402f',
+            frame: '#93735a', frameLow: '#7f604a', cabinetShadow: '0 8px 16px rgba(45, 28, 14, 0.3)',
+            wall: '#ab8d6f', wallSeam: 'rgba(78, 57, 40, 0.32)', rowShade: 'rgba(55, 35, 20, 0.42)', sideShade: 'rgba(55, 35, 20, 0.28)',
+            plankBack: '#a78665', plankTop: '#cdae8d', plankFront: '#a3825f', plankFrontLow: '#8f7051', plankShade: 'rgba(45, 28, 14, 0.4)',
+            kraft: '#d6b389', kraftMid: '#c9a479', kraftLow: '#b99368', kraftLight: '#e8d1ae', rim: '#dcc09b', edgeShade: 'rgba(70, 42, 18, 0.2)',
+            inside: '#8c6d52', insideLow: '#5f4733', insideLeft: '#76593f', insideRight: '#9a7a5c', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
+            boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)',
+            paper: '#fcf6e4', paperBack: '#f5ecd6', cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d', cardRule: 'rgba(125, 99, 77, 0.35)',
+            tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
+            brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
+            pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
+            flip: '#dc9470', flipEdge: '#ae6c4d', know: '#90bd99', knowEdge: '#679773',
+            wash: 'rgba(72, 50, 30, 0.42)',
+            arrow: '#fff7e6', arrowShade: 'rgba(50, 32, 18, 0.5)',
+            upRay: '#a8d4a2', downRay: '#eda083',
+            lampArm: '#c09a6b', lampBase: '#5d4636', lampHead: '#8fb2a5', bulbOff: '#d8d2c2'
+        };
+
+        const dark = {
+            ...light,
+            line: '#241a13',
+            frame: '#3a2e26', frameLow: '#2e241e', cabinetShadow: '0 0 30px rgba(255, 160, 80, 0.1), 0 8px 18px rgba(0, 0, 0, 0.55)',
+            wall: '#30261f', wallSeam: 'rgba(5, 3, 2, 0.5)', rowShade: 'rgba(0, 0, 0, 0.55)', sideShade: 'rgba(0, 0, 0, 0.45)',
+            plankBack: '#3a2e25', plankTop: '#5c4a3b', plankFront: '#433427', plankFrontLow: '#352a20', plankShade: 'rgba(0, 0, 0, 0.6)',
+            kraft: '#7c6650', kraftMid: '#705b47', kraftLow: '#5f4d3c', kraftLight: '#8e775e', rim: '#86705a', edgeShade: 'rgba(0, 0, 0, 0.32)',
+            inside: '#463a2f', insideLow: '#251d17', insideLeft: '#3a2f27', insideRight: '#524337', rimShade: 'rgba(0, 0, 0, 0.55)', frontCast: 'rgba(0, 0, 0, 0.45)',
+            boxShadow: 'rgba(0, 0, 0, 0.5)', drop: '3px 2px 3px rgba(0, 0, 0, 0.5)',
+            paper: '#c9bb9f', paperBack: '#c1b294', cardShade: '#3e3229', cardCast: 'rgba(0, 0, 0, 0.32)', cardLine: '#3a2d22',
+            tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
+            brass: '#957a5b', brassLight: '#a88c6b', labelPaper: '#d6c7a6', labelInk: '#2a1f16', stampInk: '#d8c6a2',
+            pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
+            flip: '#c98466', flipEdge: '#94573f', know: '#7ea888', knowEdge: '#557a5e',
+            wash: 'rgba(6, 8, 18, 0.55)',
+            arrow: '#fff1d2', arrowShade: 'rgba(0, 0, 0, 0.6)'
+        };
+
+        palette = {
+            ...(isDark ? dark : light),
+
+            // The way out and the gear stand on the page, like dict's header
             // buttons, and are outlined the same — see tokens.chrome.
             chromeBorder: t.chrome,
-            // Marks where you are right now: the dot you are on. Its own token
-            // rather than the accent, which is what a button that wants pressing
-            // is painted in — "you are here" should not shout in the same colour
-            // as "press this".
-            cursor: t.progress,
-            // The stage in the dot of the word in play -- see page.dotHtml
-            stageInk: t.muted,
             backBtn: t.muted,
 
-            // Nothing here for what is being said: letter, word and line are
-            // all marked off the bubble ramp — see sayLater.
-            //
+            // Ink on cream paper whichever the theme: the card is paper in both
+            ink: '#3a2a1c',
+            rule: 'rgba(110, 145, 170, 0.18)',
+            margin: 'rgba(214, 120, 100, 0.35)',
+            backBand: isDark ? '#dcc39b' : '#e3cfaa',
+
             // The speaker beside the word is an offer rather than the thing to
-            // press, so it sits in muted until it answers.
-            sayIcon: t.muted,
-
-            frontBg: t.surface,
-            frontBorder: t.border,
-            frontText: t.ink,
-            backBg: t.soft,
-            backBorder: t.progress,
-
-            // Ink, not mint. The mint is a mid-light colour built to sit on the
-            // dark ground; as text on the light theme's cream face it falls to
-            // 1.8:1. It still marks this face — as the border around it, where
-            // being mid-light costs nothing.
-            backText: t.ink,
-
-            // Filled in the two colours, no border, white label.
-            noBg: t.err, noText: '#ffffff',
-            yesBg: t.ok, yesText: '#ffffff',
-
-            // The dots keep the colours. They used to read the button labels,
-            // which is how they went to ink along with them — a dot is a filled
-            // shape with nothing written on it, so mid-light costs it nothing,
-            // and it has no other way to say how the word went.
-            okText: t.ok,
-            errText: t.err
+            // press, so it sits quiet until it answers -- a faded brown on the
+            // paper, which is light in both themes.
+            sayIcon: '#a08868'
         };
     };
 
-    // The third argument is the previous session, handed over even on a fresh
-    // start so a game can carry its own settings across. Progress never rides along.
     flashcards.start = (setId, allowEarly) => {
         state.selectedSetId = setId;
         state.allowEarly = allowEarly;
@@ -788,7 +2434,6 @@ function flashcards(container) {
         currentIndex: state.currentIndex,
         isFlipped: state.isFlipped,
         hasBeenFlipped: state.hasBeenFlipped,
-        sessionResults: state.sessionResults,
         sessionPool: state.sessionPool,
 
         // Goes with the pool it belongs to. Left out, a run that was interrupted
@@ -796,7 +2441,8 @@ function flashcards(container) {
         // without saying which run they were part of.
         sessionAt: state.sessionAt,
 
-        allowEarly: state.allowEarly
+        allowEarly: state.allowEarly,
+        wide: state.wide
     });
 
     flashcards.setState = (snap) => {

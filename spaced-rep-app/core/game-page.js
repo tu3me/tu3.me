@@ -450,6 +450,11 @@ function page() {
         drawPanel();
     }
 
+    // For a game that has a switch of its own for the theme -- the lamp on
+    // Flashcards' shelf: the same switch as the panel's, with the same
+    // analytics and the same redraw, not a second copy of it
+    page.switchTheme = switchTheme;
+
     function openSettings(btn) {
         anchor = btn;
 
