@@ -418,6 +418,34 @@ function store() {
             if (!poolItem.word.repetitions) poolItem.word.repetitions = [];
             poolItem.word.repetitions.push(entry);
         }
+
+        // Handed back, for a game that may take it back -- see forgetRepetition
+        return entry;
+    }
+
+    /*
+     * An answer taken back, found by its moment: Flashcards lets the player go
+     * back to a card of the run and answer it the other way (the owner's call,
+     * 20 November 2026), and the answer given first is then not what happened
+     * -- the second is. Taken out of the word's history rather than left with
+     * a correction after it, because srs.js reads every answer as an answer:
+     * left in, the first would still cost the word its stage.
+     *
+     * Only ever the answer just given in the same run, by the game that gave
+     * it. Dated like any change a person makes, so that it travels -- see
+     * touch.
+     */
+    function forgetRepetition(poolItem, timestamp) {
+        const set = sets.find(s => s.id === poolItem.setId);
+        const liveWord = set ? set.words.find(w => w.original === poolItem.word.original) : null;
+
+        [liveWord, poolItem.word].forEach(word => {
+            const reps = word && word.repetitions;
+            const at = reps ? reps.findIndex(r => r.timestamp === timestamp) : -1;
+            if (at !== -1) reps.splice(at, 1);
+        });
+
+        if (liveWord) touch(set);
     }
 
     /*
@@ -554,4 +582,5 @@ function store() {
     store.replaceAll = (list) => { sets = list.slice(); };
     store.gameOf = gameOf;
     store.recordRepetition = recordRepetition;
+    store.forgetRepetition = forgetRepetition;
 }

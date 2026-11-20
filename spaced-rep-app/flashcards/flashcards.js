@@ -18,11 +18,15 @@ function flashcards(container) {
      * chose, one after another. Null on the shelf. The name and `sessionAt`
      * are what page.save reads for the analytics (see noteRun there).
      *
-     * `wide` is the fourteen-box shelf, kept once it has been shown in this
-     * session -- see layoutOf.
+     * `currentIndex` is how many of them have been answered, so the first not
+     * yet answered; `view` the card on the table, which is that one or, gone
+     * back to with the arrows on the card, one answered before it; `answers`
+     * what each was answered, by its place in the run, with the moment the
+     * answer was written -- what store.forgetRepetition needs to take it back
+     * if the player answers it the other way.
      */
     function getEmptyState() {
-        return { selectedSetId: null, currentIndex: 0, isFlipped: false, hasBeenFlipped: false, sessionPool: null, sessionAt: null, allowEarly: false, wide: false };
+        return { selectedSetId: null, currentIndex: 0, view: 0, answers: [], isFlipped: false, sessionPool: null, sessionAt: null, allowEarly: false };
     }
 
     const MINUTE = 60 * 1000;
@@ -34,8 +38,8 @@ function flashcards(container) {
     const MOTION = !matchMedia('(prefers-reduced-motion: reduce)').matches;
     const dur = (ms) => (MOTION ? ms : 1);
 
-    // Keyboard: ← turns the card over, → is done with this word
-    const KEYS = ['ArrowLeft', 'ArrowRight'];
+    // Keyboard: ← don't know, → know, ↑ ↓ or space turns the card over
+    const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'];
 
     let keyHandler = null;
 
@@ -153,268 +157,15 @@ function flashcards(container) {
     }
 
     /*
-     * The line as a row of letters inside a row of words.
-     *
-     * Every letter is its own target because a tap has to be able to land on
-     * one. What lies between the words — spaces, commas, the question mark —
-     * stays as plain text: the only thing that can be tapped is a thing that
-     * can be said.
-     *
-     * Letters come from speech.letters, which counts them the way a reader
-     * does: й is written as two code units and न्न as three, and splitting
-     * there would hand back half a letter to say out loud.
+     * The speaker before the word says it, in its face's language. It is all
+     * of the card that speaks now: a press anywhere else on the card turns it
+     * over (the owner's call, 20 November 2026), where until then the letter,
+     * the word and the line under a finger were said, one deeper at each tap.
+     * The speaker's is the one sound the switch in the header leaves alone --
+     * see speech.say.
      */
-    function lineHtml(text) {
-        const tinted = 'border-radius: 3.4px;';
-
-        return speech.words(text).map(part => {
-            if (part.isWord) {
-                // The same corner on the letter as on the word around it: both
-                // are filled while they are being said, and a square mark inside
-                // a rounded one reads as two different kinds of thing.
-                const letters = speech.letters(part.text)
-                    .map(ch => `<span class="say-letter" data-press style="${tinted}">${escapeText(ch)}</span>`)
-                    .join('');
-
-                return `<span class="say-word" style="${tinted}">${letters}</span>`;
-            }
-
-            // What sits between the words stays as it was written and takes
-            // no colour: a comma has nothing to say, and marking it would be
-            // pointing at a thing the tap cannot reach.
-            return escapeText(part.text);
-        }).join('');
-    }
-
-    /*
-     * What the last tap lit, so it can be put out when the voice stops.
-     *
-     * One mark at a time for the whole screen, because one thing at a time is
-     * being said: two marks up at once would be claiming both are, and only the
-     * later one is.
-     *
-     * Flashcards paints its own, rather than sharing with the quiz. The two started
-     * with the same behaviour and the quiz still has it; this screen went on to
-     * three depths of tap, and a shared version would have had to keep doing
-     * what the quiz needs while doing this as well.
-     */
-    let lit = [];
-
-    /*
-     * Which mark is up, counted rather than named.
-     *
-     * The voice that finishes has to take its own mark down and nobody else's.
-     * By the time it stops, a later tap may have put up a different one — that
-     * tap's own voice is what will clear it — so what stops speaking checks the
-     * number it was given against the number that is up now, and keeps quiet if
-     * they differ.
-     */
-    let marks = 0;
-
-    /*
-     * The colour goes on and comes off in the frame it is asked for, both ways.
-     *
-     * It used to fade in over a fifth of a second, which is measurable and was
-     * measured: the colour was a fifth of the way there at 30ms and only
-     * arrived at 200. That reads as the app thinking it over, and a tap wants
-     * answering.
-     */
-    function unlight() {
-        lit.forEach(el => {
-            el.style.background = '';
-            el.style.color = '';
-        });
-        lit = [];
-    }
-
-    function light(marked) {
-        unlight();
-
-        lit = marked.map(m => m.el);
-
-        marked.forEach(({ el, fill, ink }) => {
-            if (fill) el.style.background = fill;
-            if (ink) el.style.color = ink;
-        });
-
-        marks += 1;
-        return marks;
-    }
-
-    /*
-     * What to do when this mark's voice stops, or turns out never to have
-     * started.
-     *
-     * Only if it is still the mark that is up: by the time a voice stops, a
-     * later tap may have put a different one there, and that tap's own voice is
-     * what will clear it.
-     *
-     * And never sooner than a short spell after it went up. There are three
-     * ways to be told the sound is over — it ended, there was no voice for the
-     * language, or the voice list had not arrived yet and the word turned out
-     * unsayable once it did — and the last two answer within a quarter of a
-     * second, which put the colour on the card and took it off again in one
-     * blink. On a card in a language this device cannot say, that was every tap.
-     */
-    const MARK_LEAST = 450;
-
-    function until(mark) {
-        const born = Date.now();
-
-        return () => {
-            if (mark !== marks) return;
-
-            const left = MARK_LEAST - (Date.now() - born);
-            if (left <= 0) return unlight();
-
-            setTimeout(() => { if (mark === marks) unlight(); }, left);
-        };
-    }
-
-    /*
-     * A tap goes deeper the more it is repeated: the letter under the finger,
-     * then the word it belongs to, then the whole line.
-     *
-     * Counted here rather than read off the event's own click count, which
-     * phones do not agree about — a second tap is a zoom gesture to some of
-     * them, and the count never arrives.
-     *
-     * One gesture is taps inside the same word, not taps on the same letter. A
-     * finger lands where it lands: a glyph is a couple of dozen pixels wide and
-     * a fingertip is wider, so the second tap of a double tap often comes down
-     * on the letter next door — and in Japanese, where 日本語 is one word of
-     * three glyphs, that is most of the time. The word is the thing being
-     * pointed at, so the word is what holds the count; a tap in a different
-     * word starts again at its letter.
-     *
-     * Each tap acts at once instead of waiting to see whether another is
-     * coming. Waiting would put a quarter of a second between every single tap
-     * and its answer, and a tap that answers late reads as a tap that missed.
-     */
-    const TAP_GAP = 500;
-
-    /*
-     * A colour for every word of the line, and the same colour every time that
-     * word is marked.
-     *
-     * Taken from the bubble ramp, four steps far enough apart to be told at a
-     * glance and not close enough to read as a series: the words of a line are
-     * not in an order that means anything, they are simply not each other.
-     */
-    const WORD_FILLS = [3, 6, 9, 12];
-
-    function wordsIn(face) {
-        return Array.from(face.querySelectorAll('.say-word'));
-    }
-
-    function tint(el, place) {
-        const stage = tokens.stages()[WORD_FILLS[place % WORD_FILLS.length]];
-        return { el, fill: stage.fill, ink: stage.ink };
-    }
-
-    const SAY_DELAY = 250;
-
-    let taps = 0;
-    let tapped = null;
-    let tapTimer = null;
-    let sayTimer = null;
-
-    function forgetTaps() {
-        clearTimeout(tapTimer);
-
-        // A word still waiting its quarter second belongs to the card that was
-        // tapped. Press "Know" fast enough and it would be said over the next
-        // one, which is a different word entirely.
-        clearTimeout(sayTimer);
-
-        taps = 0;
-        tapped = null;
-    }
-
-    function listen(face, text, lang) {
-        if (!face) return;
-
-        face.addEventListener('click', (e) => {
-            const letter = e.target.closest('.say-letter');
-
-            // Beside the words, or on the speaker under them: the whole line,
-            // which is the third depth reached without the first two. The
-            // speaker's is the one sound the switch in the header leaves
-            // alone -- see speech.say.
-            if (!letter) {
-                forgetTaps();
-                return sayLine(face, text, lang, e.target.closest('.say-all'));
-            }
-
-            const word = letter.closest('.say-word');
-
-            if (word !== tapped) {
-                taps = 0;
-                tapped = word;
-            }
-
-            taps = Math.min(3, taps + 1);
-
-            clearTimeout(tapTimer);
-            tapTimer = setTimeout(forgetTaps, TAP_GAP);
-
-            // The letter is the one under the finger; the word is the one the
-            // gesture is being counted in.
-            if (taps === 1) return sayLetter(face, letter, lang);
-            if (taps === 2) return sayWord(face, word, lang);
-
-            sayLine(face, text, lang);
-        });
-    }
-
-    /*
-     * The colour lands with the finger; the voice waits to see what the finger
-     * meant.
-     *
-     * A quarter of a second, which is the gap between the two taps of a double
-     * tap. Without it a letter starts being said the instant it is touched and
-     * is cut off by its word a moment later, and every double tap comes out as
-     * a stutter. With it the second tap arrives before the first has made a
-     * sound, and what is heard is the one thing that was asked for.
-     *
-     * Only the voice waits: the mark goes up at once, before it is known
-     * whether the device even has a voice for this. If the asking comes back
-     * silent, the mark goes off again.
-     *
-     * All three depths are filled, in one colour: the mark widens from the
-     * letter to its word to the line, and the letter takes that word's colour
-     * off the same ramp — see WORD_FILLS.
-     */
-    function sayLater(text, lang, mark, asked) {
-        clearTimeout(sayTimer);
-
-        sayTimer = setTimeout(() => {
-            const done = until(mark);
-
-            // Nothing heard -- no voice for this script, or the sound is off --
-            // and then there is nothing to wait behind: the mark stands its
-            // minimum and goes. The silence itself is not answered; see
-            // speech.say.
-            if (!speech.say(text, lang, done, asked)) done();
-        }, SAY_DELAY);
-    }
-
-    function sayLetter(face, letter, lang) {
-        const place = wordsIn(face).indexOf(letter.closest('.say-word'));
-
-        sayLater(letter.textContent, lang, light([tint(letter, Math.max(0, place))]));
-    }
-
-    function sayWord(face, word, lang) {
-        if (!word) return;
-
-        sayLater(word.textContent, lang, light([tint(word, wordsIn(face).indexOf(word))]));
-    }
-
-    function sayLine(face, text, lang, asked) {
-        // A colour each, so the line reads as the words it is made of rather
-        // than as one long stripe.
-        sayLater(text, lang, light(wordsIn(face).map(tint)), asked);
+    function sayFrom(speaker, text, lang) {
+        if (text) speech.say(text, lang, () => {}, speaker);
     }
 
     /*
@@ -428,30 +179,19 @@ function flashcards(container) {
      * after the other to do the same thing in, and a box 0 nobody counts from.
      * So the boxes are 1 to 14 and box N is stage N everywhere else.
      *
-     * Five boxes to begin with, two to a shelf -- the first picture the owner
-     * gave -- and all fourteen, three to a shelf, once a card needs the sixth:
-     * the second picture. Five and not six, the owner's call the same day, so
-     * that both shelves end in a free place: a plant in a pot stands there by
-     * day, and the lamp that lights the card at night (see the night below).
-     * The shelf does not shrink back within the session when the card that
-     * grew it is later got wrong: a cabinet that rebuilt itself under the
-     * player twice in one sitting would be moving the boxes they had just
-     * learned the places of.
+     * All fourteen, three to a shelf -- the second picture the owner gave --
+     * with the fifteenth place holding the desk lamp (see the night below).
+     * For most of 20 November the shelf began with five boxes, two to a
+     * shelf, and grew when a card needed the sixth; the owner took that out
+     * the same evening.
      */
-    const FEW = 5;
     const LAST = 14;
 
     const boxOf = (stage) => Math.max(1, stage || 0);
 
     /*
-     * Every length a box is drawn with, for each of the two shelves. The width
-     * is not here: it is what the shelf leaves once the gaps are taken out --
-     * see layoutOf.
-     *
-     * Two sets of numbers rather than one scaled: the boxes of the wide shelf
-     * are two thirds the size, and two thirds of the lettering is lettering
-     * nobody can read -- the figures on a box get a floor of their own (8.4px)
-     * while the cardboard around them shrinks freely.
+     * Every length a box is drawn with. The width is not here: it is what the
+     * shelf leaves once the gaps are taken out -- see layoutOf.
      *
      *   padX, gap, rowGap   the wall showing round the boxes: wider than the
      *                       first drawing, at the owner's word, with the boxes
@@ -468,21 +208,12 @@ function flashcards(container) {
      *                       place, in radians: at the middle of the cabinet,
      *                       where the card is laid
      */
-    const LAYOUTS = {
-        few: {
-            name: 'few', cols: 2, count: FEW, padX: 16, gap: 20, rowGap: 14, plank: 9, boxH: 100,
-            rimTop: 7, frontTop: 36, inset: 7, round: 3, layers: 5, band: 4.8, raise: 5,
-            plateTop: 8, plateH: 21, platePad: 9, plateFont: 11.8, ear: 3.4, aim: -2.04,
-            footBottom: 9, footFont: 10.4, footIcon: 10, footGap: 6, pillPad: '2.6px 7px',
-            badgeFont: 11.3, badgeIcon: 13
-        },
-        all: {
-            name: 'all', cols: 3, count: LAST, padX: 11, gap: 13, rowGap: 10, plank: 8, boxH: 72,
-            rimTop: 5, frontTop: 26, inset: 5, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
-            plateTop: 5, plateH: 16, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
-            footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5, pillPad: '1.6px 4.6px',
-            badgeFont: 9.6, badgeIcon: 11
-        }
+    const SHELF = {
+        name: 'all', cols: 3, count: LAST, padX: 11, gap: 13, rowGap: 10, plank: 8, boxH: 72,
+        rimTop: 5, frontTop: 26, inset: 5, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
+        plateTop: 5, plateH: 16, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
+        footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5, pillPad: '1.6px 4.6px',
+        badgeFont: 9.6, badgeIcon: 11
     };
 
     // The cabinet's own frame and the wall's edge, which the boxes stand inside
@@ -498,7 +229,7 @@ function flashcards(container) {
      * keep in step with the page's padding.
      */
     function layoutOf() {
-        const L = state.wide ? LAYOUTS.all : LAYOUTS.few;
+        const L = SHELF;
         const cs = getComputedStyle(container);
         const room = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         const wall = room - 2 * (FRAME_PAD + FRAME_EDGE + WALL_EDGE);
@@ -564,12 +295,6 @@ function flashcards(container) {
         });
 
         return boxes;
-    }
-
-    // The highest stage anything in the set has reached, the card in the hand
-    // included
-    function highest() {
-        return store.wordsOf(state.selectedSetId).reduce((top, item) => Math.max(top, stageOf(item.word)), 0);
     }
 
     /*
@@ -643,6 +368,65 @@ function flashcards(container) {
     }
 
     /*
+     * The boxes with a card ready in them hop now and then, one at a time and
+     * at no fixed beat -- a double hop, the owner's call the same evening, of
+     * the hop they give when the arrows reach them --
+     * the owner's call, 20 November 2026, in place of the cards inside them
+     * hopping as the catalog's bubbles do. Not until the arrows are done (or
+     * waved away), not while a card is on the table, and not at all with the
+     * set's Bounce switched off in its view menu, the same switch that stills
+     * the bubbles. No sound: the arrows' pops are a greeting, and this would
+     * be a noise that never stops.
+     */
+    // One hop for an arrow arriving; two in a row, the second a little lower,
+    // for a box calling to be opened (the owner)
+    function hopBox(box, twice) {
+        if (!box) return;
+
+        if (!twice) {
+            box.animate([
+                { transform: 'translateY(0) scale(1)' },
+                { transform: 'translateY(-3px) scale(1.04, 0.97)', offset: 0.3 },
+                { transform: 'translateY(0) scale(0.99, 1.02)', offset: 0.65 },
+                { transform: 'translateY(0) scale(1)' }
+            ], { duration: 380, easing: 'ease-out' });
+            return;
+        }
+
+        box.animate([
+            { transform: 'translateY(0) scale(1)' },
+            { transform: 'translateY(-3px) scale(1.04, 0.97)', offset: 0.15 },
+            { transform: 'translateY(0) scale(0.99, 1.02)', offset: 0.32 },
+            { transform: 'translateY(0) scale(1)', offset: 0.46 },
+            { transform: 'translateY(-2.4px) scale(1.03, 0.975)', offset: 0.6 },
+            { transform: 'translateY(0) scale(0.995, 1.015)', offset: 0.78 },
+            { transform: 'translateY(0) scale(1)' }
+        ], { duration: 700, easing: 'ease-out' });
+    }
+
+    function bouncing() {
+        const set = store.sets().find(s => s.id === state.selectedSetId);
+        return MOTION && !!set && store.viewOf(set).bounce;
+    }
+
+    let idleTimer = null;
+
+    function idleHops(token) {
+        clearTimeout(idleTimer);
+
+        idleTimer = setTimeout(() => {
+            if (token !== drawn || !stageEl) return;
+
+            if (!busy && !held && bouncing()) {
+                const ready = Array.from(stageEl.querySelectorAll('.flashcards-box')).filter(box => /^\d+$/.test(box.dataset.press));
+                if (ready.length) hopBox(ready[Math.floor(Math.random() * ready.length)], true);
+            }
+
+            idleHops(token);
+        }, 900 + Math.random() * 1400);
+    }
+
+    /*
      * A box, drawn: an open cardboard box seen a little from above, as in the
      * pictures. The front is a plain rectangle; above it the opening, its back
      * wall narrower than the front as the side walls run away from the eye,
@@ -699,18 +483,19 @@ function flashcards(container) {
             const left = wallAt(stand) + 1.1 + JITTER[i];
             const w = W - 2 * wallAt(stand) - 2.2;
             const h = ft + 3 - y;
-            const rule = y + L.band + 2.6;
 
-            // Further back is further into the box's shadow
-            const paper = mixHex(p.paper, p.cardShade, (1 - depth) * 0.32);
+            // The whole card in its stage's colour while it is in a box (the
+            // owner) -- the band is the card on the table's -- further back
+            // further into the box's shadow, and at night all of it in the
+            // dark of the room
+            const tint = mixHex(bands[i], p.cardShade, (isNight ? 0.4 : 0) + (1 - depth) * 0.3);
 
             // The shadow this card throws on the one behind it
             const cast = i > 0 ? `<rect x="${r(left - 0.5)}" y="${r(y - 2.6)}" width="${r(w + 1)}" height="2.8" rx="1.4" fill="${p.cardCast}" />` : '';
 
             cards += cast
-                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="${paper}" />`
-                + `<rect x="${r(left + 0.4)}" y="${r(y + 0.4)}" width="${r(w - 0.8)}" height="${L.band}" rx="1.2" fill="${mixHex(bands[i], p.cardShade, (1 - depth) * 0.22)}" />`
-                + (rule < ft - 1 ? `<path d="M${r(left + 3)} ${r(rule)}H${r(left + w * 0.55)}" stroke="${p.cardRule}" stroke-width="0.8" stroke-linecap="round" />` : '')
+                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="${tint}" />`
+                + `<path d="M${r(left + 1.2)} ${r(y + 1.1)}H${r(left + w - 1.2)}" stroke="rgba(255, 255, 255, 0.35)" stroke-width="0.8" stroke-linecap="round" />`
                 + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="none" stroke="${p.cardLine}" stroke-width="0.9" />`;
         }
 
@@ -853,8 +638,11 @@ function flashcards(container) {
         let bulbs = '';
         let sparks = '';
 
+        const lights = [];
+
         stops.forEach((dist, k) => {
             const pt = pointAt(dist);
+            lights.push(pt);
             const c = Math.floor(rnd() * BULBS.length);
             const big = 1 + rnd() * 0.55;
             const x = f(pt.x);
@@ -868,7 +656,8 @@ function flashcards(container) {
 
             const halo = (few ? 15 : 11) * big * (0.85 + rnd() * 0.35);
 
-            bulbs += `<circle class="flashcards-bulb-bloom" cx="${x}" cy="${y}" r="${f(halo * 2.6)}" fill="url(#fc-bloom)" /><circle class="flashcards-bulb-glow" cx="${x}" cy="${y}" r="${f(halo)}" fill="url(#fc-bulb-${c})" />${socket}<ellipse cx="${x}" cy="${y}" rx="${f(1.7 * big)}" ry="${f(2.2 * big)}" fill="#ffd36a" stroke="#4a2a10" stroke-width="0.4" /><circle cx="${x}" cy="${f(pt.y + 2 * big)}" r="${f(1.2 * big)}" fill="#fff6d0" />`;
+            // Its own group, the socket left out, for switching on (see lightUp)
+            bulbs += `${socket}<g class="flashcards-bulb"><circle class="flashcards-bulb-bloom" cx="${x}" cy="${y}" r="${f(halo * 2.6)}" fill="url(#fc-bloom)" /><circle class="flashcards-bulb-glow" cx="${x}" cy="${y}" r="${f(halo)}" fill="url(#fc-bulb-${c})" /><ellipse cx="${x}" cy="${y}" rx="${f(1.7 * big)}" ry="${f(2.2 * big)}" fill="#ffd36a" stroke="#4a2a10" stroke-width="0.4" /><circle cx="${x}" cy="${f(pt.y + 2 * big)}" r="${f(1.2 * big)}" fill="#fff6d0" /></g>`;
 
             // Every so often a spark in the air beside the string
             if (k % 2 === 0) {
@@ -885,9 +674,59 @@ function flashcards(container) {
         // The box warmed by its lights, and a band of light along the wire
         const front = `x="0.55" y="${L.frontTop}" width="${f(W - 1.1)}" height="${f(L.boxH - L.frontTop - 0.55)}" rx="${L.round}"`;
         const warm = `<rect ${front} fill="url(#fc-box-lit)" style="mix-blend-mode: screen;" />`;
+
+        /*
+         * And the light the bulbs throw on the box itself, in patches rather
+         * than evenly (the owner): a few soft warm pools of different sizes
+         * and strengths, each where a bulb hangs -- a bulb outside the box
+         * lights the edge nearest it -- kept to the box's own outline, and
+         * breathing slowly (see twinkle). Which bulbs, how big and how strong
+         * is the box's seeded random, so it keeps its light from one look to
+         * the next.
+         */
+        const clipId = `fc-lit-${n}`;
+        const ins = L.inset;
+        const clip = `<clipPath id="${clipId}"><rect ${front} /><polygon points="0.6,${L.frontTop} ${ins},${L.rimTop} ${f(W - ins)},${L.rimTop} ${f(W - 0.6)},${L.frontTop}" /></clipPath>`;
+
+        const pools = lights.filter((_, k) => k % 2 === (n % 2)).slice(0, 4).map(pt => {
+            const rx = W * (0.26 + rnd() * 0.3);
+            const ry = L.boxH * (0.24 + rnd() * 0.26);
+            const cx = Math.max(-W * 0.1, Math.min(W * 1.1, pt.x + (rnd() - 0.5) * 10));
+            const cy = Math.max(L.rimTop, Math.min(L.boxH, pt.y + 4 + rnd() * 10));
+            return `<ellipse class="flashcards-box-glow" cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(ry)}" fill="url(#fc-box-spot)" fill-opacity="${f(0.45 + rnd() * 0.45)}" style="mix-blend-mode: screen;" />`;
+        }).join('');
+
+        const patches = `<defs>${clip}</defs><g clip-path="url(#${clipId})">${pools}</g>`;
         const spill = `<path class="flashcards-bulb-glow" d="${d}" fill="none" stroke="#ff9a35" stroke-opacity="0.2" stroke-width="${few ? 20 : 15}" stroke-linecap="round" filter="url(#fc-garland-soft)" style="mix-blend-mode: screen;" />`;
 
-        return `<g class="flashcards-garland">${warm}${spill}${wire}${bulbs}${sparks}</g>`;
+        return `<g class="flashcards-garland"><g class="flashcards-garland-light">${warm}${patches}${spill}</g>${wire}${bulbs}<g class="flashcards-sparks">${sparks}</g></g>`;
+    }
+
+    /*
+     * The garlands coming on when the lamp turns night on: the room goes dark
+     * at once, and only then the strings light up, each at its own moment and
+     * each bulb a little apart from the others, catching once as it comes on
+     * (the owner) -- not all of them with the room, which read as the light
+     * never having gone off. The light a string throws on its box comes up
+     * with its bulbs.
+     */
+    function lightUp() {
+        if (!isNight || !MOTION || !stageEl) return;
+
+        const DARK = 380;
+        const on = [{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0.45, offset: 0.55 }, { opacity: 1 }];
+
+        stageEl.querySelectorAll('.flashcards-garland').forEach(garland => {
+            const at = DARK + Math.random() * 1100;
+
+            garland.querySelectorAll('.flashcards-bulb').forEach(bulb => {
+                bulb.animate(on, { duration: 240, delay: at + Math.random() * 520, easing: 'linear', fill: 'backwards' });
+            });
+
+            garland.querySelectorAll('.flashcards-garland-light, .flashcards-sparks').forEach(el => {
+                el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: at + 120, easing: 'ease-out', fill: 'backwards' });
+            });
+        });
     }
 
     // Every lit bulb breathing in its own time, at night -- dimming a little,
@@ -897,6 +736,10 @@ function flashcards(container) {
 
         stageEl.querySelectorAll('.flashcards-bulb-glow').forEach((el, i) => {
             el.animate([{ opacity: 1 }, { opacity: 0.6 + (i % 3) * 0.1 }], { duration: 1100 + (i * 337) % 1300, delay: (i * 211) % 900, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+        });
+
+        stageEl.querySelectorAll('.flashcards-box-glow').forEach((el, i) => {
+            el.animate([{ opacity: 1 }, { opacity: 0.7 }], { duration: 2600 + (i * 613) % 2200, delay: (i * 389) % 1500, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
         });
 
         stageEl.querySelectorAll('.flashcards-spark').forEach((el, i) => {
@@ -914,8 +757,12 @@ function flashcards(container) {
 
     // The label holder of a card file: a frame with a round ear at each end
     // and a slip of paper in it
-    function plateHtml(text, size, pad, height, ear) {
-        const p = palette;
+    // `tone` for a plate in colours of its own -- the set's name in the header,
+    // dark wood with pale letters at night (the owner, who tried it a shade
+    // darker with its own letters and came back to this) -- the boxes'
+    // labels taking the palette's
+    function plateHtml(text, size, pad, height, ear, tone) {
+        const p = { ...palette, ...(tone || {}) };
         const earCss = (side) => `position: absolute; ${side}: 0; top: 50%; width: ${ear * 2}px; height: ${ear * 2}px; margin-top: -${ear}px; box-sizing: border-box; border-radius: 50%; background: ${p.brass}; border: 1px solid ${p.line};`;
 
         return `<span style="position: relative; display: inline-flex; align-items: center; height: ${height}px; padding: 0 ${ear}px; box-sizing: border-box; filter: drop-shadow(0 1px 1px rgba(40, 24, 10, 0.3));">
@@ -934,7 +781,7 @@ function flashcards(container) {
 
         const span = `<span style="display: inline-flex; align-items: center; gap: 2px; color: ${p.stampInk}; white-space: nowrap;">${CLOCK(L.footIcon, p.stampInk)}${spanText(n)}</span>`;
 
-        const pill = `<span style="display: inline-flex; align-items: baseline; padding: ${L.pillPad}; border-radius: 99px; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; border: 1px solid ${p.line}; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), 0 1px 0 rgba(255, 240, 215, 0.35); white-space: nowrap; font-variant-numeric: tabular-nums;"><span>${info.ready}</span><span style="opacity: 0.75;">/${info.total}</span></span>`;
+        const pill = `<span style="display: inline-flex; align-items: baseline; padding: ${L.pillPad}; border-radius: 99px; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; border: 1px solid ${p.line}; white-space: nowrap; font-variant-numeric: tabular-nums;"><span>${info.ready}</span><span style="opacity: 0.75;">/${info.total}</span></span>`;
 
         const foot = `<span style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
 
@@ -999,7 +846,8 @@ function flashcards(container) {
      * reads back.
      */
     function lampGeometry(L) {
-        const s = L.boxH / 100;
+        // A little larger than the place's own scale: a heavy lamp (the owner)
+        const s = L.boxH / 100 * 1.1;
         const W = L.w;
         const H = L.boxH;
         const base = { x: W * 0.64, y: H - 4 * s };
@@ -1007,7 +855,7 @@ function flashcards(container) {
         const pivot = { x: base.x - 15 * s, y: H - 69 * s };
         const aim = L.aim;
         const dir = { x: Math.cos(aim), y: Math.sin(aim) };
-        const mouth = { x: pivot.x + dir.x * 15 * s, y: pivot.y + dir.y * 15 * s };
+        const mouth = { x: pivot.x + dir.x * 24 * s, y: pivot.y + dir.y * 24 * s };
 
         return { s, base, knee, pivot, aim, dir, mouth };
     }
@@ -1032,7 +880,11 @@ function flashcards(container) {
         const { s, base, knee, pivot, mouth } = g;
         const f = (v) => Math.round(v * 10) / 10;
         const pose = poseOf(isNight, L);
-        const arm = (a, b) => `<path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.line}" stroke-width="${f(3.6 * s + 0.6)}" stroke-linecap="round" /><path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.lampArm}" stroke-width="${f(1.8 * s + 0.2)}" stroke-linecap="round" />`;
+        // Heavy, as the owner asked: thick arms, a broad base, a big shade --
+        // in the same place, about the same size overall. The lower arm
+        // starts inside the base, which is drawn over it: from the base's foot
+        // its round end showed under the base (the owner)
+        const arm = (a, b) => `<path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.line}" stroke-width="${f(7.4 * s + 1)}" stroke-linecap="round" /><path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="${p.lampArm}" stroke-width="${f(4.6 * s + 0.4)}" stroke-linecap="round" /><path d="M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}" stroke="rgba(255, 240, 210, 0.35)" stroke-width="${f(1.2 * s)}" stroke-linecap="round" transform="translate(-0.6 -0.6)" />`;
 
         // Lit: a glow round the head and a warm patch on the shelf under it,
         // the bulb bright in the mouth. Off: the bulb a dull glass, and the
@@ -1050,19 +902,23 @@ function flashcards(container) {
 
         return `<svg width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;${isNight ? '' : ` filter: drop-shadow(${p.drop});`}">
             ${lit}
-            ${arm(base, knee)}
+            ${arm({ x: base.x, y: base.y - 6 * s }, knee)}
             <g class="flashcards-lamp-arm" transform="rotate(${f(pose.arm)} ${f(knee.x)} ${f(knee.y)})">
                 ${arm(knee, pivot)}
                 <g class="flashcards-lamp-head" transform="rotate(${f(pose.head)} ${f(pivot.x)} ${f(pivot.y)})">
-                    <ellipse cx="${hx(15)}" cy="${hy(0)}" rx="${f(2.6 * s)}" ry="${f(10.5 * s)}" fill="${isNight ? '#fff3c8' : p.bulbOff}" />
-                    <path d="M${hx(-3)} ${hy(-4.5)}L${hx(15)} ${hy(-10.5)}L${hx(15)} ${hy(10.5)}L${hx(-3)} ${hy(4.5)}Z" fill="${p.lampHead}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
-                    <path d="M${hx(2)} ${hy(-5.5)}L${hx(13)} ${hy(-9)}" stroke="rgba(255, 255, 255, 0.35)" stroke-width="${f(1.4 * s)}" stroke-linecap="round" />
-                    <ellipse cx="${hx(15)}" cy="${hy(0)}" rx="${f(1.6 * s)}" ry="${f(10.5 * s)}" fill="none" stroke="${p.line}" stroke-width="1" />
+                    <path d="M${hx(-6)} ${hy(-7.5)}L${hx(24)} ${hy(-16.5)}A${f(2.4 * s)} ${f(16.5 * s)} 0 0 1 ${hx(24)} ${hy(16.5)}L${hx(-6)} ${hy(7.5)}Z" fill="${p.lampHead}" stroke="${p.line}" stroke-width="1.3" stroke-linejoin="round" />
+                    <path d="M${hx(-6)} ${hy(3)}L${hx(24)} ${hy(7)}L${hx(24)} ${hy(16.5)}L${hx(-6)} ${hy(7.5)}Z" fill="rgba(20, 30, 28, 0.18)" />
+                    <path d="M${hx(3)} ${hy(-9)}L${hx(21)} ${hy(-14.4)}" stroke="rgba(255, 255, 255, 0.38)" stroke-width="${f(2.2 * s)}" stroke-linecap="round" />
+                    <rect x="${hx(-9)}" y="${hy(-4)}" width="${f(5 * s)}" height="${f(8 * s)}" rx="${f(1.5 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.1" />
+                    <ellipse cx="${hx(24)}" cy="${hy(0)}" rx="${f(2.4 * s)}" ry="${f(16.5 * s)}" fill="${isNight ? '#fff3c8' : p.bulbOff}" stroke="${p.line}" stroke-width="1.2" />
                 </g>
-                <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(2.4 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1" />
+                <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(4.6 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.2" />
+                <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(1.6 * s)}" fill="${p.line}" opacity="0.55" />
             </g>
-            <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(2.6 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1" />
-            <path d="M${f(base.x - 15 * s)} ${f(base.y + 1)}Q${f(base.x - 13 * s)} ${f(base.y - 7 * s)} ${f(base.x)} ${f(base.y - 7.5 * s)}Q${f(base.x + 13 * s)} ${f(base.y - 7 * s)} ${f(base.x + 15 * s)} ${f(base.y + 1)}Z" fill="${p.lampBase}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
+            <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(4.8 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.2" />
+            <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(1.7 * s)}" fill="${p.line}" opacity="0.55" />
+            <path d="M${f(base.x - 23 * s)} ${f(base.y + 1)}Q${f(base.x - 21 * s)} ${f(base.y - 11 * s)} ${f(base.x)} ${f(base.y - 11.5 * s)}Q${f(base.x + 21 * s)} ${f(base.y - 11 * s)} ${f(base.x + 23 * s)} ${f(base.y + 1)}Z" fill="${p.lampBase}" stroke="${p.line}" stroke-width="1.3" stroke-linejoin="round" />
+            <path d="M${f(base.x - 16 * s)} ${f(base.y - 3.5 * s)}Q${f(base.x)} ${f(base.y - 10 * s)} ${f(base.x + 9 * s)} ${f(base.y - 8 * s)}" fill="none" stroke="rgba(255, 240, 215, 0.25)" stroke-width="${f(1.6 * s)}" stroke-linecap="round" />
         </svg>`;
     }
 
@@ -1139,25 +995,19 @@ function flashcards(container) {
     }
 
     /*
-     * The order the boxes stand in: a snake, the owner's call, 20 November
-     * 2026 -- left to right along the first shelf, right to left along the
-     * second, and so on, so that the way from each box to the next is always
-     * to the box beside it or the box under it, and the arrows that draw that
-     * way never cross. The free place is the last:
-     *
-     *     1  2  3          1  2
-     *     6  5  4          4  3
-     *     7  8  9          5  .
-     *    12 11 10
-     *    13 14  .
+     * The boxes in order, left to right along each shelf and shelf after
+     * shelf, the free place last -- as the boxes of the pictures are
+     * numbered. They stood as a snake for an afternoon (6 5 4 on the second
+     * shelf), so that the arrows from box to box would never cross; the owner
+     * put them back in rows the same evening, and the arrows are drawn one
+     * after another instead, so that none crosses another while it is drawn.
      */
     function rowsOf(L) {
         const rows = [];
         const places = L.cols * Math.ceil((L.count + 1) / L.cols);
 
-        for (let first = 1, r = 0; first <= places; first += L.cols, r++) {
-            const row = Array.from({ length: L.cols }, (_, i) => first + i);
-            rows.push(r % 2 ? row.reverse() : row);
+        for (let first = 1; first <= places; first += L.cols) {
+            rows.push(Array.from({ length: L.cols }, (_, i) => first + i));
         }
 
         return rows;
@@ -1248,7 +1098,7 @@ function flashcards(container) {
         if (cone) $(stageEl, lightSvg(cone, 'flashcards-night flashcards-lamplight flashcards-shelf-cone', 'fc-shelf-beam', `top: ${top}px; z-index: 2;`, BEAM_STRENGTH));
 
         // The glow of the bulbs on the boxes, defined once for all of them
-        $(stageEl, `<svg class="flashcards-night" aria-hidden="true" width="0" height="0" style="position: absolute;"><defs><filter id="fc-garland-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" /></filter>${BULBS.map((c, i) => `<radialGradient id="fc-bulb-${i}"><stop offset="0" stop-color="#fff3c2" stop-opacity="1" /><stop offset="0.14" stop-color="#ffd067" stop-opacity="0.95" /><stop offset="0.32" stop-color="${c}" stop-opacity="0.62" /><stop offset="0.6" stop-color="#ff8a24" stop-opacity="0.2" /><stop offset="1" stop-color="#ff8a24" stop-opacity="0" /></radialGradient>`).join('')}<radialGradient id="fc-bloom"><stop offset="0" stop-color="#ff9a3a" stop-opacity="0.16" /><stop offset="0.5" stop-color="#ff9a3a" stop-opacity="0.06" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient><radialGradient id="fc-box-lit" cx="0.5" cy="0.15" r="0.85"><stop offset="0" stop-color="#ffa840" stop-opacity="0.3" /><stop offset="1" stop-color="#ffa840" stop-opacity="0.04" /></radialGradient></defs></svg>`);
+        $(stageEl, `<svg class="flashcards-night" aria-hidden="true" width="0" height="0" style="position: absolute;"><defs><filter id="fc-garland-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" /></filter>${BULBS.map((c, i) => `<radialGradient id="fc-bulb-${i}"><stop offset="0" stop-color="#fff3c2" stop-opacity="1" /><stop offset="0.14" stop-color="#ffd067" stop-opacity="0.95" /><stop offset="0.32" stop-color="${c}" stop-opacity="0.62" /><stop offset="0.6" stop-color="#ff8a24" stop-opacity="0.2" /><stop offset="1" stop-color="#ff8a24" stop-opacity="0" /></radialGradient>`).join('')}<radialGradient id="fc-bloom"><stop offset="0" stop-color="#ff9a3a" stop-opacity="0.16" /><stop offset="0.5" stop-color="#ff9a3a" stop-opacity="0.06" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient><radialGradient id="fc-box-lit" cx="0.5" cy="0.15" r="0.85"><stop offset="0" stop-color="#ffa840" stop-opacity="0.36" /><stop offset="1" stop-color="#ffa840" stop-opacity="0.06" /></radialGradient><radialGradient id="fc-box-spot"><stop offset="0" stop-color="#ffbe62" stop-opacity="0.62" /><stop offset="0.45" stop-color="#ffa646" stop-opacity="0.3" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient></defs></svg>`);
 
         twinkle();
     }
@@ -1329,7 +1179,11 @@ function flashcards(container) {
      * themselves.
      */
     function introArrows(token) {
-        if (!MOTION || token !== drawn || held || !stageEl) return;
+        // No arrows after all: the boxes' hops start without them
+        if (!MOTION || token !== drawn || held || !stageEl) {
+            if (token === drawn) idleHops(token);
+            return;
+        }
 
         const L = layoutOf();
         const p = palette;
@@ -1340,10 +1194,13 @@ function flashcards(container) {
 
         const spots = boxes.map(box => ({ ...offsetIn(box), w: box.offsetWidth, h: box.offsetHeight }));
         const f = (v) => Math.round(v * 10) / 10;
-        const middle = stageEl.offsetWidth / 2;
 
-        const STEP = state.wide ? 120 : 190;
-        const DRAW = state.wide ? 300 : 380;
+        // One after another, each drawn to its head before the next begins
+        // (the owner): the one from the end of a shelf to the start of the
+        // next crosses the shelf, and drawn alongside the others it crossed
+        // them. Each is wiped as the next is drawn -- see below
+        const DRAW = 360;
+        const STEP = DRAW + 60;
 
         let defs = '';
         let body = '';
@@ -1361,14 +1218,12 @@ function flashcards(container) {
                 c1 = { x: from.x + way * 6, y: a.y - L.rowGap - 4 };
                 c2 = { x: to.x - way * 6, y: b.y - L.rowGap - 4 };
             } else {
-                // Down to the box under it, on the outer side, clear of the
-                // label and the figures, bowing out towards the cabinet's edge
-                const out = a.x + a.w / 2 > middle ? 1 : -1;
-                const side = out > 0 ? 0.86 : 0.14;
-                from = { x: a.x + a.w * side, y: a.y + a.h - 3 };
-                to = { x: b.x + b.w * side, y: b.y + L.rimTop + 2 };
-                c1 = { x: from.x + out * 9, y: from.y + 9 };
-                c2 = { x: to.x + out * 9, y: to.y - 9 };
+                // From the foot of the last box of a shelf, clear of its label
+                // and figures, across to the first box of the next
+                from = { x: a.x + a.w * 0.14, y: a.y + a.h - 2 };
+                to = { x: b.x + b.w * 0.72, y: b.y + L.rimTop + 2 };
+                c1 = { x: from.x - 12, y: from.y + 18 };
+                c2 = { x: to.x + 22, y: to.y - 22 };
             }
 
             return { from, to, c1, c2 };
@@ -1399,26 +1254,76 @@ function flashcards(container) {
 
         const layer = $(stageEl, `<svg class="flashcards-arrows" aria-hidden="true" width="${stageEl.offsetWidth}" height="${stageEl.offsetHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;"><defs>${defs}</defs>${body}</svg>`);
 
+        /*
+         * Each arrow is drawn from its tail to its head, and while the next
+         * one is being drawn it is wiped away the same way, tail first, its
+         * head going last (the owner's call, 20 November 2026) -- so that one
+         * arrow at a time is on the shelf, travelling from box to box. The
+         * last one waits a moment and goes the same way.
+         *
+         * Through the mask: a dash as long as the path, with a gap as long
+         * again, slid in from behind the tail to draw it and on past the head
+         * to wipe it.
+         */
+        const HOLD = 700;
+        const count = routes.length;
+
         layer.querySelectorAll('.flashcards-arrow').forEach((arrow, i) => {
             const reveal = layer.querySelector(`#fc-arrow-${i} .flashcards-arrow-reveal`);
+            const head = arrow.querySelector('.flashcards-arrow-head');
             const length = reveal.getTotalLength();
 
-            reveal.style.strokeDasharray = `${length}`;
+            const drawAt = i * STEP;
+            const wipeAt = i < count - 1 ? (i + 1) * STEP : drawAt + DRAW + HOLD;
+
+            reveal.style.strokeDasharray = `${length} ${length}`;
             reveal.style.strokeDashoffset = `${length}`;
 
-            reveal.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], { duration: DRAW, delay: i * STEP, easing: 'ease-in-out', fill: 'forwards' });
-            arrow.querySelector('.flashcards-arrow-head').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, delay: i * STEP + DRAW - 60, fill: 'forwards' });
+            reveal.animate([
+                { strokeDashoffset: length, offset: 0 },
+                { strokeDashoffset: 0, offset: DRAW / (wipeAt + DRAW - drawAt) },
+                { strokeDashoffset: 0, offset: (wipeAt - drawAt) / (wipeAt + DRAW - drawAt) },
+                { strokeDashoffset: -length, offset: 1 }
+            ], { duration: wipeAt + DRAW - drawAt, delay: drawAt, easing: 'ease-in-out', fill: 'forwards' });
+
+            head.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, delay: drawAt + DRAW - 60, fill: 'forwards' });
+            head.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, delay: wipeAt + DRAW - 90, fill: 'forwards' });
         });
 
-        const total = (routes.length - 1) * STEP + DRAW;
+        /*
+         * And the boxes answer the arrows (the owner): the first gives a
+         * little start as the first arrow leaves it, and each after it hops
+         * as an arrow reaches it, with a soft pop a step higher each time --
+         * the way up the shelf heard as a rising run. Light, and under the
+         * sound effects' switch, as every sound of the games is (see sfx).
+         */
+        const timers = [];
+        const hop = hopBox;
+
+        const reach = (i, at) => timers.push(setTimeout(() => {
+            if (!layer.isConnected || layer.dataset.leaving) return;
+            hop(boxes[i]);
+            sfx.bubble(i, 0, true);
+        }, at));
+
+        reach(0, 0);
+        for (let i = 1; i < boxes.length; i++) reach(i, (i - 1) * STEP + DRAW - 40);
+
+        const total = (count - 1) * STEP + DRAW + HOLD + DRAW;
 
         const leave = (quick) => {
             if (!layer.isConnected || layer.dataset.leaving) return;
             layer.dataset.leaving = '1';
-            settled(layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: quick ? 150 : 500, easing: 'ease-in', fill: 'forwards' })).then(() => layer.remove());
+            timers.forEach(clearTimeout);
+
+            // Done, or waved away: the boxes' own hops begin
+            idleHops(token);
+
+            if (!quick) return layer.remove();
+            settled(layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'ease-in', fill: 'forwards' })).then(() => layer.remove());
         };
 
-        setTimeout(() => leave(false), total + 1300);
+        setTimeout(() => leave(false), total + 100);
         stageEl.addEventListener('pointerdown', () => leave(true), { once: true });
     }
 
@@ -1443,40 +1348,65 @@ function flashcards(container) {
     function faceStyle(paper, band, rotate) {
         const p = palette;
 
-        return `position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; ${rotate ? 'transform: rotateY(180deg);' : ''} box-sizing: border-box; border-radius: 10px; border: 1.3px solid ${p.line}; background: linear-gradient(180deg, ${band} 0, ${band} ${BAND}px, ${p.line} ${BAND}px, ${p.line} ${BAND + 1}px, ${p.margin} ${BAND + 1}px, ${p.margin} ${BAND + 2}px, transparent ${BAND + 2}px), repeating-linear-gradient(180deg, transparent 0 19px, ${p.rule} 19px 20px), ${paper}; box-shadow: ${p.cardHalo}; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: ${BAND + 9}px 14px 10px; cursor: pointer;`;
+        return `position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; ${rotate ? 'transform: rotateX(180deg);' : ''} box-sizing: border-box; border-radius: 10px; border: 1.3px solid ${p.line}; background: linear-gradient(180deg, ${band} 0, ${band} ${BAND}px, ${p.line} ${BAND}px, ${p.line} ${BAND + 1}px, ${p.margin} ${BAND + 1}px, ${p.margin} ${BAND + 2}px, transparent ${BAND + 2}px), repeating-linear-gradient(180deg, transparent 0 19px, ${p.rule} 19px 20px), ${paper}; box-shadow: ${p.cardHalo}; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: ${BAND + 9}px 14px 10px; cursor: pointer;`;
     }
+
+    /*
+     * Turned over top over bottom, the top edge coming forward and down (the
+     * owner's call, 20 November 2026): rotateX, where it used to turn side
+     * over side. The back is laid upside down to begin with, so that it
+     * stands the right way up once turned.
+     */
+    const TURNED = 'rotateX(-180deg)';
+    const UNTURNED = 'rotateX(0deg)';
+
+    const NAV_ICON = (path) => `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;"><path d="${path}" /></svg>`;
 
     function cardHtml(item) {
         const p = palette;
         const stage = stageOf(item.word);
-        const tag = `<span style="position: absolute; left: 12px; top: 0; height: ${BAND}px; display: flex; align-items: center; font-size: 10.2px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${p.labelInk}; pointer-events: none;">Box ${boxOf(stage)}</span>`;
+        const i = state.view;
+        const given = state.answers[i];
+
+        // ‹ and › in the band: back to the card before and on to the next --
+        // see step -- each switched off where there is nowhere to go
+        const nav = (cls, label, path, ok) => `<button class="${cls}" aria-label="${label}" title="${label}" ${ok ? '' : 'disabled'} style="display: flex; align-items: center; justify-content: center; width: 22px; height: 18px; padding: 0; border: none; border-radius: 5px; background: transparent; color: ${p.labelInk}; opacity: ${ok ? 0.85 : 0.25}; cursor: ${ok ? 'pointer' : 'default'};">${NAV_ICON(path)}</button>`;
+
+        // A card answered before shows how: a tick or a cross in its band
+        const mark = given ? `<span title="${given.result === 1 ? 'Answered: know' : 'Answered: don\'t know'}" style="display: flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-right: 4px; border-radius: 50%; background: ${given.result === 1 ? p.know : p.flip}; border: 1px solid ${p.line}; color: #ffffff;">${NAV_ICON(given.result === 1 ? 'M6 12.5l4 4L18 8' : 'M7.5 7.5l9 9M16.5 7.5l-9 9')}</span>` : '';
+
+        const band = `<span class="flashcards-band" style="position: absolute; left: 12px; right: 6px; top: 0; height: ${BAND}px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 10.2px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${p.labelInk}; pointer-events: none;">Box ${boxOf(stage)}</span>
+            <span style="display: flex; align-items: center; gap: 2px;">${mark}${nav('flashcards-prev', 'Previous card', 'M15 5l-7 7 7 7', canStep(-1))}${nav('flashcards-next', 'Next card', 'M9 5l7 7-7 7', canStep(1))}</span>
+        </span>`;
+
         const word = `font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${p.ink}; text-align: center; word-break: break-word;`;
 
         return `<div class="flashcards-card" style="position: absolute; left: 0; top: 0; width: ${CARD_W}px; height: ${CARD_H}px; perspective: 1000px; transform: ${REST};">
-            <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'};">
-                <div class="card-face-front" data-press style="${faceStyle(p.tablePaper, bandOf(stage), false)}">
-                    ${tag}
-                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.original, item.originalLang, p.sayIcon, SAY_LEAD)}${lineHtml(item.word.original)}</div>
+            <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? TURNED : UNTURNED};">
+                <div class="card-face-front" data-press title="Turn the card over" style="${faceStyle(p.tablePaper, bandOf(stage), false)}">
+                    ${band}
+                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.original, item.originalLang, p.sayIcon, SAY_LEAD)}${escapeText(item.word.original)}</div>
                 </div>
-                <div class="card-face-back" data-press style="${faceStyle(p.tablePaperBack, p.backBand, true)}">
-                    ${tag}
-                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.translation, item.translationLang, p.sayIcon, SAY_LEAD)}${item.word.translation ? lineHtml(item.word.translation) : '—'}</div>
+                <div class="card-face-back" data-press title="Turn the card over" style="${faceStyle(p.tablePaperBack, p.backBand, true)}">
+                    ${band}
+                    <div class="flashcards-word-text" style="${word}">${speech.speakerHtml(item.word.translation, item.translationLang, p.sayIcon, SAY_LEAD)}${item.word.translation ? escapeText(item.word.translation) : '—'}</div>
                 </div>
             </div>
         </div>`;
     }
 
     /*
-     * Two buttons, the same two throughout: turn the card over, or move on.
-     *
-     * Flip works every time it is pressed, and a player who wants to look at
-     * the two sides one after the other can.
+     * Two buttons, the same two throughout: don't know, and know -- the
+     * player says outright which it is, and turning the card over (a press
+     * on it) says nothing either way (the owner's call, 20 November 2026).
+     * Until then the left button was Flip, and seeing the back was the
+     * mistake.
      *
      * Icons rather than words -- the owner's call, 11 November 2026: the
      * game is played by people learning a language, often in an interface
-     * language that is not theirs, and "Flip" and "Know" had to be read
-     * before they could be pressed. A tick for Know, and a card being
-     * turned for Flip (see FLIP_ICON).
+     * language that is not theirs. A cross for don't know and a tick for
+     * know, each laid on a card.
      *
      * The arrows at the outer ends stay: they are the keys (← and →) and
      * need no language either. The words stay too, as the buttons' names for
@@ -1489,17 +1419,6 @@ function flashcards(container) {
      */
     const ICON = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 
-    /*
-     * Flip, after the picture the owner gave on 11 November: a card tipped
-     * over, and a heavy arrow that comes in from beside it, swings down and
-     * round and points back into it -- the card being turned. Where the arrow
-     * crosses the card a gap is cut round it, so the two do not run into one
-     * shape. The mask is on a group rather than on the card: on the card it
-     * would be turned with the card's own tilt.
-     */
-    const FLIP_ARROW = 'M18.8 7.2C22.2 9.6 20.8 16.6 12.2 13.6';
-    const FLIP_HEAD = 'M8.6 12.35L13.4 11.15L11.6 16.25Z';
-
     // The card both icons stand on, cut round whatever is drawn over it
     // -- the mask, whose id has to be the icon's own, as both are on the
     // page at once
@@ -1510,10 +1429,7 @@ function flashcards(container) {
         + `<g mask="url(#${gap})"><rect x="3.5" y="3" width="13" height="17.5" rx="2.6" transform="rotate(-10 10 11.75)" fill="currentColor" fill-opacity="0.5" stroke="none" /></g>`
         + `${over}</svg>`;
 
-    const FLIP_ICON = onCard('flashcards-flip-gap', `<path d="${FLIP_ARROW}" stroke-width="2.8" /><path d="${FLIP_HEAD}" stroke-width="1.4" fill="currentColor" />`);
-
-    // Know on the same card: a tick laid on it, running out past its edge as
-    // Flip's arrow does
+    const DUNNO_ICON = onCard('flashcards-dunno-gap', '<path d="M8 8l10 10M18 8L8 18" stroke-width="3" />');
     const KNOW_ICON = onCard('flashcards-know-gap', '<path d="M6.5 12.5l4 4L20.5 6" stroke-width="3" />');
 
     const KEY_LEFT = `<svg ${ICON} width="16" height="16" stroke-width="2.4" style="opacity: 0.8;"><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></svg>`;
@@ -1559,7 +1475,7 @@ function flashcards(container) {
             <button class="flashcards-close" aria-label="Back to the shelf" title="Back to the shelf" style="position: absolute; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; box-sizing: border-box; border-radius: 50%; background: ${p.labelPaper}; border: 1.3px solid ${p.line}; box-shadow: inset 0 0 0 2px ${p.brass}, 0 2px 4px rgba(30, 18, 8, 0.3); color: ${p.labelInk}; cursor: pointer;">${CLOSE_ICON}</button>
             <div class="flashcards-card-slot" style="position: relative; width: ${CARD_W}px; height: ${CARD_H}px; flex: none;"></div>
             <div class="flashcards-buttons-row" style="position: relative; display: flex; gap: 10px; width: ${CARD_W}px; flex: none;">
-                <button class="flashcards-btn-flip" id="btn-flip" aria-label="Flip" title="Flip the card" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.flip}; ${raised(p.flipEdge)}">${KEY_LEFT}${FLIP_ICON}</button>
+                <button class="flashcards-btn-dunno" id="btn-dunno" aria-label="Don't know" title="I don't know it" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.flip}; ${raised(p.flipEdge)}">${KEY_LEFT}${DUNNO_ICON}</button>
                 <button class="flashcards-btn-know" id="btn-know" aria-label="Know" title="I know it" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.know}; ${raised(p.knowEdge)}">${KNOW_ICON}${KEY_RIGHT}</button>
             </div>
         </div>`;
@@ -1603,10 +1519,13 @@ function flashcards(container) {
 
         // Up first, in the dark; then the light, catching once
         const RISE = 560;
-        const flicker = [{ opacity: 0 }, { opacity: 0.75, offset: 0.35 }, { opacity: 0.3, offset: 0.55 }, { opacity: 1 }];
+        // The light comes on and trembles once, a little -- it does not drop
+        // back towards dark (the owner)
+        const flicker = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
 
         stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam').forEach(el => el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' }));
         moveLamp(poseOf(false, L), poseOf(true, L), RISE);
+        lightUp();
     }
 
     function onLamp(e) {
@@ -1787,20 +1706,21 @@ function flashcards(container) {
         wash.addEventListener('click', (e) => (onLamp(e) ? switchLamp() : putBack()));
         overlay.querySelector('.flashcards-close').addEventListener('click', putBack);
 
-        const flipBtn = overlay.querySelector('#btn-flip');
+        const dunnoBtn = overlay.querySelector('#btn-dunno');
         const knowBtn = overlay.querySelector('#btn-know');
 
-        press(flipBtn, palette.flipEdge);
+        press(dunnoBtn, palette.flipEdge);
         press(knowBtn, palette.knowEdge);
 
-        flipBtn.addEventListener('click', flip);
-        knowBtn.addEventListener('click', know);
+        dunnoBtn.addEventListener('click', () => answer(0));
+        knowBtn.addEventListener('click', () => answer(1));
 
         return overlay;
     }
 
-    // The card for the item, laid in the slot and wired: a click on a face
-    // says the word it landed on, in that face's language -- see listen
+    // The card for the item, laid in the slot and wired: a press on a face
+    // turns the card over, except on its speaker, which says the word in that
+    // face's language, and on the arrows in its band
     function layCard(item) {
         const overlay = ensureOverlay();
         const slot = overlay.querySelector('.flashcards-card-slot');
@@ -1810,8 +1730,17 @@ function flashcards(container) {
 
         const card = $(slot, cardHtml(item));
 
-        listen(card.querySelector('.card-face-front'), item.word.original, item.originalLang);
-        listen(card.querySelector('.card-face-back'), item.word.translation, item.translationLang);
+        [['.card-face-front', item.word.original, item.originalLang], ['.card-face-back', item.word.translation, item.translationLang]].forEach(([sel, text, lang]) => {
+            card.querySelector(sel).addEventListener('click', (e) => {
+                if (e.target.closest('.flashcards-prev')) return step(-1);
+                if (e.target.closest('.flashcards-next')) return step(1);
+
+                const speaker = e.target.closest('.say-all');
+                if (speaker) return sayFrom(speaker, text, lang);
+
+                flip();
+            });
+        });
 
         // Both faces, and both now: the back is turned away but it is laid out
         // all the same, and a size worked out only when it comes round would be
@@ -2023,8 +1952,9 @@ function flashcards(container) {
 
         state.sessionPool = pool;
         state.currentIndex = 0;
+        state.view = 0;
+        state.answers = [];
         state.isFlipped = false;
-        state.hasBeenFlipped = false;
 
         // When this run was dealt its words, which is what every answer in it
         // will be stamped with -- see store.recordRepetition. Kept in the
@@ -2036,12 +1966,12 @@ function flashcards(container) {
         takeOut();
     }
 
-    // The next card of the run up out of its box and onto the table
+    // The card in view up out of its box and onto the table
     function takeOut() {
         busy = true;
         const token = drawn;
 
-        held = state.sessionPool[state.currentIndex];
+        held = state.sessionPool[state.view];
         openNumber = boxOf(stageOf(held.word));
         refreshBoxes();
 
@@ -2057,73 +1987,60 @@ function flashcards(container) {
         });
     }
 
-    /*
-     * Seeing the translation is the mistake itself, so it is recorded the
-     * moment the card turns. Once, not once per press: the card can be turned
-     * back and turned again, and none of that unsees what was already seen.
-     */
-    function markRevealed() {
-        if (state.hasBeenFlipped) return;
-        state.hasBeenFlipped = true;
-
-        // A mistake made, and heard as one -- see sfx.lose
-        sfx.lose(120);
-
-        store.recordRepetition(held, 0, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
-        store.save();
-    }
-
-    // The card is turned by hand rather than by a redraw: the flip is a
-    // half-second of animation, and rebuilding the card mid-turn would start
-    // it again from wherever it had got to.
+    // The card turned over and back, by hand rather than by a redraw: the
+    // turn is half a second of animation, and rebuilding the card mid-turn
+    // would start it again from wherever it had got to. It answers nothing.
     function flip() {
         if (busy || !held) return;
 
         sfx.whoosh();
-        markRevealed();
-
         state.isFlipped = !state.isFlipped;
 
         const inner = stageEl.querySelector('#card-inner');
-        if (inner) inner.style.transform = state.isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+        if (inner) inner.style.transform = state.isFlipped ? TURNED : UNTURNED;
 
         page.save();
     }
 
     /*
-     * Right is "done with this one", and what that is worth depends on
-     * whether the card was turned.
+     * Know (1) or don't know (0), said outright with the buttons.
      *
-     * Untouched, it is the word answered from memory and counts. Turned, the
-     * mistake was written down at the turn and there is nothing left to score
-     * — pressing this then only moves on, and passing it a result would write
-     * a correct answer over the wrong one.
+     * A card answered before -- gone back to with ‹ -- answered the same way
+     * again is only moved on from; answered the other way, the first answer
+     * is taken out of the word's history (store.forgetRepetition) and the new
+     * one written in its place, and the card goes to the box the new one puts
+     * it in.
      *
      * Either way the card then goes to the box of the stage it is on now,
      * which srs.js decides: up one for a right answer on time, nowhere for a
      * right answer ahead of the timer, and down by the penalty for a wrong one
      * (three stages, never below box 1). The game draws where it goes and has
-     * no say in it.
+     * no say in it. Then the next card of the run comes out.
      */
-    function know() {
+    function answer(result) {
         if (busy || !held) return;
 
         const item = held;
+        const i = state.view;
+        const was = state.answers[i];
 
-        if (!state.hasBeenFlipped) {
-            store.recordRepetition(item, 1, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
+        if (!was || was.result !== result) {
+            if (was) store.forgetRepetition(item, was.at);
 
-            // Known: the chime of the stage the word has come to
-            sfx.chime(stageOf(item.word));
-        } else {
-            sfx.whoosh();
+            const entry = store.recordRepetition(item, result, 'flashcards', { at: state.sessionAt, size: state.sessionPool.length });
+            state.answers[i] = { result, at: entry.timestamp };
         }
 
-        state.currentIndex += 1;
-        state.isFlipped = false;
-        state.hasBeenFlipped = false;
+        // Known: the chime of the stage the word has come to; not known, the
+        // mistake's falling tone -- see sfx
+        if (result === 1) sfx.chime(stageOf(item.word));
+        else sfx.lose(0);
 
-        const last = state.currentIndex >= state.sessionPool.length;
+        if (i === state.currentIndex) state.currentIndex += 1;
+        state.view = i + 1;
+        state.isFlipped = false;
+
+        const last = state.view >= state.sessionPool.length;
 
         // Closed before the flight rather than after it: the popup may be shut
         // while the card is in the air, and the run is over either way
@@ -2133,6 +2050,32 @@ function flashcards(container) {
         store.save();
 
         putAway(item, last ? 'done' : 'next');
+    }
+
+    /*
+     * ‹ and › on the card (the owner's call, 20 November 2026): back to the
+     * card answered before this one, to look again or answer it the other
+     * way, and on again towards the first card not yet answered -- never past
+     * it. The card on the table goes back into its box and the other comes
+     * out of its own.
+     */
+    function canStep(by) {
+        const to = state.view + by;
+        if (!state.sessionPool || to < 0 || to > state.currentIndex) return false;
+        return to === state.currentIndex || !!state.answers[to];
+    }
+
+    function step(by) {
+        if (busy || !held || !canStep(by)) return;
+
+        const item = held;
+        sfx.whoosh();
+
+        state.view += by;
+        state.isFlipped = false;
+        page.save();
+
+        putAway(item, 'next');
     }
 
     // The card back into the box it is in now, and the run left -- see
@@ -2150,115 +2093,69 @@ function flashcards(container) {
     function closeRun(why) {
         state.sessionPool = null;
         state.currentIndex = 0;
+        state.view = 0;
+        state.answers = [];
         state.isFlipped = false;
-        state.hasBeenFlipped = false;
         state.sessionAt = null;
 
         closed = true;
         store.save();
 
         // `why` for the analytics: `done`, every card of the run answered;
-        // `shelf`, put back half way -- see ANALYTICS.md
-        page.endSession(why);
+        // `shelf`, put back half way; `set`, left for another set -- see
+        // ANALYTICS.md
+        return page.endSession(why);
     }
 
-    /*
-     * The card flies to the box of its stage, and what follows the landing:
-     * the next card out, or the end of the run.
-     *
-     * A card going to the sixth box while only five are standing grows the
-     * shelf first, and lands in the box that has just appeared.
-     */
+    // The card flies to the box of its stage, and what follows the landing:
+    // the next card out, or the end of the run
     function putAway(item, then) {
         busy = true;
         const token = drawn;
         const from = openNumber;
         const dest = boxOf(stageOf(item.word));
 
-        forgetTaps();
-        unlight();
         showTable(false);
 
-        const go = () => {
-            const box = boxEl(dest);
-            const card = cardEl();
-
-            settled(flyIn(card, box)).then(() => {
-                if (token !== drawn) return;
-
-                held = null;
-                card.remove();
-                refreshBoxes();
-
-                bump(box);
-                sfx.pop(0, 0.14, 0.09);
-
-                if (dest > from) burst(box, palette.upRay);
-                if (dest < from) burst(box, palette.downRay);
-
-                if (then === 'next') return setTimeout(() => { if (token === drawn) takeOut(); }, dur(140));
-
-                const overlay = overlayEl();
-                if (overlay) overlay.remove();
-                busy = false;
-
-                // A box played out: every card that was ready in it has gone
-                if (then === 'done') {
-                    setTimeout(() => {
-                        if (token !== drawn) return;
-                        bump(boxEl(from));
-                        sfx.caught();
-                    }, dur(260));
-                }
-            });
-        };
-
-        if (dest > FEW && !state.wide) return widen(go);
-        go();
-    }
-
-    /*
-     * Five boxes become fourteen under a card in the air. The new shelf comes
-     * up a box at a time, and the card is held where it is on the screen
-     * while the cabinet grows taller under it.
-     */
-    function widen(then) {
-        state.wide = true;
-        page.save();
-
-        const old = stageEl.querySelector('.flashcards-cabinet');
-        const slot = stageEl.querySelector('.flashcards-card-slot');
-        const before = slot ? offsetIn(slot).y : 0;
-
-        old.insertAdjacentHTML('afterend', cabinetHtml());
-        old.remove();
-
-        drawNight();
-
-        stageEl.querySelectorAll('.flashcards-box, .flashcards-spare').forEach((box, i) => {
-            box.animate([{ transform: 'scale(0.82)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: dur(280), delay: dur(i * 22), easing: 'cubic-bezier(0.3, 1.4, 0.5, 1)', fill: 'backwards' });
-        });
-
+        const box = boxEl(dest);
         const card = cardEl();
-        if (card && slot) {
-            const shift = before - offsetIn(slot).y;
-            card.animate([{ transform: `translateY(${shift}px) ${REST}` }, { transform: REST }], { duration: dur(300), easing: 'ease-out' });
-        }
 
-        setTimeout(then, dur(560));
+        settled(flyIn(card, box)).then(() => {
+            if (token !== drawn) return;
+
+            held = null;
+            card.remove();
+            refreshBoxes();
+
+            bump(box);
+            sfx.pop(0, 0.14, 0.09);
+
+            if (dest > from) burst(box, palette.upRay);
+            if (dest < from) burst(box, palette.downRay);
+
+            if (then === 'next') return setTimeout(() => { if (token === drawn) takeOut(); }, dur(140));
+
+            const overlay = overlayEl();
+            if (overlay) overlay.remove();
+            busy = false;
+
+            // A box played out: every card that was ready in it has gone
+            if (then === 'done') {
+                setTimeout(() => {
+                    if (token !== drawn) return;
+                    bump(boxEl(from));
+                    sfx.caught();
+                }, dur(260));
+            }
+        });
     }
 
     /*
      * ---- The screen ----
      */
     function render() {
+        closeSetMenu();
         container.innerHTML = '';
-
-        // The nodes that were lit are gone with it, so there is nothing to put
-        // back — and a tap on the card that was here counts towards nothing on
-        // the card that replaces it.
-        lit = [];
-        forgetTaps();
 
         // Whatever was in the air belongs to the screen that is gone
         drawn += 1;
@@ -2266,11 +2163,14 @@ function flashcards(container) {
         clearInterval(refreshTimer);
 
         // A run whose last card was answered and whose flight was cut short:
-        // over, as know() had already said
+        // over, as answer() had already said
         if (state.sessionPool && state.currentIndex >= state.sessionPool.length) closeRun('done');
 
-        state.wide = state.wide || boxOf(highest()) > FEW;
-        held = state.sessionPool ? state.sessionPool[state.currentIndex] : null;
+        // The card in view is the first not yet answered, or one answered
+        // before it that the run still knows the answer of
+        if (state.sessionPool && !(state.view <= state.currentIndex && (state.view === state.currentIndex || state.answers[state.view]))) state.view = state.currentIndex;
+
+        held = state.sessionPool ? state.sessionPool[state.view] : null;
         openNumber = held ? boxOf(stageOf(held.word)) : null;
 
         const set = store.sets().find(s => s.id === state.selectedSetId);
@@ -2280,8 +2180,11 @@ function flashcards(container) {
             <div class="flashcards-header-info" style="display: flex; flex: 1; align-items: center; gap: 6.8px;">
                 <a class="back-btn" href="index.html" title="Back" style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 29px; height: 29px; flex: none; background: transparent; border: 1px solid ${p.chromeBorder}; border-radius: 10.2px; color: ${p.backBtn}; cursor: pointer; padding: 0; text-decoration: none;"><svg viewBox="0 0 24 24" width="18.8" height="18.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5" /><path d="M11 6l-6 6 6 6" /></svg></a>
             </div>
-            <div class="flashcards-title" style="display: flex; flex: 0 1 auto; min-width: 0; max-width: 214px; justify-content: center;">${plateHtml(escapeText((set && set.title) || 'Flashcards'), 12.3, 11, 26, 4)}</div>
+            <button class="flashcards-title" aria-haspopup="listbox" aria-expanded="false" title="Choose a set" style="position: relative; display: flex; flex: 0 1 auto; min-width: 0; max-width: 214px; justify-content: center; padding: 0; border: none; background: transparent; cursor: pointer; font-family: inherit;">${plateHtml(`${escapeText((set && set.title) || 'Flashcards')}${CHEVRON}`, 12.3, 11, 26, 4, p.titleTone)}</button>
         </div>`);
+
+        header.style.position = 'relative';
+        header.querySelector('.flashcards-title').addEventListener('click', () => toggleSetMenu(header));
 
         header.querySelector('.back-btn').addEventListener('click', (e) => {
             e.preventDefault();
@@ -2312,20 +2215,28 @@ function flashcards(container) {
             showTable(true);
         }
 
-        // The arrows once a page, over the shelf the player arrives at
+        // The arrows once a page, over the shelf the player arrives at, and
+        // the boxes' hops after them -- or at once, with no arrows to wait for
         if (!introduced && !held) {
             introduced = true;
             const token = drawn;
             setTimeout(() => introArrows(token), 350);
+        } else {
+            idleHops(drawn);
         }
 
-        // One key each, and both buttons are there to press while a card is
-        // on the table. Clicked rather than called, so that a key is counted
-        // as the press it stands for.
+        // ← and → the two answers, ↑ ↓ and space turning the card: clicked
+        // rather than called, so that a key is counted as the press it stands
+        // for -- the turn as a press on the face in front
         bindKeys((code) => {
             if (busy || !held) return;
-            const btn = stageEl.querySelector(code === 'ArrowLeft' ? '#btn-flip' : '#btn-know');
-            if (btn) btn.click();
+
+            const target = code === 'ArrowLeft' ? '#btn-dunno'
+                : code === 'ArrowRight' ? '#btn-know'
+                    : (state.isFlipped ? '.card-face-back' : '.card-face-front');
+
+            const el = stageEl.querySelector(target);
+            if (el) el.click();
         });
 
         // The figures again every so often: a card's timer runs out while the
@@ -2338,6 +2249,77 @@ function flashcards(container) {
         speech.onVoices(voicesKnown);
 
         page.save();
+    }
+
+    /*
+     * The list of sets under the title, to play another without going back to
+     * the catalog (the owner's call, 20 November 2026): every set by its name,
+     * with how many of its words are ready out of how many, the one being
+     * played ticked. Choosing another opens Flashcards on it -- a new page, as
+     * from the catalog, with the active session the catalog would have
+     * written; a run in the middle of being played is ended first (`set`).
+     */
+    const CHEVRON = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: inline-block; margin-left: 5px; vertical-align: -1px;"><path d="M6 9l6 6 6-6" /></svg>`;
+
+    let setMenu = null;
+
+    function closeSetMenu() {
+        if (!setMenu) return;
+        setMenu.menu.remove();
+        document.removeEventListener('pointerdown', setMenu.away, true);
+        document.removeEventListener('keydown', setMenu.key, true);
+        const btn = container.querySelector('.flashcards-title');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        setMenu = null;
+    }
+
+    function toggleSetMenu(header) {
+        if (setMenu) return closeSetMenu();
+
+        const p = palette;
+        const btn = header.querySelector('.flashcards-title');
+
+        const rows = store.sets().map(set => {
+            const total = (set.words || []).length;
+            const ready = store.duePool(set.id, false).length;
+            const here = set.id === state.selectedSetId;
+            const tick = here ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="${p.ready}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none;"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>` : '<span style="width: 13px; flex: none;"></span>';
+
+            return `<button class="flashcards-set-option" role="option" aria-selected="${here}" data-set-id="${escapeText(set.id)}" style="display: flex; align-items: center; gap: 7px; width: 100%; padding: 7px 9px; box-sizing: border-box; border: none; border-radius: 7px; background: ${here ? p.labelPaper : 'transparent'}; color: ${p.labelInk}; font-family: inherit; font-size: 12.3px; font-weight: ${here ? 800 : 700}; text-align: left; cursor: pointer;">
+                ${tick}
+                <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeText(set.title || 'Untitled')}</span>
+                <span style="flex: none; padding: 1.5px 6px; border-radius: 99px; border: 1px solid ${p.line}; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; font-size: 10.4px; font-weight: 700; font-variant-numeric: tabular-nums;">${ready}<span style="opacity: 0.75;">/${total}</span></span>
+            </button>`;
+        }).join('');
+
+        const menu = $(header, `<div class="flashcards-set-menu" role="listbox" style="position: absolute; left: 50%; top: 34px; z-index: 50; width: 240px; max-height: 300px; overflow-y: auto; transform: translateX(-50%); padding: 5px; box-sizing: border-box; border-radius: 10px; border: 1.3px solid ${p.line}; background: ${p.menuBg}; box-shadow: 0 10px 22px rgba(30, 18, 8, 0.35);">${rows}</div>`);
+
+        if (MOTION) menu.animate([{ opacity: 0, transform: 'translateX(-50%) translateY(-6px)' }, { opacity: 1, transform: 'translateX(-50%) translateY(0)' }], { duration: 160, easing: 'ease-out' });
+
+        menu.addEventListener('click', (e) => {
+            const option = e.target.closest('.flashcards-set-option');
+            if (option) switchSet(option.dataset.setId);
+        });
+
+        // Away by a press anywhere else, or by Escape
+        const away = (e) => { if (!menu.contains(e.target) && !btn.contains(e.target)) closeSetMenu(); };
+        const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSetMenu(); } };
+        document.addEventListener('pointerdown', away, true);
+        document.addEventListener('keydown', key, true);
+
+        btn.setAttribute('aria-expanded', 'true');
+        setMenu = { menu, away, key };
+    }
+
+    async function switchSet(id) {
+        closeSetMenu();
+        if (!id || id === state.selectedSetId) return;
+
+        speech.hush();
+        if (state.sessionPool) await closeRun('set');
+
+        await storage.set('active_session', { game: 'flashcards', setId: id, startedAt: Date.now() });
+        await nav.game({ id: 'flashcards' }, id, false);
     }
 
     function voicesKnown() {
@@ -2374,7 +2356,7 @@ function flashcards(container) {
             kraft: '#d6b389', kraftMid: '#c9a479', kraftLow: '#b99368', kraftLight: '#e8d1ae', rim: '#dcc09b', edgeShade: 'rgba(70, 42, 18, 0.2)',
             inside: '#8c6d52', insideLow: '#5f4733', insideLeft: '#76593f', insideRight: '#9a7a5c', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
             boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)',
-            paper: '#fcf6e4', paperBack: '#f5ecd6', cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d', cardRule: 'rgba(125, 99, 77, 0.35)',
+            paper: '#fcf6e4', paperBack: '#f5ecd6', cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d',
             tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
             brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
@@ -2382,7 +2364,7 @@ function flashcards(container) {
             wash: 'rgba(72, 50, 30, 0.42)',
             arrow: '#fff7e6', arrowShade: 'rgba(50, 32, 18, 0.5)',
             upRay: '#a8d4a2', downRay: '#eda083',
-            lampArm: '#c09a6b', lampBase: '#5d4636', lampHead: '#8fb2a5', bulbOff: '#d8d2c2'
+            lampArm: '#c09a6b', lampBase: '#5d4636', lampHead: '#8fb2a5', bulbOff: '#d8d2c2', menuBg: '#f3e8d2'
         };
 
         const dark = {
@@ -2400,7 +2382,8 @@ function flashcards(container) {
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
             flip: '#c98466', flipEdge: '#94573f', know: '#7ea888', knowEdge: '#557a5e',
             wash: 'rgba(6, 8, 18, 0.55)',
-            arrow: '#fff1d2', arrowShade: 'rgba(0, 0, 0, 0.6)'
+            arrow: '#fff1d2', arrowShade: 'rgba(0, 0, 0, 0.6)', menuBg: '#e3d6ba',
+            titleTone: { labelPaper: '#4a3b2f', labelInk: '#eadcc0', brass: '#6e5841', brassLight: '#806849', line: '#1c140e' }
         };
 
         palette = {
@@ -2432,8 +2415,9 @@ function flashcards(container) {
     flashcards.getState = () => ({
         selectedSetId: state.selectedSetId,
         currentIndex: state.currentIndex,
+        view: state.view,
+        answers: state.answers,
         isFlipped: state.isFlipped,
-        hasBeenFlipped: state.hasBeenFlipped,
         sessionPool: state.sessionPool,
 
         // Goes with the pool it belongs to. Left out, a run that was interrupted
@@ -2441,8 +2425,7 @@ function flashcards(container) {
         // without saying which run they were part of.
         sessionAt: state.sessionAt,
 
-        allowEarly: state.allowEarly,
-        wide: state.wide
+        allowEarly: state.allowEarly
     });
 
     flashcards.setState = (snap) => {
