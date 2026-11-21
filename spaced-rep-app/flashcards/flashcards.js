@@ -212,7 +212,7 @@ function flashcards(container) {
         name: 'all', cols: 3, count: LAST, padX: 11, gap: 13, rowGap: 10, plank: 8, boxH: 72,
         rimTop: 5, frontTop: 26, inset: 5, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
         plateTop: 5, plateH: 16, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
-        footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5, pillPad: '1.6px 4.6px',
+        footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5,
         badgeFont: 9.6, badgeIcon: 11
     };
 
@@ -832,15 +832,41 @@ function flashcards(container) {
         </span>`;
     }
 
+    /*
+     * The count on a box, `ready/total`, as a paper tag (the owner, 21
+     * November 2026: craftier than the round pill it was): cut to a point at
+     * the left with a hole punched in it, drawn round in the shelf's ink,
+     * on cream paper -- green paper while cards are ready, green being what
+     * says so by day -- and hung a little askew, each box its own way.
+     *
+     * The ink round it is the tag itself one pixel larger behind the paper:
+     * a CSS border cannot follow the cut point, and a clip-path cuts a
+     * border off.
+     */
+    function countTag(n, info) {
+        const p = palette;
+        const ready = info.ready > 0;
+        const [top, foot] = ready ? p.tagReady : p.tag;
+        const tip = 5.5;
+        const cut = (point, shoulder) => `polygon(${shoulder}px 0, 100% 0, 100% 100%, ${shoulder}px 100%, ${point}px 50%)`;
+        const tilt = (((n * 37) % 7) - 3) * 0.6;
+
+        return `<span style="display: inline-flex; padding: 1px; background: ${p.line}; clip-path: ${cut(0, tip)}; -webkit-clip-path: ${cut(0, tip)}; transform: rotate(${tilt}deg);">`
+            + `<span style="position: relative; display: inline-flex; align-items: baseline; padding: 1.8px 4.4px 1.6px ${tip + 4.2}px; background: linear-gradient(180deg, ${top}, ${foot}); color: ${ready ? p.tagReadyInk : p.tagInk}; clip-path: ${cut(0.4, tip - 0.6)}; -webkit-clip-path: ${cut(0.4, tip - 0.6)}; white-space: nowrap; font-variant-numeric: tabular-nums;">`
+            + `<span style="position: absolute; left: ${tip - 1.4}px; top: 50%; width: 3.2px; height: 3.2px; margin-top: -1.6px; box-sizing: border-box; border-radius: 50%; background: ${p.kraftMid}; border: 0.8px solid ${p.line};"></span>`
+            + `<span>${info.ready}</span><span style="opacity: 0.7;">/${info.total}</span>`
+            + `</span></span>`;
+    }
+
     function boxParts(n, info, L) {
         const p = palette;
         const ready = info.ready > 0;
 
-        const plate = `<span style="position: absolute; left: 50%; top: ${L.frontTop + L.plateTop}px; transform: translateX(-50%); display: flex;">${plateHtml(`Box ${n}`, L.plateFont, L.platePad, L.plateH, L.ear)}</span>`;
+        const plate = `<span style="position: absolute; left: 50%; top: ${L.frontTop + L.plateTop}px; transform: translateX(-50%); display: flex;">${plateHtml(`${n}`, L.plateFont, L.platePad, L.plateH, L.ear)}</span>`;
 
         const span = `<span style="display: inline-flex; align-items: center; gap: 2px; color: ${p.stampInk}; white-space: nowrap;">${CLOCK(L.footIcon, p.stampInk)}${spanText(n)}</span>`;
 
-        const pill = `<span style="display: inline-flex; align-items: baseline; padding: ${L.pillPad}; border-radius: 99px; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; border: 1px solid ${p.line}; white-space: nowrap; font-variant-numeric: tabular-nums;"><span>${info.ready}</span><span style="opacity: 0.75;">/${info.total}</span></span>`;
+        const pill = countTag(n, info);
 
         const foot = `<span class="flashcards-box-foot" style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
 
@@ -2524,6 +2550,7 @@ function flashcards(container) {
             tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
             brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
+            tag: ['#f8edd4', '#ead9b6'], tagInk: '#5a4331', tagReady: ['#b0cc9f', '#93b585'], tagReadyInk: '#22391f',
             flip: '#dc9470', flipEdge: '#ae6c4d', know: '#90bd99', knowEdge: '#679773',
             wash: 'rgba(72, 50, 30, 0.42)',
             arrow: '#fff7e6',
@@ -2544,6 +2571,7 @@ function flashcards(container) {
             tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
             brass: '#957a5b', brassLight: '#a88c6b', labelPaper: '#d6c7a6', labelInk: '#2a1f16', stampInk: '#d8c6a2',
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
+            tag: ['#a99879', '#968566'], tagInk: '#251a11', tagReady: ['#82a577', '#6d9063'], tagReadyInk: '#10200d',
             flip: '#c98466', flipEdge: '#94573f', know: '#7ea888', knowEdge: '#557a5e',
             wash: 'rgba(6, 8, 18, 0.55)',
             arrow: '#fff1d2', menuBg: '#e3d6ba',
