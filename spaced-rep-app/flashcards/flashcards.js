@@ -732,8 +732,12 @@ function flashcards(container) {
      * never having gone off. The light a string throws on its box comes up
      * with its bulbs.
      */
+    // By when every string is lit, from the start of lightUp
+    const LIT_UP = 380 + 1100 + 520 + 240;
+
     function lightUp() {
-        if (!isNight || !MOTION || !stageEl) return;
+        const set = [];
+        if (!isNight || !MOTION || !stageEl) return set;
 
         const DARK = 380;
         const on = [{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0.45, offset: 0.55 }, { opacity: 1 }];
@@ -744,13 +748,18 @@ function flashcards(container) {
             const at = DARK + Math.random() * 1100;
 
             box.querySelectorAll('.flashcards-bulb').forEach(bulb => {
-                bulb.animate(on, { duration: 240, delay: at + Math.random() * 520, easing: 'linear', fill: 'backwards' });
+                set.push(bulb.animate(on, { duration: 240, delay: at + Math.random() * 520, easing: 'linear', fill: 'backwards' }));
             });
 
+            // In three steps, not smoothly: the light on the box is in the
+            // box's drawing, under its drop shadow, and each step is that
+            // drawing done again -- forty-odd times in a smooth fade
             box.querySelectorAll('.flashcards-garland-light, .flashcards-sparks').forEach(el => {
-                el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: at + 120, easing: 'ease-out', fill: 'backwards' });
+                set.push(el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: at + 120, easing: 'steps(3, end)', fill: 'backwards' }));
             });
         });
+
+        return set;
     }
 
     /*
@@ -962,52 +971,87 @@ function flashcards(container) {
         const hx = (dx) => f(pivot.x + dx * s);
         const hy = (dy) => f(pivot.y + dy * s);
 
-        return `<svg width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;${isNight ? '' : ` filter: drop-shadow(${p.drop});`}">
-            ${lit}
-            ${arm({ x: base.x, y: base.y - 6 * s }, knee)}
-            <g class="flashcards-lamp-arm" transform="rotate(${f(pose.arm)} ${f(knee.x)} ${f(knee.y)})">
-                ${arm(knee, pivot)}
-                <g class="flashcards-lamp-head" transform="rotate(${f(pose.head)} ${f(pivot.x)} ${f(pivot.y)})">
+        /*
+         * In layers (21 November 2026, a weak phone): what stands still -- the
+         * glow, the lower arm, and over them the elbow and the base -- and
+         * between them the upper arm turning about the elbow, carrying the
+         * head turning about its joint. Each turning part is a box of its own
+         * the size of the place, turned by CSS about its joint in the place's
+         * pixels, the head's box inside the arm's -- just as the head's group
+         * sat inside the arm's in one drawing, when each frame of a switch
+         * turned them by their attributes and drew the lamp again, by day its
+         * drop shadow with it. Now the browser turns the layers as they are,
+         * see moveLamp.
+         */
+        const layer = (inner) => `<svg width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" style="position: absolute; left: 0; top: 0; overflow: visible;">${inner}</svg>`;
+        const turning = (cls, deg, at, inner) => `<span class="${cls}" style="position: absolute; left: 0; top: 0; display: block; width: ${L.w}px; height: ${L.boxH}px; transform-origin: ${f(at.x)}px ${f(at.y)}px; transform: rotate(${f(deg)}deg);">${inner}</span>`;
+
+        const headArt = layer(`
                     <path d="M${hx(-6)} ${hy(-7.5)}L${hx(24)} ${hy(-16.5)}A${f(2.4 * s)} ${f(16.5 * s)} 0 0 1 ${hx(24)} ${hy(16.5)}L${hx(-6)} ${hy(7.5)}Z" fill="${p.lampHead}" stroke="${p.line}" stroke-width="1.3" stroke-linejoin="round" />
                     <path d="M${hx(-6)} ${hy(3)}L${hx(24)} ${hy(7)}L${hx(24)} ${hy(16.5)}L${hx(-6)} ${hy(7.5)}Z" fill="rgba(20, 30, 28, 0.18)" />
                     <path d="M${hx(3)} ${hy(-9)}L${hx(21)} ${hy(-14.4)}" stroke="rgba(255, 255, 255, 0.38)" stroke-width="${f(2.2 * s)}" stroke-linecap="round" />
                     <rect x="${hx(-9)}" y="${hy(-4)}" width="${f(5 * s)}" height="${f(8 * s)}" rx="${f(1.5 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.1" />
                     <ellipse cx="${hx(24)}" cy="${hy(0)}" rx="${f(2.4 * s)}" ry="${f(16.5 * s)}" fill="${isNight ? '#fff3c8' : p.bulbOff}" stroke="${p.line}" stroke-width="1.2" />
-                </g>
+`);
+        const armArt = layer(arm(knee, pivot)) + turning('flashcards-lamp-head', pose.head, pivot, headArt) + layer(`
                 <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(4.6 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.2" />
                 <circle cx="${f(pivot.x)}" cy="${f(pivot.y)}" r="${f(1.6 * s)}" fill="${p.line}" opacity="0.55" />
-            </g>
+`);
+
+        return `<span class="flashcards-lamp-art" style="position: absolute; left: 0; top: 0; display: block; width: ${L.w}px; height: ${L.boxH}px; pointer-events: none;${isNight ? '' : ` filter: drop-shadow(${p.drop});`}">
+            ${layer(lit + arm({ x: base.x, y: base.y - 6 * s }, knee))}
+            ${turning('flashcards-lamp-arm', pose.arm, knee, armArt)}
+            ${layer(`
             <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(4.8 * s)}" fill="${p.lampArm}" stroke="${p.line}" stroke-width="1.2" />
             <circle cx="${f(knee.x)}" cy="${f(knee.y)}" r="${f(1.7 * s)}" fill="${p.line}" opacity="0.55" />
             <path d="M${f(base.x - 23 * s)} ${f(base.y + 1)}Q${f(base.x - 21 * s)} ${f(base.y - 11 * s)} ${f(base.x)} ${f(base.y - 11.5 * s)}Q${f(base.x + 21 * s)} ${f(base.y - 11 * s)} ${f(base.x + 23 * s)} ${f(base.y + 1)}Z" fill="${p.lampBase}" stroke="${p.line}" stroke-width="1.3" stroke-linejoin="round" />
             <path d="M${f(base.x - 16 * s)} ${f(base.y - 3.5 * s)}Q${f(base.x)} ${f(base.y - 10 * s)} ${f(base.x + 9 * s)} ${f(base.y - 8 * s)}" fill="none" stroke="rgba(255, 240, 215, 0.25)" stroke-width="${f(1.6 * s)}" stroke-linecap="round" />
-        </svg>`;
+`)}
+        </span>`;
+    }
+
+    function lampParts() {
+        const lamp = stageEl && stageEl.querySelector('.flashcards-lamp');
+        const arm = lamp && lamp.querySelector('.flashcards-lamp-arm');
+        const head = lamp && lamp.querySelector('.flashcards-lamp-head');
+        return arm && head ? [arm, head] : null;
+    }
+
+    // `parts` the lamp a move began on: a move outlived by a redraw (a quick
+    // second press of the lamp) put its last pose on the new lamp, which was
+    // then left up by day or down at night
+    function poseLamp(pose, parts = lampParts()) {
+        if (!parts) return;
+        parts[0].style.transform = `rotate(${pose.arm}deg)`;
+        parts[1].style.transform = `rotate(${pose.head}deg)`;
+    }
+
+    // The arm and the head made layers of their own ahead of their move, so
+    // that the browser has them ready by the time they set off
+    function readyLamp(ready) {
+        (lampParts() || []).forEach(el => { el.style.willChange = ready ? 'transform' : ''; });
     }
 
     /*
-     * The lamp moved from one pose to the other, a frame at a time: its arm
-     * and head are turned by their transform attributes, which hold the
-     * point they turn about -- simpler and surer than CSS transforms on
-     * nested SVG groups. Answers when it is done.
+     * The lamp moved from one pose to the other. The arm and the head are
+     * layers of their own (see deskLampSvg), and their turns are animations
+     * of CSS transforms, which the browser runs off the main thread without
+     * drawing anything again -- where each frame used to set their transform
+     * attributes and draw the lamp anew, and on a weak phone the move came
+     * in jerks (the owner, 21 November 2026). The spring of the move is
+     * written out as keyframes. Done by a timer rather than by the
+     * animations' own ending: a page out of sight gets no frames, and the
+     * lamp must not stay half up.
      */
     function moveLamp(from, to, ms) {
-        const lamp = stageEl && stageEl.querySelector('.flashcards-lamp');
-        const armEl = lamp && lamp.querySelector('.flashcards-lamp-arm');
-        const headEl = lamp && lamp.querySelector('.flashcards-lamp-head');
-        if (!armEl || !headEl) return Promise.resolve();
+        const parts = lampParts();
+        if (!parts) return Promise.resolve();
 
-        const L = layoutOf();
-        const { knee, pivot } = lampGeometry(L);
-        const f = (v) => Math.round(v * 100) / 100;
+        const [armEl, headEl] = parts;
 
-        const set = (pose) => {
-            armEl.setAttribute('transform', `rotate(${f(pose.arm)} ${f(knee.x)} ${f(knee.y)})`);
-            headEl.setAttribute('transform', `rotate(${f(pose.head)} ${f(pivot.x)} ${f(pivot.y)})`);
-        };
-
-        set(from);
+        poseLamp(from, parts);
         if (!MOTION) {
-            set(to);
+            poseLamp(to, parts);
             return Promise.resolve();
         }
 
@@ -1018,31 +1062,38 @@ function flashcards(container) {
 
         // Out quickly, settling with a little give, as a sprung arm does
         const ease = (t) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
-        const start = performance.now();
+        const STEPS = 16;
+        const frames = (a, b) => Array.from({ length: STEPS + 1 }, (_, i) => ({
+            transform: `rotate(${Math.round((a + (b - a) * ease(i / STEPS)) * 100) / 100}deg)`,
+            offset: i / STEPS
+        }));
+        const how = { duration: ms, easing: 'linear', fill: 'forwards' };
 
-        // And in the pose it was going to whatever happens to the frames: a
-        // page out of sight gets none, and the lamp must not stay half up
+        parts.forEach(el => { el.style.willChange = 'transform'; });
+        const moves = [armEl.animate(frames(from.arm, goal.arm), how), headEl.animate(frames(from.head, goal.head), how)];
+
         return new Promise(done => {
-            let over = false;
-            const finish = () => {
-                if (over) return;
-                over = true;
-                set(to);
+            setTimeout(() => {
+                poseLamp(to, parts);
+                moves.forEach(m => m.cancel());
+                parts.forEach(el => { el.style.willChange = ''; });
                 done();
-            };
-
-            const step = (now) => {
-                if (over) return;
-                const t = Math.min(1, (now - start) / ms);
-                const k = ease(t);
-                set({ arm: from.arm + (goal.arm - from.arm) * k, head: from.head + (goal.head - from.head) * k });
-                if (t < 1 && armEl.isConnected) requestAnimationFrame(step);
-                else finish();
-            };
-
-            requestAnimationFrame(step);
-            setTimeout(finish, ms + 120);
+            }, ms + 40);
         });
+    }
+
+    // After the browser has put on the screen what was just drawn: two frames
+    // on -- or soon, if no frames are coming (a page out of sight gets none)
+    function afterPaint(fn) {
+        let done = false;
+        const go = () => {
+            if (done) return;
+            done = true;
+            fn();
+        };
+
+        requestAnimationFrame(() => requestAnimationFrame(go));
+        setTimeout(go, 400);
     }
 
     /*
@@ -1572,6 +1623,8 @@ function flashcards(container) {
      * which would put the card away, so the wash asks first whether the
      * press landed on the lamp.
      */
+    let lampTurn = 0;
+
     function switchLamp() {
         if (busy) return;
 
@@ -1583,26 +1636,52 @@ function flashcards(container) {
         if (!stageEl) return;
 
         const L = layoutOf();
-
-        if (!isNight) {
-            moveLamp(poseOf(true, L), poseOf(false, L), 420);
-            return;
-        }
-
-        if (!MOTION) return;
+        const from = poseOf(!isNight, L);
+        const to = poseOf(isNight, L);
+        const token = ++lampTurn;
 
         // Up first, in the dark; then the light, catching once
         const RISE = 560;
-        // The light comes on and trembles once, a little -- it does not drop
-        // back towards dark (the owner)
-        const flicker = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
 
-        // The shade outside the cone with the light, not before it: a card on
-        // the table had its edges and its buttons dark before the lamp was on
-        // (the owner)
-        stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam, .flashcards-shade').forEach(el => el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' }));
-        moveLamp(poseOf(false, L), poseOf(true, L), RISE);
-        lightUp();
+        /*
+         * The room first and the lamp after it (the owner, on a weak phone,
+         * 21 November 2026): the whole shelf has just been drawn again in the
+         * other theme, the heaviest frame there is, and a lamp set moving in
+         * that same frame lost the start of its move to it, in both
+         * directions. So the lamp waits in the pose it had until the new room
+         * is on the screen, its layers made ready meanwhile, and only then
+         * moves; at night all that comes on with it waits too, held where it
+         * starts -- and the bulbs' twinkling until every string is lit.
+         */
+        poseLamp(from);
+        readyLamp(true);
+
+        const held = [];
+
+        if (isNight && MOTION) {
+            // The light comes on and trembles once, a little -- it does not
+            // drop back towards dark (the owner). The shade outside the cone
+            // with it, not before it: a card on the table had its edges and
+            // its buttons dark before the lamp was on (the owner)
+            const flicker = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
+
+            stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam, .flashcards-shade').forEach(el => held.push(el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' })));
+            held.push(...lightUp());
+            holdTwinkle(true);
+        }
+
+        held.forEach(a => a.pause());
+
+        afterPaint(() => {
+            if (token !== lampTurn || !stageEl) return;
+
+            held.forEach(a => a.play());
+            moveLamp(from, to, isNight ? RISE : 420);
+
+            if (isNight) setTimeout(() => {
+                if (token === lampTurn && !tableUp) holdTwinkle(false);
+            }, LIT_UP);
+        });
     }
 
     function onLamp(e) {
@@ -1830,8 +1909,11 @@ function flashcards(container) {
 
     // The table's furniture in and out: the wash, the buttons, the cross, and
     // at night the lamp's beam, drawn again each time -- the shelf may have
-    // grown under the table since it was last shown
-    function showTable(on) {
+    // grown under the table since it was last shown. `instant` for a table
+    // that was up already and is only drawn again (the theme switched, the
+    // voices came): faded in anew, the buttons went out and came back while
+    // the lamp was switched (the owner)
+    function showTable(on, instant) {
         const overlay = overlayEl();
         if (!overlay) return;
 
@@ -1854,14 +1936,14 @@ function flashcards(container) {
             // meant for them
             const light = el.classList.contains('flashcards-beam') || el.classList.contains('flashcards-shade');
             el.style.pointerEvents = to && !light ? '' : 'none';
-            el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: to }], { duration: dur(220), easing: 'ease-out', fill: 'forwards' });
+            el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: to }], { duration: instant ? 0 : dur(220), easing: 'ease-out', fill: 'forwards' });
         };
 
         TABLE.forEach(sel => fade(overlay.querySelector(sel), on ? 1 : 0));
 
         // The cone over the shelf gives way to the one over the table
         const shelfCone = stageEl.querySelector('.flashcards-shelf-cone');
-        if (shelfCone) shelfCone.animate([{ opacity: getComputedStyle(shelfCone).opacity }, { opacity: on ? 0 : 1 }], { duration: dur(220), easing: 'ease-out', fill: 'forwards' });
+        if (shelfCone) shelfCone.animate([{ opacity: getComputedStyle(shelfCone).opacity }, { opacity: on ? 0 : 1 }], { duration: instant ? 0 : dur(220), easing: 'ease-out', fill: 'forwards' });
     }
 
     /*
@@ -2294,7 +2376,7 @@ function flashcards(container) {
 
         if (held) {
             layCard(held);
-            showTable(true);
+            showTable(true, true);
         }
 
         // The arrows once a page, over the shelf the player arrives at, and
