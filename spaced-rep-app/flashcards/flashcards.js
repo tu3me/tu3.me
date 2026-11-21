@@ -450,7 +450,7 @@ function flashcards(container) {
      * In SVG, sized to the box in pixels, so that the lines fall on the same
      * places at either size; the lettering stays HTML on top -- see boxInner.
      */
-    function boxSvg(n, info, L) {
+    function boxSvg(n, info, L, garland) {
         const p = palette;
         const W = L.w;
         const H = L.boxH;
@@ -519,7 +519,7 @@ function flashcards(container) {
             <rect ${front} fill="url(#${id}-k)" stroke="${p.line}" stroke-width="1.1" />
             <rect ${front} fill="url(#${id}-e)" />
             <path d="M2.6 ${ft + 1.7}H${r(W - 2.6)}" stroke="${p.kraftLight}" stroke-width="1.2" stroke-linecap="round" />
-            ${info.ready ? garlandSvg(n, L) : ''}
+            ${garland ? garland.art : ''}
         </svg>`;
     }
 
@@ -605,13 +605,12 @@ function flashcards(container) {
     function garlandSvg(n, L) {
         const p = palette;
         const f = (v) => Math.round(v * 10) / 10;
-        const rnd = seeded(n * 31 + (L.name === 'few' ? 7 : 3));
+        const rnd = seeded(n * 31 + 3);
         const W = L.w;
-        const few = L.name === 'few';
 
         const drape = DRAPES[n % DRAPES.length];
         const mirror = rnd() < 0.5;
-        const jitter = few ? 2.6 : 1.8;
+        const jitter = 1.8;
 
         const pts = drape(W, L.boxH, L.frontTop, L.rimTop).map(([x, y]) => [
             (mirror ? W - x : x) + (rnd() - 0.5) * 2 * jitter,
@@ -633,7 +632,7 @@ function flashcards(container) {
 
         const length = run[run.length - 1];
         const stops = [];
-        for (let dist = 6 + rnd() * 10; dist < length - 3; dist += (few ? 30 : 22) + rnd() * (few ? 14 : 10)) stops.push(dist);
+        for (let dist = 6 + rnd() * 10; dist < length - 3; dist += 22 + rnd() * 10) stops.push(dist);
 
         let bulbs = '';
         let sparks = '';
@@ -654,7 +653,7 @@ function flashcards(container) {
                 return;
             }
 
-            const halo = (few ? 15 : 11) * big * (0.85 + rnd() * 0.35);
+            const halo = 11 * big * (0.85 + rnd() * 0.35);
 
             // Its own group, the socket left out, for switching on (see lightUp)
             bulbs += `${socket}<g class="flashcards-bulb"><circle class="flashcards-bulb-bloom" cx="${x}" cy="${y}" r="${f(halo * 2.6)}" fill="url(#fc-bloom)" /><circle class="flashcards-bulb-glow" cx="${x}" cy="${y}" r="${f(halo)}" fill="url(#fc-bulb-${c})" /><ellipse cx="${x}" cy="${y}" rx="${f(1.7 * big)}" ry="${f(2.2 * big)}" fill="#ffd36a" stroke="#4a2a10" stroke-width="0.4" /><circle cx="${x}" cy="${f(pt.y + 2 * big)}" r="${f(1.2 * big)}" fill="#fff6d0" /></g>`;
@@ -669,7 +668,9 @@ function flashcards(container) {
 
         const wire = `<path d="${d}" fill="none" stroke="${isNight ? '#2a1a0e' : p.line}" stroke-opacity="${isNight ? 0.9 : 0.4}" stroke-width="0.8" stroke-linecap="round" />`;
 
-        if (!isNight) return `<g class="flashcards-garland">${wire}${bulbs}</g>`;
+        // By day nothing on it moves, and it stays in the box's drawing, under
+        // its drop shadow
+        if (!isNight) return { art: `<g class="flashcards-garland">${wire}${bulbs}</g>`, lights: '' };
 
         // The box warmed by its lights, and a band of light along the wire
         const front = `x="0.55" y="${L.frontTop}" width="${f(W - 1.1)}" height="${f(L.boxH - L.frontTop - 0.55)}" rx="${L.round}"`;
@@ -680,7 +681,9 @@ function flashcards(container) {
          * than evenly (the owner): a few soft warm pools of different sizes
          * and strengths, each where a bulb hangs -- a bulb outside the box
          * lights the edge nearest it -- kept to the box's own outline, and
-         * breathing slowly (see twinkle). Which bulbs, how big and how strong
+         * still: they breathed slowly once, and on an old phone that was the
+         * whole box drawn again at every frame (see twinkle). Which bulbs, how
+         * big and how strong
          * is the box's seeded random, so it keeps its light from one look to
          * the next.
          */
@@ -697,9 +700,28 @@ function flashcards(container) {
         }).join('');
 
         const patches = `<defs>${clip}</defs><g clip-path="url(#${clipId})">${pools}</g>`;
-        const spill = `<path class="flashcards-bulb-glow" d="${d}" fill="none" stroke="#ff9a35" stroke-opacity="0.2" stroke-width="${few ? 20 : 15}" stroke-linecap="round" filter="url(#fc-garland-soft)" style="mix-blend-mode: screen;" />`;
+        /*
+         * The band along the wire, soft at its edges: strokes laid one over
+         * another, each narrower than the last, where it was one stroke under
+         * a blur filter -- a blur is worked out afresh at every repaint, and
+         * old phones stuttered (21 November 2026). Four steps of a faint
+         * orange read as the blur did.
+         */
+        const spill = `<g fill="none" stroke="#ff9a35" stroke-linecap="round" style="mix-blend-mode: screen;">${[34, 26, 16, 6].map(w => `<path d="${d}" stroke-opacity="0.04" stroke-width="${w}" />`).join('')}</g>`;
 
-        return `<g class="flashcards-garland"><g class="flashcards-garland-light">${warm}${patches}${spill}</g>${wire}${bulbs}<g class="flashcards-sparks">${sparks}</g></g>`;
+        /*
+         * `art` goes into the box's drawing, under its drop shadow, and is
+         * drawn once; `lights` -- the wire, the bulbs, the sparks, which
+         * twinkle -- over it, in a drawing of its own with no filter on it.
+         * Inside the box's drawing every twinkle drew the box again, its
+         * drop shadow and all, at every frame. The light stays with the box
+         * because it is screened over the cardboard, which a separate drawing
+         * cannot do.
+         */
+        return {
+            art: `<g class="flashcards-garland-light">${warm}${patches}${spill}</g>`,
+            lights: `<g class="flashcards-garland">${wire}${bulbs}<g class="flashcards-sparks">${sparks}</g></g>`
+        };
     }
 
     /*
@@ -716,35 +738,63 @@ function flashcards(container) {
         const DARK = 380;
         const on = [{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0.45, offset: 0.55 }, { opacity: 1 }];
 
-        stageEl.querySelectorAll('.flashcards-garland').forEach(garland => {
+        stageEl.querySelectorAll('.flashcards-box').forEach(box => {
+            if (!box.querySelector('.flashcards-bulb')) return;
+
             const at = DARK + Math.random() * 1100;
 
-            garland.querySelectorAll('.flashcards-bulb').forEach(bulb => {
+            box.querySelectorAll('.flashcards-bulb').forEach(bulb => {
                 bulb.animate(on, { duration: 240, delay: at + Math.random() * 520, easing: 'linear', fill: 'backwards' });
             });
 
-            garland.querySelectorAll('.flashcards-garland-light, .flashcards-sparks').forEach(el => {
+            box.querySelectorAll('.flashcards-garland-light, .flashcards-sparks').forEach(el => {
                 el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: at + 120, easing: 'ease-out', fill: 'backwards' });
             });
         });
     }
 
-    // Every lit bulb breathing in its own time, at night -- dimming a little,
-    // never going out -- and the sparks coming and going
-    function twinkle() {
-        if (!isNight || !MOTION || !stageEl) return;
+    /*
+     * Every lit bulb breathing in its own time, at night -- dimming a little,
+     * never going out -- and the sparks coming and going. Nothing else on the
+     * shelf moves on its own, and that is the point (21 November 2026, old
+     * phones stuttering at night): what an endless animation touches is drawn
+     * again at every frame, and so it is only the bulbs and the sparks, in a
+     * drawing of their own with no filter on it (see garlandSvg). The light
+     * on the boxes and the band along the wire used to breathe too, the band
+     * under a blur, the whole under each box's drop shadow.
+     *
+     * `root` is the stage, or a box drawn again. While a card is on the
+     * table the twinkling is held -- the shelf is under the wash then, and
+     * nobody looks at it -- see showTable.
+     */
+    let twinkling = [];
+    let tableUp = false;
 
-        stageEl.querySelectorAll('.flashcards-bulb-glow').forEach((el, i) => {
-            el.animate([{ opacity: 1 }, { opacity: 0.6 + (i % 3) * 0.1 }], { duration: 1100 + (i * 337) % 1300, delay: (i * 211) % 900, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+    function twinkle(root) {
+        if (!isNight || !MOTION || !root) return;
+
+        twinkling = twinkling.filter(a => a.effect && a.effect.target && a.effect.target.isConnected);
+
+        // Each box its own rhythms, not the same pattern again in every box
+        const k = root.dataset && root.dataset.box ? +root.dataset.box * 5 : 0;
+        const add = (a) => {
+            if (tableUp) a.pause();
+            twinkling.push(a);
+        };
+
+        root.querySelectorAll('.flashcards-bulb-glow').forEach((el, j) => {
+            const i = j + k;
+            add(el.animate([{ opacity: 1 }, { opacity: 0.6 + (i % 3) * 0.1 }], { duration: 1100 + (i * 337) % 1300, delay: (i * 211) % 900, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
         });
 
-        stageEl.querySelectorAll('.flashcards-box-glow').forEach((el, i) => {
-            el.animate([{ opacity: 1 }, { opacity: 0.7 }], { duration: 2600 + (i * 613) % 2200, delay: (i * 389) % 1500, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+        root.querySelectorAll('.flashcards-spark').forEach((el, j) => {
+            const i = j + k;
+            add(el.animate([{ opacity: 0.1 }, { opacity: 1 }], { duration: 700 + (i * 271) % 900, delay: (i * 157) % 1200, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }));
         });
+    }
 
-        stageEl.querySelectorAll('.flashcards-spark').forEach((el, i) => {
-            el.animate([{ opacity: 0.1 }, { opacity: 1 }], { duration: 700 + (i * 271) % 900, delay: (i * 157) % 1200, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
-        });
+    function holdTwinkle(hold) {
+        twinkling.forEach(a => hold ? a.pause() : a.play());
     }
 
     // One colour `share` of the way to another, both #rrggbb
@@ -773,7 +823,7 @@ function flashcards(container) {
         </span>`;
     }
 
-    function boxInner(n, info, L) {
+    function boxParts(n, info, L) {
         const p = palette;
         const ready = info.ready > 0;
 
@@ -783,9 +833,21 @@ function flashcards(container) {
 
         const pill = `<span style="display: inline-flex; align-items: baseline; padding: ${L.pillPad}; border-radius: 99px; background: ${ready ? p.ready : p.pill}; color: ${ready ? p.readyInk : p.pillInk}; border: 1px solid ${p.line}; white-space: nowrap; font-variant-numeric: tabular-nums;"><span>${info.ready}</span><span style="opacity: 0.75;">/${info.total}</span></span>`;
 
-        const foot = `<span style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
+        const foot = `<span class="flashcards-box-foot" style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
 
-        return boxSvg(n, info, L) + plate + foot;
+        const garland = info.ready ? garlandSvg(n, L) : null;
+        const lights = garland && garland.lights ? `<svg class="flashcards-box-lights" width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;">${garland.lights}</svg>` : '';
+
+        return { art: boxSvg(n, info, L, garland) + lights, plate, foot };
+    }
+
+    // What each box was last drawn with, by its number -- see refreshBoxes
+    const drawnBox = new Map();
+
+    function boxInner(n, info, L) {
+        const parts = boxParts(n, info, L);
+        drawnBox.set(n, parts);
+        return parts.art + parts.plate + parts.foot;
     }
 
     /*
@@ -983,17 +1045,6 @@ function flashcards(container) {
         });
     }
 
-    // A five-pointed star of radius `R` round (cx, cy)
-    function starPath(cx, cy, R) {
-        const pts = [];
-        for (let i = 0; i < 10; i++) {
-            const a = -Math.PI / 2 + i * Math.PI / 5;
-            const rr = i % 2 ? R * 0.46 : R;
-            pts.push(`${Math.round((cx + Math.cos(a) * rr) * 10) / 10},${Math.round((cy + Math.sin(a) * rr) * 10) / 10}`);
-        }
-        return `M${pts.join('L')}Z`;
-    }
-
     /*
      * The boxes in order, left to right along each shelf and shelf after
      * shelf, the free place last -- as the boxes of the pictures are
@@ -1098,9 +1149,9 @@ function flashcards(container) {
         if (cone) $(stageEl, lightSvg(cone, 'flashcards-night flashcards-lamplight flashcards-shelf-cone', 'fc-shelf-beam', `top: ${top}px; z-index: 2;`, BEAM_STRENGTH));
 
         // The glow of the bulbs on the boxes, defined once for all of them
-        $(stageEl, `<svg class="flashcards-night" aria-hidden="true" width="0" height="0" style="position: absolute;"><defs><filter id="fc-garland-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" /></filter>${BULBS.map((c, i) => `<radialGradient id="fc-bulb-${i}"><stop offset="0" stop-color="#fff3c2" stop-opacity="1" /><stop offset="0.14" stop-color="#ffd067" stop-opacity="0.95" /><stop offset="0.32" stop-color="${c}" stop-opacity="0.62" /><stop offset="0.6" stop-color="#ff8a24" stop-opacity="0.2" /><stop offset="1" stop-color="#ff8a24" stop-opacity="0" /></radialGradient>`).join('')}<radialGradient id="fc-bloom"><stop offset="0" stop-color="#ff9a3a" stop-opacity="0.16" /><stop offset="0.5" stop-color="#ff9a3a" stop-opacity="0.06" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient><radialGradient id="fc-box-lit" cx="0.5" cy="0.15" r="0.85"><stop offset="0" stop-color="#ffa840" stop-opacity="0.36" /><stop offset="1" stop-color="#ffa840" stop-opacity="0.06" /></radialGradient><radialGradient id="fc-box-spot"><stop offset="0" stop-color="#ffbe62" stop-opacity="0.62" /><stop offset="0.45" stop-color="#ffa646" stop-opacity="0.3" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient></defs></svg>`);
+        $(stageEl, `<svg class="flashcards-night" aria-hidden="true" width="0" height="0" style="position: absolute;"><defs>${BULBS.map((c, i) => `<radialGradient id="fc-bulb-${i}"><stop offset="0" stop-color="#fff3c2" stop-opacity="1" /><stop offset="0.14" stop-color="#ffd067" stop-opacity="0.95" /><stop offset="0.32" stop-color="${c}" stop-opacity="0.62" /><stop offset="0.6" stop-color="#ff8a24" stop-opacity="0.2" /><stop offset="1" stop-color="#ff8a24" stop-opacity="0" /></radialGradient>`).join('')}<radialGradient id="fc-bloom"><stop offset="0" stop-color="#ff9a3a" stop-opacity="0.16" /><stop offset="0.5" stop-color="#ff9a3a" stop-opacity="0.06" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient><radialGradient id="fc-box-lit" cx="0.5" cy="0.15" r="0.85"><stop offset="0" stop-color="#ffa840" stop-opacity="0.36" /><stop offset="1" stop-color="#ffa840" stop-opacity="0.06" /></radialGradient><radialGradient id="fc-box-spot"><stop offset="0" stop-color="#ffbe62" stop-opacity="0.62" /><stop offset="0.45" stop-color="#ffa646" stop-opacity="0.3" /><stop offset="1" stop-color="#ff9a3a" stop-opacity="0" /></radialGradient></defs></svg>`);
 
-        twinkle();
+        twinkle(stageEl);
     }
 
     function boxEl(n) {
@@ -1111,6 +1162,13 @@ function flashcards(container) {
      * The figures and the cards of every box, drawn again in place: after a
      * card leaves or lands, and every so often while the shelf is looked at,
      * because a timer runs out without anybody pressing anything.
+     *
+     * Only what has changed (21 November 2026, old phones): a card moving
+     * changes two boxes, and the timer most often none. All fourteen were
+     * drawn anew every time -- at night some eight hundred pieces of drawing
+     * with their filters, a stutter after every answer. A box whose drawing
+     * or label is as it was keeps them; one whose figures alone changed gets
+     * new figures only.
      */
     function refreshBoxes() {
         if (!stageEl) return;
@@ -1121,14 +1179,22 @@ function flashcards(container) {
         stageEl.querySelectorAll('.flashcards-box').forEach(box => {
             const n = +box.dataset.box;
             const info = counts[n];
+            const parts = boxParts(n, info, L);
+            const was = drawnBox.get(n);
+            const foot = box.querySelector('.flashcards-box-foot');
 
-            box.innerHTML = boxInner(n, info, L);
+            if (!was || was.art !== parts.art || was.plate !== parts.plate || !foot) {
+                box.innerHTML = parts.art + parts.plate + parts.foot;
+                twinkle(box);
+            } else if (was.foot !== parts.foot) {
+                foot.outerHTML = parts.foot;
+            }
+
+            drawnBox.set(n, parts);
             box.dataset.press = pressOf(n, info);
             box.setAttribute('aria-label', labelOf(n, info));
             box.title = labelOf(n, info);
         });
-
-        twinkle();
     }
 
     /*
@@ -1238,7 +1304,15 @@ function flashcards(container) {
             const wing = (turn) => `${f(to.x - Math.cos(ang + turn) * 6.5)} ${f(to.y - Math.sin(ang + turn) * 6.5)}`;
             const head = `M${wing(0.5)}L${f(to.x)} ${f(to.y)}L${wing(-0.5)}`;
 
-            defs += `<mask id="fc-arrow-${i}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="${stageEl.offsetWidth + 40}" height="${stageEl.offsetHeight + 40}"><path class="flashcards-arrow-reveal" d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" /></mask>`;
+            // The mask no bigger than its arrow (the curve keeps inside its
+            // four points), not the whole stage: it is drawn again at every
+            // frame of the drawing and the wiping
+            const xs = [from.x, c1.x, c2.x, to.x];
+            const ys = [from.y, c1.y, c2.y, to.y];
+            const mx = Math.min(...xs) - 10;
+            const my = Math.min(...ys) - 10;
+
+            defs += `<mask id="fc-arrow-${i}" maskUnits="userSpaceOnUse" x="${f(mx)}" y="${f(my)}" width="${f(Math.max(...xs) + 10 - mx)}" height="${f(Math.max(...ys) + 10 - my)}"><path class="flashcards-arrow-reveal" d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" /></mask>`;
 
             // A line of round dots, with no shadow (the owner): dashes of no
             // length, the round caps making each one a dot
@@ -1761,6 +1835,9 @@ function flashcards(container) {
         const overlay = overlayEl();
         if (!overlay) return;
 
+        tableUp = on;
+        holdTwinkle(on);
+
         if (on) {
             placeTable(overlay);
 
@@ -2159,6 +2236,8 @@ function flashcards(container) {
     function render() {
         closeSetMenu();
         container.innerHTML = '';
+        twinkling = [];
+        tableUp = false;
 
         // Whatever was in the air belongs to the screen that is gone
         drawn += 1;
@@ -2359,7 +2438,7 @@ function flashcards(container) {
             kraft: '#d6b389', kraftMid: '#c9a479', kraftLow: '#b99368', kraftLight: '#e8d1ae', rim: '#dcc09b', edgeShade: 'rgba(70, 42, 18, 0.2)',
             inside: '#8c6d52', insideLow: '#5f4733', insideLeft: '#76593f', insideRight: '#9a7a5c', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
             boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)',
-            paper: '#fcf6e4', paperBack: '#f5ecd6', cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d',
+            cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d',
             tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
             brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
@@ -2379,7 +2458,7 @@ function flashcards(container) {
             kraft: '#7c6650', kraftMid: '#705b47', kraftLow: '#5f4d3c', kraftLight: '#8e775e', rim: '#86705a', edgeShade: 'rgba(0, 0, 0, 0.32)',
             inside: '#463a2f', insideLow: '#251d17', insideLeft: '#3a2f27', insideRight: '#524337', rimShade: 'rgba(0, 0, 0, 0.55)', frontCast: 'rgba(0, 0, 0, 0.45)',
             boxShadow: 'rgba(0, 0, 0, 0.5)', drop: '3px 2px 3px rgba(0, 0, 0, 0.5)',
-            paper: '#c9bb9f', paperBack: '#c1b294', cardShade: '#3e3229', cardCast: 'rgba(0, 0, 0, 0.32)', cardLine: '#3a2d22',
+            cardShade: '#3e3229', cardCast: 'rgba(0, 0, 0, 0.32)', cardLine: '#3a2d22',
             tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
             brass: '#957a5b', brassLight: '#a88c6b', labelPaper: '#d6c7a6', labelInk: '#2a1f16', stampInk: '#d8c6a2',
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
