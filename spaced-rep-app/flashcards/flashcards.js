@@ -259,7 +259,8 @@ function flashcards(container) {
     // it took off has nothing left to land on
     let drawn = 0;
 
-    // The arrows over the shelf are shown once a page, when it opens
+    // The run up the shelf, with its arrows, is played once a page, when it
+    // opens (introHops)
     let introduced = false;
 
     let stageEl = null;
@@ -386,16 +387,16 @@ function flashcards(container) {
     /*
      * The boxes with a card ready in them hop now and then, one at a time and
      * at no fixed beat -- a double hop, the owner's call the same evening, of
-     * the hop they give when the arrows reach them --
+     * the hop they give in the run up the shelf --
      * the owner's call, 20 November 2026, in place of the cards inside them
-     * hopping as the catalog's bubbles do. Not until the arrows are done (or
-     * waved away), not while a card is on the table, and not at all with the
+     * hopping as the catalog's bubbles do. Not until the run is done (or cut
+     * short), not while a card is on the table, and not at all with the
      * set's Bounce switched off in its view menu, the same switch that stills
-     * the bubbles. No sound: the arrows' pops are a greeting, and this would
+     * the bubbles. No sound: the run's pops are a greeting, and this would
      * be a noise that never stops.
      */
-    // One hop for an arrow arriving; two in a row, the second a little lower,
-    // for a box calling to be opened (the owner)
+    // One hop for a box's turn in the run up the shelf; two in a row, the
+    // second a little lower, for a box calling to be opened (the owner)
     function hopBox(box, twice) {
         if (!box) return;
 
@@ -1292,9 +1293,9 @@ function flashcards(container) {
      * The boxes in order, left to right along each shelf and shelf after
      * shelf, the free place last -- as the boxes of the pictures are
      * numbered. They stood as a snake for an afternoon (6 5 4 on the second
-     * shelf), so that the arrows from box to box would never cross; the owner
-     * put them back in rows the same evening, and the arrows are drawn one
-     * after another instead, so that none crosses another while it is drawn.
+     * shelf), so that the arrows from box to box would never cross; the
+     * owner put them back in rows the same evening, and the arrows are shown
+     * one after another instead, and only along a shelf (see introHops).
      */
     function rowsOf(L) {
         const rows = [];
@@ -1497,23 +1498,38 @@ function flashcards(container) {
     }
 
     /*
-     * ---- The arrows ----
+     * ---- The run up the shelf ----
      *
-     * When the shelf opens, a dotted arrow draws itself from box 1 to box 2
-     * and is wiped, and the boxes after it hop one after another, each with
-     * its pop, as far as the last -- the way a card travels when it is
-     * answered right, which is the whole of the game in one look (the owner's
-     * call, 20 November 2026; the dashed arrow is the pictures'). Until the
-     * evening of 22 November an arrow went from every box to the next, along
-     * the shelf over the gap and from the end of a shelf down across it; the
-     * owner kept the first and let the hops say the rest.
+     * When the shelf opens, the boxes hop one after another, 1 to the last,
+     * each with a soft pop a step higher than the one before -- the way a
+     * card travels when it is answered right, which is the whole of the game
+     * in one look, heard as a rising run (the owner, 20 November 2026). Light,
+     * and under the sound effects' switch, as every sound of the games is
+     * (see sfx). Gathering speed as it goes (the owner, 22 November 2026):
+     * the first step at an easy pace, each after it quicker by a sixth, down
+     * to a floor -- at one pace all the way the run took six and a half
+     * seconds and dragged at its end; so it takes under three.
      *
-     * Once a page and not on every redraw, and not over a card already on the
-     * table. A press anywhere takes them away at once; they take no presses
-     * themselves.
+     * Along a shelf a dotted arrow shows each step, an arc over the gap from
+     * one box to the next, as in the pictures: one at a time, each coming on
+     * whole as its step begins and going off as the next one comes on, the
+     * box it points to hopping near the step's end. Not from the end of a
+     * shelf to the start of the next, which crossed the shelf (the owner, 22
+     * November 2026): that step has its hop and no arrow.
+     *
+     * On and off, with no movement (the owner, the same evening). The
+     * arrows were drawn through an SVG mask, a dash as long as the path slid
+     * along it: a mask is worked out afresh at every frame, the arrows'
+     * layer lay over the whole shelf and was painted again with everything
+     * under it, and the drawing stuttered. Drawn other ways -- a window
+     * sliding one way with the drawing sliding back, which shook; a
+     * clip-path edge -- then cut to the first arrow alone, they were taken
+     * out for a moment and came back as these.
+     *
+     * Once a page and not on every redraw, and not under a card already on
+     * the table. A press anywhere ends it at once.
      */
-    function introArrows(token) {
-        // No arrows after all: the boxes' hops start without them
+    function introHops(token) {
         if (!MOTION || token !== drawn || held || !stageEl) {
             if (token === drawn) idleHops(token);
             return;
@@ -1521,80 +1537,47 @@ function flashcards(container) {
 
         const L = layoutOf();
         const p = palette;
-        // In the order of their numbers, which on the snake is not the order
-        // they stand in on the page
-        const boxes = Array.from(stageEl.querySelectorAll('.flashcards-box')).sort((a, b) => a.dataset.box - b.dataset.box);
-        if (boxes.length < 2) return;
-
-        const spots = boxes.map(box => ({ ...offsetIn(box), w: box.offsetWidth, h: box.offsetHeight }));
         const f = (v) => Math.round(v * 10) / 10;
 
-        // One after another, each drawn to its head before the next begins
-        // (the owner): the one from the end of a shelf to the start of the
-        // next crosses the shelf, and drawn alongside the others it crossed
-        // them. Each is wiped as the next is drawn -- see below
+        // In the order of their numbers
+        const boxes = Array.from(stageEl.querySelectorAll('.flashcards-box')).sort((a, b) => a.dataset.box - b.dataset.box);
+        if (boxes.length < 2) return idleHops(token);
 
-        let body = '';
+        const spots = boxes.map(box => ({ ...offsetIn(box), w: box.offsetWidth, h: box.offsetHeight }));
 
-        const routes = spots.slice(1).map((b, i) => {
-            const a = spots[i];
-            let from, to, c1, c2;
+        const FIRST = 420;
+        const SPEED_UP = 0.84;
+        const FASTEST = 90;
 
-            if (Math.abs(a.y - b.y) < 2) {
-                // Along the shelf, whichever way this shelf runs: an arc over
-                // the gap between the two
-                const way = b.x > a.x ? 1 : -1;
-                from = { x: a.x + a.w * (way > 0 ? 0.72 : 0.28), y: a.y + L.rimTop + 2 };
-                to = { x: b.x + b.w * (way > 0 ? 0.28 : 0.72), y: b.y + L.rimTop + 2 };
-                c1 = { x: from.x + way * 6, y: a.y - L.rowGap - 4 };
-                c2 = { x: to.x - way * 6, y: b.y - L.rowGap - 4 };
-            } else {
-                // From the foot of the last box of a shelf, clear of its label
-                // and figures, across to the first box of the next
-                from = { x: a.x + a.w * 0.14, y: a.y + a.h - 2 };
-                to = { x: b.x + b.w * 0.72, y: b.y + L.rimTop + 2 };
-                c1 = { x: from.x - 12, y: from.y + 18 };
-                c2 = { x: to.x + 22, y: to.y - 22 };
-            }
-
-            return { from, to, c1, c2 };
+        // The steps from each box to the next: each a sixth quicker than the
+        // last, with a short breath between them
+        const steps = [];
+        let begin = 0;
+        spots.slice(1).forEach((_, i) => {
+            const length = Math.max(FASTEST, FIRST * Math.pow(SPEED_UP, i));
+            steps.push({ begin, length });
+            begin += length + 60 * Math.pow(SPEED_UP, i);
         });
 
-        /*
-         * Each arrow drawn once, whole, standing still, in a small layer of
-         * its own (will-change), and only the edge of its clip moving: a
-         * clip-path inset that opens it from its tail to its head and then
-         * closes it the same way (the owner, 22 November 2026). What changes
-         * at a frame is one arrow's clip -- at worst its own small layer
-         * painted again, never the shelf under it.
-         *
-         * Until then the arrow was drawn through an SVG mask, a dash as long
-         * as the path slid along it: a mask is worked out afresh at every
-         * frame, and the arrows' layer, lying over the whole shelf, was
-         * painted again with everything under it -- the drawing stuttered.
-         * The same evening, for a moment, the arrows came on and went off
-         * with no movement at all, and then were shown through a window
-         * sliding one way with the drawing in it sliding back: the two moves
-         * did not keep step, and the arrows shook from side to side (the
-         * owner). One moving edge has nothing to keep step with.
-         *
-         * The edge travels across, the way from the tail to the head, which
-         * every route keeps to: along a shelf the arc only rises and falls,
-         * and the one from the end of a shelf goes leftwards all the way
-         * down to the next.
-         */
+        // Each arrow on until the next step begins; the last a breath longer
+        const until = (i) => (i < steps.length - 1 ? steps[i + 1].begin : steps[i].begin + 2 * steps[i].length + 120);
+
+        // The arrows: along a shelf only, an arc over the gap from just in
+        // from the near corner of one box to the same of the next
         const PAD = 8;
+        let body = '';
+        const shown = [];
 
-        // The clip shut from the tail's side (before it is drawn) or from the
-        // head's (once it is wiped): all of the arrow's width cut away from
-        // that side
-        const shut = (way, before) => ((way > 0) === before ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)');
-        const OPEN = 'inset(0 0 0 0)';
+        steps.forEach((_, i) => {
+            const a = spots[i];
+            const b = spots[i + 1];
+            if (Math.abs(a.y - b.y) >= 2) return;
 
-        // Only the first is drawn; the rest still set the run's pace, which
-        // the hops keep to -- see below
-        const frames = routes.slice(0, 1).map((route, i) => {
-            const { from, to, c1, c2 } = route;
+            const way = b.x > a.x ? 1 : -1;
+            const from = { x: a.x + a.w * (way > 0 ? 0.72 : 0.28), y: a.y + L.rimTop + 2 };
+            const to = { x: b.x + b.w * (way > 0 ? 0.28 : 0.72), y: b.y + L.rimTop + 2 };
+            const c1 = { x: from.x + way * 6, y: a.y - L.rowGap - 4 };
+            const c2 = { x: to.x - way * 6, y: b.y - L.rowGap - 4 };
 
             // Its box: the curve keeps inside its four points, and the head
             // and the dots' round caps inside the margin round them
@@ -1604,113 +1587,54 @@ function flashcards(container) {
             const y0 = Math.min(...ys) - PAD;
             const w = Math.max(...xs) + PAD - x0;
             const h = Math.max(...ys) + PAD - y0;
-            const way = to.x >= from.x ? 1 : -1;
 
-            // In the arrow's own pixels
             const q = (pt) => `${f(pt.x - x0)} ${f(pt.y - y0)}`;
-            const d = `M${q(from)}C${q(c1)} ${q(c2)} ${q(to)}`;
-
-            // The head points the way the curve arrives
             const ang = Math.atan2(to.y - c2.y, to.x - c2.x);
             const wing = (turn) => q({ x: to.x - Math.cos(ang + turn) * 6.5, y: to.y - Math.sin(ang + turn) * 6.5 });
-            const head = `M${wing(0.5)}L${q(to)}L${wing(-0.5)}`;
 
             // A line of round dots, with no shadow (the owner): dashes of no
-            // length, the round caps making each one a dot. Shut to begin
-            // with, its clip all on the tail's side
-            body += `<div class="flashcards-arrow" data-i="${i}" style="position: absolute; left: ${f(x0)}px; top: ${f(y0)}px; width: ${f(w)}px; height: ${f(h)}px; will-change: transform; clip-path: ${shut(way, true)};">`
-                + `<svg width="${f(w)}" height="${f(h)}" viewBox="0 0 ${f(w)} ${f(h)}" style="display: block;">`
-                + `<path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />`
-                + `<path d="${head}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`
-                + `</svg></div>`;
-
-            return way;
+            // length, the round caps making each one a dot. Hidden but while
+            // it is on -- see below
+            body += `<svg class="flashcards-arrow" width="${f(w)}" height="${f(h)}" viewBox="0 0 ${f(w)} ${f(h)}" style="position: absolute; left: ${f(x0)}px; top: ${f(y0)}px; visibility: hidden;">`
+                + `<path d="M${q(from)}C${q(c1)} ${q(c2)} ${q(to)}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />`
+                + `<path d="M${wing(0.5)}L${q(to)}L${wing(-0.5)}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`
+                + `</svg>`;
+            shown.push(i);
         });
 
         const layer = $(stageEl, `<div class="flashcards-arrows" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: ${stageEl.offsetWidth}px; height: ${stageEl.offsetHeight}px; z-index: 2; pointer-events: none;">${body}</div>`);
 
-        /*
-         * Each arrow is drawn from its tail to its head, and while the next
-         * one is being drawn it is wiped away the same way, tail first, its
-         * head going last (the owner's call, 20 November 2026) -- so that one
-         * arrow at a time is on the shelf, travelling from box to box. The
-         * last one waits a moment and goes the same way.
-         *
-         * Gathering speed as it goes (the owner, 22 November 2026): the first
-         * arrow drawn at an easy pace, each after it quicker by a sixth, down
-         * to a floor, and the last wiped almost as soon as it is drawn. At one
-         * pace all the way, with the last one held, the run took six and a
-         * half seconds and dragged at its end; so it takes under three, and
-         * ends at a run. The boxes' pops come quicker with it.
-         */
-        const count = routes.length;
-        const FIRST = 420;
-        const SPEED_UP = 0.84;
-        const FASTEST = 90;
-
-        // How long each arrow takes to draw (and to be wiped, alongside the
-        // next one's drawing), and when it starts
-        const draws = routes.map((_, i) => Math.max(FASTEST, FIRST * Math.pow(SPEED_UP, i)));
-        const starts = [0];
-        for (let i = 1; i < count; i++) starts.push(starts[i - 1] + draws[i - 1] + 60 * Math.pow(SPEED_UP, i - 1));
-
-        // The last waits only a breath before it goes, at its own pace
-        const wipes = draws.map((d, i) => i < count - 1 ? [starts[i + 1], draws[i + 1]] : [starts[i] + d + 120, d]);
-
-        layer.querySelectorAll('.flashcards-arrow').forEach((arrow, i) => {
-            const way = frames[i];
-
-            const drawAt = starts[i];
-            const draw = draws[i];
-            const [wipeAt, wipe] = wipes[i];
-            const span = wipeAt + wipe - drawAt;
-
-            // Shut, open, open, shut from the other side. Each stroke eased
-            // on its own, not the whole timeline as one: the drawing and the
-            // wiping are of different lengths
-            arrow.animate([
-                { clipPath: shut(way, true), offset: 0, easing: 'ease-in-out' },
-                { clipPath: OPEN, offset: draw / span },
-                { clipPath: OPEN, offset: (wipeAt - drawAt) / span, easing: 'ease-in-out' },
-                { clipPath: shut(way, false), offset: 1 }
-            ], { duration: span, delay: drawAt, easing: 'linear', fill: 'both' });
+        // Each on for its time: the visibility it has while the animation
+        // runs, and none before or after -- one change at each end, nothing
+        // painted in between
+        layer.querySelectorAll('.flashcards-arrow').forEach((arrow, k) => {
+            const i = shown[k];
+            arrow.animate([{ visibility: 'visible' }, { visibility: 'visible' }], { duration: until(i) - steps[i].begin, delay: steps[i].begin });
         });
 
-        /*
-         * And the boxes answer the arrows (the owner): the first gives a
-         * little start as the first arrow leaves it, and each after it hops
-         * as an arrow reaches it, with a soft pop a step higher each time --
-         * the way up the shelf heard as a rising run. Light, and under the
-         * sound effects' switch, as every sound of the games is (see sfx).
-         */
-        const timers = [];
-        const hop = hopBox;
+        // The hops: the first box at once, each after it near the end of the
+        // step to it
+        const at = [0, ...steps.map(st => st.begin + st.length * 0.9)];
 
-        const reach = (i, at) => timers.push(setTimeout(() => {
-            if (!layer.isConnected || layer.dataset.leaving) return;
-            hop(boxes[i]);
+        let over = false;
+        const timers = at.map((ms, i) => setTimeout(() => {
+            if (over || token !== drawn) return;
+            hopBox(boxes[i]);
             sfx.bubble(i, 0, true);
-        }, at));
+        }, ms));
 
-        reach(0, 0);
-        for (let i = 1; i < boxes.length; i++) reach(i, starts[i - 1] + draws[i - 1] * 0.9);
-
-        const total = wipes[count - 1][0] + wipes[count - 1][1];
-
-        const leave = (quick) => {
-            if (!layer.isConnected || layer.dataset.leaving) return;
-            layer.dataset.leaving = '1';
+        // Done, or cut short by a press: the arrows gone at once, and the
+        // boxes' own hops begin
+        const end = () => {
+            if (over) return;
+            over = true;
             timers.forEach(clearTimeout);
-
-            // Done, or waved away: the boxes' own hops begin
+            layer.remove();
             idleHops(token);
-
-            if (!quick) return layer.remove();
-            settled(layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'ease-in', fill: 'forwards' })).then(() => layer.remove());
         };
 
-        setTimeout(() => leave(false), total + 100);
-        stageEl.addEventListener('pointerdown', () => leave(true), { once: true });
+        timers.push(setTimeout(end, until(steps.length - 1) + 100));
+        stageEl.addEventListener('pointerdown', end, { once: true });
     }
 
     /*
@@ -2715,12 +2639,13 @@ function flashcards(container) {
             showTable(true, true);
         }
 
-        // The arrows once a page, over the shelf the player arrives at, and
-        // the boxes' hops after them -- or at once, with no arrows to wait for
+        // The run up the shelf once a page, on the shelf the player arrives
+        // at, and the boxes' own hops after it -- or at once, with no run to
+        // wait for
         if (!introduced && !held) {
             introduced = true;
             const token = drawn;
-            setTimeout(() => introArrows(token), 350);
+            setTimeout(() => introHops(token), 350);
         } else {
             idleHops(drawn);
         }
