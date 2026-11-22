@@ -1532,7 +1532,6 @@ function flashcards(container) {
         // next crosses the shelf, and drawn alongside the others it crossed
         // them. Each is wiped as the next is drawn -- see below
 
-        let defs = '';
         let body = '';
 
         const routes = spots.slice(1).map((b, i) => {
@@ -1559,38 +1558,72 @@ function flashcards(container) {
             return { from, to, c1, c2 };
         });
 
-        routes.forEach((route, i) => {
+        /*
+         * Each arrow drawn once, whole, standing still, in a small layer of
+         * its own (will-change), and only the edge of its clip moving: a
+         * clip-path inset that opens it from its tail to its head and then
+         * closes it the same way (the owner, 22 November 2026). What changes
+         * at a frame is one arrow's clip -- at worst its own small layer
+         * painted again, never the shelf under it.
+         *
+         * Until then the arrow was drawn through an SVG mask, a dash as long
+         * as the path slid along it: a mask is worked out afresh at every
+         * frame, and the arrows' layer, lying over the whole shelf, was
+         * painted again with everything under it -- the drawing stuttered.
+         * The same evening, for a moment, the arrows came on and went off
+         * with no movement at all, and then were shown through a window
+         * sliding one way with the drawing in it sliding back: the two moves
+         * did not keep step, and the arrows shook from side to side (the
+         * owner). One moving edge has nothing to keep step with.
+         *
+         * The edge travels across, the way from the tail to the head, which
+         * every route keeps to: along a shelf the arc only rises and falls,
+         * and the one from the end of a shelf goes leftwards all the way
+         * down to the next.
+         */
+        const PAD = 8;
+
+        // The clip shut from the tail's side (before it is drawn) or from the
+        // head's (once it is wiped): all of the arrow's width cut away from
+        // that side
+        const shut = (way, before) => ((way > 0) === before ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)');
+        const OPEN = 'inset(0 0 0 0)';
+
+        const frames = routes.map((route, i) => {
             const { from, to, c1, c2 } = route;
-            const d = `M${f(from.x)} ${f(from.y)}C${f(c1.x)} ${f(c1.y)} ${f(c2.x)} ${f(c2.y)} ${f(to.x)} ${f(to.y)}`;
+
+            // Its box: the curve keeps inside its four points, and the head
+            // and the dots' round caps inside the margin round them
+            const xs = [from.x, c1.x, c2.x, to.x];
+            const ys = [from.y, c1.y, c2.y, to.y];
+            const x0 = Math.min(...xs) - PAD;
+            const y0 = Math.min(...ys) - PAD;
+            const w = Math.max(...xs) + PAD - x0;
+            const h = Math.max(...ys) + PAD - y0;
+            const way = to.x >= from.x ? 1 : -1;
+
+            // In the arrow's own pixels
+            const q = (pt) => `${f(pt.x - x0)} ${f(pt.y - y0)}`;
+            const d = `M${q(from)}C${q(c1)} ${q(c2)} ${q(to)}`;
 
             // The head points the way the curve arrives
             const ang = Math.atan2(to.y - c2.y, to.x - c2.x);
-            const wing = (turn) => `${f(to.x - Math.cos(ang + turn) * 6.5)} ${f(to.y - Math.sin(ang + turn) * 6.5)}`;
-            const head = `M${wing(0.5)}L${f(to.x)} ${f(to.y)}L${wing(-0.5)}`;
-
-            // The mask no bigger than its arrow (the curve keeps inside its
-            // four points), not the whole stage: it is drawn again at every
-            // frame of the drawing and the wiping
-            const xs = [from.x, c1.x, c2.x, to.x];
-            const ys = [from.y, c1.y, c2.y, to.y];
-            const mx = Math.min(...xs) - 10;
-            const my = Math.min(...ys) - 10;
-
-            defs += `<mask id="fc-arrow-${i}" maskUnits="userSpaceOnUse" x="${f(mx)}" y="${f(my)}" width="${f(Math.max(...xs) + 10 - mx)}" height="${f(Math.max(...ys) + 10 - my)}"><path class="flashcards-arrow-reveal" d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" /></mask>`;
+            const wing = (turn) => q({ x: to.x - Math.cos(ang + turn) * 6.5, y: to.y - Math.sin(ang + turn) * 6.5 });
+            const head = `M${wing(0.5)}L${q(to)}L${wing(-0.5)}`;
 
             // A line of round dots, with no shadow (the owner): dashes of no
-            // length, the round caps making each one a dot
-            body += `<g class="flashcards-arrow" data-i="${i}">
-                <g mask="url(#fc-arrow-${i})">
-                    <path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />
-                </g>
-                <g class="flashcards-arrow-head" opacity="0">
-                    <path d="${head}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-                </g>
-            </g>`;
+            // length, the round caps making each one a dot. Shut to begin
+            // with, its clip all on the tail's side
+            body += `<div class="flashcards-arrow" data-i="${i}" style="position: absolute; left: ${f(x0)}px; top: ${f(y0)}px; width: ${f(w)}px; height: ${f(h)}px; will-change: transform; clip-path: ${shut(way, true)};">`
+                + `<svg width="${f(w)}" height="${f(h)}" viewBox="0 0 ${f(w)} ${f(h)}" style="display: block;">`
+                + `<path d="${d}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />`
+                + `<path d="${head}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`
+                + `</svg></div>`;
+
+            return way;
         });
 
-        const layer = $(stageEl, `<svg class="flashcards-arrows" aria-hidden="true" width="${stageEl.offsetWidth}" height="${stageEl.offsetHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;"><defs>${defs}</defs>${body}</svg>`);
+        const layer = $(stageEl, `<div class="flashcards-arrows" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: ${stageEl.offsetWidth}px; height: ${stageEl.offsetHeight}px; z-index: 2; pointer-events: none;">${body}</div>`);
 
         /*
          * Each arrow is drawn from its tail to its head, and while the next
@@ -1598,10 +1631,6 @@ function flashcards(container) {
          * head going last (the owner's call, 20 November 2026) -- so that one
          * arrow at a time is on the shelf, travelling from box to box. The
          * last one waits a moment and goes the same way.
-         *
-         * Through the mask: a dash as long as the path, with a gap as long
-         * again, slid in from behind the tail to draw it and on past the head
-         * to wipe it.
          *
          * Gathering speed as it goes (the owner, 22 November 2026): the first
          * arrow drawn at an easy pace, each after it quicker by a sixth, down
@@ -1625,30 +1654,22 @@ function flashcards(container) {
         const wipes = draws.map((d, i) => i < count - 1 ? [starts[i + 1], draws[i + 1]] : [starts[i] + d + 120, d]);
 
         layer.querySelectorAll('.flashcards-arrow').forEach((arrow, i) => {
-            const reveal = layer.querySelector(`#fc-arrow-${i} .flashcards-arrow-reveal`);
-            const head = arrow.querySelector('.flashcards-arrow-head');
-            const length = reveal.getTotalLength();
+            const way = frames[i];
 
             const drawAt = starts[i];
             const draw = draws[i];
             const [wipeAt, wipe] = wipes[i];
             const span = wipeAt + wipe - drawAt;
 
-            reveal.style.strokeDasharray = `${length} ${length}`;
-            reveal.style.strokeDashoffset = `${length}`;
-
-            // Each stroke eased on its own, not the whole timeline as one: the
-            // drawing and the wiping are of different lengths now
-            reveal.animate([
-                { strokeDashoffset: length, offset: 0, easing: 'ease-in-out' },
-                { strokeDashoffset: 0, offset: draw / span },
-                { strokeDashoffset: 0, offset: (wipeAt - drawAt) / span, easing: 'ease-in-out' },
-                { strokeDashoffset: -length, offset: 1 }
-            ], { duration: span, delay: drawAt, easing: 'linear', fill: 'forwards' });
-
-            const flash = Math.min(120, draw * 0.4);
-            head.animate([{ opacity: 0 }, { opacity: 1 }], { duration: flash, delay: drawAt + draw - flash / 2, fill: 'forwards' });
-            head.animate([{ opacity: 1 }, { opacity: 0 }], { duration: Math.min(120, wipe * 0.4), delay: wipeAt + wipe * 0.75, fill: 'forwards' });
+            // Shut, open, open, shut from the other side. Each stroke eased
+            // on its own, not the whole timeline as one: the drawing and the
+            // wiping are of different lengths
+            arrow.animate([
+                { clipPath: shut(way, true), offset: 0, easing: 'ease-in-out' },
+                { clipPath: OPEN, offset: draw / span },
+                { clipPath: OPEN, offset: (wipeAt - drawAt) / span, easing: 'ease-in-out' },
+                { clipPath: shut(way, false), offset: 1 }
+            ], { duration: span, delay: drawAt, easing: 'linear', fill: 'both' });
         });
 
         /*
