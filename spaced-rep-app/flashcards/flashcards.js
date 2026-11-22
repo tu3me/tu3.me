@@ -279,19 +279,44 @@ function flashcards(container) {
     function shelfCounts() {
         const setId = state.selectedSetId;
         const due = new Set(store.duePool(setId, false).map(i => i.word.original));
-        const boxes = Array.from({ length: LAST + 1 }, () => ({ total: 0, ready: 0, soonest: null, stages: [] }));
+        const boxes = Array.from({ length: LAST + 1 }, () => ({ total: 0, ready: 0, soonest: null, painted: false, strung: false }));
+
+        // The lowest and the highest stage in the set, the card on the table
+        // among them: it is taken out of its box, not out of the game, and a
+        // box would lose its string the moment its last laggard was lifted
+        let low = Infinity;
+        let high = -Infinity;
 
         store.wordsOf(setId).forEach(item => {
+            const progress = spacedRepetitions.getWordProgress(item.word);
+            const stage = progress.stage || 0;
+            low = Math.min(low, stage);
+            high = Math.max(high, stage);
+
             if (same(item, held)) return;
 
-            const progress = spacedRepetitions.getWordProgress(item.word);
             const box = boxes[boxOf(progress.stage)];
 
             box.total += 1;
-            box.stages.push(progress.stage || 0);
 
             if (due.has(item.word.original)) box.ready += 1;
             else if (progress.nextRepetition && (!box.soonest || progress.nextRepetition < box.soonest)) box.soonest = progress.nextRepetition;
+        });
+
+        /*
+         * The shelf as a picture of how far the set has come (the owner, 22
+         * November 2026): a box takes its stage's colour once a card has got
+         * as far as its stage -- one card at stage 5 or above paints box 5 --
+         * and its string of lights once every card has; by the end of the
+         * game, every box painted and strung. Box 1 by the same count: painted
+         * at the first answer, strung once every word has been answered at
+         * least once. By where the cards are now, as everything on the shelf
+         * is: a card got wrong goes back three boxes, and may take a string
+         * down with it.
+         */
+        boxes.forEach((box, n) => {
+            box.painted = n >= 1 && high >= n;
+            box.strung = n >= 1 && low >= n;
         });
 
         return boxes;
@@ -356,15 +381,6 @@ function flashcards(container) {
     function layersFor(total, most) {
         const n = total <= 0 ? 0 : total === 1 ? 1 : total <= 3 ? 2 : total <= 7 ? 3 : total <= 14 ? 4 : 5;
         return Math.min(most, n);
-    }
-
-    // The stages of the cards in view, spread over what the box holds: in box
-    // 1, the wrong ones at the back and the new ones in front of them
-    function bandsFor(info, k) {
-        const sorted = info.stages.slice().sort((a, b) => b - a);
-        if (sorted.length <= k) return sorted.slice(0, k).map(bandOf);
-
-        return Array.from({ length: k }, (_, i) => bandOf(sorted[Math.round(i * (sorted.length - 1) / Math.max(1, k - 1))]));
     }
 
     /*
@@ -450,8 +466,63 @@ function flashcards(container) {
      * In SVG, sized to the box in pixels, so that the lines fall on the same
      * places at either size; the lettering stays HTML on top -- see boxInner.
      */
-    function boxSvg(n, info, L, garland) {
+    /*
+     * The cardboard of a box with cards in it, in its stage's colour (the
+     * owner's picture, 22 November 2026), once a card has got as far as it
+     * (see shelfCounts): the hue its cards wear (bandOf)
+     * laid on the kraft at the kraft's own lightness -- painted cardboard,
+     * its light and its shading where they were, only the colour changed.
+     * The stages' own colours are pale pastels, and mixed into the kraft
+     * they only bleached it: half and half, even three parts to one, the
+     * boxes came out a washed khaki beside the picture's teal and coral.
+     * Less of it inside, which is in the box's own shadow; at night less
+     * colour all round, the room being dark. A box no card has reached
+     * stays plain kraft.
+     */
+    function boxTone(n, info) {
         const p = palette;
+        if (!info.painted) return p;
+
+        const { h } = toHsl(bandOf(n));
+        // By day a quieter colour than first tried (0.36, the owner: too
+        // bright), at night quieter still
+        const sat = isNight ? 0.2 : 0.25;
+        const paint = (key, share) => mixHex(p[key], fromHsl(h, sat, toHsl(p[key]).l), share);
+
+        return {
+            ...p,
+            kraft: paint('kraft', 0.85), kraftMid: paint('kraftMid', 0.85), kraftLow: paint('kraftLow', 0.85),
+            kraftLight: paint('kraftLight', 0.8), rim: paint('rim', 0.8),
+            inside: paint('inside', 0.5), insideLow: paint('insideLow', 0.45),
+            insideLeft: paint('insideLeft', 0.5), insideRight: paint('insideRight', 0.5)
+        };
+    }
+
+    // #rrggbb to hue (degrees), saturation and lightness (0..1), and back
+    function toHsl(hex) {
+        const v = parseInt(hex.slice(1), 16);
+        const [r, g, b] = [v >> 16, (v >> 8) & 255, v & 255].map(c => c / 255);
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const l = (max + min) / 2;
+        const d = max - min;
+        if (!d) return { h: 0, s: 0, l };
+
+        const s = d / (1 - Math.abs(2 * l - 1));
+        const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        return { h: (h * 60 + 360) % 360, s, l };
+    }
+
+    function fromHsl(h, s, l) {
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+        return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('');
+    }
+
+    function boxSvg(n, info, L, garland) {
+        const p = boxTone(n, info);
         const W = L.w;
         const H = L.boxH;
         const ft = L.frontTop;
@@ -461,7 +532,6 @@ function flashcards(container) {
 
         const k = layersFor(info.total, L.layers);
         const up = info.ready ? Math.max(1, Math.round(k * info.ready / info.total)) : 0;
-        const bands = bandsFor(info, k);
 
         let cards = '';
 
@@ -484,11 +554,14 @@ function flashcards(container) {
             const w = W - 2 * wallAt(stand) - 2.2;
             const h = ft + 3 - y;
 
-            // The whole card in its stage's colour while it is in a box (the
-            // owner) -- the band is the card on the table's -- further back
-            // further into the box's shadow, and at night all of it in the
-            // dark of the room
-            const tint = mixHex(bands[i], p.cardShade, (isNight ? 0.4 : 0) + (1 - depth) * 0.3);
+            // Plain paper while it is in a box -- the box wears the stage's
+            // colour now (22 November 2026, the owner: white, if not snow
+            // white, and not coloured; for two days before that each card in
+            // a box was in its stage's colour). An older paper than the card
+            // on the table's, which by day shone out of the boxes too white
+            // (the owner). Further back further into the box's shadow, and
+            // at night all of it in the dark of the room
+            const tint = mixHex(p.boxPaper, p.cardShade, (isNight ? 0.4 : 0) + (1 - depth) * 0.3);
 
             // The shadow this card throws on the one behind it
             const cast = i > 0 ? `<rect x="${r(left - 0.5)}" y="${r(y - 2.6)}" width="${r(w + 1)}" height="2.8" rx="1.4" fill="${p.cardCast}" />` : '';
@@ -524,10 +597,13 @@ function flashcards(container) {
     }
 
     /*
-     * The fairy lights on a box: a string of small bulbs on every box with a
-     * card ready in it and on no other -- the owner's call, 20 November 2026,
-     * in place of a string round the whole cabinet and the neon stars between
-     * the boxes. So the boxes that want opening are the lit ones.
+     * The fairy lights on a box: a string of small bulbs on every box all the
+     * set's cards have got as far as (see shelfCounts) -- the owner's call, 22
+     * November 2026. From 20 November until then they hung on every box with
+     * a card ready in it and on no other, in place of a string round the
+     * whole cabinet and the neon stars between the boxes, so that the boxes
+     * that wanted opening were the lit ones; that is the green tag's to say
+     * now, and the hop's.
      *
      * Thrown over the box rather than strung along a line -- the owner, after
      * a picture of Christmas lights on these boxes: a loose string that goes
@@ -844,7 +920,7 @@ function flashcards(container) {
      * border off.
      */
     function countTag(n, info) {
-        const p = palette;
+        const p = boxTone(n, info);
         const ready = info.ready > 0;
         const [top, foot] = ready ? p.tagReady : p.tag;
         const tip = 5.5;
@@ -870,7 +946,7 @@ function flashcards(container) {
 
         const foot = `<span class="flashcards-box-foot" style="position: absolute; left: 0; right: 0; bottom: ${L.footBottom}px; display: flex; align-items: center; justify-content: center; gap: ${L.footGap}px; font-size: ${L.footFont}px; font-weight: 700; line-height: 1;">${span}${pill}</span>`;
 
-        const garland = info.ready ? garlandSvg(n, L) : null;
+        const garland = info.strung ? garlandSvg(n, L) : null;
         const lights = garland && garland.lights ? `<svg class="flashcards-box-lights" width="${L.w}" height="${L.boxH}" viewBox="0 0 ${L.w} ${L.boxH}" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;">${garland.lights}</svg>` : '';
 
         return { art: boxSvg(n, info, L, garland) + lights, plate, foot };
@@ -2547,7 +2623,7 @@ function flashcards(container) {
             inside: '#8c6d52', insideLow: '#5f4733', insideLeft: '#76593f', insideRight: '#9a7a5c', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
             boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)',
             cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d',
-            tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
+            tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', boxPaper: '#e9dcc0', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
             brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
             tag: ['#f8edd4', '#ead9b6'], tagInk: '#5a4331', tagReady: ['#b0cc9f', '#93b585'], tagReadyInk: '#22391f',
@@ -2568,7 +2644,7 @@ function flashcards(container) {
             inside: '#463a2f', insideLow: '#251d17', insideLeft: '#3a2f27', insideRight: '#524337', rimShade: 'rgba(0, 0, 0, 0.55)', frontCast: 'rgba(0, 0, 0, 0.45)',
             boxShadow: 'rgba(0, 0, 0, 0.5)', drop: '3px 2px 3px rgba(0, 0, 0, 0.5)',
             cardShade: '#3e3229', cardCast: 'rgba(0, 0, 0, 0.32)', cardLine: '#3a2d22',
-            tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
+            tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', boxPaper: '#e6d7b8', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
             brass: '#957a5b', brassLight: '#a88c6b', labelPaper: '#d6c7a6', labelInk: '#2a1f16', stampInk: '#d8c6a2',
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
             tag: ['#a99879', '#968566'], tagInk: '#251a11', tagReady: ['#82a577', '#6d9063'], tagReadyInk: '#10200d',
