@@ -259,9 +259,23 @@ function flashcards(container) {
     // it took off has nothing left to land on
     let drawn = 0;
 
-    // The run up the shelf, with its arrows, is played once a page, when it
-    // opens (introHops)
+    /*
+     * The run up the shelf (introHops) plays when the player comes into the
+     * game from the catalog, and on no other loading of the page (the owner,
+     * 23 November 2026): not on a reload, Back or Forward, the popup opened
+     * again, the catalog's Continue -- all of which carry a session on, and
+     * so never call flashcards.start -- nor on another set picked from the
+     * header's menu, which is a fresh start but from inside the game (see
+     * switchSet). Until then it played whenever the page loaded.
+     */
+    let playIntro = false;
     let introduced = false;
+
+    // Set for the next page by a set picked from the header's menu, read
+    // and cleared by flashcards.start. sessionStorage, as a note from one
+    // page to the next in the same tab or popup and to nothing else; a
+    // browser that refuses it plays the run, as it did before
+    const SWITCHED = 'flashcards-switched-set';
 
     let stageEl = null;
     let refreshTimer = null;
@@ -862,6 +876,10 @@ function flashcards(container) {
     // By when every string is lit, from the start of lightUp
     const LIT_UP = 380 + 1100 + 520 + 240;
 
+    // The lamp's light coming on: up, and a little tremble -- it does not
+    // drop back towards dark (the owner)
+    const FLICKER = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
+
     function lightUp() {
         const set = [];
         if (!isNight || !MOTION || !stageEl) return set;
@@ -902,10 +920,52 @@ function flashcards(container) {
      *
      * `root` is the stage, or a box drawn again. While a card is on the
      * table the twinkling is held -- the shelf is under the wash then, and
-     * nobody looks at it -- see showTable.
+     * nobody looks at it -- see showTable; and while the run up the shelf
+     * plays as the page opens, which nothing is to move alongside (the
+     * owner), see introHops.
      */
     let twinkling = [];
     let tableUp = false;
+
+    // While the run up the shelf plays as the page opens -- nothing else
+    // moves with it (the owner, 22 November 2026), see introHops
+    let introUp = false;
+
+    /*
+     * At night the run plays in the dark: the lamp and the fairy lights off
+     * as the page opens, and on once the arrows have gone, as they come on
+     * when the lamp is pressed -- the lamp's light with its tremble, the
+     * strings each at its own moment (the owner, 23 November 2026). Held as
+     * the first frame of the animations that bring them on, and played at
+     * the run's end (lightsOn).
+     */
+    let introLights = [];
+
+    function lightsOff() {
+        if (!isNight || !MOTION || !stageEl) return [];
+
+        const set = Array.from(stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight')).map(el => el.animate(FLICKER, { duration: 380, easing: 'linear', fill: 'backwards' }));
+        set.push(...lightUp());
+        set.forEach(a => a.pause());
+        return set;
+    }
+
+    // The lights on, if they were held off, and the twinkling once the last
+    // string is lit -- or at once, by day
+    function lightsOn() {
+        const lights = introLights;
+        introLights = [];
+        lights.forEach(a => a.play());
+
+        if (!lights.length) {
+            if (!tableUp) holdTwinkle(false);
+            return;
+        }
+
+        setTimeout(() => {
+            if (!tableUp && !introUp) holdTwinkle(false);
+        }, LIT_UP);
+    }
 
     function twinkle(root) {
         if (!isNight || !MOTION || !root) return;
@@ -915,7 +975,7 @@ function flashcards(container) {
         // Each box its own rhythms, not the same pattern again in every box
         const k = root.dataset && root.dataset.box ? +root.dataset.box * 5 : 0;
         const add = (a) => {
-            if (tableUp) a.pause();
+            if (tableUp || introUp) a.pause();
             twinkling.push(a);
         };
 
@@ -1510,30 +1570,41 @@ function flashcards(container) {
      * to a floor -- at one pace all the way the run took six and a half
      * seconds and dragged at its end; so it takes under three.
      *
-     * Along a shelf a dotted arrow shows each step, an arc over the gap from
-     * one box to the next, as in the pictures: one at a time, each coming on
-     * whole as its step begins and going off as the next one comes on, the
-     * box it points to hopping near the step's end. Not from the end of a
-     * shelf to the start of the next, which crossed the shelf (the owner, 22
-     * November 2026): that step has its hop and no arrow.
+     * Along a shelf a dotted arrow marks each step, an arc over the gap from
+     * one box to the next, as in the pictures; not from the end of a shelf
+     * to the start of the next, which crossed the shelf (the owner, 22
+     * November 2026). In three parts, one after another, and nothing else on
+     * the shelf moving meanwhile -- the garlands' twinkling and the boxes'
+     * own hops wait for the end: the arrows come on, top to bottom, with a
+     * soft tone gliding up; the boxes hop; and when the last box is down the
+     * arrows go, top to bottom again, the tone gliding down (the owner, 22
+     * and 23 November 2026).
      *
-     * On and off, with no movement (the owner, the same evening). The
-     * arrows were drawn through an SVG mask, a dash as long as the path slid
-     * along it: a mask is worked out afresh at every frame, the arrows'
-     * layer lay over the whole shelf and was painted again with everything
-     * under it, and the drawing stuttered. Drawn other ways -- a window
-     * sliding one way with the drawing sliding back, which shook; a
-     * clip-path edge -- then cut to the first arrow alone, they were taken
-     * out for a moment and came back as these.
+     * All the arrows are one drawing, shown and wiped by the edge of its
+     * clip travelling down it -- one moving edge, and on a layer of its own
+     * (will-change), so that at worst that layer is painted again, never
+     * the shelf under it. That evening the arrows were each drawn through an
+     * SVG mask, a dash as long as the path slid along it: a mask is worked
+     * out afresh at every frame, the arrows' layer lay over the whole shelf
+     * and was painted again with everything under it, and the drawing
+     * stuttered. Then came a window sliding one way with the drawing sliding
+     * back, which shook; a clip-path edge along each arrow; the first arrow
+     * alone; none; each arrow on and off with its step; all of them coming
+     * on one by one every 40 ms.
      *
-     * Once a page and not on every redraw, and not under a card already on
-     * the table. A press anywhere ends it at once.
+     * Only for a player come in from the catalog (see playIntro), once and
+     * not on every redraw, and not under a card already on the table. A
+     * press anywhere ends it at once.
      */
     function introHops(token) {
-        if (!MOTION || token !== drawn || held || !stageEl) {
+        // No run after all: the twinkling and the boxes' hops start without it
+        const skip = () => {
+            introUp = false;
+            lightsOn();
             if (token === drawn) idleHops(token);
-            return;
-        }
+        };
+
+        if (!MOTION || token !== drawn || held || !stageEl) return skip();
 
         const L = layoutOf();
         const p = palette;
@@ -1541,7 +1612,7 @@ function flashcards(container) {
 
         // In the order of their numbers
         const boxes = Array.from(stageEl.querySelectorAll('.flashcards-box')).sort((a, b) => a.dataset.box - b.dataset.box);
-        if (boxes.length < 2) return idleHops(token);
+        if (boxes.length < 2) return skip();
 
         const spots = boxes.map(box => ({ ...offsetIn(box), w: box.offsetWidth, h: box.offsetHeight }));
 
@@ -1559,15 +1630,9 @@ function flashcards(container) {
             begin += length + 60 * Math.pow(SPEED_UP, i);
         });
 
-        // Each arrow on until the next step begins; the last a breath longer
-        const until = (i) => (i < steps.length - 1 ? steps[i + 1].begin : steps[i].begin + 2 * steps[i].length + 120);
-
         // The arrows: along a shelf only, an arc over the gap from just in
         // from the near corner of one box to the same of the next
-        const PAD = 8;
-        let body = '';
-        const shown = [];
-
+        const routes = [];
         steps.forEach((_, i) => {
             const a = spots[i];
             const b = spots[i + 1];
@@ -1576,65 +1641,100 @@ function flashcards(container) {
             const way = b.x > a.x ? 1 : -1;
             const from = { x: a.x + a.w * (way > 0 ? 0.72 : 0.28), y: a.y + L.rimTop + 2 };
             const to = { x: b.x + b.w * (way > 0 ? 0.28 : 0.72), y: b.y + L.rimTop + 2 };
-            const c1 = { x: from.x + way * 6, y: a.y - L.rowGap - 4 };
-            const c2 = { x: to.x - way * 6, y: b.y - L.rowGap - 4 };
+            routes.push({ from, to, c1: { x: from.x + way * 6, y: a.y - L.rowGap - 4 }, c2: { x: to.x - way * 6, y: b.y - L.rowGap - 4 } });
+        });
 
-            // Its box: the curve keeps inside its four points, and the head
-            // and the dots' round caps inside the margin round them
-            const xs = [from.x, c1.x, c2.x, to.x];
-            const ys = [from.y, c1.y, c2.y, to.y];
-            const x0 = Math.min(...xs) - PAD;
-            const y0 = Math.min(...ys) - PAD;
-            const w = Math.max(...xs) + PAD - x0;
-            const h = Math.max(...ys) + PAD - y0;
+        // The drawing as tall as the arrows and no taller, so that its edge
+        // takes all its time over them: from the top of the highest arc to
+        // the foot of the lowest head, with the dots' round caps
+        const PAD = 8;
+        const ys = routes.flatMap(r => [r.from.y, r.c1.y, r.c2.y, r.to.y]);
+        const top = routes.length ? Math.min(...ys) - PAD : 0;
+        const tall = routes.length ? Math.max(...ys) + PAD - top : 0;
+        const W = stageEl.offsetWidth;
+        const q = (pt) => `${f(pt.x)} ${f(pt.y - top)}`;
 
-            const q = (pt) => `${f(pt.x - x0)} ${f(pt.y - y0)}`;
+        // A line of round dots, with no shadow (the owner): dashes of no
+        // length, the round caps making each one a dot; the head points the
+        // way the curve arrives
+        const art = routes.map(({ from, to, c1, c2 }) => {
             const ang = Math.atan2(to.y - c2.y, to.x - c2.x);
             const wing = (turn) => q({ x: to.x - Math.cos(ang + turn) * 6.5, y: to.y - Math.sin(ang + turn) * 6.5 });
+            return `<path d="M${q(from)}C${q(c1)} ${q(c2)} ${q(to)}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />`
+                + `<path d="M${wing(0.5)}L${q(to)}L${wing(-0.5)}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`;
+        }).join('');
 
-            // A line of round dots, with no shadow (the owner): dashes of no
-            // length, the round caps making each one a dot. Hidden but while
-            // it is on -- see below
-            body += `<svg class="flashcards-arrow" width="${f(w)}" height="${f(h)}" viewBox="0 0 ${f(w)} ${f(h)}" style="position: absolute; left: ${f(x0)}px; top: ${f(y0)}px; visibility: hidden;">`
-                + `<path d="M${q(from)}C${q(c1)} ${q(c2)} ${q(to)}" fill="none" stroke="${p.arrow}" stroke-width="2.6" stroke-dasharray="0 5.4" stroke-linecap="round" />`
-                + `<path d="M${wing(0.5)}L${q(to)}L${wing(-0.5)}" fill="none" stroke="${p.arrow}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`
-                + `</svg>`;
-            shown.push(i);
-        });
+        // Shut to begin with: all of it cut away from below
+        const SHUT_BELOW = 'inset(0 0 100% 0)';
+        const OPEN = 'inset(0 0 0 0)';
+        const SHUT_ABOVE = 'inset(100% 0 0 0)';
+        const layer = $(stageEl, `<svg class="flashcards-arrows" aria-hidden="true" width="${W}" height="${f(tall)}" viewBox="0 0 ${W} ${f(tall)}" style="position: absolute; left: 0; top: ${f(top)}px; z-index: 2; pointer-events: none; overflow: visible; will-change: transform; clip-path: ${SHUT_BELOW};">${art}</svg>`);
 
-        const layer = $(stageEl, `<div class="flashcards-arrows" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: ${stageEl.offsetWidth}px; height: ${stageEl.offsetHeight}px; z-index: 2; pointer-events: none;">${body}</div>`);
+        // How long the edge takes down the drawing, each way, and the tone
+        // with it; the hops after it, the first box at once and each after
+        // it near the end of the step to it; and the wiping once the last
+        // box is down (a hop takes 380 ms, see hopBox)
+        const WIPE = 360;
+        const HOP = 380;
+        const hopsFrom = routes.length ? WIPE : 0;
+        const at = [0, ...steps.map(st => st.begin + st.length * 0.9)].map(ms => hopsFrom + ms);
+        const offFrom = at[at.length - 1] + HOP;
 
-        // Each on for its time: the visibility it has while the animation
-        // runs, and none before or after -- one change at each end, nothing
-        // painted in between
-        layer.querySelectorAll('.flashcards-arrow').forEach((arrow, k) => {
-            const i = shown[k];
-            arrow.animate([{ visibility: 'visible' }, { visibility: 'visible' }], { duration: until(i) - steps[i].begin, delay: steps[i].begin });
-        });
-
-        // The hops: the first box at once, each after it near the end of the
-        // step to it
-        const at = [0, ...steps.map(st => st.begin + st.length * 0.9)];
-
+        /*
+         * Everything by the same clock, the timers: each sweep of the edge
+         * started by one, and each box's hop and pop. An animation keeps the
+         * page's time while timers wait for a busy page -- the arrows switched
+         * by animations ran a second ahead of the hops just after the page
+         * opened -- so an animation here is only ever a sweep a timer starts.
+         */
         let over = false;
-        const timers = at.map((ms, i) => setTimeout(() => {
-            if (over || token !== drawn) return;
-            hopBox(boxes[i]);
-            sfx.bubble(i, 0, true);
+        const timers = [];
+        const after = (ms, fn) => timers.push(setTimeout(() => {
+            if (!over && token === drawn) fn();
         }, ms));
 
-        // Done, or cut short by a press: the arrows gone at once, and the
-        // boxes' own hops begin
-        const end = () => {
+        // One sound for the arrows coming on and one for their going, not
+        // one an arrow (the owner, 22 November 2026): a soft tone gliding up
+        // as the edge goes down showing them, and down as it wipes them
+        if (routes.length) {
+            after(0, () => {
+                layer.animate([{ clipPath: SHUT_BELOW }, { clipPath: OPEN }], { duration: WIPE, easing: 'linear', fill: 'forwards' });
+                sfx.note(0, 620, 1240, WIPE / 1000, 0.05);
+            });
+            after(offFrom, () => {
+                layer.animate([{ clipPath: OPEN }, { clipPath: SHUT_ABOVE }], { duration: WIPE, easing: 'linear', fill: 'forwards' });
+                sfx.note(0, 1240, 620, WIPE / 1000, 0.05);
+            });
+        }
+
+        at.forEach((ms, i) => after(ms, () => {
+            hopBox(boxes[i]);
+            sfx.bubble(i, 0, true);
+        }));
+
+        // The garlands' twinkling waits for the run (see twinkle)
+        introUp = true;
+        holdTwinkle(true);
+
+        // Done, or cut short by a press: the arrows gone at once, the night's
+        // lights on, and the twinkling and the boxes' own hops begin. Done,
+        // the lights wait a breath after the arrows are wiped, so that the
+        // one does not run into the other (the owner, 23 November 2026); cut
+        // short, they come on with the press
+        const PAUSE = 300;
+        const end = (done) => {
             if (over) return;
             over = true;
             timers.forEach(clearTimeout);
             layer.remove();
+            introUp = false;
+            if (done) setTimeout(lightsOn, PAUSE);
+            else lightsOn();
             idleHops(token);
         };
 
-        timers.push(setTimeout(end, until(steps.length - 1) + 100));
-        stageEl.addEventListener('pointerdown', end, { once: true });
+        timers.push(setTimeout(() => end(true), offFrom + (routes.length ? WIPE : 0)));
+        stageEl.addEventListener('pointerdown', () => end(false), { once: true });
     }
 
     /*
@@ -1848,9 +1948,7 @@ function flashcards(container) {
             // drop back towards dark (the owner). The shade outside the cone
             // with it, not before it: a card on the table had its edges and
             // its buttons dark before the lamp was on (the owner)
-            const flicker = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.5 }, { opacity: 1 }];
-
-            stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam, .flashcards-shade').forEach(el => held.push(el.animate(flicker, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' })));
+            stageEl.querySelectorAll('.flashcards-lamp-glow, .flashcards-lamplight, .flashcards-beam, .flashcards-shade').forEach(el => held.push(el.animate(FLICKER, { duration: 380, delay: RISE - 60, easing: 'linear', fill: 'backwards' })));
             held.push(...lightUp());
             holdTwinkle(true);
         }
@@ -2639,12 +2737,18 @@ function flashcards(container) {
             showTable(true, true);
         }
 
-        // The run up the shelf once a page, on the shelf the player arrives
-        // at, and the boxes' own hops after it -- or at once, with no run to
-        // wait for
-        if (!introduced && !held) {
+        // The run up the shelf for a player come from the catalog, once, on
+        // the shelf they arrive at, and the boxes' own hops after it -- or at
+        // once, with no run to wait for (see playIntro)
+        if (playIntro && !introduced && !held) {
             introduced = true;
             const token = drawn;
+
+            // Held from the first frame, not from the run's start: the
+            // twinkling began with the shelf and stopped for the run
+            introUp = true;
+            holdTwinkle(true);
+            introLights = lightsOff();
             setTimeout(() => introHops(token), 350);
         } else {
             idleHops(drawn);
@@ -2744,6 +2848,10 @@ function flashcards(container) {
         if (state.sessionPool) await closeRun('set');
 
         await storage.set('active_session', { game: 'flashcards', setId: id, startedAt: Date.now() });
+
+        // Another set from inside the game: the next page plays no run
+        try { sessionStorage.setItem(SWITCHED, '1'); } catch (e) { /* plays the run */ }
+
         await nav.game({ id: 'flashcards' }, id, false);
     }
 
@@ -2848,6 +2956,15 @@ function flashcards(container) {
     flashcards.start = (setId, allowEarly) => {
         state.selectedSetId = setId;
         state.allowEarly = allowEarly;
+
+        // A fresh start: from the catalog, unless the last page left word
+        // that it picked this set from its menu
+        let switched = false;
+        try {
+            switched = sessionStorage.getItem(SWITCHED) === '1';
+            sessionStorage.removeItem(SWITCHED);
+        } catch (e) { /* from the catalog, then */ }
+        playIntro = !switched;
     };
 
     flashcards.getState = () => ({
