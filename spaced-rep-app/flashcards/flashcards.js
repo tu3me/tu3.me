@@ -1418,8 +1418,6 @@ function flashcards(container) {
         // (the owner): the one from the end of a shelf to the start of the
         // next crosses the shelf, and drawn alongside the others it crossed
         // them. Each is wiped as the next is drawn -- see below
-        const DRAW = 360;
-        const STEP = DRAW + 60;
 
         let defs = '';
         let body = '';
@@ -1491,30 +1489,53 @@ function flashcards(container) {
          * Through the mask: a dash as long as the path, with a gap as long
          * again, slid in from behind the tail to draw it and on past the head
          * to wipe it.
+         *
+         * Gathering speed as it goes (the owner, 22 November 2026): the first
+         * arrow drawn at an easy pace, each after it quicker by a sixth, down
+         * to a floor, and the last wiped almost as soon as it is drawn. At one
+         * pace all the way, with the last one held, the run took six and a
+         * half seconds and dragged at its end; so it takes under three, and
+         * ends at a run. The boxes' pops come quicker with it.
          */
-        const HOLD = 700;
         const count = routes.length;
+        const FIRST = 420;
+        const SPEED_UP = 0.84;
+        const FASTEST = 90;
+
+        // How long each arrow takes to draw (and to be wiped, alongside the
+        // next one's drawing), and when it starts
+        const draws = routes.map((_, i) => Math.max(FASTEST, FIRST * Math.pow(SPEED_UP, i)));
+        const starts = [0];
+        for (let i = 1; i < count; i++) starts.push(starts[i - 1] + draws[i - 1] + 60 * Math.pow(SPEED_UP, i - 1));
+
+        // The last waits only a breath before it goes, at its own pace
+        const wipes = draws.map((d, i) => i < count - 1 ? [starts[i + 1], draws[i + 1]] : [starts[i] + d + 120, d]);
 
         layer.querySelectorAll('.flashcards-arrow').forEach((arrow, i) => {
             const reveal = layer.querySelector(`#fc-arrow-${i} .flashcards-arrow-reveal`);
             const head = arrow.querySelector('.flashcards-arrow-head');
             const length = reveal.getTotalLength();
 
-            const drawAt = i * STEP;
-            const wipeAt = i < count - 1 ? (i + 1) * STEP : drawAt + DRAW + HOLD;
+            const drawAt = starts[i];
+            const draw = draws[i];
+            const [wipeAt, wipe] = wipes[i];
+            const span = wipeAt + wipe - drawAt;
 
             reveal.style.strokeDasharray = `${length} ${length}`;
             reveal.style.strokeDashoffset = `${length}`;
 
+            // Each stroke eased on its own, not the whole timeline as one: the
+            // drawing and the wiping are of different lengths now
             reveal.animate([
-                { strokeDashoffset: length, offset: 0 },
-                { strokeDashoffset: 0, offset: DRAW / (wipeAt + DRAW - drawAt) },
-                { strokeDashoffset: 0, offset: (wipeAt - drawAt) / (wipeAt + DRAW - drawAt) },
+                { strokeDashoffset: length, offset: 0, easing: 'ease-in-out' },
+                { strokeDashoffset: 0, offset: draw / span },
+                { strokeDashoffset: 0, offset: (wipeAt - drawAt) / span, easing: 'ease-in-out' },
                 { strokeDashoffset: -length, offset: 1 }
-            ], { duration: wipeAt + DRAW - drawAt, delay: drawAt, easing: 'ease-in-out', fill: 'forwards' });
+            ], { duration: span, delay: drawAt, easing: 'linear', fill: 'forwards' });
 
-            head.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, delay: drawAt + DRAW - 60, fill: 'forwards' });
-            head.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, delay: wipeAt + DRAW - 90, fill: 'forwards' });
+            const flash = Math.min(120, draw * 0.4);
+            head.animate([{ opacity: 0 }, { opacity: 1 }], { duration: flash, delay: drawAt + draw - flash / 2, fill: 'forwards' });
+            head.animate([{ opacity: 1 }, { opacity: 0 }], { duration: Math.min(120, wipe * 0.4), delay: wipeAt + wipe * 0.75, fill: 'forwards' });
         });
 
         /*
@@ -1534,9 +1555,9 @@ function flashcards(container) {
         }, at));
 
         reach(0, 0);
-        for (let i = 1; i < boxes.length; i++) reach(i, (i - 1) * STEP + DRAW - 40);
+        for (let i = 1; i < boxes.length; i++) reach(i, starts[i - 1] + draws[i - 1] * 0.9);
 
-        const total = (count - 1) * STEP + DRAW + HOLD + DRAW;
+        const total = wipes[count - 1][0] + wipes[count - 1][1];
 
         const leave = (quick) => {
             if (!layer.isConnected || layer.dataset.leaving) return;
