@@ -2754,13 +2754,14 @@ function flashcards(container) {
             ...(isDark ? dark : light),
 
             // The way out and the gear stand on the page, like dict's header
-            // buttons, and are outlined the same way -- see tokens.chrome --
-            // but on this game's own ground (flashcards.html), where the app's
-            // chrome all but vanished by day (#b9a782 on #b3a287) and was navy
-            // on brown at night: the outline about 1.8 against the ground, as
-            // tokens.chrome is against the app's, the icon well over 3
-            chromeBorder: isDark ? '#5a4d3e' : '#86755e',
-            backBtn: isDark ? '#c2b09a' : '#4a3628',
+            // buttons, and are outlined the same way -- see tokens.chrome.
+            // At night this game's ground is the app's, and so are they; by
+            // day it is its own blue (flashcards.html), where the app's warm
+            // outline and icon were faint and out of tune: the outline about
+            // 1.8 against the ground, as tokens.chrome is against the app's,
+            // the icon over 4
+            chromeBorder: isDark ? t.chrome : '#5e7989',
+            backBtn: isDark ? t.muted : '#24404f',
 
             // Ink on cream paper whichever the theme: the card is paper in both
             ink: '#3a2a1c',
