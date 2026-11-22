@@ -209,9 +209,9 @@ function flashcards(container) {
      *                       where the card is laid
      */
     const SHELF = {
-        name: 'all', cols: 3, count: LAST, padX: 11, gap: 13, rowGap: 10, plank: 8, boxH: 72,
-        rimTop: 5, frontTop: 26, inset: 5, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
-        plateTop: 5, plateH: 16, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
+        name: 'all', cols: 3, count: LAST, padX: 14, gap: 13, rowGap: 10, plank: 8, boxH: 76,
+        rimTop: 3, frontTop: 32, inset: 9, round: 2.5, layers: 4, band: 3.4, raise: 3.6,
+        plateTop: 5, plateH: 17, platePad: 6, plateFont: 9.2, ear: 2.6, aim: -1.95,
         footBottom: 5.5, footFont: 8.4, footIcon: 8.4, footGap: 3.5,
         badgeFont: 9.6, badgeIcon: 11
     };
@@ -452,16 +452,24 @@ function flashcards(container) {
      * across its top -- and a card ready to be repeated stands a little
      * higher than the others.
      *
-     * Everything is drawn round with the same brown ink, as the pictures are:
-     * it is the line, more than the colours, that makes them look painted
-     * rather than rendered.
+     * Everything is drawn round, as the pictures are -- once in the shelf's
+     * dark ink, which made the boxes look drawn for children (the owner, 22
+     * November 2026); now in a darker shade of the box's own card (boxLine,
+     * see boxTone).
      *
      * And it has depth, which the first flat drawing of it lost (the owner,
      * the same day): the front darker towards its foot and at both ends, as a
      * box lit from above is; the inside darker the deeper it goes; the cards
      * at the back in the box's shadow, each with the shadow of the one in
-     * front of it across it; and the whole box casting its shadow on the wall
-     * behind and on the shelf it stands on -- the drop-shadow on the drawing.
+     * front of it across it. The box cast its shadow on the wall and the
+     * shelf too until the owner took it off, the same picture in hand (22
+     * November 2026).
+     *
+     * A long box, going a good way back into the cabinet (the owner, 22
+     * November 2026): its back edge higher above the front and narrower than
+     * it was (rimTop, inset), and all of the opening -- the rim, the cards --
+     * darker the further back it is, in the dark at the back of the cabinet
+     * (`depthShade`).
      *
      * In SVG, sized to the box in pixels, so that the lines fall on the same
      * places at either size; the lettering stays HTML on top -- see boxInner.
@@ -481,20 +489,35 @@ function flashcards(container) {
      */
     function boxTone(n, info) {
         const p = palette;
-        if (!info.painted) return p;
+        const tone = info.painted ? paintedTone(n, p) : p;
 
+        /*
+         * Every line on a box -- round its front and rim, its label and its
+         * tag -- in a darker shade of the box's own cardboard, not the
+         * shelf's dark ink (the owner, 22 November 2026, beside a picture of
+         * the same shelf: with the near-black outline the boxes looked drawn
+         * for children). So a box is told from the wall by its colour and its
+         * shadow, as in the picture, and the line only firms up its edge.
+         */
+        return { ...tone, boxLine: mixHex(tone.kraftLow, p.line, isNight ? 0.5 : 0.55) };
+    }
+
+    /*
+     * By day a quieter colour than first tried (0.36, the owner: too
+     * bright), and quieter again beside the owner's picture of the shelf
+     * (22 November 2026), whose teal box is a greyed sage (0.25 until then);
+     * at night quieter still.
+     */
+    function paintedTone(n, p) {
         const { h } = toHsl(bandOf(n));
-        // By day a quieter colour than first tried (0.36, the owner: too
-        // bright), at night quieter still
-        const sat = isNight ? 0.2 : 0.25;
+        const sat = isNight ? 0.16 : 0.2;
         const paint = (key, share) => mixHex(p[key], fromHsl(h, sat, toHsl(p[key]).l), share);
 
         return {
             ...p,
             kraft: paint('kraft', 0.85), kraftMid: paint('kraftMid', 0.85), kraftLow: paint('kraftLow', 0.85),
             kraftLight: paint('kraftLight', 0.8), rim: paint('rim', 0.8),
-            inside: paint('inside', 0.5), insideLow: paint('insideLow', 0.45),
-            insideLeft: paint('insideLeft', 0.5), insideRight: paint('insideRight', 0.5)
+            inside: paint('inside', 0.5), insideLow: paint('insideLow', 0.45)
         };
     }
 
@@ -566,30 +589,58 @@ function flashcards(container) {
             // The shadow this card throws on the one behind it
             const cast = i > 0 ? `<rect x="${r(left - 0.5)}" y="${r(y - 2.6)}" width="${r(w + 1)}" height="2.8" rx="1.4" fill="${p.cardCast}" />` : '';
 
+            // Its edge a little darker than its own paper, not drawn round
+            // in ink: the cast above it is what parts it from the next
             cards += cast
-                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="${tint}" />`
-                + `<path d="M${r(left + 1.2)} ${r(y + 1.1)}H${r(left + w - 1.2)}" stroke="rgba(255, 255, 255, 0.35)" stroke-width="0.8" stroke-linecap="round" />`
-                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="none" stroke="${p.cardLine}" stroke-width="0.9" />`;
+                + `<rect x="${r(left)}" y="${r(y)}" width="${r(w)}" height="${r(h)}" rx="1.6" fill="${tint}" stroke="${mixHex(tint, p.cardLine, 0.6)}" stroke-width="0.8" />`;
         }
 
+        // The inside all one, the two side walls the colour of the back (the
+        // owner, 22 November 2026: each was a shade of its own, the left
+        // darker, the right lighter), and the corners where they meet it
+        // drawn as dark lines, as in the owner's picture
         const id = `fc-${L.name}-${n}`;
         const front = `x="0.55" y="${ft}" width="${r(W - 1.1)}" height="${r(H - ft - 0.55)}" rx="${L.round}"`;
 
-        return `<svg class="flashcards-box-art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; filter: drop-shadow(${p.drop});">
+        /*
+         * Its shadow hard and flat, as everything in the owner's picture is
+         * (22 November 2026), and all one shade: on the back of the cabinet
+         * its own outline moved to the right, as a lamp up to the left would
+         * throw it, and under it a band it stands in, running a little way up
+         * its left side at the bottom corner and out to the right as far as
+         * the outline -- the box drawn over all but a strip down its right
+         * side and along its foot. The two are one path, wound the same way,
+         * so that where they overlap the shade is laid once and not twice;
+         * the band was darker than the outline for an evening, and the owner
+         * asked for the one line.
+         *
+         * Until that day a drop-shadow filter on the drawing and a soft patch
+         * under its foot -- the filter the dearest thing on the shelf, worked
+         * out again whenever the box was drawn -- and for an hour no shadow
+         * at all.
+         */
+        const CAST = { x: 5.5, y: 1.5 };
+        const cast = (x, y) => `${r(x + CAST.x)} ${r(y + CAST.y)}`;
+        const band = { x0: -1.6, x1: W + CAST.x, y0: H - 6.5, y1: H + 3, round: 2.5 };
+        const shadow = `M${cast(ins, rt)}L${cast(W - ins, rt)}L${cast(W, ft)}L${cast(W, H)}L${cast(0, H)}L${cast(0, ft)}Z`
+            + `M${r(band.x0 + band.round)} ${r(band.y0)}H${r(band.x1 - band.round)}A${band.round} ${band.round} 0 0 1 ${r(band.x1)} ${r(band.y0 + band.round)}V${r(band.y1 - band.round)}A${band.round} ${band.round} 0 0 1 ${r(band.x1 - band.round)} ${r(band.y1)}H${r(band.x0 + band.round)}A${band.round} ${band.round} 0 0 1 ${r(band.x0)} ${r(band.y1 - band.round)}V${r(band.y0 + band.round)}A${band.round} ${band.round} 0 0 1 ${r(band.x0 + band.round)} ${r(band.y0)}Z`;
+
+        return `<svg class="flashcards-box-art" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;">
             <defs>
                 <linearGradient id="${id}-k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.kraft}" /><stop offset="0.55" stop-color="${p.kraftMid}" /><stop offset="1" stop-color="${p.kraftLow}" /></linearGradient>
                 <linearGradient id="${id}-e" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${p.edgeShade}" /><stop offset="0.14" stop-color="${p.edgeShade}" stop-opacity="0" /><stop offset="0.8" stop-color="${p.edgeShade}" stop-opacity="0" /><stop offset="1" stop-color="${p.edgeShade}" /></linearGradient>
                 <linearGradient id="${id}-i" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.inside}" /><stop offset="1" stop-color="${p.insideLow}" /></linearGradient>
+                <linearGradient id="${id}-d" gradientUnits="userSpaceOnUse" x1="0" y1="${rt}" x2="0" y2="${ft}"><stop offset="0" stop-color="${p.depthShade}" /><stop offset="0.75" stop-color="${p.depthShade}" stop-opacity="0" /></linearGradient>
             </defs>
-            <ellipse cx="${r(W / 2 + 2)}" cy="${H - 0.6}" rx="${r(W * 0.52)}" ry="2.8" fill="${p.boxShadow}" />
-            <polygon points="0.6,${ft} ${ins},${rt} ${r(W - ins)},${rt} ${r(W - 0.6)},${ft}" fill="${p.rim}" stroke="${p.line}" stroke-width="1.1" stroke-linejoin="round" />
-            <polygon points="${r(ins + 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${ft} ${r(ins + 1.6)},${ft}" fill="url(#${id}-i)" />
-            <polygon points="2.4,${ft} ${r(ins + 1.6)},${rt + 2.2} ${r(ins + 1.6)},${ft}" fill="${p.insideLeft}" />
-            <polygon points="${r(W - 2.4)},${ft} ${r(W - ins - 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${ft}" fill="${p.insideRight}" />
+            <path d="${shadow}" fill="${p.wallCast}" />
+            <polygon points="0.6,${ft} ${ins},${rt} ${r(W - ins)},${rt} ${r(W - 0.6)},${ft}" fill="${p.rim}" stroke="${p.boxLine}" stroke-width="1" stroke-linejoin="round" />
+            <polygon points="2.4,${ft} ${r(ins + 1.6)},${rt + 2.2} ${r(W - ins - 1.6)},${rt + 2.2} ${r(W - 2.4)},${ft}" fill="url(#${id}-i)" />
+            <path d="M${r(ins + 1.6)} ${rt + 2.2}V${ft}M${r(W - ins - 1.6)} ${rt + 2.2}V${ft}" stroke="${mixHex(p.insideLow, '#1a120c', 0.5)}" stroke-width="1" />
             <path d="M${r(ins + 1.8)} ${rt + 2.9}H${r(W - ins - 1.8)}" stroke="${p.rimShade}" stroke-width="1.4" />
             ${cards}
+            <polygon points="0.6,${ft} ${ins},${rt} ${r(W - ins)},${rt} ${r(W - 0.6)},${ft}" fill="url(#${id}-d)" />
             <rect x="1" y="${ft - 1.6}" width="${r(W - 2)}" height="3" fill="${p.frontCast}" />
-            <rect ${front} fill="url(#${id}-k)" stroke="${p.line}" stroke-width="1.1" />
+            <rect ${front} fill="url(#${id}-k)" stroke="${p.boxLine}" stroke-width="1" />
             <rect ${front} fill="url(#${id}-e)" />
             <path d="M2.6 ${ft + 1.7}H${r(W - 2.6)}" stroke="${p.kraftLight}" stroke-width="1.2" stroke-linecap="round" />
             ${garland ? garland.art : ''}
@@ -602,7 +653,7 @@ function flashcards(container) {
      * November 2026. From 20 November until then they hung on every box with
      * a card ready in it and on no other, in place of a string round the
      * whole cabinet and the neon stars between the boxes, so that the boxes
-     * that wanted opening were the lit ones; that is the green tag's to say
+     * that wanted opening were the lit ones; that is the mustard tag's to say
      * now, and the hop's.
      *
      * Thrown over the box rather than strung along a line -- the owner, after
@@ -620,7 +671,7 @@ function flashcards(container) {
      * whole wire, the box itself warmed by it, and a few sparks in the air.
      * Bulbs and sparks twinkle each in its own time (see twinkle). By day the
      * string is off: glass the colour of the kraft and a thin wire, nothing
-     * that asks to be looked at -- the green figure on the box says the same
+     * that asks to be looked at -- the mustard tag on the box says the same
      * thing by day.
      */
     const BULBS = ['#ffa63a', '#ffb44a', '#ff9d36', '#ffbe5a', '#ffaa44'];
@@ -744,8 +795,7 @@ function flashcards(container) {
 
         const wire = `<path d="${d}" fill="none" stroke="${isNight ? '#2a1a0e' : p.line}" stroke-opacity="${isNight ? 0.9 : 0.4}" stroke-width="0.8" stroke-linecap="round" />`;
 
-        // By day nothing on it moves, and it stays in the box's drawing, under
-        // its drop shadow
+        // By day nothing on it moves, and it stays in the box's drawing
         if (!isNight) return { art: `<g class="flashcards-garland">${wire}${bulbs}</g>`, lights: '' };
 
         // The box warmed by its lights, and a band of light along the wire
@@ -786,11 +836,11 @@ function flashcards(container) {
         const spill = `<g fill="none" stroke="#ff9a35" stroke-linecap="round" style="mix-blend-mode: screen;">${[34, 26, 16, 6].map(w => `<path d="${d}" stroke-opacity="0.04" stroke-width="${w}" />`).join('')}</g>`;
 
         /*
-         * `art` goes into the box's drawing, under its drop shadow, and is
-         * drawn once; `lights` -- the wire, the bulbs, the sparks, which
-         * twinkle -- over it, in a drawing of its own with no filter on it.
-         * Inside the box's drawing every twinkle drew the box again, its
-         * drop shadow and all, at every frame. The light stays with the box
+         * `art` goes into the box's drawing and is drawn once; `lights` --
+         * the wire, the bulbs, the sparks, which twinkle -- over it, in a
+         * drawing of its own. Inside the box's drawing every twinkle drew the
+         * box again at every frame, its drop shadow and all while it had one
+         * (until 22 November 2026). The light stays with the box
          * because it is screened over the cardboard, which a separate drawing
          * cannot do.
          */
@@ -828,8 +878,9 @@ function flashcards(container) {
             });
 
             // In three steps, not smoothly: the light on the box is in the
-            // box's drawing, under its drop shadow, and each step is that
-            // drawing done again -- forty-odd times in a smooth fade
+            // box's drawing, and each step is that drawing done again --
+            // forty-odd times in a smooth fade, and with the drop shadow the
+            // box had until 22 November 2026
             box.querySelectorAll('.flashcards-garland-light, .flashcards-sparks').forEach(el => {
                 set.push(el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: at + 120, easing: 'steps(3, end)', fill: 'backwards' }));
             });
@@ -911,9 +962,10 @@ function flashcards(container) {
     /*
      * The count on a box, `ready/total`, as a paper tag (the owner, 21
      * November 2026: craftier than the round pill it was): cut to a point at
-     * the left with a hole punched in it, drawn round in the shelf's ink,
-     * on cream paper -- green paper while cards are ready, green being what
-     * says so by day -- and hung a little askew, each box its own way.
+     * the left with a hole punched in it, drawn round in the box's line,
+     * on cream paper -- mustard paper while cards are ready (the owner, 22
+     * November 2026; green until then) -- and hung a little askew, each box
+     * its own way.
      *
      * The ink round it is the tag itself one pixel larger behind the paper:
      * a CSS border cannot follow the cut point, and a clip-path cuts a
@@ -927,18 +979,56 @@ function flashcards(container) {
         const cut = (point, shoulder) => `polygon(${shoulder}px 0, 100% 0, 100% 100%, ${shoulder}px 100%, ${point}px 50%)`;
         const tilt = (((n * 37) % 7) - 3) * 0.6;
 
-        return `<span style="display: inline-flex; padding: 1px; background: ${p.line}; clip-path: ${cut(0, tip)}; -webkit-clip-path: ${cut(0, tip)}; transform: rotate(${tilt}deg);">`
+        return `<span style="display: inline-flex; padding: 1px; background: ${p.boxLine}; clip-path: ${cut(0, tip)}; -webkit-clip-path: ${cut(0, tip)}; transform: rotate(${tilt}deg);">`
             + `<span style="position: relative; display: inline-flex; align-items: baseline; padding: 1.8px 4.4px 1.6px ${tip + 4.2}px; background: linear-gradient(180deg, ${top}, ${foot}); color: ${ready ? p.tagReadyInk : p.tagInk}; clip-path: ${cut(0.4, tip - 0.6)}; -webkit-clip-path: ${cut(0.4, tip - 0.6)}; white-space: nowrap; font-variant-numeric: tabular-nums;">`
-            + `<span style="position: absolute; left: ${tip - 1.4}px; top: 50%; width: 3.2px; height: 3.2px; margin-top: -1.6px; box-sizing: border-box; border-radius: 50%; background: ${p.kraftMid}; border: 0.8px solid ${p.line};"></span>`
+            + `<span style="position: absolute; left: ${tip - 1.4}px; top: 50%; width: 3.2px; height: 3.2px; margin-top: -1.6px; box-sizing: border-box; border-radius: 50%; background: ${p.kraftMid}; border: 0.8px solid ${p.boxLine};"></span>`
             + `<span>${info.ready}</span><span style="opacity: 0.7;">/${info.total}</span>`
             + `</span></span>`;
+    }
+
+    /*
+     * A box's label: the shape of the label holders the boxes had first (see
+     * plateHtml, which the set's name in the header still is) -- a plate
+     * with its corners a little rounded and a round ear at each end, the
+     * ears behind it -- drawn round with one wide even grey line, the face
+     * light card, the box's plain kraft lightened whatever colour the box
+     * itself is, and the number on it in the labels' ink (the owner, 22
+     * November 2026).
+     *
+     * The grey line and the face with no white slip are the labels of the
+     * owner's picture of the shelf: the brass holder with a cream slip in
+     * it, all in the shelf's dark ink, was what made the boxes look drawn
+     * for children. The same day the label was in between a frame with its
+     * corners cut, a plate pointed at both ends as the picture's are, and a
+     * plain rounded one, the line first double and then darker and thinner
+     * (2.6 pixels; the owner wanted it a little wider and lighter).
+     */
+    function labelHtml(text, L, p) {
+        const h = L.plateH;
+        const LINE = 3;
+        // As wide as the line and no more, so that an ear is all line: at 5
+        // pixels each had a light hole in it, a ring (the owner)
+        const EAR = LINE;
+        // How far an ear stands out past the plate's end: by the line's own
+        // width (the owner, who had it at 1.6 pixels for a moment)
+        const OUT = LINE;
+        const face = mixHex(palette.kraft, palette.labelPaper, 0.5);
+        const grey = mixHex(p.kraftLow, isNight ? '#3d3a36' : '#77736e', 0.7);
+
+        const ear = (side) => `<span style="position: absolute; ${side}: 0; top: 50%; width: ${EAR * 2}px; height: ${EAR * 2}px; margin-top: -${EAR}px; box-sizing: border-box; border-radius: 50%; border: ${LINE}px solid ${grey}; background: ${face};"></span>`;
+
+        // As long as the picture's labels at the least, whose "Box 2" a lone
+        // figure is not: a short plate comes out nearly square
+        return `<span style="position: relative; display: inline-flex; padding: 0 ${OUT}px;">${ear('left')}${ear('right')}`
+            + `<span style="position: relative; display: flex; align-items: center; justify-content: center; height: ${h}px; min-width: ${Math.round(h * 1.9)}px; padding: 0 ${L.platePad}px; box-sizing: border-box; border: ${LINE}px solid ${grey}; border-radius: 4px; background: ${face}; font-size: ${L.plateFont}px; line-height: 1; font-weight: 700; color: ${p.labelInk}; white-space: nowrap;">${text}</span>`
+            + `</span>`;
     }
 
     function boxParts(n, info, L) {
         const p = palette;
         const ready = info.ready > 0;
 
-        const plate = `<span style="position: absolute; left: 50%; top: ${L.frontTop + L.plateTop}px; transform: translateX(-50%); display: flex;">${plateHtml(`${n}`, L.plateFont, L.platePad, L.plateH, L.ear)}</span>`;
+        const plate = `<span style="position: absolute; left: 50%; top: ${L.frontTop + L.plateTop}px; transform: translateX(-50%); display: flex;">${labelHtml(`${n}`, L, boxTone(n, info))}</span>`;
 
         const span = `<span style="display: inline-flex; align-items: center; gap: 2px; color: ${p.stampInk}; white-space: nowrap;">${CLOCK(L.footIcon, p.stampInk)}${spanText(n)}</span>`;
 
@@ -1218,31 +1308,54 @@ function flashcards(container) {
     }
 
     /*
-     * The cabinet: a wooden frame, a back of boards, and the boxes standing
-     * on shelves in rows of two or three.
+     * The cabinet: a wooden frame, a plain back, and the boxes standing on
+     * shelves in rows of three.
      *
      * Each shelf is a board seen a little from above, its top in light and
      * its front edge in shade, and the boxes stand on its top rather than on
      * its edge. Under each shelf the wall is in its shadow, and the wall's two
      * ends are darker than its middle -- the inside of a cabinet.
+     *
+     * Deep shadows, and a back in one piece (the owner, 22 November 2026: so
+     * that the cabinet looks deeper and rounder). The back was boards, a seam
+     * every 52 pixels, and the shadows half as dark; the seams ran behind the
+     * boxes and broke up the dark the boxes stand out against. And deep
+     * shelves, their tops going a long way back and darker as they go (SINK
+     * was 4), in the dark grey browns of the owner's picture, where they were
+     * light warm wood.
      */
     function cabinetHtml() {
         const p = palette;
         const L = layoutOf();
         const counts = shelfCounts();
-        const SINK = 4;
+        const SINK = 14;
+
+        /*
+         * The cabinet's two sides, seen from inside (the owner, the same day,
+         * after the picture): at each end of a shelf a narrow wall running
+         * from the front edge back to the back, the left one catching more
+         * light than the right. Its foot is cut off on the slant where the
+         * shelf's top runs into it -- the shelf's back edge is SINK higher
+         * than the line its front edge starts at, three pixels below the
+         * row -- and the shadow under the shelf above falls on it as it does
+         * on the back.
+         */
+        const SIDE = 12;
+        const back = `calc(100% - ${SINK + 3}px)`;
+        const side = (left) => `<span class="flashcards-side" aria-hidden="true" style="position: absolute; ${left ? 'left' : 'right'}: 0; top: 0; bottom: -3px; width: ${SIDE}px; pointer-events: none; background: linear-gradient(180deg, ${p.rowShade} 0, transparent ${L.rowGap + 26}px), linear-gradient(${left ? 90 : 270}deg, ${left ? p.sideLit : p.sideNear}, ${p.sideFar}); box-shadow: inset ${left ? -1 : 1}px 0 0 ${p.sideEdge}; clip-path: ${left ? `polygon(0 0, 100% 0, 100% ${back}, 0 100%)` : `polygon(0 0, 100% 0, 100% 100%, 0 ${back})`};"></span>`;
 
         const rows = rowsOf(L).map(row => {
             const cells = row.map(n => (n <= L.count ? boxHtml(n, counts[n], L) : spareHtml(L))).join('');
 
-            return `<div class="flashcards-row" style="position: relative; z-index: 2; display: grid; grid-template-columns: repeat(${L.cols}, ${L.w}px); justify-content: space-between; padding: ${L.rowGap}px ${L.padX}px 0; background: linear-gradient(180deg, ${p.rowShade} 0, transparent ${L.rowGap + 14}px);">${cells}</div>
+            return `<div class="flashcards-row" style="position: relative; z-index: 2; display: grid; grid-template-columns: repeat(${L.cols}, ${L.w}px); justify-content: space-between; padding: ${L.rowGap}px ${L.padX}px 0; background: linear-gradient(180deg, ${p.rowShade} 0, transparent ${L.rowGap + 26}px);">${side(true)}${side(false)}${cells}</div>
                 <div class="flashcards-plank" style="position: relative; z-index: 1; margin-top: -${SINK}px; height: ${L.plank + SINK}px; box-sizing: border-box; border-bottom: 1px solid ${p.line}; background: linear-gradient(180deg, ${p.plankBack} 0, ${p.plankTop} ${SINK + 3}px, ${p.line} ${SINK + 3}px, ${p.line} ${SINK + 4}px, ${p.plankFront} ${SINK + 4}px, ${p.plankFrontLow} 100%); box-shadow: 0 3px 5px ${p.plankShade};"></div>`;
         }).join('');
 
-        const boards = `repeating-linear-gradient(90deg, transparent 0 52px, ${p.wallSeam} 52px 53.2px), linear-gradient(90deg, ${p.sideShade} 0, transparent 22px, transparent calc(100% - 22px), ${p.sideShade} 100%)`;
+        // The two ends of the wall in the shadow of the cabinet's sides
+        const ends = `linear-gradient(90deg, ${p.sideShade} 0, transparent 34px, transparent calc(100% - 34px), ${p.sideShade} 100%)`;
 
         return `<div class="flashcards-cabinet" data-layout="${L.name}" style="position: relative; padding: 9px ${FRAME_PAD}px ${FRAME_PAD}px; border-radius: 10px; border: ${FRAME_EDGE}px solid ${p.line}; background: linear-gradient(180deg, ${p.frame}, ${p.frameLow}); box-shadow: inset 0 1.5px 0 rgba(255, 236, 205, 0.25), inset 0 -2px 0 rgba(30, 18, 8, 0.25), ${p.cabinetShadow};">
-            <div class="flashcards-wall" style="position: relative; border-radius: 4px; overflow: hidden; border: ${WALL_EDGE}px solid ${p.line}; background: ${boards}, ${p.wall}; box-shadow: inset 0 4px 8px rgba(20, 10, 4, 0.3);">${rows}</div>
+            <div class="flashcards-wall" style="position: relative; border-radius: 4px; overflow: hidden; border: ${WALL_EDGE}px solid ${p.line}; background: ${ends}, ${p.wall}; box-shadow: ${p.wallDepth};">${rows}</div>
         </div>`;
     }
 
@@ -2698,8 +2811,8 @@ function flashcards(container) {
         /*
          * Wood, cardboard and paper in the soft, warm colours of the owner's
          * pictures -- a painted storybook rather than a photograph: nothing
-         * saturated, and everything drawn round in one dark brown ink
-         * (`line`), with the shading that gives it depth -- the shadow under
+         * saturated, and drawn round in one dark brown ink (`line`) -- all but
+         * the boxes, see boxTone -- with the shading that gives it depth -- the shadow under
          * each shelf, at the wall's two ends, inside the boxes and behind
          * them (`drop`).
          *
@@ -2713,16 +2826,19 @@ function flashcards(container) {
         const light = {
             line: '#54402f',
             frame: '#93735a', frameLow: '#7f604a', cabinetShadow: '0 8px 16px rgba(45, 28, 14, 0.3)',
-            wall: '#ab8d6f', wallSeam: 'rgba(78, 57, 40, 0.32)', rowShade: 'rgba(55, 35, 20, 0.42)', sideShade: 'rgba(55, 35, 20, 0.28)',
-            plankBack: '#a78665', plankTop: '#cdae8d', plankFront: '#a3825f', plankFrontLow: '#8f7051', plankShade: 'rgba(45, 28, 14, 0.4)',
-            kraft: '#d6b389', kraftMid: '#c9a479', kraftLow: '#b99368', kraftLight: '#e8d1ae', rim: '#dcc09b', edgeShade: 'rgba(70, 42, 18, 0.2)',
-            inside: '#8c6d52', insideLow: '#5f4733', insideLeft: '#76593f', insideRight: '#9a7a5c', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
-            boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)',
+            wall: '#6f5e4f', rowShade: 'rgba(40, 22, 10, 0.6)', sideShade: 'rgba(40, 22, 10, 0.45)',
+            sideLit: '#6b5546', sideNear: '#614c3e', sideFar: '#4e3d32', sideEdge: 'rgba(30, 18, 10, 0.45)',
+            depthShade: 'rgba(40, 22, 10, 0.5)',
+            wallDepth: 'inset 0 7px 14px rgba(30, 16, 6, 0.5), inset 0 -4px 8px rgba(30, 16, 6, 0.25)',
+            plankBack: '#463c35', plankTop: '#6f6258', plankFront: '#685c53', plankFrontLow: '#564b43', plankShade: 'rgba(45, 28, 14, 0.4)',
+            kraft: '#d0ae86', kraftMid: '#c4a179', kraftLow: '#b4916b', kraftLight: '#e2c9a6', rim: '#d6bb98', edgeShade: 'rgba(70, 42, 18, 0.16)',
+            inside: '#8c6d52', insideLow: '#5f4733', rimShade: 'rgba(45, 28, 14, 0.4)', frontCast: 'rgba(45, 28, 14, 0.28)',
+            boxShadow: 'rgba(45, 28, 14, 0.36)', drop: '4px 3px 5px rgba(45, 28, 14, 0.42)', wallCast: 'rgba(30, 18, 10, 0.45)',
             cardShade: '#9c8164', cardCast: 'rgba(50, 30, 14, 0.2)', cardLine: '#7d634d',
             tablePaper: '#fcf6e4', tablePaperBack: '#f5ecd6', boxPaper: '#e9dcc0', cardHalo: '0 10px 22px rgba(45, 28, 14, 0.36), 0 2px 4px rgba(45, 28, 14, 0.2)',
             brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628', stampInk: '#5a4331',
             pill: '#6f5644', pillInk: '#fbf3e3', ready: '#7d9e77', readyInk: '#ffffff',
-            tag: ['#f8edd4', '#ead9b6'], tagInk: '#5a4331', tagReady: ['#b0cc9f', '#93b585'], tagReadyInk: '#22391f',
+            tag: ['#f8edd4', '#ead9b6'], tagInk: '#5a4331', tagReady: ['#e4c068', '#d2a84b'], tagReadyInk: '#4a3410',
             flip: '#dc9470', flipEdge: '#ae6c4d', know: '#90bd99', knowEdge: '#679773',
             wash: 'rgba(72, 50, 30, 0.42)',
             arrow: '#fff7e6',
@@ -2734,16 +2850,19 @@ function flashcards(container) {
             ...light,
             line: '#241a13',
             frame: '#3a2e26', frameLow: '#2e241e', cabinetShadow: '0 0 30px rgba(255, 160, 80, 0.1), 0 8px 18px rgba(0, 0, 0, 0.55)',
-            wall: '#30261f', wallSeam: 'rgba(5, 3, 2, 0.5)', rowShade: 'rgba(0, 0, 0, 0.55)', sideShade: 'rgba(0, 0, 0, 0.45)',
-            plankBack: '#3a2e25', plankTop: '#5c4a3b', plankFront: '#433427', plankFrontLow: '#352a20', plankShade: 'rgba(0, 0, 0, 0.6)',
+            wall: '#30261f', rowShade: 'rgba(0, 0, 0, 0.72)', sideShade: 'rgba(0, 0, 0, 0.6)',
+            sideLit: '#30271f', sideNear: '#2a221c', sideFar: '#1f1915', sideEdge: 'rgba(0, 0, 0, 0.5)',
+            depthShade: 'rgba(0, 0, 0, 0.55)',
+            wallDepth: 'inset 0 7px 14px rgba(0, 0, 0, 0.65), inset 0 -4px 8px rgba(0, 0, 0, 0.35)',
+            plankBack: '#1d1915', plankTop: '#3d352f', plankFront: '#36302a', plankFrontLow: '#2a2520', plankShade: 'rgba(0, 0, 0, 0.6)',
             kraft: '#7c6650', kraftMid: '#705b47', kraftLow: '#5f4d3c', kraftLight: '#8e775e', rim: '#86705a', edgeShade: 'rgba(0, 0, 0, 0.32)',
-            inside: '#463a2f', insideLow: '#251d17', insideLeft: '#3a2f27', insideRight: '#524337', rimShade: 'rgba(0, 0, 0, 0.55)', frontCast: 'rgba(0, 0, 0, 0.45)',
-            boxShadow: 'rgba(0, 0, 0, 0.5)', drop: '3px 2px 3px rgba(0, 0, 0, 0.5)',
+            inside: '#463a2f', insideLow: '#251d17', rimShade: 'rgba(0, 0, 0, 0.55)', frontCast: 'rgba(0, 0, 0, 0.45)',
+            boxShadow: 'rgba(0, 0, 0, 0.5)', drop: '3px 2px 3px rgba(0, 0, 0, 0.5)', wallCast: 'rgba(0, 0, 0, 0.5)',
             cardShade: '#3e3229', cardCast: 'rgba(0, 0, 0, 0.32)', cardLine: '#3a2d22',
             tablePaper: '#e6d7b8', tablePaperBack: '#ddcca9', boxPaper: '#e6d7b8', cardHalo: '0 0 26px rgba(255, 196, 120, 0.22), 0 10px 22px rgba(0, 0, 0, 0.5)',
             brass: '#957a5b', brassLight: '#a88c6b', labelPaper: '#d6c7a6', labelInk: '#2a1f16', stampInk: '#d8c6a2',
             pill: '#2e241d', pillInk: '#e8dbc2', ready: '#5d8357',
-            tag: ['#a99879', '#968566'], tagInk: '#251a11', tagReady: ['#82a577', '#6d9063'], tagReadyInk: '#10200d',
+            tag: ['#a99879', '#968566'], tagInk: '#251a11', tagReady: ['#b48e3e', '#9a7832'], tagReadyInk: '#1f1606',
             flip: '#c98466', flipEdge: '#94573f', know: '#7ea888', knowEdge: '#557a5e',
             wash: 'rgba(6, 8, 18, 0.55)',
             arrow: '#fff1d2', menuBg: '#e3d6ba',
