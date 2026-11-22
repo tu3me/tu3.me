@@ -1499,12 +1499,14 @@ function flashcards(container) {
     /*
      * ---- The arrows ----
      *
-     * When the shelf opens, dashed arrows draw themselves from box to box, 1
-     * to 2 to 3 and on to the last -- the way a card travels when it is
+     * When the shelf opens, a dotted arrow draws itself from box 1 to box 2
+     * and is wiped, and the boxes after it hop one after another, each with
+     * its pop, as far as the last -- the way a card travels when it is
      * answered right, which is the whole of the game in one look (the owner's
-     * call, 20 November 2026; the dashed arrows are the pictures'). Along the
-     * shelf they arc over the gap; from the end of a shelf to the start of the
-     * next they sweep down across it. Then they fade.
+     * call, 20 November 2026; the dashed arrow is the pictures'). Until the
+     * evening of 22 November an arrow went from every box to the next, along
+     * the shelf over the gap and from the end of a shelf down across it; the
+     * owner kept the first and let the hops say the rest.
      *
      * Once a page and not on every redraw, and not over a card already on the
      * table. A press anywhere takes them away at once; they take no presses
@@ -1589,7 +1591,9 @@ function flashcards(container) {
         const shut = (way, before) => ((way > 0) === before ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)');
         const OPEN = 'inset(0 0 0 0)';
 
-        const frames = routes.map((route, i) => {
+        // Only the first is drawn; the rest still set the run's pace, which
+        // the hops keep to -- see below
+        const frames = routes.slice(0, 1).map((route, i) => {
             const { from, to, c1, c2 } = route;
 
             // Its box: the curve keeps inside its four points, and the head
