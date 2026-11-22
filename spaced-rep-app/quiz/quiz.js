@@ -1267,7 +1267,7 @@ function quiz(container) {
 
             // The page under a won star, most of the way to the page's own
             // ground, so that the star is the thing on it
-            veil: fade(t.ground, 0.82)
+            veil: fade(page.ground(), 0.82)
         };
     };
 

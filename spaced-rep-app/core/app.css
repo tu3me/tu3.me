@@ -152,7 +152,10 @@
     /* The same two values as LIGHT.ground and LIGHT.ink in tokens.js, and they
        have to be kept the same by hand: this rule exists so the page is the
        right colour in the first frame, before any script has run, and a script
-       is exactly what it cannot wait for. */
+       is exactly what it cannot wait for.
+
+       The catalog's ground: every game page sets its own over it, in a <style>
+       of its own (22 November 2026) -- see page.ground. */
     --ground: #e8dfd0;
     --ink: #153040;
 }

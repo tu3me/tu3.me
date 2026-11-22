@@ -2117,7 +2117,7 @@ function search(container) {
 
             starEdge: isDark ? STAR_GOLD : '#b7860f',
 
-            veil: fade(t.ground, BLURS ? VEIL_BLURRED : VEIL_PLAIN)
+            veil: fade(page.ground(), BLURS ? VEIL_BLURRED : VEIL_PLAIN)
         };
     };
 

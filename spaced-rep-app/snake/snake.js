@@ -6262,7 +6262,7 @@ function snake(container) {
             // Ink rather than mint: this is the word to read, and mint on the
             // light theme's white panel is 2.1:1.
             hintText: t.ink,
-            boardBg: isDark ? t.ground : t.surface,
+            boardBg: isDark ? page.ground() : t.surface,
             boardBorder: t.border,
             boardShadow: '0',
             /*

@@ -13,6 +13,17 @@
          height, so neither is decided after an async read. Not deferred. -->
     <script src="core/prepaint.js"></script>
     <link rel="stylesheet" href="core/app.css">
+    <!-- The game's own ground, in both themes: every game has one of its
+         own (the owner, 22 November 2026), here the room the cabinet stands
+         in -- by day the owner's colour, at night the same a quarter as
+         light, darker than the cabinet's own wood, which the lamp lights.
+         Here, in its page, because it has to be right in the first frame,
+         before any script; the game's code takes it from here too
+         (page.ground). -->
+    <style>
+        :root { --ground: #2b2720; }
+        :root[data-theme="light"] { --ground: #b3a287; }
+    </style>
 </head>
 
 <body>

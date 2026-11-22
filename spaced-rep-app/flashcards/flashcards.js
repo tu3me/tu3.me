@@ -2107,6 +2107,79 @@ function flashcards(container) {
         ], { duration: dur(560), easing: 'ease-in-out', fill: 'forwards' });
     }
 
+    /*
+     * Not known: the card counts its way down (the owner, 22 November 2026).
+     * Off the table to the box it came out of, then box by box back towards
+     * the one it goes to, touching each on the way -- a tick, a step lower
+     * each time, and the box nods under it -- and into the last. Three boxes
+     * for a mistake, the penalty in srs.js; fewer near box 1, which nothing
+     * goes below; four for an answer changed from know to don't know, which
+     * takes back the step up as well (see answer). One animation for the
+     * whole way, its hops written out as keyframes, so that it is the
+     * browser's to run like any other flight; the ticks are timed alongside
+     * it, and dropped if the shelf is drawn again meanwhile.
+     */
+    function countDown(card, from, dest) {
+        const token = drawn;
+        const at = offsetIn(card.parentNode);
+        const s = layoutOf().w * 0.62 / CARD_W;
+        const round = (v) => Math.round(v * 10) / 10;
+
+        // Over a box, the card's lower edge on its opening
+        const over = (n) => {
+            const m = mouthOf(boxEl(n));
+            return { x: m.x - (at.x + CARD_W / 2), y: m.y - (at.y + CARD_H / 2) - CARD_H * s / 2 };
+        };
+        const pose = (x, y, scale, deg, opacity, offset, easing) => ({
+            transform: `translate(${round(x)}px, ${round(y)}px) scale(${round(scale * 1000) / 1000}) rotate(${round(deg)}deg)`,
+            opacity, offset, ...(easing ? { easing } : {})
+        });
+
+        const LEG = 420;
+        const HOP = 250;
+        const PEAK = 20;
+        const SAMPLES = 6;
+        const hops = from - dest;
+        const total = LEG + hops * HOP;
+
+        const start = over(from);
+        const frames = [
+            { transform: REST, opacity: 1, offset: 0, easing: 'ease-in-out' },
+            pose(start.x, start.y - 6, s * 1.08, 5, 1, LEG / total)
+        ];
+
+        let a = start;
+        for (let k = 1; k <= hops; k++) {
+            const last = k === hops;
+            const b = over(from - k);
+            // The last hop goes on down into the box, fading as it goes in,
+            // as every flight home does (flyIn)
+            const end = last ? { x: b.x, y: b.y + CARD_H * s / 2 + 8 } : b;
+
+            for (let i = 1; i <= SAMPLES; i++) {
+                const t = i / SAMPLES;
+                const along = t * t * (3 - 2 * t);
+                const x = a.x + (end.x - a.x) * along;
+                const y = a.y + (end.y - a.y) * t - PEAK * 4 * t * (1 - t);
+                const fade = last && t > 0.6 ? 1 - (t - 0.6) / 0.4 : 1;
+                frames.push(pose(x, y, last ? s * (1.08 - 0.08 * t) : s * 1.08, 5 - 7 * Math.sin(Math.PI * t), fade, (LEG + (k - 1 + t) * HOP) / total));
+            }
+
+            a = b;
+
+            // A touch on each box on the way; the landing has its own sound
+            // and nod (putAway)
+            if (!last) setTimeout(() => {
+                if (token !== drawn) return;
+                bump(boxEl(from - k));
+                const f = 1046 * Math.pow(2, -2 * (k - 1) / 12);
+                sfx.note(0, f, f * 0.84, 0.08, 0.07, 'triangle');
+            }, LEG + k * HOP);
+        }
+
+        return card.animate(frames, { duration: total, easing: 'linear', fill: 'forwards' });
+    }
+
     const settled = (animation) => animation.finished.catch(() => null);
 
     // Rays round a box: a card landing up (sage), down (terracotta), or a box
@@ -2334,7 +2407,7 @@ function flashcards(container) {
 
         store.save();
 
-        putAway(item, last ? 'done' : 'next');
+        putAway(item, last ? 'done' : 'next', result === 0);
     }
 
     /*
@@ -2393,8 +2466,9 @@ function flashcards(container) {
     }
 
     // The card flies to the box of its stage, and what follows the landing:
-    // the next card out, or the end of the run
-    function putAway(item, then) {
+    // the next card out, or the end of the run. `missed` for a card just
+    // answered don't know, which counts its way down (countDown)
+    function putAway(item, then, missed) {
         busy = true;
         const token = drawn;
         const from = openNumber;
@@ -2404,8 +2478,9 @@ function flashcards(container) {
 
         const box = boxEl(dest);
         const card = cardEl();
+        const flight = missed && dest < from && MOTION ? countDown(card, from, dest) : flyIn(card, box);
 
-        settled(flyIn(card, box)).then(() => {
+        settled(flight).then(() => {
             if (token !== drawn) return;
 
             held = null;
@@ -2679,9 +2754,13 @@ function flashcards(container) {
             ...(isDark ? dark : light),
 
             // The way out and the gear stand on the page, like dict's header
-            // buttons, and are outlined the same — see tokens.chrome.
-            chromeBorder: t.chrome,
-            backBtn: t.muted,
+            // buttons, and are outlined the same way -- see tokens.chrome --
+            // but on this game's own ground (flashcards.html), where the app's
+            // chrome all but vanished by day (#b9a782 on #b3a287) and was navy
+            // on brown at night: the outline about 1.8 against the ground, as
+            // tokens.chrome is against the app's, the icon well over 3
+            chromeBorder: isDark ? '#5a4d3e' : '#86755e',
+            backBtn: isDark ? '#c2b09a' : '#4a3628',
 
             // Ink on cream paper whichever the theme: the card is paper in both
             ink: '#3a2a1c',

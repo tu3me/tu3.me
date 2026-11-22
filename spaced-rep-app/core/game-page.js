@@ -82,6 +82,16 @@ function page() {
     };
 
     /*
+     * The ground of this game's page in the theme it is in now: every game has
+     * its own, written in its page (see the <style> there), and a game that
+     * paints with it -- a veil over the page, a board the colour of it -- takes
+     * it from there, so that a game's ground is changed in one place. Asked of
+     * the page itself, which is in the new theme by the time a game's setTheme
+     * runs (bootGame, switchTheme).
+     */
+    page.ground = () => getComputedStyle(document.documentElement).getPropertyValue('--ground').trim();
+
+    /*
      * A dot of the row along the top of a game: one to a word of the session,
      * and the dot of the word in play grown to hold its stage -- the figure
      * alone, what it is in the tooltip, and only while the dot is waiting for
