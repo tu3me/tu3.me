@@ -254,7 +254,7 @@ nav.links a:hover { color: #8fe0bd; }
 @media (max-width: 620px) { .catalog-grid { grid-template-columns: 1fr; } }
 .app { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
 .shot { aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; position: relative; }
-.shot img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.shot svg { display: block; width: 100%; height: 100%; }
 .app-body { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .app-top { display: flex; gap: 14px; align-items: center; }
 .tile { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; flex: none; }
@@ -569,27 +569,93 @@ const ICON = {
   search: '<svg viewBox="0 0 32 32" fill="#fff"><circle cx="7" cy="7" r="2.6"/><circle cx="16" cy="7" r="2.6"/><circle cx="25" cy="7" r="2.6"/><circle cx="7" cy="16" r="2.6"/><circle cx="16" cy="16" r="2.6"/><circle cx="25" cy="16" r="2.6"/><circle cx="7" cy="25" r="2.6"/><circle cx="16" cy="25" r="2.6"/><circle cx="25" cy="25" r="2.6"/></svg>',
   search2: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"><path d="M10 4l6 3.5v7L10 18l-6-3.5v-7zM22 14l6 3.5v7L22 28l-6-3.5v-7z"/></svg>'
 };
+/* card previews: redrawn as inline SVG (320x200) from the real game screens, so they stay sharp at any size */
+const SV = (inner, bg) => '<svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true"><rect width="320" height="200" fill="' + bg + '"/>' + inner + '</svg>';
+const SPK = (x, y, c, s) => '<g transform="translate(' + x + ' ' + y + ') scale(' + (s || 1) + ')" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M0 -3h4l5 -4v14l-5 -4h-4z" fill="' + c + '" fill-opacity=".15"/><path d="M12 -3c2 2 2 6 0 8M15 -6c4 4 4 12 0 16"/></g>';
+const FONT = 'font-family="Nunito,Segoe UI,Arial,sans-serif" font-weight="800"';
+const hexPts = (cx, cy, r) => [0, 1, 2, 3, 4, 5].map(i => { const a = Math.PI / 180 * (60 * i - 30); return (cx + r * Math.cos(a)).toFixed(1) + "," + (cy + r * Math.sin(a)).toFixed(1); }).join(" ");
 const PV = {
-  flashcards: '<div class="pv"><div class="fc"><div class="big">la cuenta</div><small>tap to flip</small></div></div>',
-  quiz: '<div class="pv"><div class="big">gracias</div><div class="opts"><i>hello</i><i class="ok">thank you</i><i>exit</i><i>the bill</i></div></div>',
-  wordcraft: '<div class="pv"><div class="big">goodbye</div><div class="slots"><i class="f">a</i><i class="f">di</i><i>&nbsp;</i></div><div class="pcs"><i>ós</i><i>re</i><i>ca</i></div></div>',
-  search: '<div class="pv"><div class="grid">' + "SOLIDAYEXITRPNCBUAGMQOPENDRVLETHIKFWZSEHOLACLOSED".split("").map((c, i) => '<i' + ((i >= 3 && i <= 6) || (i >= 14 && i <= 15) ? ' class="h"' : "") + '>' + c + '</i>').join("") + '</div></div>'
+  /* Leitner boxes on a wooden shelf, a card lifted out */
+  flashcards: SV(
+    [0, 1, 2].map(c => [0, 1].map(r => {
+      const x = 14 + c * 99, y = 14 + r * 92, n = [42, 18, 31, 46, 22, 42][r * 3 + c];
+      return '<rect x="' + x + '" y="' + y + '" width="92" height="84" rx="7" fill="#d9a766" stroke="#7a4e24" stroke-width="2.5"/>' +
+        '<rect x="' + x + '" y="' + (y + 40) + '" width="92" height="44" rx="5" fill="#c58f4c" opacity=".55"/>' +
+        '<rect x="' + (x + 18) + '" y="' + (y + 26) + '" width="56" height="26" rx="6" fill="#f3e3b6" stroke="#7a4e24" stroke-width="2"/>' +
+        '<text x="' + (x + 46) + '" y="' + (y + 37) + '" text-anchor="middle" font-size="9" fill="#5b3a17" ' + FONT + '>Box ' + (r * 3 + c + 1) + '</text>' +
+        '<text x="' + (x + 46) + '" y="' + (y + 48) + '" text-anchor="middle" font-size="10" fill="#7a4e24" ' + FONT + '>' + n + '</text>';
+    }).join("")).join("") +
+    '<g transform="rotate(-5 160 104)"><rect x="52" y="64" width="216" height="84" rx="9" fill="#000" opacity=".22" transform="translate(4 5)"/><rect x="52" y="64" width="216" height="84" rx="9" fill="#fffdf6" stroke="#2c6f6a" stroke-width="2.5"/>' +
+    '<rect x="52" y="64" width="216" height="20" rx="9" fill="#d6efe6"/><rect x="52" y="76" width="216" height="8" fill="#d6efe6"/><circle cx="66" cy="74" r="3" fill="#2f9e8f"/><circle cx="77" cy="74" r="3" fill="#2f9e8f" opacity=".6"/><circle cx="88" cy="74" r="3" fill="#2f9e8f" opacity=".3"/>' +
+    '<text x="160" y="124" text-anchor="middle" font-size="22" fill="#22313f" ' + FONT + '>PHOTOSYNTHESIS</text></g>' +
+    '<circle cx="232" cy="38" r="12" fill="#e9f7d9" stroke="#4aa35a" stroke-width="2"/><path d="M232 44v-12M226 37l6 -6 6 6" fill="none" stroke="#2f8a49" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    "#a8743f"),
+  /* quiz: the word and three coloured answers with hard shadows */
+  quiz: SV(
+    '<rect x="42" y="14" width="236" height="46" rx="10" fill="#0f2233" transform="translate(3 4)"/><rect x="42" y="14" width="236" height="46" rx="10" fill="#fffdf6" stroke="#0f2233" stroke-width="2.5"/>' +
+    SPK(70, 38, "#6b7480", 1.1) + '<text x="170" y="46" text-anchor="middle" font-size="25" fill="#0f2233" ' + FONT + '>intransigent</text>' +
+    [["#b9e6c9", "непримиримый"], ["#cdbdf2", "проницательный"], ["#a8d4f2", "сбегать"]].map(([c, t], i) => {
+      const y = 78 + i * 38;
+      return '<rect x="22" y="' + y + '" width="276" height="32" rx="9" fill="#0f2233" transform="translate(3 4)"/><rect x="22" y="' + y + '" width="276" height="32" rx="9" fill="' + c + '" stroke="#0f2233" stroke-width="2.5"/>' +
+        '<circle cx="44" cy="' + (y + 16) + '" r="9" fill="#fff" stroke="#0f2233" stroke-width="2"/>' + SPK(39, y + 16, "#0f2233", .55) +
+        '<text x="64" y="' + (y + 22) + '" font-size="15" fill="#0f2233" ' + FONT + '>' + t + '</text>';
+    }).join(""),
+    "#e8dccb"),
+  /* wordcraft: the word to build, hidden letters, and the pieces */
+  wordcraft: SV(
+    [0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => '<circle cx="' + (112 + i * 12) + '" cy="16" r="' + (i === 2 ? 6 : 3.2) + '" fill="' + (i === 2 ? "none" : "#2f5a73") + '"' + (i === 2 ? ' stroke="#5fd0c0" stroke-width="1.8"' : "") + '/>').join("") +
+    '<text x="136" y="19" font-size="8" fill="#5fd0c0" text-anchor="middle" ' + FONT + '>3</text>' +
+    '<rect x="16" y="34" width="288" height="78" rx="12" fill="#173a50" stroke="#2c566e" stroke-width="1.5"/>' +
+    '<text x="160" y="60" text-anchor="middle" font-size="19" fill="#fff" ' + FONT + '>извините</text>' + SPK(88, 90, "#8fb3c7", 1.1) +
+    '<text x="125" y="98" font-size="23" fill="#7fa5bd" letter-spacing="5" ' + FONT + '>? ? ? ? ? ? ? ?</text>' +
+    ["sc", "di", "ul", "pe"].map((t, i) => { const x = 54 + i * 54; return '<rect x="' + x + '" y="140" width="44" height="40" rx="9" fill="#05121c" transform="translate(3 4)"/><rect x="' + x + '" y="140" width="44" height="40" rx="9" fill="#f3e8d4" stroke="#05121c" stroke-width="2"/><text x="' + (x + 22) + '" y="167" text-anchor="middle" font-size="20" fill="#1b2a36" ' + FONT + '>' + t + '</text>'; }).join(""),
+    "#0f2a3d"),
+  /* snake: the word on top, the snake spelling it in a grid */
+  snake: SV(
+    '<rect x="14" y="8" width="292" height="54" rx="9" fill="#173a50" stroke="#2c566e" stroke-width="1.5"/><text x="160" y="28" text-anchor="middle" font-size="14" fill="#fff" ' + FONT + '>счёт</text>' +
+    SPK(92, 49, "#8fb3c7", .9) + '<text x="116" y="54" font-size="19" ' + FONT + '><tspan fill="#5fd0b4">LA CUE</tspan><tspan fill="#7fa5bd">???</tspan></text>' +
+    '<rect x="14" y="70" width="292" height="124" rx="9" fill="#10293b" stroke="#2c566e" stroke-width="1.5"/>' +
+    Array.from({ length: 9 }, (_, i) => '<path d="M' + (14 + i * 36.5) + ' 70v124" stroke="#1c3d52" stroke-width="1"/>').join("") + Array.from({ length: 4 }, (_, i) => '<path d="M14 ' + (70 + i * 31) + 'h292" stroke="#1c3d52" stroke-width="1"/>').join("") +
+    '<text x="28" y="140" font-size="22" fill="#5fd0b4" letter-spacing="8" ' + FONT + '>T A</text>' +
+    [["#2f7fd6", 100, 160, "E"], ["#2f7fd6", 140, 160, "U"], ["#27a3d8", 180, 160, "C"], ["#27a3d8", 180, 128, "A"], ["#27b8d0", 180, 96, "L"]].map(([c, x, y, t]) => '<rect x="' + x + '" y="' + y + '" width="30" height="30" rx="7" fill="' + c + '"/><text x="' + (x + 15) + '" y="' + (y + 21) + '" text-anchor="middle" font-size="15" fill="#fff" ' + FONT + '>' + t + '</text>').join("") +
+    '<rect x="132" y="168" width="10" height="14" fill="#2f7fd6"/><rect x="172" y="168" width="10" height="14" fill="#2f7fd6"/><rect x="188" y="156" width="14" height="10" fill="#27a3d8"/><rect x="188" y="124" width="14" height="10" fill="#27a3d8"/>' +
+    '<rect x="146" y="92" width="34" height="34" rx="9" fill="#ef6f5a"/><circle cx="156" cy="104" r="5.5" fill="#fff"/><circle cx="156" cy="104" r="2.4" fill="#12202c"/><circle cx="170" cy="104" r="5.5" fill="#fff"/><circle cx="170" cy="104" r="2.4" fill="#12202c"/>',
+    "#0f2a3d"),
+  /* word search: square grid, found words marked */
+  search: (() => {
+    const rows = ["HOLAXSEQ", "LGRACIAS", "AEXITRPN", "ORSALIDA", "CLOSEDMB"], cw = 37, ch = 35, ox = 12, oy = 12;
+    const found = [[0, 0, 4], [1, 1, 7], [2, 1, 4], [3, 2, 6], [4, 0, 6]];
+    const pills = found.map(([r, c, n]) => '<rect x="' + (ox + c * cw + 3) + '" y="' + (oy + r * ch + 3) + '" width="' + (n * cw - 6) + '" height="' + (ch - 6) + '" rx="' + (ch / 2 - 3) + '" fill="#fff" opacity=".95"/>').join("");
+    const inFound = (r, c) => found.some(([fr, fc, n]) => fr === r && c >= fc && c < fc + n);
+    const letters = rows.map((s, r) => s.split("").map((t, c) => '<text x="' + (ox + c * cw + cw / 2) + '" y="' + (oy + r * ch + 24) + '" text-anchor="middle" font-size="19" fill="' + (inFound(r, c) ? "#1d7a55" : "#d8f2e6") + '" ' + FONT + '>' + t + '</text>').join("")).join("");
+    return SV(pills + letters, "#2f9e6e");
+  })(),
+  /* word search 2: honeycomb, one phrase highlighted along a bend */
+  search2: (() => {
+    const r = 19, w = r * Math.sqrt(3), rows = 5, cols = 8, ox = 22, oy = 26, letters = "ADIOSBUENOGRACIASPORFAVORHOLAQUETALMUCHOSIGAZ";
+    const lit = new Set(["1,1", "1,2", "2,2", "2,3", "3,3", "3,4", "3,5"]), word = { "1,1": "G", "1,2": "R", "2,2": "A", "2,3": "C", "3,3": "I", "3,4": "A", "3,5": "S" };
+    let out = "";
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const cx = ox + x * w + (y % 2 ? w / 2 : 0), cy = oy + y * r * 1.5, k = y + "," + x, on = lit.has(k);
+      out += '<polygon points="' + hexPts(cx, cy, r - 2) + '" fill="' + (on ? "#fff" : "rgba(255,255,255,.16)") + '"/>' +
+        '<text x="' + cx.toFixed(1) + '" y="' + (cy + 6.5).toFixed(1) + '" text-anchor="middle" font-size="18" fill="' + (on ? "#a82f64" : "#ffe3ef") + '" ' + FONT + '>' + (on ? word[k] : letters[(y * cols + x) % letters.length]) + '</text>';
+    }
+    return SV(out, "#cf4f86");
+  })()
 };
 const GAMES = [
   { id: "flashcards", name: "Flashcards", color: "#ef6f5a", tag: "Classic recall cards", desc: "Flip the card, say whether you knew it, and see it again at the right moment. A missed word returns in minutes, a known one waits hours, days, then weeks.", meta: ["Spaced repetition", "Any language"] },
   { id: "quiz", name: "Quiz", color: "#d9a520", tag: "Multiple choice that gets harder", desc: "Pick the right meaning. New words start with two options; as a word gets familiar, up to six appear, so you have to pick it out of a crowd.", meta: ["2 to 6 options", "Listen to words"] },
   { id: "wordcraft", name: "Wordcraft", color: "#9b72d4", tag: "Build words from pieces", desc: "A word is cut into fragments and you put them back in order. After a few right answers, decoy pieces from other words join in.", meta: ["Spelling", "Gets harder"] },
-  { id: "snake", name: "Snake", color: "#2f7fd6", tag: "Turn screen time into review", desc: "Steer the snake through the letters of the word in the right order. A wrong letter ends the run, so you look at every letter.", meta: ["Arcade", "Spelling"], img: "img/snake.png" },
+  { id: "snake", name: "Snake", color: "#2f7fd6", tag: "Turn screen time into review", desc: "Steer the snake through the letters of the word in the right order. A wrong letter ends the run, so you look at every letter.", meta: ["Arcade", "Spelling"] },
   { id: "search", name: "Word search", color: "#2f9e6e", tag: "Find the hidden words", desc: "Hunt for the words of your set in a grid of letters. Searching for a word again and again wires it into memory.", meta: ["Relaxed", "Grid puzzle"] },
-  { id: "search2", name: "Word search 2", color: "#cf4f86", tag: "Honeycomb word hunt", desc: "The same hunt on a honeycomb grid, where phrases twist and turn in every direction.", meta: ["Phrases", "Hex grid"], img: "img/hex-search.png" }
+  { id: "search2", name: "Word search 2", color: "#cf4f86", tag: "Honeycomb word hunt", desc: "The same hunt on a honeycomb grid, where phrases twist and turn in every direction.", meta: ["Phrases", "Hex grid"] }
 ];
 const SLUG = { search: "word-search", search2: "word-search-2" };
 const cat = $("#catalog");
 GAMES.forEach(g => {
   const a = el("article", "app");
-  const shot = g.img
-    ? '<div class="shot" style="background:' + g.color + '"><img src="' + g.img + '" alt="' + g.name + ' preview" loading="lazy"></div>'
-    : '<div class="shot" style="background:linear-gradient(135deg,' + g.color + ',' + g.color + 'cc)">' + PV[g.id] + '</div>';
+  const shot = '<div class="shot">' + PV[g.id] + '</div>';
   a.innerHTML = shot +
     '<div class="app-body"><div class="app-top"><div class="tile" style="background:' + g.color + '">' + ICON[g.id] + '</div><div><h3>' + g.name + '</h3><p class="tag">' + g.tag + '</p></div></div>' +
     '<p class="desc">' + g.desc + '</p><ul class="meta">' + g.meta.map(m => "<li>" + m + "</li>").join("") + '</ul>' +
