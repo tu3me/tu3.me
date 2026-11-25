@@ -1183,6 +1183,7 @@ function catalog(container) {
             sad: progress.lastFailed,
             timer,
             bouncing: view.srs && view.bounce,
+            uneven: view.uneven,
             wordSize: view.original ? view.originalSize : null,
             transSize: view.translation ? view.translationSize : null,
             lang: lang
@@ -1445,12 +1446,23 @@ function catalog(container) {
      * here, and standing in the heading of the dialog that turns a game away
      * while everything is still ripening -- see confirmEarly. Where it goes is
      * the caller's business and arrives as `extra`; what it looks like is not.
+     *
+     * Except that it comes in two, to go with the bubbles' two shapes: the deep
+     * mint with a soft shadow the bubbles had until then, and for the uneven ones
+     * (`uneven`) a slip of cream paper drawn round in brown, with no shadow -- the
+     * timers of the Flashcards cabinet. The lettering is the one lettering in
+     * both (the owner, 25 November 2026).
      */
-    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1.5px 3.8px;'
-        + ' border-radius: 10.2px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18);'
-        + ' white-space: nowrap; outline: none; letter-spacing: -0.2px;';
+    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1;'
+        + ' border-radius: 10.2px; white-space: nowrap; outline: none; letter-spacing: -0.2px;';
 
-    const timerBadge = (text, extra) => `<span class="bubble-timer-badge" style="${TIMER_BADGE} background: ${palette.timerFill}; color: ${palette.onTimer}; ${extra || ''}">${text}</span>`;
+    const timerBadge = (text, extra, uneven) => {
+        const look = uneven
+            ? `padding: 1px 3.6px; border: 1px solid ${palette.timerEdge}; background: ${palette.timerPaper}; color: ${palette.timerInk};`
+            : `padding: 1.5px 3.8px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); background: ${palette.timerFill}; color: ${palette.onTimer};`;
+
+        return `<span class="bubble-timer-badge" style="${TIMER_BADGE} ${look} ${extra || ''}">${text}</span>`;
+    };
 
     /*
      * A bubble with no word on it at all, which the set's view allows: with
@@ -1461,7 +1473,7 @@ function catalog(container) {
     const BARE_BUBBLE = 'min-width: 24px; min-height: 17px;';
 
     function createBubble(bubbleData, parent, order) {
-        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, wordSize, transSize } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, uneven, wordSize, transSize } = bubbleData;
 
         // The repetition timeline: one mark per repetition or elapsed interval,
         // drawn as a single picture -- see marksSvg.
@@ -1470,8 +1482,11 @@ function catalog(container) {
         // TEMP (debug): current stage number at the end of the timeline
         //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
 
-        // Optional timer badge in bottom-right corner
-        const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -5px; right: -4px; z-index: 3;') : '';
+        // Optional timer badge in bottom-right corner. The paper one hangs a pixel
+        // further out, and no further than the air kept round the bubbles
+        // (BUBBLE_ROOM), where the box that folds them away would cut it.
+        const corner = uneven ? 'bottom: -6px; right: -5px;' : 'bottom: -5px; right: -4px;';
+        const timerHtml = timer ? timerBadge(timer, `position: absolute; ${corner} z-index: 3;`, uneven) : '';
 
         const wordHtml = wordSize ? `<span class="bubble-word-text" style="font-weight: 800; font-size: ${wordSize}px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>` : '';
         const transHtml = transSize ? `<span class="bubble-trans-text" style="font-size: ${transSize}px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>` : '';
@@ -1485,8 +1500,17 @@ function catalog(container) {
                 </div>`
             : '';
 
+        // The two shapes a set's bubbles can have -- see bubble-uneven in app.css,
+        // which the new one's colour is handed to. The old one is the plain
+        // rounded rectangle the bubbles were until 25 November 2026.
+        //
+        // The new one is a layer of its own (isolation), so its badge cannot lie
+        // over the next row by its own z-index, as the old one's does: the whole
+        // bubble is lifted instead. It has a timer, so it does not hop.
+        const shape = uneven ? `--bubble: ${bgColor};${timer ? ' z-index: 1;' : ''}` : `background-color: ${bgColor}; border-radius: 12px;`;
+
         const bubbleHtml = `
-            <div class="word-bubble-card" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} background-color: ${bgColor}; border: none; border-radius: 12px; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
+            <div class="word-bubble-card${uneven ? ' bubble-uneven' : ''}" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} ${shape} border: none; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
                 ${wordHtml}
                 ${dotsRow}
                 ${transHtml}
@@ -2798,6 +2822,11 @@ function catalog(container) {
     const VIEW_SIZE_LEAST = 8.3;
     const VIEW_SIZE_MOST = 24.3;
 
+    // The stage whose colour the two samples of the bubbles' shape wear: the
+    // green in the middle of the ramp, for nothing but that it is one of the
+    // bubbles' own colours
+    const STYLE_SAMPLE = 6;
+
     // The marks each switch answers for, on a white plate of their own: the dark
     // ones are drawn for a bubble's pastel, and on the dark theme's panel they
     // would not be seen at all. A size up from a bubble's, too, where they are too
@@ -2829,8 +2858,26 @@ function catalog(container) {
                 ${MARK_SAMPLES[key].map(m => `<svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>`).join('')}
             </span>`;
 
+        /*
+         * The bubbles' shape, new or old (the owner, 25 November 2026): two
+         * bubbles with the word in them, each in its own shape, so the choice
+         * shows what it is. Which one is on is said by a ring round it, and by
+         * settle, as everything in the menu that changes is.
+         */
+        const tone = getStageColors(STYLE_SAMPLE);
+        const style = (uneven) => `<button class="set-view-style" data-press="${uneven ? 'new' : 'old'}" data-uneven="${Number(uneven)}" style="flex: none; padding: 2.6px; background: transparent; border: none; border-radius: 9px; cursor: pointer;">
+                <span class="${uneven ? 'bubble-uneven' : ''}" style="display: block; padding: 3.8px 7.7px; ${uneven ? `--bubble: ${tone.fill};` : `background: ${tone.fill}; border-radius: 8.5px;`} color: ${tone.ink}; font-size: 11.3px; font-weight: 800; line-height: 1.15; white-space: nowrap;">${tr(uneven ? 'viewStyleNew' : 'viewStyleOld')}</span>
+            </button>`;
+
+        const styles = `<div class="set-view-row" role="group" aria-label="${tr('viewStyle')}" style="display: flex; align-items: center; gap: 2.6px; min-height: 27.3px;">
+                <span style="flex: 1; min-width: 0; font-size: 12.8px; font-weight: 600; line-height: 1.2; color: ${palette.dialogText};">${tr('viewStyle')}</span>
+                ${style(true)}
+                ${style(false)}
+            </div>`;
+
         return `${check('original', tr('viewOriginal'), sizes('original'))}
             ${check('translation', tr('viewTranslation'), sizes('translation'))}
+            ${styles}
             ${check('srs', tr('viewSrs'))}
             <div class="set-view-children" style="padding-left: 21.8px;">
                 ${check('missed', tr('viewMissed'), sample('missed'))}
@@ -2919,6 +2966,13 @@ function catalog(container) {
                 ? `bounce-word ${BOUNCE_MS}ms ease-in-out infinite`
                 : 'none';
 
+            panel.querySelectorAll('.set-view-style').forEach(btn => {
+                const on = view.uneven === (btn.dataset.uneven === '1');
+
+                btn.setAttribute('aria-pressed', on);
+                btn.style.boxShadow = on ? `0 0 0 1.5px ${palette.accent}` : 'none';
+            });
+
             panel.querySelectorAll('[data-side]').forEach(btn => {
                 const size = view[`${btn.dataset.side}Size`] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
 
@@ -2940,6 +2994,16 @@ function catalog(container) {
 
         panel.querySelectorAll('.set-view-check').forEach(box => {
             box.addEventListener('change', () => change({ [box.dataset.press]: box.checked }));
+        });
+
+        // A press on the shape that is on already changes nothing, and nothing is
+        // written down as changed
+        panel.querySelectorAll('.set-view-style').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const uneven = btn.dataset.uneven === '1';
+
+                if (store.viewOf(set).uneven !== uneven) change({ uneven });
+            });
         });
 
         panel.querySelectorAll('[data-side]').forEach(btn => {
@@ -5350,6 +5414,14 @@ function catalog(container) {
             // can stay light, a 8.5px badge cannot.
             timerFill: t.progressFill,
             onTimer: '#ffffff',
+
+            // And the paper one the uneven bubbles wear -- see timerBadge: the
+            // cream, the ink and the line of the cabinet in flashcards.js, by day
+            // and at night.
+            timerPaper: isDark ? '#d6c7a6' : '#f9f0dd',
+            timerInk: isDark ? '#2a1f16' : '#4a3628',
+            timerEdge: isDark ? '#46311f' : '#4a3323',
+
             // The percent beside the title is a quiet readout, and mint text on
             // the light theme's white card is 2.1:1. The bar under it is the
             // thing that is meant to be mint.
@@ -6145,7 +6217,8 @@ function catalog(container) {
          *
          * Twice the size it is on a bubble, which is what makes it the
          * heading's own mark rather than a bubble's badge that wandered into a
-         * line of type. `zoom` and not a second set of numbers: every length on
+         * line of type -- and in the look it has on that set's bubbles, which come
+         * in two shapes. `zoom` and not a second set of numbers: every length on
          * it doubles at once -- the type, the padding, the corner, the shadow
          * under it -- and the one place the badge is described stays the one
          * place it is described.
@@ -6162,8 +6235,9 @@ function catalog(container) {
          * "undefined" is a worse answer to an impossible case than no badge.
          */
         const soonest = soonestTimer(setId);
+        const set = store.sets().find(s => String(s.id) === String(setId));
         const badge = soonest
-            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`)
+            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`, !!set && store.viewOf(set).uneven)
             : '';
 
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">

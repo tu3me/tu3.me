@@ -220,12 +220,15 @@ function onboarding() {
      * give up the side padding and a size, which is the smallest change that keeps
      * four of them on the card, and the one bubble on the screen that is a
      * picture of the others can afford it.
+     *
+     * In the bubbles' new shape, which is the one a set has until its menu says
+     * otherwise -- see bubble-uneven in app.css.
      */
     const chip = (fill, ink, extra) => {
         const word = tr('onbWord');
         const long = word.length > 4;
 
-        return `<span style="display: inline-flex; align-items: center; justify-content: center; background: ${fill}; color: ${ink}; border-radius: 12px; padding: 5.1px ${long ? 4.3 : 8.5}px; font-size: ${long ? 10.8 : 13.3}px; font-weight: 800; line-height: 1.15; ${extra || ''}">${word}</span>`;
+        return `<span class="bubble-uneven" style="display: inline-flex; align-items: center; justify-content: center; --bubble: ${fill}; color: ${ink}; padding: 5.1px ${long ? 4.3 : 8.5}px; font-size: ${long ? 10.8 : 13.3}px; font-weight: 800; line-height: 1.15; ${extra || ''}">${word}</span>`;
     };
 
     /*

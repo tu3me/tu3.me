@@ -636,6 +636,82 @@ body {
 }
 
 /*
+ * A word bubble's new shape: small corners, no two of one size, and edges a
+ * little uneven, as if cut out by hand -- the paper cards of Flashcards,
+ * brought to the catalog in their shape alone (the owner, 25 November 2026).
+ * The flat colour, the sizes and the type are what they were. A set can be put
+ * back to the even shape, see `uneven` in store.js.
+ *
+ * The colour is a layer of its own under the words, cut to the shape with
+ * clip-path. Not the bubble itself: the timer's badge hangs over its corner and
+ * would be cut with it. It is a pseudo-element, so there is nothing in the
+ * markup but the colour, `--bubble`.
+ *
+ * Each shape is written in shares of the bubble and pixels in from its edges,
+ * so one does for a bubble of any size, and the corners never stretch. Seven of
+ * them, taken in turn along a row: enough that two alike are never side by side.
+ * Generated (a random hand with a limit of 1.25px) and written down, rather than
+ * made as the page opens: nothing to compute, and the same at every draw. Which
+ * shape a bubble has comes of where it stands, and means nothing.
+ *
+ * shape() is Chrome 135, Safari 18.4. Where it is not known the property falls
+ * away with it, and the bubble is a plain rectangle with small round corners.
+ *
+ * What was tried before it, on the same cards (25 November 2026): a picture in
+ * nine slices (border-image), which needs one for every colour, made by script
+ * at the opening; as an SVG it was drawn over again for every bubble coming into
+ * sight and dropped a frame in ten of a scroll; a filter that roughens the edge
+ * (feDisplacementMap), which roughens the words too and costs more than all of
+ * them; corners of eight different radii, whose edges stay straight.
+ */
+.bubble-uneven {
+    position: relative;
+    isolation: isolate;
+}
+
+.bubble-uneven::before {
+    content: '';
+    position: absolute;
+    top: -0.4px;
+    right: -0.4px;
+    bottom: -0.4px;
+    left: -0.4px;
+    z-index: -1;
+    border-radius: 6px;
+    background: var(--bubble);
+    clip-path: var(--bubble-edge);
+    pointer-events: none;
+}
+
+.bubble-uneven:nth-child(7n+1) {
+    --bubble-edge: shape(from 5.1px 0.63px, curve to 43% 0.24px with 24% 0.59px, curve to calc(100% - 5.3px) 0.77px with 68% 0.12px, curve to calc(100% - 0.38px) 5.3px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.11px) 43% with calc(100% - 0.74px) 30%, curve to calc(100% - 1.21px) calc(100% - 6.2px) with calc(100% - 0.82px) 72%, curve to calc(100% - 6.2px) calc(100% - 0.78px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.08px) with 76% calc(100% - 0.24px), curve to 5.1px calc(100% - 0.3px) with 22% calc(100% - 0.97px), curve to 0.41px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.74px 48% with 0.65px 74%, curve to 0.62px 5.1px with 0.83px 27%, curve to 5.1px 0.82px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+2) {
+    --bubble-edge: shape(from 5.1px 0.01px, curve to 39% 0.6px with 23% 0.86px, curve to calc(100% - 5.6px) 0.75px with 74% 0px, curve to calc(100% - 0.78px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.22px) 53% with calc(100% - 0.2px) 27%, curve to calc(100% - 0.07px) calc(100% - 5.6px) with calc(100% - 1.02px) 71%, curve to calc(100% - 5.6px) calc(100% - 0.64px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 55% calc(100% - 0.85px) with 77% calc(100% - 0.02px), curve to 4.3px calc(100% - 0.08px) with 32% calc(100% - 0.64px), curve to 0.11px calc(100% - 4.3px) with 0.5px calc(100% - 0.5px), curve to 1.23px 56% with 0.14px 76%, curve to 1.21px 5.1px with 0.67px 28%, curve to 5.1px 0.7px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+3) {
+    --bubble-edge: shape(from 4.6px 0.23px, curve to 37% 0.83px with 19% 0.8px, curve to calc(100% - 5.6px) 0.23px with 67% 0.66px, curve to calc(100% - 0.27px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.37px) 55% with calc(100% - 0.16px) 24%, curve to calc(100% - 1.24px) calc(100% - 5.6px) with calc(100% - 1.04px) 71%, curve to calc(100% - 5.6px) calc(100% - 1.09px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 62% calc(100% - 1.11px) with 80% calc(100% - 1.03px), curve to 6px calc(100% - 0.93px) with 24% calc(100% - 0.99px), curve to 0.32px calc(100% - 6px) with 0.5px calc(100% - 0.5px), curve to 1.06px 57% with 1.12px 78%, curve to 0.71px 4.6px with 0.54px 26%, curve to 4.6px 1.11px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+4) {
+    --bubble-edge: shape(from 4.3px 0.34px, curve to 38% 0.36px with 17% 0.82px, curve to calc(100% - 5.7px) 0.38px with 76% 1.09px, curve to calc(100% - 0.49px) 5.7px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.14px) 50% with calc(100% - 0.28px) 29%, curve to calc(100% - 0.45px) calc(100% - 5.6px) with calc(100% - 0.33px) 78%, curve to calc(100% - 5.6px) calc(100% - 0.19px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.83px) with 80% calc(100% - 0.21px), curve to 6.3px calc(100% - 0.81px) with 23% calc(100% - 0.74px), curve to 0.03px calc(100% - 6.3px) with 0.5px calc(100% - 0.5px), curve to 0.34px 54% with 0.5px 77%, curve to 1.12px 4.3px with 0.12px 29%, curve to 4.3px 0.86px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+5) {
+    --bubble-edge: shape(from 6.3px 1.23px, curve to 34% 0.07px with 18% 1.07px, curve to calc(100% - 4px) 1.25px with 69% 0.15px, curve to calc(100% - 0.58px) 4px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.44px) 54% with calc(100% - 0.33px) 27%, curve to calc(100% - 1.17px) calc(100% - 5.8px) with calc(100% - 0.26px) 75%, curve to calc(100% - 5.8px) calc(100% - 1px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.38px) with 84% calc(100% - 0.53px), curve to 4.4px calc(100% - 0.72px) with 28% calc(100% - 0.61px), curve to 0.58px calc(100% - 4.4px) with 0.5px calc(100% - 0.5px), curve to 1px 56% with 0.71px 77%, curve to 0.51px 6.3px with 1.08px 24%, curve to 6.3px 0.61px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+6) {
+    --bubble-edge: shape(from 4.9px 0.51px, curve to 44% 0.89px with 19% 0.79px, curve to calc(100% - 5.2px) 0.01px with 70% 1.02px, curve to calc(100% - 0.83px) 5.2px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.19px) 51% with calc(100% - 0.03px) 27%, curve to calc(100% - 1.2px) calc(100% - 5px) with calc(100% - 0.32px) 72%, curve to calc(100% - 5px) calc(100% - 1.01px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 60% calc(100% - 0.79px) with 83% calc(100% - 0.57px), curve to 5.1px calc(100% - 0.78px) with 26% calc(100% - 1.23px), curve to 0.98px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.45px 55% with 0.98px 75%, curve to 0.62px 4.9px with 0.65px 25%, curve to 4.9px 1.19px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+7) {
+    --bubble-edge: shape(from 5.3px 0.96px, curve to 45% 0.68px with 20% 0.14px, curve to calc(100% - 5.9px) 0.03px with 72% 1.02px, curve to calc(100% - 0.52px) 5.9px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.07px) 52% with calc(100% - 0.8px) 30%, curve to calc(100% - 0.17px) calc(100% - 6.3px) with calc(100% - 0.69px) 72%, curve to calc(100% - 6.3px) calc(100% - 1.02px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.19px) with 84% calc(100% - 0.7px), curve to 4.7px calc(100% - 1.19px) with 25% calc(100% - 0.41px), curve to 0.15px calc(100% - 4.7px) with 0.5px calc(100% - 0.5px), curve to 0.89px 44% with 0.39px 71%, curve to 0.63px 5.3px with 1.07px 29%, curve to 5.3px 1.25px with 0.5px 0.5px);
+}
+
+/*
  * What a word bubble does while it waits its turn.
  *
  * A word whose time has come hops. It says the same thing the missing timer
