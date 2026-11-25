@@ -3,8 +3,8 @@
 
 <head>
 <meta charset="UTF-8">
-<!-- Wide enough for one screen of the draft, so that a phone shows it whole -->
-<meta name="viewport" content="width=400">
+<!-- A screen of the draft and no more, so that on a phone it takes the whole width -->
+<meta name="viewport" content="width=380">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <title>Каталог v5: игры на раме</title>
 <!--
@@ -28,13 +28,17 @@
     body { background: #1b1f24; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
     /* The draft's own controls, outside the app */
-    .tools { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; padding: 10px 14px; background: #1b1f24; color: #b9c1c9; font-size: 13px; }
+    .tools { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; padding: 10px 14px; background: #1b1f24; color: #b9c1c9; font-size: 13px; }
     .tools span { display: inline-flex; align-items: center; gap: 4px; }
     .tools button { padding: 3px 9px; border: 1px solid #3a424b; border-radius: 7px; background: transparent; color: #b9c1c9; font: inherit; cursor: pointer; }
     .tools button[aria-pressed="true"] { background: #39434e; color: #fff; border-color: #55616d; }
 
     .screens { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 20px; padding: 6px 0 40px; }
     .screen { width: 380px; min-height: 600px; border-radius: 10px; overflow: hidden; }
+    @media (max-width: 480px) {
+        .screens { padding-top: 0; }
+        .screen { border-radius: 0; }
+    }
     .popup .screen { height: 600px; border-radius: 0; overflow-y: auto; }
 
     /* The app's own page: 350 wide, shown at the default 380 -- see app.css */
@@ -740,6 +744,11 @@
 
     const screens = document.querySelector('.screens');
 
+    // Which drawers are shut, in each theme by itself, and kept through a
+    // press on the tools above
+    const start = () => SETS.map(s => !!s.folded);
+    const shut = { dark: start(), light: start() };
+
     function render() {
         document.querySelectorAll('.tools button').forEach(b => b.setAttribute('aria-pressed', options[b.dataset.set] === b.dataset.value));
 
@@ -755,7 +764,7 @@
             const screen = document.createElement('section');
             screen.className = 'screen';
             screen.style.background = p.ground;
-            screen.innerHTML = `<div class="app ${options.font === 'hand' ? 'hand' : ''}">${headerHtml(p)}<div style="display: flex; flex-direction: column; gap: 14px; margin-top: 6.8px;">${shown.map(s => setCard(s, p)).join('')}</div></div>`;
+            screen.innerHTML = `<div class="app ${options.font === 'hand' ? 'hand' : ''}">${headerHtml(p)}<div style="display: flex; flex-direction: column; gap: 14px; margin-top: 6.8px;">${shown.map((s, i) => setCard({ ...s, folded: shut[theme][i] }, p)).join('')}</div></div>`;
             screens.appendChild(screen);
 
             screen.querySelectorAll('.set').forEach(el => {
@@ -766,13 +775,11 @@
             });
 
             screen.querySelectorAll('.set').forEach((el, i) => el.querySelector('.fold').addEventListener('click', () => {
-                SETS[i].folded = !SETS[i].folded;
-                slideSound(!SETS[i].folded);
-                screens.querySelectorAll('.screen').forEach(s => {
-                    const one = s.querySelectorAll('.set')[i];
-                    slide(one, !SETS[i].folded);
-                    one.querySelector('.fold span').style.transform = `rotate(${SETS[i].folded ? 0 : 90}deg)`;
-                });
+                const open = shut[theme][i];
+                shut[theme][i] = !open;
+                slideSound(open);
+                slide(el, open);
+                el.querySelector('.fold span').style.transform = `rotate(${open ? 90 : 0}deg)`;
             }));
         });
     }
