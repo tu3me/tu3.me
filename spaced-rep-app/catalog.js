@@ -1115,6 +1115,20 @@ function catalog(container) {
     const STEP_SIZE = 9.4;
 
     /*
+     * A colour of the tokens, #rrggbb, at `alpha`, as rgba -- which every
+     * browser reads. The empty dots' rings were drawn in a color-mix on the day
+     * they came, 26 November 2026, and an old phone's browser (Chrome before
+     * 111, Safari before 16.2) does not know it: a value it does not know drops
+     * the whole box-shadow, and the dots had no ring at all while the signs
+     * beside them, seen through by `opacity`, showed. The same thing happened
+     * to the veils in quiz.js and search.js on 8 November.
+     */
+    function fade(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    /*
      * The same colour with the light turned down a notch.
      *
      * A lit segment on the light theme is a pastel on a white card — 1.2 to
@@ -4148,18 +4162,25 @@ function catalog(container) {
 
     // The sign in the bar, a little larger than the dot it stands for, and the
     // lock on a tile, over a veil of the card's colour that says the drawing
-    // under it is not to be pressed yet.
+    // under it is not to be pressed yet: 65% of the card's colour, and the lock
+    // 26 across (the owner, the same day; 55% and 20 at first, which left the
+    // locked games too bright beside the open one and the lock too small).
     //
     // Both in the card's ink, and seen through: whole, the light theme's ink
     // made them the darkest things on the card (reported by the owner, the
     // same day). A share of the ink rather than a lighter colour of each
     // theme's, so the one number does for both.
     const STEP_LOCK = 11;
-    const TILE_LOCK = 20;
+    const TILE_LOCK = 26;
     const STEP_LOCK_INK = 0.6;
 
     // The line of an empty dot's ring, in the bar -- see stepLook
     const STEP_RING = 1.2;
+
+    // And its size: as tall as the lock beside it, which stands from 2.1 to 21.5
+    // of its grid of 24 (the owner, 26 November 2026) -- a little less than the
+    // dot, so an empty one reads as a place still to fill rather than as a dot
+    const STEP_RING_SIZE = STEP_LOCK * (21.5 - 2.1) / 24;
     const TILE_LOCK_INK = 0.5;
 
     // Whether a game was left unfinished on a set, which is a question about
@@ -4405,7 +4426,7 @@ function catalog(container) {
         // Beside the face and not in it: the game draws its face into the tile
         // again when it grows it (see growTiles), and would draw over the lock
         const lock = locked
-            ? `<span class="set-tile-lock" aria-hidden="true" style="position: absolute; top: 0; left: 50%; width: ${TILE}px; height: ${TILE}px; margin-left: -${TILE / 2}px; display: grid; place-items: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}8c; z-index: 2; pointer-events: none;">${signSvg('lock', TILE_LOCK, palette.title, TILE_LOCK_INK)}</span>`
+            ? `<span class="set-tile-lock" aria-hidden="true" style="position: absolute; top: 0; left: 50%; width: ${TILE}px; height: ${TILE}px; margin-left: -${TILE / 2}px; display: grid; place-items: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}a6; z-index: 2; pointer-events: none;">${signSvg('lock', TILE_LOCK, palette.title, TILE_LOCK_INK)}</span>`
             : '';
 
         return `<button class="${cls}" ${attrs} style="position: relative; flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
@@ -5013,20 +5034,21 @@ function catalog(container) {
                 return {
                     colour,
                     edge: (lit && palette.stepEdge) ? shade(colour, palette.stepEdge) : '',
-                    width: i < ladder.grown ? '100%' : `${STEP_SIZE}px`,
+                    width: i < ladder.grown ? '100%' : `${ring ? STEP_RING_SIZE : STEP_SIZE}px`,
+                    height: ring ? STEP_RING_SIZE : STEP_SIZE,
                     sign,
                     ring
                 };
             };
 
             const waiting = ringed
-                ? { colour: 'transparent', edge: '', width: `${STEP_SIZE}px`, ring: true }
-                : { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px` };
+                ? { colour: 'transparent', edge: '', width: `${STEP_RING_SIZE}px`, height: STEP_RING_SIZE, ring: true }
+                : { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px`, height: STEP_SIZE };
 
             // The hairline of a lit dot, or the ring of an empty one: both drawn
             // as shadows, which take nothing from the dot's size -- see below
             const stepShadow = (look) => look.edge ? `0 0 0 0.5px ${look.edge}`
-                : look.ring ? `inset 0 0 0 ${STEP_RING}px color-mix(in srgb, ${palette.hint} ${STEP_LOCK_INK * 100}%, transparent)`
+                : look.ring ? `inset 0 0 0 ${STEP_RING}px ${fade(palette.hint, STEP_LOCK_INK)}`
                 : '';
 
             /*
@@ -5051,7 +5073,7 @@ function catalog(container) {
             //
             // Each segment is a share of the row with the dot or the bar in
             // the middle of it -- see SEGMENTS.
-            const stepStyle = (look) => `flex: none; display: flex; align-items: center; justify-content: center; width: ${look.width}; height: ${STEP_SIZE}px; border-radius: ${STEP_SIZE / 2}px;`
+            const stepStyle = (look) => `flex: none; display: flex; align-items: center; justify-content: center; width: ${look.width}; height: ${look.height}px; border-radius: ${look.height / 2}px;`
                 + ` background-color: ${look.colour};`
                 + (stepShadow(look) ? ` box-shadow: ${stepShadow(look)};` : '');
 
@@ -5139,6 +5161,8 @@ function catalog(container) {
                         step.style.backgroundColor = look.colour;
                         step.style.boxShadow = stepShadow(look);
                         step.style.width = look.width;
+                        step.style.height = `${look.height}px`;
+                        step.style.borderRadius = `${look.height / 2}px`;
                     }, 150 + i * STEP_WAVE_MS);
                 });
             }

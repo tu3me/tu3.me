@@ -683,6 +683,13 @@ body {
 .set-tile-name-again {
     position: absolute;
     top: 0;
+
+    /* Far out of sight first, for a browser that does not know container units
+       (Chrome before 105) and drops the line under it: left where it was, the
+       copy would stand right after the name and a short one would read twice.
+       The name then does not move either -- its keyframes fall away the same
+       way -- and a long one is simply cut at the edge. */
+    left: 1000%;
     left: calc(100% + max(var(--name-gap), 100cqw - 100%));
 }
 
