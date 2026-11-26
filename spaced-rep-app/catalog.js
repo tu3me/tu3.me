@@ -4395,16 +4395,25 @@ function catalog(container) {
      *
      * The room is 94% of the fifth (NAME_ROOM), centred under the tile, so
      * that two names running side by side have air between them as well as the
-     * gap (the owner, the same day; 90% at first, then 92%). The face is what the name is measured
-     * against in the CSS (a container, 100cqw there), so it takes the whole of
-     * that room whatever is in it. Only the name's face: "Continue" stands in
-     * the same place, wider than the room by a few pixels, and is not clipped
-     * -- see CONTINUE -- so it reaches into the air either side. The copy that
-     * follows the name round the loop is the same words again, hidden from a
-     * screen reader.
+     * gap (the owner, the same day; 90% at first, then 92%). Only the name's
+     * face is held to it: "Continue" stands in the same place and is not
+     * clipped -- see CONTINUE. The copy that follows the name round the loop is
+     * the same words again, hidden from a screen reader.
+     *
+     * The room is a number, in the app's own units, worked out here and handed
+     * to the CSS as --name-room, where the loop measures the name against it.
+     * Arithmetic rather than a measurement, for the reason MARK_WIDTH gives: the
+     * layout has one width and only zooms it. The row is 350, less the page's
+     * 6.8 either side, the card's 1px border and its 13.7 of padding either
+     * side: 307. The CSS read the room off the face itself for a day, in
+     * container units (100cqw), and an old phone's browser (Chrome before 105)
+     * knows none: the names did not move, and a short one read twice, its copy
+     * standing right after it (reported by the owner, 26 November 2026).
      */
-    const NAME_ROOM = '94%';
-    const NAME_FACE = 'justify-self: stretch; container-type: inline-size; overflow: hidden; white-space: nowrap; text-align: center;';
+    const ROW_WIDTH = 350 - 2 * 6.8 - 2 * 1 - 2 * 13.7;
+    const NAME_ROOM = 0.94;
+    const NAME_PX = (ROW_WIDTH - (ROW_PLACES - 1) * ROW_GAP) / ROW_PLACES * NAME_ROOM;
+    const NAME_FACE = 'justify-self: stretch; overflow: hidden; white-space: nowrap; text-align: center;';
 
     // A lock pressed: a turn either way from where the shackle hangs, and back
     function shakeLock(svg) {
@@ -4431,7 +4440,7 @@ function catalog(container) {
 
         return `<button class="${cls}" ${attrs} style="position: relative; flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
-            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: ${NAME_ROOM}; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: ${NAME_PX}px; --name-room: ${NAME_PX}px; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
                 <span class="set-tile-face" style="grid-area: 1 / 1; ${NAME_FACE}"><span class="set-tile-name">${label}<span class="set-tile-name-again" aria-hidden="true">${label}</span></span></span>
                 ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; white-space: nowrap;">${CONTINUE}</span>` : ''}
             </span>

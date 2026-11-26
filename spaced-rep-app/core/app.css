@@ -643,25 +643,32 @@ body {
  * A name that fits stands still. The owner's call, 26 November 2026; see
  * NAME_FACE in catalog.js for the history.
  *
- * All of it CSS, and nothing measured. The face round the name is a container
- * as wide as the fifth, so 100cqw is the room there is, and inside the name's
- * own box 100% is the name itself (a percentage in translate and in `left` is
- * the box's own width, or its containing block's). Then:
+ * All of it CSS, and nothing measured. The room there is comes from the label,
+ * as --name-room -- worked out in catalog.js, see NAME_ROOM -- and inside the
+ * name's own box 100% is the name itself (a percentage in translate and in
+ * `left` is the box's own width, or its containing block's). Then:
  *
- *  - The way it moves, clamp(-100% - gap, (100cqw - 100%) * 1000, 0cqw): the
+ *  - The way it moves, clamp(-100% - gap, (room - 100%) * 1000, nought): the
  *    middle term is a large step one way or the other, depending on whether the
  *    name is wider than the room, and the clamp turns it into one of the two
  *    ends -- the full turn of the loop for a long name, nothing for a short one.
- *    Nothing is 0cqw and not 0px: the minifier of the store's build (clean-css,
- *    build-min.sh) writes a 0px as a bare 0, which is a number and not a
- *    length, and a clamp with both in it is thrown away whole. 0cqw is a unit
- *    it does not know, and it leaves it alone.
+ *    Nought is --name-zero and not a 0px written in: the minifier of the
+ *    store's build (clean-css, build-min.sh) writes a 0px as a bare 0, which is
+ *    a number and not a length, and a clamp with both in it is thrown away
+ *    whole. A custom property it leaves as it is.
  *
  *  - The copy stands a gap after the name, or, after a short one, a whole room
- *    after it (max(gap, 100cqw - 100%)), which is past the edge it is clipped at
+ *    after it (max(gap, room - 100%)), which is past the edge it is clipped at
  *    from wherever a short name stands centred. Out of the flow, so the name's
  *    box is the name alone: a short one is centred by it, a long one starts at
  *    the left, which is where text that overflows its line stands.
+ *
+ * Nothing newer than clamp() and max() (Chrome 79, Safari 13.1). The room was
+ * read off the face in container units for a day, and on an old phone, which
+ * knows none, the names stood still and a short one read twice: a line with a
+ * var() in it is not dropped where a value is unknown, as a plain one is, but
+ * goes to its initial value, and the copy's `left` went to auto -- right after
+ * the name. A browser older still, with no max(), has the copy hidden below.
  *
  * A short name still has the animation, which moves it by nought: what a
  * measurement would have saved is a translation the compositor does by
@@ -674,6 +681,7 @@ body {
  */
 .set-tile-name {
     --name-gap: 1em;
+    --name-zero: 0px;
 
     display: inline-block;
     position: relative;
@@ -683,19 +691,18 @@ body {
 .set-tile-name-again {
     position: absolute;
     top: 0;
+    left: calc(100% + max(var(--name-gap), var(--name-room) - 100%));
+}
 
-    /* Far out of sight first, for a browser that does not know container units
-       (Chrome before 105) and drops the line under it: left where it was, the
-       copy would stand right after the name and a short one would read twice.
-       The name then does not move either -- its keyframes fall away the same
-       way -- and a long one is simply cut at the edge. */
-    left: 1000%;
-    left: calc(100% + max(var(--name-gap), 100cqw - 100%));
+@supports not (left: max(1px, 2px)) {
+    .set-tile-name-again {
+        display: none;
+    }
 }
 
 @keyframes tile-name-roll {
     0%, 22% { transform: translateX(0); }
-    100% { transform: translateX(clamp(-100% - var(--name-gap), (100cqw - 100%) * 1000, 0cqw)); }
+    100% { transform: translateX(clamp(-100% - var(--name-gap), (var(--name-room) - 100%) * 1000, var(--name-zero))); }
 }
 
 /*
