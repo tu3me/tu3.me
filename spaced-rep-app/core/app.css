@@ -636,11 +636,130 @@ body {
 }
 
 /*
- * A word bubble's new shape: small corners, no two of one size, and edges a
+ * A game's name that is wider than its tile's fifth of the row runs through it
+ * in a loop, as a ticker does: a rest where it starts, and then it moves off to
+ * the left with a copy of itself following, until the copy stands where the
+ * name stood and the loop starts again -- with nothing to see where it joins.
+ * A name that fits stands still. The owner's call, 26 November 2026; see
+ * NAME_FACE in catalog.js for the history.
+ *
+ * All of it CSS, and nothing measured. The face round the name is a container
+ * as wide as the fifth, so 100cqw is the room there is, and inside the name's
+ * own box 100% is the name itself (a percentage in translate and in `left` is
+ * the box's own width, or its containing block's). Then:
+ *
+ *  - The way it moves, clamp(-100% - gap, (100cqw - 100%) * 1000, 0cqw): the
+ *    middle term is a large step one way or the other, depending on whether the
+ *    name is wider than the room, and the clamp turns it into one of the two
+ *    ends -- the full turn of the loop for a long name, nothing for a short one.
+ *    Nothing is 0cqw and not 0px: the minifier of the store's build (clean-css,
+ *    build-min.sh) writes a 0px as a bare 0, which is a number and not a
+ *    length, and a clamp with both in it is thrown away whole. 0cqw is a unit
+ *    it does not know, and it leaves it alone.
+ *
+ *  - The copy stands a gap after the name, or, after a short one, a whole room
+ *    after it (max(gap, 100cqw - 100%)), which is past the edge it is clipped at
+ *    from wherever a short name stands centred. Out of the flow, so the name's
+ *    box is the name alone: a short one is centred by it, a long one starts at
+ *    the left, which is where text that overflows its line stands.
+ *
+ * A short name still has the animation, which moves it by nought: what a
+ * measurement would have saved is a translation the compositor does by
+ * itself. One speed for all is the thing CSS cannot do -- a duration cannot be
+ * worked out from a length -- so a longer name goes a little faster; the two
+ * long ones today are 61 and 70 pixels.
+ *
+ * Stopped for those who asked for less motion, below: the name stays at its
+ * start, clipped at the edge, and its copy out of sight past it.
+ */
+.set-tile-name {
+    --name-gap: 1em;
+
+    display: inline-block;
+    position: relative;
+    animation: tile-name-roll 9s linear infinite;
+}
+
+.set-tile-name-again {
+    position: absolute;
+    top: 0;
+    left: calc(100% + max(var(--name-gap), 100cqw - 100%));
+}
+
+@keyframes tile-name-roll {
+    0%, 22% { transform: translateX(0); }
+    100% { transform: translateX(clamp(-100% - var(--name-gap), (100cqw - 100%) * 1000, 0cqw)); }
+}
+
+/*
+ * The shade along the top and the foot of a set's words, when they scroll (see
+ * WORDS_CAP in catalog.js): a band that darkens to the edge, over the bubbles,
+ * which go under it as they scroll by (the owner, 26 November 2026). On the
+ * fold round the box rather than in it, where the box's own flex row would take
+ * it for one more bubble; the two have the same edges, and the fold does not
+ * scroll. Over the bubbles by z-index -- one with a timer is lifted to 1, see
+ * createBubble -- and not in the way of a press.
+ *
+ * Only where there is something to scroll. A set whose words all fit has
+ * nothing going under its edges, and a shade there would be a band across the
+ * card for no reason. Told apart in CSS alone, by the box's scroll timeline:
+ * with nothing to scroll the timeline is inactive, an animation on it has no
+ * effect, and the shade stays at its opacity of nought; with something to
+ * scroll the animation holds it at 1, wherever the scroll is -- the shade at
+ * the foot stays at the end of the list too, as the owner had it in the draft
+ * of the drawer (v5). The name is the fold's own (timeline-scope), so each
+ * set's shade answers to its own box. Where scroll timelines are not known
+ * (Firefox, for now) there is no shade, and the box scrolls as before.
+ *
+ * The colour is the card's own (palette.cardBg, as --words-shade on the fold),
+ * so the bubbles fade into the card at the edges rather than into a shadow --
+ * the owner's call, the same day, after a dark one on both themes.
+ */
+.set-words-fold {
+    position: relative;
+    timeline-scope: --set-words;
+}
+
+.set-words-bubbles {
+    scroll-timeline: --set-words block;
+}
+
+.set-words-fold::before,
+.set-words-fold::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 8px;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    animation: words-shade linear both;
+    animation-timeline: --set-words;
+}
+
+.set-words-fold::before {
+    top: 0;
+    background: linear-gradient(var(--words-shade), transparent);
+}
+
+.set-words-fold::after {
+    bottom: 0;
+    background: linear-gradient(transparent, var(--words-shade));
+}
+
+@keyframes words-shade {
+    from, to { opacity: 1; }
+}
+
+/*
+ * A word bubble's shape: small corners, no two of one size, and edges a
  * little uneven, as if cut out by hand -- the paper cards of Flashcards,
  * brought to the catalog in their shape alone (the owner, 25 November 2026).
- * The flat colour, the sizes and the type are what they were. A set can be put
- * back to the even shape, see `uneven` in store.js.
+ * The flat colour, the sizes and the type are what they were. For a day a set
+ * could be put back to the even shape, rounded by 12px, from its view menu; the
+ * owner had that choice taken away on 26 November 2026, and this is the only
+ * shape -- see dropEvenShape in migrate.js for what it left behind.
  *
  * The colour is a layer of its own under the words, cut to the shape with
  * clip-path. Not the bubble itself: the timer's badge hangs over its corner and
@@ -835,7 +954,8 @@ body {
  */
 @media (prefers-reduced-motion: reduce) {
     .word-bubble-card,
-    .set-view-hop {
+    .set-view-hop,
+    .set-tile-name {
         animation: none !important;
     }
 

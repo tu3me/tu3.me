@@ -221,8 +221,7 @@ function onboarding() {
      * four of them on the card, and the one bubble on the screen that is a
      * picture of the others can afford it.
      *
-     * In the bubbles' new shape, which is the one a set has until its menu says
-     * otherwise -- see bubble-uneven in app.css.
+     * In the bubbles' own shape -- see bubble-uneven in app.css.
      */
     const chip = (fill, ink, extra) => {
         const word = tr('onbWord');

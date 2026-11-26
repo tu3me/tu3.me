@@ -1183,7 +1183,6 @@ function catalog(container) {
             sad: progress.lastFailed,
             timer,
             bouncing: view.srs && view.bounce,
-            uneven: view.uneven,
             wordSize: view.original ? view.originalSize : null,
             transSize: view.translation ? view.translationSize : null,
             lang: lang
@@ -1447,22 +1446,15 @@ function catalog(container) {
      * while everything is still ripening -- see confirmEarly. Where it goes is
      * the caller's business and arrives as `extra`; what it looks like is not.
      *
-     * Except that it comes in two, to go with the bubbles' two shapes: the deep
-     * mint with a soft shadow the bubbles had until then, and for the uneven ones
-     * (`uneven`) a slip of cream paper drawn round in brown, with no shadow -- the
-     * timers of the Flashcards cabinet. The lettering is the one lettering in
-     * both (the owner, 25 November 2026).
+     * A slip of cream paper drawn round in brown, with no shadow -- the timers
+     * of the Flashcards cabinet, which came to the catalog with the bubbles'
+     * shape (the owner, 25 November 2026). It was a deep mint with a soft
+     * shadow until then; the lettering is what it was.
      */
-    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1;'
+    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1px 3.6px;'
         + ' border-radius: 10.2px; white-space: nowrap; outline: none; letter-spacing: -0.2px;';
 
-    const timerBadge = (text, extra, uneven) => {
-        const look = uneven
-            ? `padding: 1px 3.6px; border: 1px solid ${palette.timerEdge}; background: ${palette.timerPaper}; color: ${palette.timerInk};`
-            : `padding: 1.5px 3.8px; box-shadow: 0 2px 3.4px rgba(0,0,0,0.18); background: ${palette.timerFill}; color: ${palette.onTimer};`;
-
-        return `<span class="bubble-timer-badge" style="${TIMER_BADGE} ${look} ${extra || ''}">${text}</span>`;
-    };
+    const timerBadge = (text, extra) => `<span class="bubble-timer-badge" style="${TIMER_BADGE} border: 1px solid ${palette.timerEdge}; background: ${palette.timerPaper}; color: ${palette.timerInk}; ${extra || ''}">${text}</span>`;
 
     /*
      * A bubble with no word on it at all, which the set's view allows: with
@@ -1473,7 +1465,7 @@ function catalog(container) {
     const BARE_BUBBLE = 'min-width: 24px; min-height: 17px;';
 
     function createBubble(bubbleData, parent, order) {
-        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, uneven, wordSize, transSize } = bubbleData;
+        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, wordSize, transSize } = bubbleData;
 
         // The repetition timeline: one mark per repetition or elapsed interval,
         // drawn as a single picture -- see marksSvg.
@@ -1482,11 +1474,10 @@ function catalog(container) {
         // TEMP (debug): current stage number at the end of the timeline
         //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
 
-        // Optional timer badge in bottom-right corner. The paper one hangs a pixel
-        // further out, and no further than the air kept round the bubbles
-        // (BUBBLE_ROOM), where the box that folds them away would cut it.
-        const corner = uneven ? 'bottom: -6px; right: -5px;' : 'bottom: -5px; right: -4px;';
-        const timerHtml = timer ? timerBadge(timer, `position: absolute; ${corner} z-index: 3;`, uneven) : '';
+        // Optional timer badge in bottom-right corner, hanging out over it, and
+        // no further than the air kept round the bubbles (BUBBLE_ROOM), where
+        // the box that folds them away would cut it.
+        const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -6px; right: -5px; z-index: 3;') : '';
 
         const wordHtml = wordSize ? `<span class="bubble-word-text" style="font-weight: 800; font-size: ${wordSize}px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>` : '';
         const transHtml = transSize ? `<span class="bubble-trans-text" style="font-size: ${transSize}px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>` : '';
@@ -1500,17 +1491,14 @@ function catalog(container) {
                 </div>`
             : '';
 
-        // The two shapes a set's bubbles can have -- see bubble-uneven in app.css,
-        // which the new one's colour is handed to. The old one is the plain
-        // rounded rectangle the bubbles were until 25 November 2026.
-        //
-        // The new one is a layer of its own (isolation), so its badge cannot lie
-        // over the next row by its own z-index, as the old one's does: the whole
+        // The colour is handed to bubble-uneven in app.css, which cuts it to the
+        // bubble's shape. That makes the bubble a layer of its own (isolation),
+        // so its badge cannot lie over the next row by its own z-index: the whole
         // bubble is lifted instead. It has a timer, so it does not hop.
-        const shape = uneven ? `--bubble: ${bgColor};${timer ? ' z-index: 1;' : ''}` : `background-color: ${bgColor}; border-radius: 12px;`;
+        const lift = timer ? ' z-index: 1;' : '';
 
         const bubbleHtml = `
-            <div class="word-bubble-card${uneven ? ' bubble-uneven' : ''}" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} ${shape} border: none; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
+            <div class="word-bubble-card bubble-uneven" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} --bubble: ${bgColor};${lift} border: none; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
                 ${wordHtml}
                 ${dotsRow}
                 ${transHtml}
@@ -1916,7 +1904,7 @@ function catalog(container) {
      * the list put the reader back at the top of it -- and so would any other
      * redraw, a sync's among them. Not in the popup, whose scroller is the body
      * (.in-popup in app.css) and kept its place; both are put back, the way
-     * showFromTop takes both to the top.
+     * showFromTop takes both to the top. So is the scroll inside each set.
      *
      * Except for the New set form opening, which goes in at the top of the
      * list: kept where it stood, the reader further down would press the
@@ -1944,12 +1932,26 @@ function catalog(container) {
         const pageTop = toTop ? 0 : page.scrollTop;
         const bodyTop = toTop ? 0 : document.body.scrollTop;
 
+        // And each set's words, which scroll inside the set (see WORDS_CAP), by
+        // the set's id: the same set is a new card after the draw
+        const wordsTop = new Map();
+
+        document.querySelectorAll('.set-card').forEach(card => {
+            const words = card.querySelector('.set-words-bubbles');
+            if (words && words.scrollTop) wordsTop.set(card.dataset.setId, words.scrollTop);
+        });
+
         draw();
 
         if (typeof shaped === 'function') shaped();
 
         page.scrollTop = pageTop;
         document.body.scrollTop = bodyTop;
+
+        document.querySelectorAll('.set-card').forEach(card => {
+            const words = card.querySelector('.set-words-bubbles');
+            if (words && wordsTop.has(card.dataset.setId)) words.scrollTop = wordsTop.get(card.dataset.setId);
+        });
 
         // Hung during the draw, from a button that had not got its scroll back
         if (viewWatch) viewWatch.moved();
@@ -2243,6 +2245,9 @@ function catalog(container) {
         // Under everything the list drew, which is where an ask belongs: the
         // screen is for studying, and this is the app wanting something back.
         rateUs(container);
+
+        // After everything that stands round the list -- see capWords
+        capWords(list);
 
         // Last, so it is over everything this pass drew. Redrawn with the rest
         // of the screen — the theme button repaints the catalog under an open
@@ -2822,11 +2827,6 @@ function catalog(container) {
     const VIEW_SIZE_LEAST = 8.3;
     const VIEW_SIZE_MOST = 24.3;
 
-    // The stage whose colour the two samples of the bubbles' shape wear: the
-    // green in the middle of the ramp, for nothing but that it is one of the
-    // bubbles' own colours
-    const STYLE_SAMPLE = 6;
-
     // The marks each switch answers for, on a white plate of their own: the dark
     // ones are drawn for a bubble's pastel, and on the dark theme's panel they
     // would not be seen at all. A size up from a bubble's, too, where they are too
@@ -2858,26 +2858,8 @@ function catalog(container) {
                 ${MARK_SAMPLES[key].map(m => `<svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>`).join('')}
             </span>`;
 
-        /*
-         * The bubbles' shape, new or old (the owner, 25 November 2026): two
-         * bubbles with the word in them, each in its own shape, so the choice
-         * shows what it is. Which one is on is said by a ring round it, and by
-         * settle, as everything in the menu that changes is.
-         */
-        const tone = getStageColors(STYLE_SAMPLE);
-        const style = (uneven) => `<button class="set-view-style" data-press="${uneven ? 'new' : 'old'}" data-uneven="${Number(uneven)}" style="flex: none; padding: 2.6px; background: transparent; border: none; border-radius: 9px; cursor: pointer;">
-                <span class="${uneven ? 'bubble-uneven' : ''}" style="display: block; padding: 3.8px 7.7px; ${uneven ? `--bubble: ${tone.fill};` : `background: ${tone.fill}; border-radius: 8.5px;`} color: ${tone.ink}; font-size: 11.3px; font-weight: 800; line-height: 1.15; white-space: nowrap;">${tr(uneven ? 'viewStyleNew' : 'viewStyleOld')}</span>
-            </button>`;
-
-        const styles = `<div class="set-view-row" role="group" aria-label="${tr('viewStyle')}" style="display: flex; align-items: center; gap: 2.6px; min-height: 27.3px;">
-                <span style="flex: 1; min-width: 0; font-size: 12.8px; font-weight: 600; line-height: 1.2; color: ${palette.dialogText};">${tr('viewStyle')}</span>
-                ${style(true)}
-                ${style(false)}
-            </div>`;
-
         return `${check('original', tr('viewOriginal'), sizes('original'))}
             ${check('translation', tr('viewTranslation'), sizes('translation'))}
-            ${styles}
             ${check('srs', tr('viewSrs'))}
             <div class="set-view-children" style="padding-left: 21.8px;">
                 ${check('missed', tr('viewMissed'), sample('missed'))}
@@ -2966,13 +2948,6 @@ function catalog(container) {
                 ? `bounce-word ${BOUNCE_MS}ms ease-in-out infinite`
                 : 'none';
 
-            panel.querySelectorAll('.set-view-style').forEach(btn => {
-                const on = view.uneven === (btn.dataset.uneven === '1');
-
-                btn.setAttribute('aria-pressed', on);
-                btn.style.boxShadow = on ? `0 0 0 1.5px ${palette.accent}` : 'none';
-            });
-
             panel.querySelectorAll('[data-side]').forEach(btn => {
                 const size = view[`${btn.dataset.side}Size`] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
 
@@ -2994,16 +2969,6 @@ function catalog(container) {
 
         panel.querySelectorAll('.set-view-check').forEach(box => {
             box.addEventListener('change', () => change({ [box.dataset.press]: box.checked }));
-        });
-
-        // A press on the shape that is on already changes nothing, and nothing is
-        // written down as changed
-        panel.querySelectorAll('.set-view-style').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const uneven = btn.dataset.uneven === '1';
-
-                if (store.viewOf(set).uneven !== uneven) change({ uneven });
-            });
         });
 
         panel.querySelectorAll('[data-side]').forEach(btn => {
@@ -4100,8 +4065,15 @@ function catalog(container) {
      * are the tiles' hints now (`title`, from `pitch` in registry.js), and
      * what was pinned (`pinned` on a set) is left where it is and read by
      * nothing -- see docs/ARCHITECTURE.md, "Список — не полка".
+     *
+     * Wordcraft is kept off it for now, so that the five left stand in one
+     * line (the owner, 26 November 2026). Only off the row: the game and its
+     * page are where they were.
      */
-    const ROW_GAMES = GAMES.filter(g => !g.soon).concat(GAMES.filter(g => g.soon));
+    const ROW_HIDDEN = ['wordcraft'];
+
+    const ROW_GAMES = GAMES.filter(g => !ROW_HIDDEN.includes(g.id))
+        .filter(g => !g.soon).concat(GAMES.filter(g => g.soon));
 
     // Whether a game was left unfinished on a set, which is a question about
     // both halves of it: the same game on another set is a game that was never
@@ -4303,13 +4275,36 @@ function catalog(container) {
      */
     const NAME_SIZE = 10.8;
 
+    /*
+     * A name keeps to its tile's fifth of the row, on one line, and one that is
+     * wider runs through it in a loop, as a ticker does (the owner, 26 November
+     * 2026) -- see .set-tile-name in app.css, where the whole of it is, in CSS
+     * and with nothing measured. Until that day a name was never broken, cut or
+     * made smaller, and took the room it needed out of the gap and its
+     * neighbour's fifth -- which held while the two long names, "Word search"
+     * and "Word search 2", had short ones between them. With Wordcraft off the
+     * row (ROW_HIDDEN) they stood side by side and ran into each other.
+     *
+     * The room is nine tenths of the fifth (NAME_ROOM), centred under the tile,
+     * so that two names running side by side have air between them as well as
+     * the gap (the owner, the same day). The face is what the name is measured
+     * against in the CSS (a container, 100cqw there), so it takes the whole of
+     * that room whatever is in it. Only the name's face: "Continue" stands in
+     * the same place, wider than the room by a few pixels, and is not clipped
+     * -- see CONTINUE -- so it reaches into the air either side. The copy that
+     * follows the name round the loop is the same words again, hidden from a
+     * screen reader.
+     */
+    const NAME_ROOM = '90%';
+    const NAME_FACE = 'justify-self: stretch; container-type: inline-size; overflow: hidden; white-space: nowrap; text-align: center;';
+
     function tileBtn(cls, face, label, attrs, resuming) {
         const swap = resuming ? ' set-tile-swap' : '';
 
         return `<button class="${cls}" ${attrs} style="flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
-            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: max-content; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
-                <span class="set-tile-face" style="grid-area: 1 / 1; white-space: nowrap;">${label}</span>
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: ${NAME_ROOM}; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+                <span class="set-tile-face" style="grid-area: 1 / 1; ${NAME_FACE}"><span class="set-tile-name">${label}<span class="set-tile-name-again" aria-hidden="true">${label}</span></span></span>
                 ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; white-space: nowrap;">${CONTINUE}</span>` : ''}
             </span>
         </button>`;
@@ -4336,6 +4331,65 @@ function catalog(container) {
     const BUBBLE_ROOM = 6;
 
     /*
+     * How tall a set's words may stand: as tall as leaves the app, with that one
+     * set in it, inside 600 of the screen's pixels -- the most Chrome gives a
+     * popup. What is over that scrolls inside the set, between its bar and its
+     * games, which stay where they are (the owner, 26 November 2026). Every set
+     * has the same cap, so with two the page scrolls as it always did.
+     *
+     * The 600 are the screen's, and the app is drawn larger or smaller than it
+     * is laid out (see --app-scale in app.css): at the width it opens at they are
+     * 552.6 of its own. --app-unscale turns the one into the other, so dragging
+     * the corner needs nothing measured again. What is taken off them is the rest
+     * of the app, measured after the draw -- see capWords -- and is the same at
+     * any width.
+     *
+     * The box keeps the air round the bubbles inside it (BUBBLE_ROOM), so what
+     * hangs over a bubble's edge is cut where it was cut before, by the box and
+     * not by the fold round it. Its height counts that air -- border-box -- for
+     * the sum in capWords to come out. The fold measures what it opens to by the
+     * box's height (see foldOut), which the cap keeps the height on screen.
+     *
+     * No scrollbar, like everything else in the app (see app.css). What says
+     * there is more is a shade along the top and the foot of a box that scrolls,
+     * which the bubbles go under -- see .set-words-fold in app.css.
+     */
+    const WORDS_CAP = 'box-sizing: border-box; max-height: calc(600px * var(--app-unscale) - var(--set-rest, 0px));'
+        + ' overflow-x: hidden; overflow-y: auto;';
+
+    /*
+     * The rest of the app, beside one set's words: the header and the row under
+     * the list (the stars or the note), the same for every set, and the set's
+     * own name, bar and games, which are not -- a name runs to two lines and
+     * more. Measured rather than written down, in the app's own units (appRect),
+     * and handed to the set's words as --set-rest -- see WORDS_CAP.
+     *
+     * Not counted: the onboarding's strip, which goes once its cards are read,
+     * and the New set form, which goes on save. Both stand over the list, and
+     * while one is there the app with one set is that much over the 600.
+     *
+     * Rounded up, and a pixel more, for the fractions the zoom leaves in what is
+     * measured.
+     */
+    function capWords(list) {
+        const app = appRect(container);
+        const header = appRect(container.querySelector('.dict-header'));
+        const shelf = appRect(list);
+        const around = (header.bottom - app.top) + parseFloat(getComputedStyle(list).marginTop) + (app.bottom - shelf.bottom);
+
+        list.querySelectorAll('.set-card').forEach(card => {
+            const words = card.querySelector('.set-words-bubbles');
+            if (!words) return;
+
+            // A folded set's fold is hidden and measures nothing, which leaves the
+            // card its name, bar and games: the same rest as unfolded
+            const rest = around + appRect(card).height - appRect(words.parentElement).height;
+
+            words.style.setProperty('--set-rest', `${Math.ceil(rest) + 1}px`);
+        });
+    }
+
+    /*
      * A title takes as many lines as it needs, at one size whatever its length (the
      * owner, 4 November 2026). It was once set a size down to stay on one line, and
      * three sets of one language came out at three sizes.
@@ -4356,6 +4410,33 @@ function catalog(container) {
     const SET_BUTTON = 27.3;
     const TITLE_LINE = 18.5;
     const TITLE_AIR = (SET_BUTTON - TITLE_LINE) / 2;
+
+    /*
+     * The header stands a little higher in the card than the card's padding
+     * puts it, and the bar under it has as much more room at its foot (the
+     * owner, 26 November 2026): the air over the name was more than it needed,
+     * and the bubbles had less over them than the 15.4 they have under them,
+     * which now they have on both sides (BUBBLE_ROOM and its box's padding,
+     * and this). The card is as tall as it was.
+     *
+     * A margin on the header, not less padding on the card: the same card holds
+     * the form that edits the set, which keeps its own air. And the room under
+     * the bar is the top of the bubbles' box, inside the fold, not a margin on
+     * the bar: folded, the bar's margin would stand beside the tiles' padding,
+     * and a folded set has one ordinary space between its bar and its games --
+     * see BUBBLE_ROOM.
+     */
+    const HEAD_LIFT = 3.4;
+
+    /*
+     * The same trade at the other end, the same day: the games stand a little
+     * lower, with that much more air over them and as much less under their
+     * names. A margin under the row taken back from the card's padding, for the
+     * same form's sake; and the room over it is the row's own padding, so a
+     * folded set has it too. The mark under a "Continue" stands in the air that
+     * is left -- see CONTINUE.
+     */
+    const TILES_SINK = 1.7;
 
     function renderSetCard(parent, set, intro) {
         const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 15.4px; padding: 13.7px;"></div>`);
@@ -4884,7 +4965,7 @@ function catalog(container) {
             const growsTiles = grows && !stillMotion();
 
             $(card, `
-                <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+                <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin: -${HEAD_LIFT}px 0 6.8px;">
                     <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
                         <h4 class="set-title" style="margin: 0; padding: ${TITLE_AIR}px 0; min-width: 0; line-height: ${TITLE_LINE}px; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow-wrap: anywhere;">${set.title}</h4>
                         <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: inline-block;">${totalWords}${progress === 0 ? '' : ` · ${progress}%`}</span>
@@ -4899,11 +4980,11 @@ function catalog(container) {
                         style="${stepStyle(grows ? waiting : stepLook(i))}"></div></div>`).join('')}
                 </div>
 
-                <div class="set-words-fold" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM}px;"${view.collapsed ? ' hidden' : ''}>
-                    <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center;"></div>
+                <div class="set-words-fold" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM}px; --words-shade: ${palette.cardBg};"${view.collapsed ? ' hidden' : ''}>
+                    <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM + HEAD_LIFT}px ${BUBBLE_ROOM}px ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center; ${WORDS_CAP}"></div>
                 </div>
 
-                <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM}px;">
+                <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM + TILES_SINK}px; margin-bottom: -${TILES_SINK}px;">
                     ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${tr('pitch_' + g.id, null, g.pitch)}"`, unfinished(g))).join('')}
                 </div>
             `);
@@ -5409,15 +5490,8 @@ function catalog(container) {
             stepEdge: isDark ? 0 : 0.78,
 
 
-            // The timer badge is the same colour family as the bar, taken deep
-            // enough to carry white text: the bar has nothing written on it and
-            // can stay light, a 8.5px badge cannot.
-            timerFill: t.progressFill,
-            onTimer: '#ffffff',
-
-            // And the paper one the uneven bubbles wear -- see timerBadge: the
-            // cream, the ink and the line of the cabinet in flashcards.js, by day
-            // and at night.
+            // The timer badge's paper -- see timerBadge: the cream, the ink and
+            // the line of the cabinet in flashcards.js, by day and at night.
             timerPaper: isDark ? '#d6c7a6' : '#f9f0dd',
             timerInk: isDark ? '#2a1f16' : '#4a3628',
             timerEdge: isDark ? '#46311f' : '#4a3323',
@@ -6217,10 +6291,9 @@ function catalog(container) {
          *
          * Twice the size it is on a bubble, which is what makes it the
          * heading's own mark rather than a bubble's badge that wandered into a
-         * line of type -- and in the look it has on that set's bubbles, which come
-         * in two shapes. `zoom` and not a second set of numbers: every length on
-         * it doubles at once -- the type, the padding, the corner, the shadow
-         * under it -- and the one place the badge is described stays the one
+         * line of type. `zoom` and not a second set of numbers: every length on
+         * it doubles at once -- the type, the padding, the corner, the line
+         * round it -- and the one place the badge is described stays the one
          * place it is described.
          *
          * Breathing, so that it is read as a thing still running and not as a
@@ -6235,9 +6308,8 @@ function catalog(container) {
          * "undefined" is a worse answer to an impossible case than no badge.
          */
         const soonest = soonestTimer(setId);
-        const set = store.sets().find(s => String(s.id) === String(setId));
         const badge = soonest
-            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`, !!set && store.viewOf(set).uneven)
+            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`)
             : '';
 
         const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">

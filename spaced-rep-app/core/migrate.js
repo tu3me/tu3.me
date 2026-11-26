@@ -6,7 +6,7 @@
  * and said outright that it would flip on the day somebody did. A version went
  * out. What those readers typed and what they played has to arrive here whole.
  *
- * Four translations live here, and all four start from 0.2.8 as the store has
+ * Four of the translations here start from 0.2.8 as the store has
  * it. That is the build of 24 October 2026, the version almost every reader is
  * on, and it is older than its number makes it look: this code has gone on being
  * called 0.2.8 since, and the two changes below came after the upload. What tells
@@ -22,8 +22,12 @@
  * in the marks on its answers (see renameGames), which goes the same way, a set
  * at a time, and in a round left open (see renameRounds).
  *
- * The last, on 6 November 2026, takes away a run over every set left open -- see
+ * Another, on 6 November 2026, takes away a run over every set left open -- see
  * dropRunsOverAll.
+ *
+ * The fifth starts from no build in the store at all: on 26 November 2026 the
+ * bubbles' even shape went, a choice the site had for a day -- see
+ * dropEvenShape.
  *
  * Anything older has no translation, the owner's call, 4 November 2026: almost
  * nobody is below 0.2.8, and whoever is simply starts without one. Two stood here
@@ -215,13 +219,43 @@ function migrate() {
     }
 
     /*
+     * The bubbles' even shape, which a set could be put back to from its view
+     * menu for a day, 25 to 26 November 2026, and on the site alone: no build in
+     * the store ever had it. The owner had the choice taken away, and one shape
+     * is left. What remains of it is `uneven: false` in the set's view. Nothing
+     * reads it, but it would go on into every visit's analytics as something set
+     * on the device (see `views` in track.js), and setView, with no default left
+     * to compare it to, would never drop it by itself. A view with nothing else
+     * in it goes too, as setView does with one that is all defaults.
+     */
+    async function dropEvenShape() {
+        const views = await storage.get('set_views');
+        if (!views) return false;
+
+        let changed = false;
+
+        Object.keys(views).forEach(id => {
+            if (!('uneven' in views[id])) return;
+
+            delete views[id].uneven;
+            if (!Object.keys(views[id]).length) delete views[id];
+            changed = true;
+        });
+
+        if (changed) await storage.set('set_views', views);
+
+        return changed;
+    }
+
+    /*
      * The translations, in order, and the answer is whether anything was done at
      * all. Nobody reads it yet.
      *
      * Each is a function that answers that question and knows nothing about its
      * neighbours, so adding one is a line here and taking one out is a line
      * here. They touch different keys or different parts of one -- the records
-     * and the marks of `word_sets`, the round left open -- and kept in the order
+     * and the marks of `word_sets`, the round left open, the sets' views -- and
+     * kept in the order
      * they were written in, because an arbitrary order that is also stable is one
      * less thing to think about when another arrives.
      */
@@ -230,8 +264,9 @@ function migrate() {
         const renamed = await renameAllGames();
         const moved = await renameRounds();
         const closed = await dropRunsOverAll();
+        const evened = await dropEvenShape();
 
-        return recorded || renamed || moved || closed;
+        return recorded || renamed || moved || closed || evened;
     }
 
     migrate.run = run;

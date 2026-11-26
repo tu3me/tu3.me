@@ -262,10 +262,7 @@ function store() {
      * and result, and srs.js reads them by the same rules -- switched back on,
      * the set is what it would have been had the switch never been touched. The
      * marks and the hop keep their own switches meanwhile, for the same reason.
-     *
-     * `uneven` is the bubbles' shape: the new one, small corners and edges a
-     * little uneven, or the even rounded one they had until it -- see
-     * bubble-uneven in app.css. On unless the set's menu says otherwise.
+
      */
     const VIEW_DEFAULTS = {
         original: true,
@@ -277,7 +274,6 @@ function store() {
         regular: true,
         early: true,
         bounce: true,
-        uneven: true,
         collapsed: false
     };
 
