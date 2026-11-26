@@ -715,13 +715,18 @@ body {
  * so the bubbles fade into the card at the edges rather than into a shadow --
  * the owner's call, the same day, after a dark one on both themes.
  *
- * Each band reaches a pixel past its edge, and its first two pixels are the
- * colour whole. Laid exactly to the edge, it left a hairline of bubbles showing
- * over the top band and under the bottom one on an old phone (reported the same
- * day): there the app's zoom puts the edge between two of the screen's pixels,
- * the box cuts its bubbles off at a whole pixel, and the band's own edge is
- * smoothed into a half-transparent one, which that pixel of bubble shows
- * through. The frame clips the overhang at the same edge the box does.
+ * Each band reaches two pixels out past the box's edge, over the card's empty
+ * air above and below it, and its first three pixels are the colour whole: the
+ * card's colour on the card's colour, which is nothing to see, and covers the
+ * edge whatever the bubbles do there. Laid to the edge, it left a hairline of
+ * bubbles showing over the top band and under the bottom one on an old phone
+ * (reported by the owner, 26 November 2026): the app's zoom puts the edge
+ * between two of the screen's pixels, and what the box cuts its bubbles off at
+ * and where the band starts were rounded apart. A pixel past the edge was tried
+ * first, with the frame clipping like the box, and the line stayed: the frame
+ * cut the overhang off at the very edge it was there to cover. So the frame
+ * clips nothing -- the box cuts its own bubbles -- and the bands stand out of
+ * it into air that is the card's.
  */
 .set-words-frame {
     position: relative;
@@ -743,7 +748,7 @@ body {
     position: absolute;
     left: 0;
     right: 0;
-    height: 9px;
+    height: 10px;
     z-index: 2;
     pointer-events: none;
     opacity: 0;
@@ -752,13 +757,13 @@ body {
 }
 
 .set-words-frame::before {
-    top: -1px;
-    background: linear-gradient(var(--words-shade) 2px, transparent);
+    top: -2px;
+    background: linear-gradient(var(--words-shade) 3px, transparent);
 }
 
 .set-words-frame::after {
-    bottom: -1px;
-    background: linear-gradient(transparent, var(--words-shade) calc(100% - 2px));
+    bottom: -2px;
+    background: linear-gradient(transparent, var(--words-shade) calc(100% - 3px));
 }
 
 @keyframes words-shade {

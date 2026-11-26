@@ -4372,9 +4372,9 @@ function catalog(container) {
      * and "Word search 2", had short ones between them. With Wordcraft off the
      * row (ROW_HIDDEN) they stood side by side and ran into each other.
      *
-     * The room is 92% of the fifth (NAME_ROOM), centred under the tile, so
+     * The room is 94% of the fifth (NAME_ROOM), centred under the tile, so
      * that two names running side by side have air between them as well as the
-     * gap (the owner, the same day; 90% for the first day). The face is what the name is measured
+     * gap (the owner, the same day; 90% at first, then 92%). The face is what the name is measured
      * against in the CSS (a container, 100cqw there), so it takes the whole of
      * that room whatever is in it. Only the name's face: "Continue" stands in
      * the same place, wider than the room by a few pixels, and is not clipped
@@ -4382,7 +4382,7 @@ function catalog(container) {
      * follows the name round the loop is the same words again, hidden from a
      * screen reader.
      */
-    const NAME_ROOM = '92%';
+    const NAME_ROOM = '94%';
     const NAME_FACE = 'justify-self: stretch; container-type: inline-size; overflow: hidden; white-space: nowrap; text-align: center;';
 
     // A lock pressed: a turn either way from where the shackle hangs, and back
@@ -5081,7 +5081,7 @@ function catalog(container) {
                         style="${stepStyle(grows && !stepLook(i).sign ? waiting : stepLook(i))}">${stepLook(i).sign ? signSvg(stepLook(i).sign, STEP_LOCK, palette.hint, STEP_LOCK_INK) : ''}</div></div>`).join('')}
                 </div>
 
-                <div class="set-words-frame" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM + WORDS_REACH}px; --words-shade: ${palette.cardBg};">
+                <div class="set-words-frame" style="margin: 0 -${BUBBLE_ROOM + WORDS_REACH}px; --words-shade: ${palette.cardBg};">
                     <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM + HEAD_LIFT}px ${BUBBLE_ROOM}px ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center; ${WORDS_CAP}"></div>
                 </div>
 
