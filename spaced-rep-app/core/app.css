@@ -695,9 +695,9 @@ body {
  * The shade along the top and the foot of a set's words, when they scroll (see
  * WORDS_CAP in catalog.js): a band that darkens to the edge, over the bubbles,
  * which go under it as they scroll by (the owner, 26 November 2026). On the
- * fold round the box rather than in it, where the box's own flex row would take
- * it for one more bubble; the two have the same edges, and the fold does not
- * scroll. Over the bubbles by z-index -- one with a timer is lifted to 1, see
+ * frame round the box rather than in it, where the box's own flex row would
+ * take it for one more bubble; the two have the same edges, and the frame does
+ * not scroll. Over the bubbles by z-index -- one with a timer is lifted to 1, see
  * createBubble -- and not in the way of a press.
  *
  * Only where there is something to scroll. A set whose words all fit has
@@ -707,30 +707,43 @@ body {
  * effect, and the shade stays at its opacity of nought; with something to
  * scroll the animation holds it at 1, wherever the scroll is -- the shade at
  * the foot stays at the end of the list too, as the owner had it in the draft
- * of the drawer (v5). The name is the fold's own (timeline-scope), so each
+ * of the drawer (v5). The name is the frame's own (timeline-scope), so each
  * set's shade answers to its own box. Where scroll timelines are not known
  * (Firefox, for now) there is no shade, and the box scrolls as before.
  *
- * The colour is the card's own (palette.cardBg, as --words-shade on the fold),
+ * The colour is the card's own (palette.cardBg, as --words-shade on the frame),
  * so the bubbles fade into the card at the edges rather than into a shadow --
  * the owner's call, the same day, after a dark one on both themes.
+ *
+ * Each band reaches a pixel past its edge, and its first two pixels are the
+ * colour whole. Laid exactly to the edge, it left a hairline of bubbles showing
+ * over the top band and under the bottom one on an old phone (reported the same
+ * day): there the app's zoom puts the edge between two of the screen's pixels,
+ * the box cuts its bubbles off at a whole pixel, and the band's own edge is
+ * smoothed into a half-transparent one, which that pixel of bubble shows
+ * through. The frame clips the overhang at the same edge the box does.
  */
-.set-words-fold {
+.set-words-frame {
     position: relative;
     timeline-scope: --set-words;
 }
 
 .set-words-bubbles {
     scroll-timeline: --set-words block;
+
+    /* A layer of its own, for the bubbles in it to lie one under the next below
+       nought (see `lift` in createBubble) without going under the card, and
+       under the shade over them (the z-index above) whatever their order. */
+    isolation: isolate;
 }
 
-.set-words-fold::before,
-.set-words-fold::after {
+.set-words-frame::before,
+.set-words-frame::after {
     content: '';
     position: absolute;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 9px;
     z-index: 2;
     pointer-events: none;
     opacity: 0;
@@ -738,14 +751,14 @@ body {
     animation-timeline: --set-words;
 }
 
-.set-words-fold::before {
-    top: 0;
-    background: linear-gradient(var(--words-shade), transparent);
+.set-words-frame::before {
+    top: -1px;
+    background: linear-gradient(var(--words-shade) 2px, transparent);
 }
 
-.set-words-fold::after {
-    bottom: 0;
-    background: linear-gradient(transparent, var(--words-shade));
+.set-words-frame::after {
+    bottom: -1px;
+    background: linear-gradient(transparent, var(--words-shade) calc(100% - 2px));
 }
 
 @keyframes words-shade {
@@ -759,7 +772,7 @@ body {
  * The flat colour, the sizes and the type are what they were. For a day a set
  * could be put back to the even shape, rounded by 12px, from its view menu; the
  * owner had that choice taken away on 26 November 2026, and this is the only
- * shape -- see dropEvenShape in migrate.js for what it left behind.
+ * shape -- see dropRetiredViews in migrate.js for what it left behind.
  *
  * The colour is a layer of its own under the words, cut to the shape with
  * clip-path. Not the bubble itself: the timer's badge hangs over its corner and

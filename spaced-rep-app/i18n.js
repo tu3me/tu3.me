@@ -81,8 +81,6 @@ const UI_STRINGS = {
 
         edit: 'Edit',
         viewOptions: 'View options',
-        expand: 'Expand',
-        collapse: 'Collapse',
         setEmpty: 'Set is empty',
 
         firstSet: 'Starter Set',
@@ -237,8 +235,6 @@ const UI_STRINGS = {
 
         edit: 'Изменить',
         viewOptions: 'Настройки вида',
-        expand: 'Развернуть',
-        collapse: 'Свернуть',
         setEmpty: 'Набор пуст',
 
         pitch_flashcards: 'Классические карточки с интервальным повторением: слова вспоминаются быстро и без усилий.',
@@ -400,8 +396,6 @@ const UI_STRINGS = {
 
         edit: 'Змінити',
         viewOptions: 'Налаштування вигляду',
-        expand: 'Розгорнути',
-        collapse: 'Згорнути',
         setEmpty: 'Набір порожній',
 
         pitch_flashcards: 'Класичні картки з інтервальним повторенням: слова згадуються швидко й без зусиль.',
@@ -563,8 +557,6 @@ const UI_STRINGS = {
 
         edit: 'Editar',
         viewOptions: 'Opciones de vista',
-        expand: 'Expandir',
-        collapse: 'Contraer',
         setEmpty: 'El set está vacío',
 
         pitch_flashcards: 'Tarjetas clásicas de repetición espaciada para recordar rápido y sin esfuerzo.',
@@ -726,8 +718,6 @@ const UI_STRINGS = {
 
         edit: 'Modifier',
         viewOptions: 'Options d’affichage',
-        expand: 'Développer',
-        collapse: 'Réduire',
         setEmpty: 'La série est vide',
 
         pitch_flashcards: 'Des cartes classiques à répétition espacée pour mémoriser vite et sans effort.',
@@ -889,8 +879,6 @@ const UI_STRINGS = {
 
         edit: 'Bearbeiten',
         viewOptions: 'Ansichtsoptionen',
-        expand: 'Aufklappen',
-        collapse: 'Einklappen',
         setEmpty: 'Das Set ist leer',
 
         pitch_flashcards: 'Klassische Karteikarten mit Wiederholung in Intervallen: Wörter schnell und mühelos abrufen.',
@@ -1052,8 +1040,6 @@ const UI_STRINGS = {
 
         edit: 'Modifica',
         viewOptions: 'Opzioni di visualizzazione',
-        expand: 'Espandi',
-        collapse: 'Comprimi',
         setEmpty: 'Il set è vuoto',
 
         pitch_flashcards: 'Schede classiche a ripetizione spaziata per ricordare in fretta e senza fatica.',
@@ -1215,8 +1201,6 @@ const UI_STRINGS = {
 
         edit: 'Editar',
         viewOptions: 'Opções de exibição',
-        expand: 'Expandir',
-        collapse: 'Recolher',
         setEmpty: 'O conjunto está vazio',
 
         pitch_flashcards: 'Cartões clássicos de repetição espaçada para lembrar rápido e sem esforço.',
@@ -1378,8 +1362,6 @@ const UI_STRINGS = {
 
         edit: 'Bewerken',
         viewOptions: 'Weergaveopties',
-        expand: 'Uitvouwen',
-        collapse: 'Samenvouwen',
         setEmpty: 'De set is leeg',
 
         pitch_flashcards: 'Klassieke kaarten met gespreide herhaling om snel en moeiteloos te onthouden.',
@@ -1541,8 +1523,6 @@ const UI_STRINGS = {
 
         edit: 'Edytuj',
         viewOptions: 'Opcje widoku',
-        expand: 'Rozwiń',
-        collapse: 'Zwiń',
         setEmpty: 'Zestaw jest pusty',
 
         pitch_flashcards: 'Klasyczne fiszki z powtórkami w odstępach: szybkie i łatwe przypominanie słów.',
@@ -1704,8 +1684,6 @@ const UI_STRINGS = {
 
         edit: 'Düzenle',
         viewOptions: 'Görünüm seçenekleri',
-        expand: 'Genişlet',
-        collapse: 'Daralt',
         setEmpty: 'Set boş',
 
         pitch_flashcards: 'Hızlı ve zahmetsiz hatırlama için klasik aralıklı tekrar kartları.',
@@ -1867,8 +1845,6 @@ const UI_STRINGS = {
 
         edit: '編集',
         viewOptions: '表示オプション',
-        expand: '展開',
-        collapse: '折りたたむ',
         setEmpty: 'セットは空です',
 
         pitch_flashcards: 'すばやく楽に思い出せる、定番の間隔反復カード。',
@@ -2030,8 +2006,6 @@ const UI_STRINGS = {
 
         edit: '편집',
         viewOptions: '보기 옵션',
-        expand: '펼치기',
-        collapse: '접기',
         setEmpty: '세트가 비어 있습니다',
 
         pitch_flashcards: '빠르고 쉽게 떠올리는 고전적인 간격 반복 카드입니다.',
@@ -2193,8 +2167,6 @@ const UI_STRINGS = {
 
         edit: '编辑',
         viewOptions: '显示选项',
-        expand: '展开',
-        collapse: '收起',
         setEmpty: '卡组是空的',
 
         pitch_flashcards: '经典的间隔重复卡片，帮你轻松快速地回忆单词。',
@@ -2356,8 +2328,6 @@ const UI_STRINGS = {
 
         edit: 'Sửa',
         viewOptions: 'Tùy chọn hiển thị',
-        expand: 'Mở rộng',
-        collapse: 'Thu gọn',
         setEmpty: 'Bộ thẻ trống',
 
         pitch_flashcards: 'Thẻ ghi nhớ lặp lại ngắt quãng kinh điển, giúp nhớ lại nhanh và nhẹ nhàng.',

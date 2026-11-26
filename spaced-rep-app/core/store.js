@@ -262,7 +262,6 @@ function store() {
      * and result, and srs.js reads them by the same rules -- switched back on,
      * the set is what it would have been had the switch never been touched. The
      * marks and the hop keep their own switches meanwhile, for the same reason.
-
      */
     const VIEW_DEFAULTS = {
         original: true,
@@ -273,8 +272,7 @@ function store() {
         missed: true,
         regular: true,
         early: true,
-        bounce: true,
-        collapsed: false
+        bounce: true
     };
 
     let views = {};

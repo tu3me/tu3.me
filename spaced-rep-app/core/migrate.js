@@ -25,9 +25,9 @@
  * Another, on 6 November 2026, takes away a run over every set left open -- see
  * dropRunsOverAll.
  *
- * The fifth starts from no build in the store at all: on 26 November 2026 the
- * bubbles' even shape went, a choice the site had for a day -- see
- * dropEvenShape.
+ * The fifth takes out of the sets' views two switches that went on 26 November
+ * 2026: the bubbles' even shape, which only the site ever had, and the chevron
+ * that folded a set -- see dropRetiredViews.
  *
  * Anything older has no translation, the owner's call, 4 November 2026: almost
  * nobody is below 0.2.8, and whoever is simply starts without one. Two stood here
@@ -219,27 +219,39 @@ function migrate() {
     }
 
     /*
-     * The bubbles' even shape, which a set could be put back to from its view
-     * menu for a day, 25 to 26 November 2026, and on the site alone: no build in
-     * the store ever had it. The owner had the choice taken away, and one shape
-     * is left. What remains of it is `uneven: false` in the set's view. Nothing
-     * reads it, but it would go on into every visit's analytics as something set
-     * on the device (see `views` in track.js), and setView, with no default left
-     * to compare it to, would never drop it by itself. A view with nothing else
-     * in it goes too, as setView does with one that is all defaults.
+     * Switches of a set's view that are gone, taken out of the views, where
+     * nothing reads them any more. Left in, they would go on into every visit's
+     * analytics as something set on the device (see `views` in track.js), and
+     * setView, with no default left to compare them to, would never drop them by
+     * itself. A view with nothing else in it goes too, as setView does with one
+     * that is all defaults.
+     *
+     *  - `uneven: false`: the bubbles' even shape, which a set could be put back
+     *    to from its view menu for a day, 25 to 26 November 2026, and on the site
+     *    alone -- no build in the store ever had it.
+     *  - `collapsed: true`: a set folded by its chevron, from 4 to 26 November
+     *    2026. The bubbles scroll inside the set since, and the owner had the
+     *    chevron taken away; a set that was folded is open.
+     *
+     * Both went the same day, the owner's calls, and one pass takes both.
      */
-    async function dropEvenShape() {
+    const RETIRED_VIEWS = ['uneven', 'collapsed'];
+
+    async function dropRetiredViews() {
         const views = await storage.get('set_views');
         if (!views) return false;
 
         let changed = false;
 
         Object.keys(views).forEach(id => {
-            if (!('uneven' in views[id])) return;
+            RETIRED_VIEWS.forEach(key => {
+                if (!(key in views[id])) return;
 
-            delete views[id].uneven;
+                delete views[id][key];
+                changed = true;
+            });
+
             if (!Object.keys(views[id]).length) delete views[id];
-            changed = true;
         });
 
         if (changed) await storage.set('set_views', views);
@@ -264,9 +276,9 @@ function migrate() {
         const renamed = await renameAllGames();
         const moved = await renameRounds();
         const closed = await dropRunsOverAll();
-        const evened = await dropEvenShape();
+        const retired = await dropRetiredViews();
 
-        return recorded || renamed || moved || closed || evened;
+        return recorded || renamed || moved || closed || retired;
     }
 
     migrate.run = run;

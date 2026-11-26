@@ -1243,9 +1243,11 @@ function catalog(container) {
      *
      * Arithmetic rather than a measurement, because the layout has one width and
      * only ever zooms it -- see .app-main-content in app.css. 350, less the
-     * page's 6.8 of margin either side, less the set card's 1px border and 13.7
-     * of padding either side, less the bubble's own 8.5: 290, which is the
-     * widest a bubble's contents can be before the bubble stops growing.
+     * page's 6.8 of margin either side, less the set card's 1px border and 7.7
+     * of its padding either side (the bubbles' box reaches 6 into the card's
+     * 13.7, see WORDS_REACH), less the bubble's own 8.5: 302, which is the
+     * widest a bubble's contents can be before the bubble stops growing. It was
+     * 290 while the box kept to the card's padding.
      *
      * Sixty-odd marks, so most words will never reach it. It is here for the
      * one that does -- a word somebody has kept for years -- and because the row
@@ -1253,7 +1255,7 @@ function catalog(container) {
      * without being told to. Nothing should start overflowing a bubble because
      * the drawing of the row moved into one element.
      */
-    const MARK_WIDTH = 290;
+    const MARK_WIDTH = 302;
 
     /*
      * The whole timeline as a single drawing.
@@ -1446,10 +1448,11 @@ function catalog(container) {
      * while everything is still ripening -- see confirmEarly. Where it goes is
      * the caller's business and arrives as `extra`; what it looks like is not.
      *
-     * A slip of cream paper drawn round in brown, with no shadow -- the timers
-     * of the Flashcards cabinet, which came to the catalog with the bubbles'
-     * shape (the owner, 25 November 2026). It was a deep mint with a soft
-     * shadow until then; the lettering is what it was.
+     * A slip of paper drawn round in brown, with no shadow -- the timers of
+     * the Flashcards cabinet, which came to the catalog with the bubbles' shape
+     * (the owner, 25 November 2026). It was a deep mint with a soft shadow until
+     * then; the lettering is what it was. Its paper was the cabinet's cream for a
+     * day, and is the grey of a bubble at stage 0 since -- see timerPaper.
      */
     const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1px 3.6px;'
         + ' border-radius: 10.2px; white-space: nowrap; outline: none; letter-spacing: -0.2px;';
@@ -1493,9 +1496,19 @@ function catalog(container) {
 
         // The colour is handed to bubble-uneven in app.css, which cuts it to the
         // bubble's shape. That makes the bubble a layer of its own (isolation),
-        // so its badge cannot lie over the next row by its own z-index: the whole
-        // bubble is lifted instead. It has a timer, so it does not hop.
-        const lift = timer ? ' z-index: 1;' : '';
+        // so its badge cannot lie over another bubble by its own z-index: it is
+        // as high as the bubble it hangs from.
+        //
+        // So the bubbles lie one under the next, the first on top: a badge hangs
+        // over its bubble's lower right corner, onto the bubbles after it -- the
+        // next in the row, or the row below -- and never onto one before, so each
+        // badge is over whatever it hangs on. Until 26 November 2026 only a bubble
+        // with a badge was lifted, one step over the rest, and of two side by side
+        // with badges the second covered the first one's (reported by the owner).
+        // A hop or a swell now goes under the bubbles before it, which they are
+        // too small to show. Below nought, so the box the bubbles are in has to be
+        // a layer of its own too -- see .set-words-bubbles in app.css.
+        const lift = ` z-index: ${-(order || 0)};`;
 
         const bubbleHtml = `
             <div class="word-bubble-card bubble-uneven" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} --bubble: ${bgColor};${lift} border: none; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
@@ -4311,24 +4324,29 @@ function catalog(container) {
     }
 
     /*
-     * The air kept around the bubbles inside the box that folds them away. A
-     * fold clips what it folds, and a bubble does not stay inside its own edges:
-     * the timer hangs five pixels over its corner, and the hop and the swell take
-     * it further still.
+     * The air kept around the bubbles inside the box they scroll in. The box
+     * clips what it holds, and a bubble does not stay inside its own edges: the
+     * timer hangs five pixels over its corner, and the hop and the swell take it
+     * further still.
      *
      * Taken back from what stands beside the box: by a margin at the sides, and
-     * above and below out of the spaces to the bar and to the tiles. Not by a
-     * margin there as well, which it was at first: a box folded to nothing still
-     * has its margin, and the tiles it had drawn up six pixels dropped back the
-     * moment it was hidden -- a jolt at the end of every fold, and at the start
-     * of every unfolding (reported by the owner, 4 November 2026).
-     *
-     * The tiles' share is padding and not a margin, for the same jolt the other
-     * way: with the box hidden the bar's margin and theirs would stand next to
-     * each other and collapse into the larger one, where the box folded to
-     * nothing still keeps them apart.
+     * above and below out of the spaces to the bar and to the tiles, so the air
+     * costs the card nothing. Laid out this way for a fold, from 4 to 26
+     * November 2026, when the chevron could fold the box away: a margin there
+     * would have outlived the box folded to nothing and made the tiles jolt.
      */
     const BUBBLE_ROOM = 6;
+
+    /*
+     * And the box reaches that much further into the card's padding at the
+     * sides, so the bubbles have the 6 the air took from them back in width:
+     * their row runs to 7.7 from the card's edge, where the name, the bar and
+     * the games keep to 13.7 (the owner, 26 November 2026). Asked as the box's
+     * side padding taken away; done this way because without it the timer of a
+     * bubble at the end of a full row, which hangs five pixels past its corner,
+     * would be cut off by the box.
+     */
+    const WORDS_REACH = 6;
 
     /*
      * How tall a set's words may stand: as tall as leaves the app, with that one
@@ -4345,14 +4363,13 @@ function catalog(container) {
      * any width.
      *
      * The box keeps the air round the bubbles inside it (BUBBLE_ROOM), so what
-     * hangs over a bubble's edge is cut where it was cut before, by the box and
-     * not by the fold round it. Its height counts that air -- border-box -- for
-     * the sum in capWords to come out. The fold measures what it opens to by the
-     * box's height (see foldOut), which the cap keeps the height on screen.
+     * hangs over a bubble's edge is cut by the box, where it was cut by the frame
+     * round it before the box scrolled. Its height counts that air -- border-box
+     * -- for the sum in capWords to come out.
      *
      * No scrollbar, like everything else in the app (see app.css). What says
      * there is more is a shade along the top and the foot of a box that scrolls,
-     * which the bubbles go under -- see .set-words-fold in app.css.
+     * which the bubbles go under -- see .set-words-frame in app.css.
      */
     const WORDS_CAP = 'box-sizing: border-box; max-height: calc(600px * var(--app-unscale) - var(--set-rest, 0px));'
         + ' overflow-x: hidden; overflow-y: auto;';
@@ -4381,8 +4398,6 @@ function catalog(container) {
             const words = card.querySelector('.set-words-bubbles');
             if (!words) return;
 
-            // A folded set's fold is hidden and measures nothing, which leaves the
-            // card its name, bar and games: the same rest as unfolded
             const rest = around + appRect(card).height - appRect(words.parentElement).height;
 
             words.style.setProperty('--set-rest', `${Math.ceil(rest) + 1}px`);
@@ -4420,11 +4435,9 @@ function catalog(container) {
      * and this). The card is as tall as it was.
      *
      * A margin on the header, not less padding on the card: the same card holds
-     * the form that edits the set, which keeps its own air. And the room under
-     * the bar is the top of the bubbles' box, inside the fold, not a margin on
-     * the bar: folded, the bar's margin would stand beside the tiles' padding,
-     * and a folded set has one ordinary space between its bar and its games --
-     * see BUBBLE_ROOM.
+     * the form that edits the set, which keeps its own air. The room under the
+     * bar is the top of the bubbles' box, as the rest of the air round them is
+     * -- see BUBBLE_ROOM.
      */
     const HEAD_LIFT = 3.4;
 
@@ -4432,9 +4445,8 @@ function catalog(container) {
      * The same trade at the other end, the same day: the games stand a little
      * lower, with that much more air over them and as much less under their
      * names. A margin under the row taken back from the card's padding, for the
-     * same form's sake; and the room over it is the row's own padding, so a
-     * folded set has it too. The mark under a "Continue" stands in the air that
-     * is left -- see CONTINUE.
+     * same form's sake; the room over it is the row's own padding. The mark under
+     * a "Continue" stands in the air that is left -- see CONTINUE.
      */
     const TILES_SINK = 1.7;
 
@@ -4883,18 +4895,15 @@ function catalog(container) {
             // Every card has the same buttons: the words in it are yours,
             // whether you typed them or the first screen wrote them for you.
             //
-            // The last folds the bubbles away and brings them back, and the rest
-            // of the card stays: the name, the bar and the games are what a set
-            // is played from. Kept with the set's view -- see store.viewOf. The
-            // owner's call, 4 November 2026.
+            // A third, a chevron, folded the bubbles away and brought them back,
+            // from 4 to 26 November 2026, when the owner had it taken away: the
+            // bubbles scroll inside the set by then, and a long set no longer
+            // stretches the list -- see WORDS_CAP.
             const buttons = `<button class="set-edit-btn" title="${tr('edit')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
                         <button class="set-view-btn" title="${tr('viewOptions')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: ${viewFor === String(set.id) ? palette.softBg : 'transparent'}; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
                             <svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        </button>
-                        <button class="set-collapse-btn" title="${tr(view.collapsed ? 'expand' : 'collapse')}" aria-label="${tr(view.collapsed ? 'expand' : 'collapse')}" aria-expanded="${!view.collapsed}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
-                            <span class="set-collapse-chevron" style="display: block; line-height: 0; transform: rotate(${view.collapsed ? 0 : 90}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
                         </button>`;
 
             // Which of the tiles on this card is the one that was left open.
@@ -4980,7 +4989,7 @@ function catalog(container) {
                         style="${stepStyle(grows ? waiting : stepLook(i))}"></div></div>`).join('')}
                 </div>
 
-                <div class="set-words-fold" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM}px; --words-shade: ${palette.cardBg};"${view.collapsed ? ' hidden' : ''}>
+                <div class="set-words-frame" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM + WORDS_REACH}px; --words-shade: ${palette.cardBg};">
                     <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM + HEAD_LIFT}px ${BUBBLE_ROOM}px ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center; ${WORDS_CAP}"></div>
                 </div>
 
@@ -5084,23 +5093,6 @@ function catalog(container) {
 
                     $(tile, `<span class="set-tile-soon" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
                 });
-            });
-
-            const collapse = card.querySelector('.set-collapse-btn');
-
-            collapse.addEventListener('click', () => {
-                const collapsed = !store.viewOf(set).collapsed;
-                const name = tr(collapsed ? 'expand' : 'collapse');
-
-                store.setView(set, { collapsed });
-                track('view', set.id, 'collapsed', Number(collapsed));
-
-                collapse.title = name;
-                collapse.setAttribute('aria-label', name);
-                collapse.setAttribute('aria-expanded', !collapsed);
-                collapse.querySelector('.set-collapse-chevron').style.transform = `rotate(${collapsed ? 0 : 90}deg)`;
-
-                foldOut(card.querySelector('.set-words-fold'), !collapsed);
             });
 
             card.querySelector('.set-view-btn').addEventListener('click', () => {
@@ -5490,9 +5482,11 @@ function catalog(container) {
             stepEdge: isDark ? 0 : 0.78,
 
 
-            // The timer badge's paper -- see timerBadge: the cream, the ink and
-            // the line of the cabinet in flashcards.js, by day and at night.
-            timerPaper: isDark ? '#d6c7a6' : '#f9f0dd',
+            // The timer badge -- see timerBadge. Its paper is a bubble's at stage 0,
+            // a word not yet begun, in both themes as the bubbles are (the owner,
+            // 26 November 2026; the cabinet's cream in flashcards.js until then).
+            // The ink and the line are still the cabinet's, by day and at night.
+            timerPaper: stageRamp[0].fill,
             timerInk: isDark ? '#2a1f16' : '#4a3628',
             timerEdge: isDark ? '#46311f' : '#4a3323',
 
