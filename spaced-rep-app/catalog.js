@@ -4372,9 +4372,9 @@ function catalog(container) {
      * and "Word search 2", had short ones between them. With Wordcraft off the
      * row (ROW_HIDDEN) they stood side by side and ran into each other.
      *
-     * The room is nine tenths of the fifth (NAME_ROOM), centred under the tile,
-     * so that two names running side by side have air between them as well as
-     * the gap (the owner, the same day). The face is what the name is measured
+     * The room is 92% of the fifth (NAME_ROOM), centred under the tile, so
+     * that two names running side by side have air between them as well as the
+     * gap (the owner, the same day; 90% for the first day). The face is what the name is measured
      * against in the CSS (a container, 100cqw there), so it takes the whole of
      * that room whatever is in it. Only the name's face: "Continue" stands in
      * the same place, wider than the room by a few pixels, and is not clipped
@@ -4382,7 +4382,7 @@ function catalog(container) {
      * follows the name round the loop is the same words again, hidden from a
      * screen reader.
      */
-    const NAME_ROOM = '90%';
+    const NAME_ROOM = '92%';
     const NAME_FACE = 'justify-self: stretch; container-type: inline-size; overflow: hidden; white-space: nowrap; text-align: center;';
 
     // A lock pressed: a turn either way from where the shackle hangs, and back
