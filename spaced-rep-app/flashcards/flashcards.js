@@ -2546,7 +2546,6 @@ function flashcards(container) {
         const p = palette;
         const want = speech.letters(item.word.original).filter(ch => !BLANK.test(ch));
         const total = want.length;
-        const box = Math.max(12, Math.min(22, Math.floor((CARD_W - 30 - (round.words.length - 1) * 9) / total) - 3));
 
         let at = 0;
         const groups = round.words.map(n => {
@@ -2555,8 +2554,10 @@ function flashcards(container) {
             return cells;
         });
 
-        const line = $(face, `<div class="flashcards-spelled" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 9px; max-width: 100%; margin-top: 8px; flex: none;">
-            ${groups.map(cells => `<span style="display: flex; gap: 3px;">${cells.map(k => `<span class="flashcards-slot" data-k="${k}" style="display: flex; align-items: flex-end; justify-content: center; width: ${box}px; height: 26px; border-bottom: 2px solid ${p.labelInk}; font-size: ${Math.min(19, box)}px; font-weight: 800; line-height: 1; color: ${p.ink};"></span>`).join('')}</span>`).join('')}
+        // Every length in the line is a share of its type size (em), so the whole
+        // line grows and shrinks as one -- see fitSpelled, which picks the size
+        const line = $(face, `<div class="flashcards-spelled" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.12em 0.45em; max-width: 100%; margin-top: 0.25em; flex: none; font-size: ${SLOT_MOST}px; line-height: 1;">
+            ${groups.map(cells => `<span style="display: flex; gap: 0.1em;">${cells.map(k => `<span class="flashcards-slot" data-k="${k}" style="display: flex; align-items: flex-end; justify-content: center; width: 0.72em; height: 1.08em; border-bottom: 2px solid ${p.labelInk}; font-weight: 800; color: ${p.ink};"></span>`).join('')}</span>`).join('')}
         </div>`);
 
         const tray = $(ask, `<div class="flashcards-tray" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%;"></div>`);
@@ -2770,6 +2771,51 @@ function flashcards(container) {
         svg.addEventListener('pointercancel', up);
     }
 
+    /*
+     * The type on a card over its question, as big as the card has room for.
+     *
+     * The word alone is brought down from WORD_SIZE until the face holds it.
+     * With the slots of spell on the face too, both are fitted together (the
+     * owner, 26 November 2026): the slots start at SLOT_MOST, so a short word
+     * is spelled out large -- it was 22 at most, and small on a card with room
+     * to spare -- and a long phrase comes down until every word of it is on the
+     * card, where at a fixed size the last rows ran off its foot. A step at a
+     * time off whichever of the two is the larger, so neither shrinks alone
+     * while the other stays big; a word too long for a row of the card is the
+     * width check, as the face's height is the other.
+     */
+    const SLOT_MOST = 32;
+    const SLOT_LEAST = 11;
+
+    function fitAsked(face) {
+        const word = face.querySelector('.flashcards-word-text');
+        const line = face.querySelector('.flashcards-spelled');
+
+        let wordSize = WORD_SIZE;
+        let slotSize = SLOT_MOST;
+
+        const apply = () => {
+            word.style.fontSize = `${wordSize}px`;
+            if (line) line.style.fontSize = `${slotSize}px`;
+        };
+
+        const fits = () => face.scrollHeight <= face.clientHeight
+            && (!line || line.scrollWidth <= line.clientWidth + 0.5);
+
+        apply();
+
+        while (!fits()) {
+            const canWord = wordSize > WORD_MIN;
+            const canSlot = !!line && slotSize > SLOT_LEAST;
+            if (!canWord && !canSlot) break;
+
+            if (canSlot && (!canWord || slotSize >= wordSize)) slotSize -= 1;
+            else wordSize -= 1;
+
+            apply();
+        }
+    }
+
     // A card over its question: one face, not turned, with the word asked --
     // the original over a quiz, the translation over the pieces and the
     // hexagons -- and under it what it is asked with
@@ -2807,15 +2853,7 @@ function flashcards(container) {
         else if (round.mode === 'spell') spellAsk(ask, item, round, face);
         else hexAsk(ask, item, round);
 
-        // The word down to what is left of the face once the slots are on it
-        const word = face.querySelector('.flashcards-word-text');
-        let size = WORD_SIZE;
-        word.style.fontSize = `${size}px`;
-
-        while (face.scrollHeight > face.clientHeight && size > WORD_MIN) {
-            size -= 1;
-            word.style.fontSize = `${size}px`;
-        }
+        fitAsked(face);
 
         tableH = cardH + 13 + ask.offsetHeight;
 
