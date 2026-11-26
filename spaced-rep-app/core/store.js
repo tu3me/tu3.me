@@ -262,6 +262,13 @@ function store() {
      * and result, and srs.js reads them by the same rules -- switched back on,
      * the set is what it would have been had the switch never been touched. The
      * marks and the hop keep their own switches meanwhile, for the same reason.
+     *
+     * `missed` is off unless the set's menu says otherwise (the owner, 26
+     * November 2026; on until then): the small dots of the repetitions that
+     * were missed are there for whoever looks for them, and a row of them on
+     * every bubble was more than most wanted to see. A view that turned them
+     * off before keeps `missed: false`, which now says what the default does
+     * and goes the next time the view changes -- see setView.
      */
     const VIEW_DEFAULTS = {
         original: true,
@@ -269,7 +276,7 @@ function store() {
         translation: true,
         translationSize: 13.3,
         srs: true,
-        missed: true,
+        missed: false,
         regular: true,
         early: true,
         bounce: true

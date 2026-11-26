@@ -26,7 +26,7 @@ function flashcards(container) {
      * if the player answers it the other way.
      */
     function getEmptyState() {
-        return { selectedSetId: null, currentIndex: 0, view: 0, answers: [], isFlipped: false, sessionPool: null, sessionAt: null, allowEarly: false };
+        return { selectedSetId: null, currentIndex: 0, view: 0, answers: [], rounds: [], isFlipped: false, sessionPool: null, sessionAt: null, allowEarly: false };
     }
 
     const MINUTE = 60 * 1000;
@@ -1772,9 +1772,10 @@ function flashcards(container) {
 
     const NAV_ICON = (path) => `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;"><path d="${path}" /></svg>`;
 
-    function cardHtml(item) {
+    // The band across the top of a card: its box, how it was answered if it
+    // was, and ‹ › -- the same on a card that turns and on one that does not
+    function bandHtml(stage) {
         const p = palette;
-        const stage = stageOf(item.word);
         const i = state.view;
         const given = state.answers[i];
 
@@ -1790,7 +1791,16 @@ function flashcards(container) {
             <span style="display: flex; align-items: center; gap: 2px;">${mark}${nav('flashcards-prev', 'Previous card', 'M15 5l-7 7 7 7', canStep(-1))}${nav('flashcards-next', 'Next card', 'M9 5l7 7-7 7', canStep(1))}</span>
         </span>`;
 
-        const word = `font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${p.ink}; text-align: center; word-break: break-word;`;
+        return band;
+    }
+
+    const wordStyle = () => `font-size: ${WORD_SIZE}px; font-weight: 700; line-height: 1.15; color: ${palette.ink}; text-align: center; word-break: break-word;`;
+
+    function cardHtml(item) {
+        const p = palette;
+        const stage = stageOf(item.word);
+        const band = bandHtml(stage);
+        const word = wordStyle();
 
         return `<div class="flashcards-card" style="position: absolute; left: 0; top: 0; width: ${CARD_W}px; height: ${CARD_H}px; perspective: 1000px; transform: ${REST};">
             <div class="flashcards-flipper-inner" id="card-inner" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1); transform: ${state.isFlipped ? TURNED : UNTURNED};">
@@ -1888,6 +1898,7 @@ function flashcards(container) {
                 <button class="flashcards-btn-dunno" id="btn-dunno" aria-label="Don't know" title="I don't know it" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.flip}; ${raised(p.flipEdge)}">${KEY_LEFT}${DUNNO_ICON}</button>
                 <button class="flashcards-btn-know" id="btn-know" aria-label="Know" title="I know it" style="${BUTTON} border: 1.3px solid ${p.line}; background: ${p.know}; ${raised(p.knowEdge)}">${KNOW_ICON}${KEY_RIGHT}</button>
             </div>
+            <div class="flashcards-ask" style="position: relative; display: none; flex-direction: column; align-items: center; gap: 10px; width: ${CARD_W}px; flex: none;"></div>
         </div>`;
     }
 
@@ -1895,7 +1906,7 @@ function flashcards(container) {
     const cardEl = () => (stageEl ? stageEl.querySelector('.flashcards-card') : null);
 
     // The table's furniture, which comes and goes with the card on it
-    const TABLE = ['.flashcards-wash', '.flashcards-shade', '.flashcards-beam', '.flashcards-buttons-row', '.flashcards-close'];
+    const TABLE = ['.flashcards-wash', '.flashcards-shade', '.flashcards-beam', '.flashcards-buttons-row', '.flashcards-ask', '.flashcards-close'];
 
     /*
      * The lamp pressed: the light on or off, which is the theme -- the panel's
@@ -1983,13 +1994,16 @@ function flashcards(container) {
      * so it has to be there to press: clear of the table, and seen through a
      * hole in the wash round it.
      */
-    const TABLE_H = CARD_H + 13 + 46;
+    // The table's height, which is the card's and what lies under it: the two
+    // buttons, or what the card is asked with -- see layCard
+    let cardH = CARD_H;
+    let tableH = CARD_H + 13 + 46;
 
     // How far down the stage the card stands, for a stage this tall
     function tableTop(height) {
         const lamp = stageEl.querySelector('.flashcards-spare');
-        const middle = (height - TABLE_H) / 2;
-        const clear = lamp ? offsetIn(lamp).y - TABLE_H - 6 : middle;
+        const middle = (height - tableH) / 2;
+        const clear = lamp ? offsetIn(lamp).y - tableH - 6 : middle;
 
         return Math.round(Math.max(10, Math.min(middle, clear)));
     }
@@ -2058,7 +2072,7 @@ function flashcards(container) {
         const W = stageEl.offsetWidth;
         const H = stageEl.offsetHeight;
 
-        const centre = { x: W / 2, y: tableTop(H) + CARD_H / 2 };
+        const centre = { x: W / 2, y: tableTop(H) + cardH / 2 };
         const axis = Math.atan2(centre.y - lamp.y, centre.x - lamp.x) + BEAM_TURN;
         const near = Math.hypot(centre.x - lamp.x, centre.y - lamp.y);
         const reach = near * 3.2;
@@ -2157,6 +2171,657 @@ function flashcards(container) {
         return overlay;
     }
 
+    /*
+     * ---- Four ways of asking ----
+     *
+     * A card of a run is asked in one of four ways, picked at random as it
+     * comes out of its box, and nothing on the table names the way: what lies
+     * under the card says what to do (the owner, 26 November 2026).
+     *
+     *   card   as it always was: turned over, and know or don't know said
+     *          outright with the two buttons
+     *   quiz   the word, and its translation among others of the set's, as in
+     *          Quiz: stage + 2 of them, two to six
+     *   quizFlipped  the other way round: the translation, and the word among
+     *          others of the set's, by the same count (the owner, the same day)
+     *   spell  the translation, and the word put back together from its
+     *          pieces, as in Wordcraft: stage + 1 pieces, at least two and one
+     *          per word, and past stage 4 one piece per stage that is not the
+     *          word's -- spelled out on the card itself, under the translation
+     *   hex    the translation, and the word's letters one to a hexagon,
+     *          folded into a shape as a phrase lies in Word search 2, traced
+     *          from its first letter to its last; past stage 4 one letter per
+     *          stage that is not the word's, six at most
+     *
+     * Only a way the word can be asked in: quiz needs another translation in
+     * the set, quizFlipped another word, spell two letters, hex two to
+     * fourteen. The card always can.
+     *
+     * Decided once for each card and kept with the run (state.rounds), so the
+     * card comes back the same way after a redraw, a reload or ‹ -- and the
+     * answers, the pieces and the letters in the same places.
+     *
+     * In the three, the first mistake is the answer: don't know, with the right
+     * answer shown, and the card goes as one answered don't know with the
+     * button does. Done without a mistake, know. answer() writes it either way,
+     * so a card gone back to and asked again keeps one answer, as with the
+     * buttons.
+     */
+    const QUIZ_LEAST = 2;
+    const QUIZ_MOST = 6;
+    const PIECES_LEAST = 2;
+    const STRANGERS_FROM = 4;
+    const HEX_LEAST = 2;
+    const HEX_MOST = 14;
+    const HEX_STRANGERS_MOST = 6;
+
+    // The card over a question asked another way: its band and its word and no
+    // more, the room is for what lies under it
+    const ASKED_CARD_H = 104;
+    const SPELL_CARD_H = 146;
+
+    // How long what was done stays in view before the card goes
+    const SEEN_RIGHT = 650;
+    const SEEN_WRONG = 1500;
+
+    const IS_LETTER = /[\p{L}\p{N}]/u;
+    const BLANK = /^\s+$/;
+    const alike = (a, b) => String(a).toLocaleLowerCase() === String(b).toLocaleLowerCase();
+
+    function shuffled(list) {
+        const out = list.slice();
+
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [out[i], out[j]] = [out[j], out[i]];
+        }
+
+        return out;
+    }
+
+    const roundNow = () => state.rounds[state.view] || { mode: 'card' };
+
+    function roundFor(item) {
+        const stage = stageOf(item.word);
+        const ways = [{ mode: 'card' }];
+
+        const options = quizOptions(item, stage, 'translation');
+        if (options) ways.push({ mode: 'quiz', options });
+
+        const flipped = quizOptions(item, stage, 'original');
+        if (flipped) ways.push({ mode: 'quizFlipped', options: flipped });
+
+        const spell = spellRound(item, stage);
+        if (spell) ways.push({ mode: 'spell', ...spell });
+
+        const hex = hexRound(item, stage);
+        if (hex) ways.push({ mode: 'hex', ...hex });
+
+        return ways[Math.floor(Math.random() * ways.length)];
+    }
+
+    // Quiz's answers: the side asked for -- the translation, or for
+    // quizFlipped the word -- and others of that side out of the same set,
+    // never from another, where they would be a tell rather than a choice
+    function quizOptions(item, stage, side) {
+        const right = item.word[side];
+        if (!right) return null;
+
+        const others = [];
+
+        store.wordsOf(item.setId).forEach(({ word }) => {
+            const t = word[side];
+            if (t && !alike(t, right) && !others.some(o => alike(o, t))) others.push(t);
+        });
+
+        if (!others.length) return null;
+
+        const count = Math.min(stage + QUIZ_LEAST, QUIZ_MOST);
+        return shuffled([right].concat(shuffled(others).slice(0, count - 1)));
+    }
+
+    // Wordcraft's cut: the line in words, each word in even slices, and the
+    // slices shared out to whichever word carries the most letters per piece
+    function wordsIn(text) {
+        const words = [];
+
+        speech.letters(text).forEach(ch => {
+            if (BLANK.test(ch)) return words.push([]);
+            if (!words.length) words.push([]);
+            words[words.length - 1].push(ch);
+        });
+
+        return words.filter(word => word.length);
+    }
+
+    function shareOut(words, pieces) {
+        const share = words.map(() => 1);
+        const load = (at) => words[at].length / share[at];
+
+        for (let left = pieces - words.length; left > 0; left--) {
+            let best = -1;
+
+            words.forEach((word, at) => {
+                if (share[at] >= word.length) return;
+                if (best < 0 || load(at) > load(best)) best = at;
+            });
+
+            if (best < 0) break;
+            share[best] += 1;
+        }
+
+        return share;
+    }
+
+    function sliceWord(word, pieces) {
+        const out = [];
+        let from = 0;
+
+        for (let i = 1; i <= pieces; i++) {
+            const to = Math.floor((i * word.length) / pieces);
+            out.push(word.slice(from, to).join(''));
+            from = to;
+        }
+
+        return out;
+    }
+
+    // The other words of the set the strangers are cut from
+    const othersOf = (item) => store.wordsOf(item.setId)
+        .map(entry => entry.word.original)
+        .filter(word => word && word !== item.word.original);
+
+    // Pieces that are not the word's, each as long as one of its own and never
+    // a copy of one -- Wordcraft's rule
+    function strangerPieces(item, pieces, count) {
+        const out = [];
+        const others = othersOf(item);
+        if (count <= 0 || !others.length) return out;
+
+        const taken = (text) => pieces.some(p => alike(p, text)) || out.some(p => alike(p, text));
+
+        for (let tries = 0; tries < 60 && out.length < count; tries++) {
+            const words = wordsIn(others[Math.floor(Math.random() * others.length)]);
+            if (!words.length) continue;
+
+            const word = words[Math.floor(Math.random() * words.length)];
+            const size = pieces[Math.floor(Math.random() * pieces.length)].length;
+            const at = Math.floor(Math.random() * word.length);
+            const piece = word.slice(at, at + Math.max(1, size)).join('');
+
+            if (piece && !taken(piece)) out.push(piece);
+        }
+
+        return out;
+    }
+
+    function spellRound(item, stage) {
+        const words = wordsIn(item.word.original);
+        const letters = words.reduce((n, word) => n + word.length, 0);
+        if (letters < PIECES_LEAST) return null;
+
+        const count = Math.min(Math.max(stage + 1, PIECES_LEAST, words.length), letters);
+        const share = shareOut(words, count);
+        const pieces = words.reduce((out, word, at) => out.concat(sliceWord(word, share[at])), []);
+        const strangers = strangerPieces(item, pieces, Math.max(0, stage - STRANGERS_FROM));
+
+        return { tray: shuffled(pieces.concat(strangers)), words: words.map(word => word.length) };
+    }
+
+    /*
+     * Word search 2's grid, in this game's own copy: columns of hexagons, the
+     * odd ones half a cell down and one cell shorter, and a cell's six
+     * neighbours one fixed step each in axial coordinates.
+     */
+    const rowsIn = (c, rows) => (c % 2 ? rows - 1 : rows);
+    const isCell = (r, c, rows, cols) => c >= 0 && c < cols && r >= 0 && r < rowsIn(c, rows);
+    const toAxial = ([r, c]) => [c, r - (c - (c & 1)) / 2];
+    const fromAxial = ([q, a]) => [a + (q - (q & 1)) / 2, q];
+    const STEPS = [[0, 1], [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1]];
+
+    const stepFrom = (cell, [dq, da]) => {
+        const [q, a] = toAxial(cell);
+        return fromAxial([q + dq, a + da]);
+    };
+
+    const nextTo = (one, two) => {
+        const [q1, a1] = toAxial(one);
+        const [q2, a2] = toAxial(two);
+        return (Math.abs(q2 - q1) + Math.abs(a2 - a1) + Math.abs(q2 - q1 + a2 - a1)) / 2 === 1;
+    };
+
+    /*
+     * The word as one snake of cells, folded rather than laid out straight:
+     * it goes straight on a third of the times it can and turns otherwise,
+     * where Word search 2 goes straight two times in three -- here there is
+     * nothing to find the word among, and the shape is the puzzle. Started in
+     * the middle of a grid a little bigger than the letters need. The
+     * strangers then take free cells beside it, so the shape stays one shape.
+     */
+    const KEEP_ON = 1 / 3;
+
+    function foldIn(side, length, extra) {
+        const key = ([r, c]) => r * side + c;
+        const path = [];
+        const mine = new Set();
+        let left = 500;
+
+        function walk(cell, way) {
+            if (left-- <= 0) return false;
+
+            path.push(cell);
+            mine.add(key(cell));
+            if (path.length === length) return true;
+
+            let ways = shuffled([0, 1, 2, 3, 4, 5].filter(k => k !== way));
+            if (way >= 0) ways = Math.random() < KEEP_ON ? [way].concat(ways) : ways.concat([way]);
+
+            for (const k of ways) {
+                const next = stepFrom(cell, STEPS[k]);
+                if (!isCell(next[0], next[1], side, side) || mine.has(key(next))) continue;
+                if (walk(next, k)) return true;
+                if (left <= 0) break;
+            }
+
+            path.pop();
+            mine.delete(key(cell));
+            return false;
+        }
+
+        const middle = Math.floor(side / 2);
+        if (!walk([middle, middle], -1)) return null;
+
+        const beside = [];
+
+        path.forEach(cell => STEPS.forEach(s => {
+            const next = stepFrom(cell, s);
+            if (isCell(next[0], next[1], side, side) && !mine.has(key(next)) && !beside.some(b => key(b) === key(next))) beside.push(next);
+        }));
+
+        if (beside.length < extra) return null;
+
+        return path.concat(shuffled(beside).slice(0, extra));
+    }
+
+    // Letters of the set's other words, never one of this word's own
+    function strangerLetters(item, letters, count) {
+        const out = [];
+        const pool = [];
+
+        othersOf(item).forEach(word => speech.letters(word).forEach(ch => {
+            if (IS_LETTER.test(ch) && !letters.some(l => alike(l, ch))) pool.push(ch);
+        }));
+
+        for (let i = 0; i < count && pool.length; i++) out.push(pool[Math.floor(Math.random() * pool.length)]);
+
+        return out;
+    }
+
+    function hexRound(item, stage) {
+        const letters = speech.letters(item.word.original || '').filter(ch => IS_LETTER.test(ch));
+        if (letters.length < HEX_LEAST || letters.length > HEX_MOST) return null;
+
+        const strangers = strangerLetters(item, letters, Math.min(HEX_STRANGERS_MOST, Math.max(0, stage - STRANGERS_FROM)));
+        const total = letters.length + strangers.length;
+
+        for (let side = Math.max(3, Math.ceil(Math.sqrt(total)) + 1); side <= 8; side++) {
+            const cells = foldIn(side, letters.length, strangers.length);
+
+            // The word's letters first, in their order, then the strangers --
+            // the order is the answer, and it is the game's to know
+            if (cells) return { cells: cells.map(([r, c], k) => ({ r, c, ch: k < letters.length ? letters[k] : strangers[k - letters.length] })) };
+        }
+
+        return null;
+    }
+
+    /*
+     * ---- What lies under the card ----
+     *
+     * In the cabinet's own stuff: labels of the paper on the boxes, drawn round
+     * in its ink and raised on an edge of brass, which go down under a finger.
+     * Right is the know button's sage, wrong the don't know button's
+     * terracotta.
+     */
+    let asking = false;
+
+    function settle(result, wait) {
+        asking = false;
+
+        const token = drawn;
+        const item = held;
+
+        setTimeout(() => {
+            if (token !== drawn || held !== item) return;
+            answer(result);
+        }, dur(wait));
+    }
+
+    const labelStyle = () => {
+        const p = palette;
+        return `border: 1.3px solid ${p.line}; background: ${p.labelPaper}; color: ${p.labelInk}; box-shadow: ${lifted(p.brass)}; font-family: inherit; font-weight: 700; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s, background-color 0.15s, opacity 0.2s;`;
+    };
+
+    function paintLabel(el, tone) {
+        const p = palette;
+        el.style.background = tone === 'right' ? p.know : tone === 'wrong' ? p.flip : p.labelPaper;
+        el.style.color = tone ? '#ffffff' : p.labelInk;
+    }
+
+    function quizAsk(ask, item, round) {
+        const right = round.mode === 'quizFlipped' ? item.word.original : item.word.translation;
+
+        const list = $(ask, `<div class="flashcards-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px; width: 100%;"></div>`);
+
+        round.options.forEach(text => {
+            const btn = $(list, `<button class="flashcards-option" style="${labelStyle()} min-height: 40px; padding: 6px 8px; border-radius: 11px; font-size: 14.5px; line-height: 1.15; overflow-wrap: anywhere;">${escapeText(text)}</button>`);
+
+            press(btn, palette.brass);
+
+            btn.addEventListener('click', () => {
+                if (!asking || busy) return;
+
+                const ok = alike(text, right);
+                paintLabel(btn, ok ? 'right' : 'wrong');
+
+                if (!ok) {
+                    list.querySelectorAll('.flashcards-option').forEach(other => {
+                        if (alike(other.textContent, right)) paintLabel(other, 'right');
+                    });
+                }
+
+                list.querySelectorAll('.flashcards-option').forEach(other => {
+                    if (other !== btn && !alike(other.textContent, right)) other.style.opacity = '0.45';
+                });
+
+                settle(ok ? 1 : 0, ok ? SEEN_RIGHT : SEEN_WRONG);
+            });
+        });
+    }
+
+    // The slots on the card itself, under the translation (the owner, the same
+    // day): for an hour they stood on a strip of paper of their own under the
+    // card, which was one paper too many
+    function spellAsk(ask, item, round, face) {
+        const p = palette;
+        const want = speech.letters(item.word.original).filter(ch => !BLANK.test(ch));
+        const total = want.length;
+        const box = Math.max(12, Math.min(22, Math.floor((CARD_W - 30 - (round.words.length - 1) * 9) / total) - 3));
+
+        let at = 0;
+        const groups = round.words.map(n => {
+            const cells = [];
+            for (let i = 0; i < n; i++) cells.push(at++);
+            return cells;
+        });
+
+        const line = $(face, `<div class="flashcards-spelled" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 9px; max-width: 100%; margin-top: 8px; flex: none;">
+            ${groups.map(cells => `<span style="display: flex; gap: 3px;">${cells.map(k => `<span class="flashcards-slot" data-k="${k}" style="display: flex; align-items: flex-end; justify-content: center; width: ${box}px; height: 26px; border-bottom: 2px solid ${p.labelInk}; font-size: ${Math.min(19, box)}px; font-weight: 800; line-height: 1; color: ${p.ink};"></span>`).join('')}</span>`).join('')}
+        </div>`);
+
+        const tray = $(ask, `<div class="flashcards-tray" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%;"></div>`);
+
+        let filled = 0;
+
+        const fill = (from, letters, tone) => letters.forEach((ch, k) => {
+            const slot = line.querySelector(`[data-k="${from + k}"]`);
+            slot.textContent = ch;
+            if (tone) slot.style.color = tone === 'wrong' ? p.flip : p.ink;
+        });
+
+        round.tray.forEach(piece => {
+            const btn = $(tray, `<button class="flashcards-piece" style="${labelStyle()} min-width: 38px; height: 38px; padding: 0 10px; border-radius: 10px; font-size: 17px; white-space: nowrap;">${escapeText(piece)}</button>`);
+
+            press(btn, palette.brass);
+
+            btn.addEventListener('click', () => {
+                if (!asking || busy) return;
+
+                const letters = speech.letters(piece);
+                const next = want.slice(filled, filled + letters.length);
+
+                if (next.length === letters.length && alike(next.join(''), letters.join(''))) {
+                    fill(filled, next);
+                    filled += letters.length;
+
+                    btn.disabled = true;
+                    btn.style.opacity = '0';
+                    btn.style.pointerEvents = 'none';
+                    sfx.pop(0, 0.14, 0.09);
+
+                    if (filled === total) {
+                        line.querySelectorAll('.flashcards-slot').forEach(slot => { slot.style.color = p.know; slot.style.borderColor = p.know; });
+                        settle(1, SEEN_RIGHT);
+                    }
+
+                    return;
+                }
+
+                // The first wrong piece is the answer: the rest of the word
+                // written in for the player to see, in the mistake's colour
+                paintLabel(btn, 'wrong');
+                fill(filled, want.slice(filled), 'wrong');
+                settle(0, SEEN_WRONG);
+            });
+        });
+    }
+
+    /*
+     * How big the hexagons are: as big as the room under the card allows, the
+     * shape worked out at a radius of one and then made to fill it (the owner,
+     * the same day; they were 17 whatever the shape, and small in a room that
+     * had space for twice that). The room is the card's width across, and down
+     * from the card to just above the lamp, which is a switch and must stay one
+     * -- or to the cabinet's foot where there is no lamp. Never past HEX_R_MOST,
+     * where a short word's two or three cells would be the size of the card,
+     * nor under HEX_R_LEAST.
+     */
+    const HEX_R_MOST = 30;
+    const HEX_R_LEAST = 14;
+    const SQRT3 = Math.sqrt(3);
+
+    // A cell's middle at a radius of one
+    const unitAt = ({ r, c }) => [1 + 1.5 * c, SQRT3 * (r + 0.5 + (c % 2) / 2)];
+
+    function hexRoom() {
+        const overlay = overlayEl();
+        const lamp = stageEl.querySelector('.flashcards-spare');
+        const foot = lamp ? offsetIn(lamp).y - 6 : overlay.clientHeight - 10;
+
+        return foot - 10 - cardH - 13;
+    }
+
+    // A hexagon flat at top and bottom, its corners turned with a curve
+    function hexPath([x, y], radius, round) {
+        const corners = Array.from({ length: 6 }, (_, i) => [x + radius * Math.cos(i * Math.PI / 3), y + radius * Math.sin(i * Math.PI / 3)]);
+        const toward = (from, to) => [from[0] + (to[0] - from[0]) * round / radius, from[1] + (to[1] - from[1]) * round / radius];
+        const xy = (pt) => pt.map(v => +v.toFixed(2)).join(' ');
+
+        return corners.map((corner, i) => {
+            const before = toward(corner, corners[(i + 5) % 6]);
+            const after = toward(corner, corners[(i + 1) % 6]);
+            return `${i ? 'L' : 'M'}${xy(before)}Q${xy(corner)} ${xy(after)}`;
+        }).join('') + 'Z';
+    }
+
+    function hexAsk(ask, item, round) {
+        const p = palette;
+        const cells = round.cells;
+        const length = speech.letters(item.word.original || '').filter(ch => IS_LETTER.test(ch)).length;
+        const want = cells.slice(0, length).map(cell => cell.ch);
+
+        // The shape at a radius of one, then the radius it is drawn at
+        const units = cells.map(unitAt);
+        const spanX = Math.max(...units.map(u => u[0])) - Math.min(...units.map(u => u[0])) + 2;
+        const spanY = Math.max(...units.map(u => u[1])) - Math.min(...units.map(u => u[1])) + SQRT3;
+        const HEX = Math.max(HEX_R_LEAST, Math.min(HEX_R_MOST, (CARD_W - 4) / spanX, (hexRoom() - 6) / spanY));
+
+        const points = units.map(([x, y]) => [x * HEX, y * HEX]);
+        const minX = Math.min(...points.map(pt => pt[0])) - HEX - 2;
+        const maxX = Math.max(...points.map(pt => pt[0])) + HEX + 2;
+        const minY = Math.min(...points.map(pt => pt[1])) - HEX * SQRT3 / 2 - 2;
+        const maxY = Math.max(...points.map(pt => pt[1])) + HEX * SQRT3 / 2 + 4;
+        const w = maxX - minX;
+        const h = maxY - minY;
+
+        const tiles = cells.map((cell, k) => `<g class="flashcards-hex" data-k="${k}">
+                <path d="${hexPath([points[k][0], points[k][1] + HEX * 0.09], HEX - 1.4, HEX * 0.18)}" fill="${p.brass}" />
+                <path class="flashcards-hex-face" d="${hexPath(points[k], HEX - 1.4, HEX * 0.18)}" fill="${p.labelPaper}" stroke="${p.line}" stroke-width="1.3" />
+                <text x="${points[k][0].toFixed(2)}" y="${points[k][1].toFixed(2)}" text-anchor="middle" dominant-baseline="central" font-size="${(HEX * 0.88).toFixed(1)}" font-weight="800" fill="${p.labelInk}" style="pointer-events: none;">${escapeText(cell.ch)}</text>
+            </g>`).join('');
+
+        const svg = $(ask, `<svg class="flashcards-hexes" viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" style="display: block; touch-action: none; cursor: pointer; overflow: visible;">${tiles}</svg>`);
+
+        let path = [];
+        let down = false;
+
+        const paint = (k, tone) => {
+            const face = svg.querySelector(`[data-k="${k}"] .flashcards-hex-face`);
+            const text = svg.querySelector(`[data-k="${k}"] text`);
+            face.setAttribute('fill', tone === 'right' ? p.know : tone === 'wrong' ? p.flip : tone === 'picked' ? p.brassLight : p.labelPaper);
+            text.setAttribute('fill', tone === 'right' || tone === 'wrong' ? '#ffffff' : p.labelInk);
+        };
+
+        const repaint = () => cells.forEach((_, k) => paint(k, path.includes(k) ? 'picked' : null));
+
+        const cellAt = (e, reach) => {
+            const box = svg.getBoundingClientRect();
+            const x = minX + (e.clientX - box.left) * (w / box.width);
+            const y = minY + (e.clientY - box.top) * (h / box.height);
+
+            let best = -1;
+            let bestD = reach;
+
+            points.forEach(([px, py], k) => {
+                const d = Math.hypot(px - x, py - y);
+                if (d < bestD) { best = k; bestD = d; }
+            });
+
+            return best;
+        };
+
+        const finish = (ok, wrongAt) => {
+            if (ok) {
+                path.forEach(k => paint(k, 'right'));
+                return settle(1, SEEN_RIGHT);
+            }
+
+            // The first wrong letter is the answer: it goes red, and the word
+            // lights up in its order for the player to see
+            cells.forEach((_, k) => paint(k, null));
+            paint(wrongAt, 'wrong');
+            for (let k = 0; k < length; k++) paint(k, 'right');
+            settle(0, SEEN_WRONG);
+        };
+
+        // A cell taken: next to the last one it goes on the path, back on the
+        // path it cuts the path there, anywhere else it starts it again --
+        // Word search 2's taps. A letter that is not the next one ends the round.
+        const take = (k) => {
+            if (k < 0) return;
+
+            if (path.includes(k)) {
+                path = path.slice(0, path.indexOf(k) + 1);
+                return repaint();
+            }
+
+            if (path.length && !nextTo([cells[path[path.length - 1]].r, cells[path[path.length - 1]].c], [cells[k].r, cells[k].c])) path = [];
+
+            if (!alike(cells[k].ch, want[path.length])) return finish(false, k);
+
+            path.push(k);
+            repaint();
+            sfx.pop(0, 0.12, 0.06);
+
+            if (path.length === length) finish(true);
+        };
+
+        svg.addEventListener('pointerdown', (e) => {
+            if (!asking || busy) return;
+            down = true;
+
+            // Held on to, so a drag that leaves the shape still reports; a
+            // pointer the browser has already let go of cannot be, and the
+            // press must still count
+            try {
+                svg.setPointerCapture(e.pointerId);
+            } catch (err) { /* see above */ }
+
+            take(cellAt(e, HEX));
+        });
+
+        svg.addEventListener('pointermove', (e) => {
+            if (!down || !asking || busy) return;
+
+            const k = cellAt(e, HEX * 0.7);
+            if (k < 0 || k === path[path.length - 1]) return;
+
+            // Dragged back onto the cell before: the last step undone
+            if (k === path[path.length - 2]) {
+                path.pop();
+                return repaint();
+            }
+
+            if (!path.includes(k)) take(k);
+        });
+
+        const up = () => { down = false; };
+        svg.addEventListener('pointerup', up);
+        svg.addEventListener('pointercancel', up);
+    }
+
+    // A card over its question: one face, not turned, with the word asked --
+    // the original over a quiz, the translation over the pieces and the
+    // hexagons -- and under it what it is asked with
+    function layAsked(item, round, slot, ask) {
+        const p = palette;
+        const stage = stageOf(item.word);
+        const original = round.mode === 'quiz';
+        const text = original ? item.word.original : item.word.translation;
+        const lang = original ? item.originalLang : item.translationLang;
+
+        // Taller with the word to be spelled out on it as well
+        cardH = round.mode === 'spell' ? SPELL_CARD_H : ASKED_CARD_H;
+        slot.style.height = `${cardH}px`;
+
+        const card = $(slot, `<div class="flashcards-card" style="position: absolute; left: 0; top: 0; width: ${CARD_W}px; height: ${cardH}px; transform: ${REST};">
+            <div class="card-face-front" style="${faceStyle(original ? p.tablePaper : p.tablePaperBack, original ? bandOf(stage) : p.backBand, false)} cursor: default;">
+                ${bandHtml(stage)}
+                <div class="flashcards-word-text" style="${wordStyle()}">${speech.speakerHtml(text, lang, p.sayIcon, SAY_LEAD)}${text ? escapeText(text) : '—'}</div>
+            </div>
+        </div>`);
+
+        card.querySelector('.card-face-front').addEventListener('click', (e) => {
+            if (e.target.closest('.flashcards-prev')) return step(-1);
+            if (e.target.closest('.flashcards-next')) return step(1);
+
+            const speaker = e.target.closest('.say-all');
+            if (speaker) sayFrom(speaker, text, lang);
+        });
+
+        const face = card.querySelector('.card-face-front');
+
+        asking = true;
+
+        if (round.mode === 'quiz' || round.mode === 'quizFlipped') quizAsk(ask, item, round);
+        else if (round.mode === 'spell') spellAsk(ask, item, round, face);
+        else hexAsk(ask, item, round);
+
+        // The word down to what is left of the face once the slots are on it
+        const word = face.querySelector('.flashcards-word-text');
+        let size = WORD_SIZE;
+        word.style.fontSize = `${size}px`;
+
+        while (face.scrollHeight > face.clientHeight && size > WORD_MIN) {
+            size -= 1;
+            word.style.fontSize = `${size}px`;
+        }
+
+        tableH = cardH + 13 + ask.offsetHeight;
+
+        return card;
+    }
+
     // The card for the item, laid in the slot and wired: a press on a face
     // turns the card over, except on its speaker, which says the word in that
     // face's language, and on the arrows in its band
@@ -2166,6 +2831,22 @@ function flashcards(container) {
 
         const was = slot.querySelector('.flashcards-card');
         if (was) was.remove();
+
+        const round = roundNow();
+        const asked = round.mode !== 'card';
+
+        overlay.querySelector('.flashcards-buttons-row').style.display = asked ? 'none' : 'flex';
+
+        const ask = overlay.querySelector('.flashcards-ask');
+        ask.style.display = asked ? 'flex' : 'none';
+        ask.innerHTML = '';
+
+        if (asked) return layAsked(item, round, slot, ask);
+
+        cardH = CARD_H;
+        slot.style.height = `${cardH}px`;
+
+        tableH = CARD_H + 13 + 46;
 
         const card = $(slot, cardHtml(item));
 
@@ -2472,6 +3153,7 @@ function flashcards(container) {
         state.currentIndex = 0;
         state.view = 0;
         state.answers = [];
+        state.rounds = [];
         state.isFlipped = false;
 
         // When this run was dealt its words, which is what every answer in it
@@ -2493,6 +3175,11 @@ function flashcards(container) {
         openNumber = boxOf(stageOf(held.word));
         refreshBoxes();
 
+        if (!state.rounds[state.view]) {
+            state.rounds[state.view] = roundFor(held);
+            page.save();
+        }
+
         const box = boxEl(openNumber);
         const card = layCard(held);
 
@@ -2509,7 +3196,7 @@ function flashcards(container) {
     // turn is half a second of animation, and rebuilding the card mid-turn
     // would start it again from wherever it had got to. It answers nothing.
     function flip() {
-        if (busy || !held) return;
+        if (busy || !held || roundNow().mode !== 'card') return;
 
         sfx.whoosh();
         state.isFlipped = !state.isFlipped;
@@ -2613,6 +3300,7 @@ function flashcards(container) {
         state.currentIndex = 0;
         state.view = 0;
         state.answers = [];
+        state.rounds = [];
         state.isFlipped = false;
         state.sessionAt = null;
 
@@ -2758,7 +3446,9 @@ function flashcards(container) {
         // rather than called, so that a key is counted as the press it stands
         // for -- the turn as a press on the face in front
         bindKeys((code) => {
-            if (busy || !held) return;
+            // The keys are the card's own: the other ways of asking are
+            // answered on the table, and a key there would answer for them
+            if (busy || !held || roundNow().mode !== 'card') return;
 
             const target = code === 'ArrowLeft' ? '#btn-dunno'
                 : code === 'ArrowRight' ? '#btn-know'
@@ -2972,6 +3662,11 @@ function flashcards(container) {
         currentIndex: state.currentIndex,
         view: state.view,
         answers: state.answers,
+
+        // The way each card of the run is asked, and what it is asked with --
+        // see roundFor. Kept with the run, so a card comes back the same.
+        rounds: state.rounds,
+
         isFlipped: state.isFlipped,
         sessionPool: state.sessionPool,
 
