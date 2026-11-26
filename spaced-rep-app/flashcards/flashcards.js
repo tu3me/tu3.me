@@ -2220,9 +2220,9 @@ function flashcards(container) {
     const ASKED_CARD_H = 104;
     const SPELL_CARD_H = 146;
 
-    // How long what was done stays in view before the card goes
+    // How long a right answer stays in view before the card goes. A wrong one
+    // stays until the player has seen it -- see settle
     const SEEN_RIGHT = 650;
-    const SEEN_WRONG = 1500;
 
     const IS_LETTER = /[\p{L}\p{N}]/u;
     const BLANK = /^\s+$/;
@@ -2485,16 +2485,62 @@ function flashcards(container) {
      */
     let asking = false;
 
+    // Whether a finger or the mouse button is down anywhere on the page --
+    // see settle, which must not take the press that made the mistake for the
+    // one that goes on
+    let pressing = false;
+    window.addEventListener('pointerdown', () => { pressing = true; }, true);
+    window.addEventListener('pointerup', () => { pressing = false; }, true);
+    window.addEventListener('pointercancel', () => { pressing = false; }, true);
+
+    /*
+     * The way's verdict, and what follows it.
+     *
+     * Right: the card goes on its own once the answer has been seen a moment.
+     *
+     * Wrong: it stays, with the right answer shown beside the mistake, until
+     * the player presses anywhere -- or a key -- to go on (the owner, 26
+     * November 2026). Gone after a second and a half as it was at first, the
+     * card was in its box before the mistake could be looked at. That press is
+     * only for going on: it does not reach whatever it landed on, so a press
+     * on the wash does not also put the card back, nor one on ‹ › turn to
+     * another card. Armed once the press that made the mistake is over -- a
+     * letter of the hexagons is taken on the way down, with the finger still
+     * on the glass, and its click would go on at once.
+     *
+     * The answer is written when the player goes on, by answer() as ever. A
+     * redraw before that (the theme switched) lays the card out afresh, to be
+     * answered again.
+     */
     function settle(result, wait) {
         asking = false;
 
         const token = drawn;
         const item = held;
+        const live = () => token === drawn && held === item;
 
-        setTimeout(() => {
-            if (token !== drawn || held !== item) return;
+        if (result === 1) {
+            setTimeout(() => { if (live()) answer(result); }, dur(wait));
+            return;
+        }
+
+        const goOn = (e) => {
+            window.removeEventListener('click', goOn, true);
+            window.removeEventListener('keydown', goOn, true);
+            if (!live()) return;
+
+            e.preventDefault();
+            e.stopPropagation();
             answer(result);
-        }, dur(wait));
+        };
+
+        const arm = () => setTimeout(() => {
+            window.addEventListener('click', goOn, true);
+            window.addEventListener('keydown', goOn, true);
+        }, 0);
+
+        if (pressing) window.addEventListener('pointerup', arm, { once: true, capture: true });
+        else arm();
     }
 
     const labelStyle = () => {
@@ -2534,7 +2580,7 @@ function flashcards(container) {
                     if (other !== btn && !alike(other.textContent, right)) other.style.opacity = '0.45';
                 });
 
-                settle(ok ? 1 : 0, ok ? SEEN_RIGHT : SEEN_WRONG);
+                settle(ok ? 1 : 0, SEEN_RIGHT);
             });
         });
     }
@@ -2602,7 +2648,7 @@ function flashcards(container) {
                 // written in for the player to see, in the mistake's colour
                 paintLabel(btn, 'wrong');
                 fill(filled, want.slice(filled), 'wrong');
-                settle(0, SEEN_WRONG);
+                settle(0);
             });
         });
     }
@@ -2712,7 +2758,7 @@ function flashcards(container) {
             cells.forEach((_, k) => paint(k, null));
             paint(wrongAt, 'wrong');
             for (let k = 0; k < length; k++) paint(k, 'right');
-            settle(0, SEEN_WRONG);
+            settle(0);
         };
 
         // A cell taken: next to the last one it goes on the path, back on the
