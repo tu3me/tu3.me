@@ -2259,9 +2259,6 @@ function catalog(container) {
         // screen is for studying, and this is the app wanting something back.
         rateUs(container);
 
-        // After everything that stands round the list -- see capWords
-        capWords(list);
-
         // Last, so it is over everything this pass drew. Redrawn with the rest
         // of the screen — the theme button repaints the catalog under an open
         // panel — and it only rises into place when this pass is the one that
@@ -4088,6 +4085,83 @@ function catalog(container) {
     const ROW_GAMES = GAMES.filter(g => !ROW_HIDDEN.includes(g.id))
         .filter(g => !g.soon).concat(GAMES.filter(g => g.soon));
 
+    /*
+     * The games a set opens up as it is learnt: the first in the row from the
+     * start, and each of the next four when the set's bar lights a dot of its
+     * own -- the third, the fifth, the seventh and the ninth of its thirteen
+     * (the owner, 26 November 2026; for an hour that day the third, fifth,
+     * seventh and tenth). Until then the game wears a lock on its tile and does
+     * not start, and its dot wears a small lock in the bar until it is lit --
+     * once the set has any progress at all; a set at nought shows its bar as
+     * it always did.
+     *
+     * Two more dots wear a sign of their own the same way, and open nothing:
+     * the eleventh a flame and the last, the thirteenth, a heart (DOT_SIGNS).
+     * They were locks for a while the same day, with no game behind them.
+     *
+     * A dot is lit by the set's best word (see ladderOf), and that is all that
+     * opens a game: nothing is kept, so what is open is worked out from the
+     * words every time a set is drawn, on each set by itself. A word that slips
+     * back can close a game again; the dot it lit goes dark with it, and the
+     * two say the same thing.
+     *
+     * By place in the row, not by name: the second game is the third dot's,
+     * whichever game that is. A game past the last dot is open from the start
+     * -- there is no dot for it -- and so is one still to come (`soon`), which
+     * starts nothing anyway.
+     */
+    const LOCK_DOTS = [3, 5, 7, 9];
+    const DOT_SIGNS = { 11: 'fire', 13: 'heart' };
+
+    // What a dot of the bar wears until it is lit, if anything
+    const signOf = (dot) => LOCK_DOTS.includes(dot) ? 'lock' : DOT_SIGNS[dot];
+
+    const gateOf = (game) => {
+        const place = ROW_GAMES.filter(g => !g.soon).indexOf(game);
+        return place > 0 ? LOCK_DOTS[place - 1] : undefined;
+    };
+
+    const lockedBy = (game, ladder) => {
+        const dot = gateOf(game);
+        return dot !== undefined && ladder.lit < dot;
+    };
+
+    /*
+     * The signs, drawn, on one grid of 24 and standing on the same line, near
+     * its foot: a lock -- a shackle in a stroke and a body filled, so it still
+     * reads as a lock at the eleven pixels it has in the bar -- a flame and a
+     * heart, both filled for the same reason. In the colour they are given, at
+     * the size they are given.
+     *
+     * The flame a third larger than it is drawn, from the middle of the grid
+     * (the owner, the same day): a flame is narrow, and at the size of the lock
+     * and the heart it read as the smallest of the three.
+     */
+    const SIGNS = {
+        lock: (c) => `<path d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3" fill="none" stroke="${c}" stroke-width="2.8" stroke-linecap="round" />`
+            + `<rect x="4.5" y="10.5" width="15" height="11" rx="2.5" fill="${c}" />`,
+        fire: (c) => `<path d="M12 2.5C13 6.2 18 8.6 18 14.6a6 6 0 0 1-12 0c0-2.9 1.4-4.8 2.8-6.2.1 2 1 3.4 2.2 3.9-.1-3.5-.4-6.4 1-9.8z" fill="${c}" transform="translate(12 12) scale(1.3) translate(-12 -12)" />`,
+        heart: (c) => `<path d="M12 21.2s-7.6-4.7-9.4-9.4C1.4 8.4 3.6 4.6 7.3 4.6c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.7 0 5.9 3.8 4.7 7.2-1.8 4.7-9.4 9.4-9.4 9.4z" fill="${c}" />`
+    };
+
+    const signSvg = (kind, size, colour, opacity) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="display: block; flex: none; overflow: visible; opacity: ${opacity};">${SIGNS[kind](colour)}</svg>`;
+
+    // The sign in the bar, a little larger than the dot it stands for, and the
+    // lock on a tile, over a veil of the card's colour that says the drawing
+    // under it is not to be pressed yet.
+    //
+    // Both in the card's ink, and seen through: whole, the light theme's ink
+    // made them the darkest things on the card (reported by the owner, the
+    // same day). A share of the ink rather than a lighter colour of each
+    // theme's, so the one number does for both.
+    const STEP_LOCK = 11;
+    const TILE_LOCK = 20;
+    const STEP_LOCK_INK = 0.6;
+
+    // The line of an empty dot's ring, in the bar -- see stepLook
+    const STEP_RING = 1.2;
+    const TILE_LOCK_INK = 0.5;
+
     // Whether a game was left unfinished on a set, which is a question about
     // both halves of it: the same game on another set is a game that was never
     // started.
@@ -4311,15 +4385,36 @@ function catalog(container) {
     const NAME_ROOM = '90%';
     const NAME_FACE = 'justify-self: stretch; container-type: inline-size; overflow: hidden; white-space: nowrap; text-align: center;';
 
-    function tileBtn(cls, face, label, attrs, resuming) {
+    // A lock pressed: a turn either way from where the shackle hangs, and back
+    function shakeLock(svg) {
+        if (!svg) return;
+
+        svg.style.transformOrigin = '50% 30%';
+        svg.animate([
+            { transform: 'rotate(0deg)' },
+            { transform: 'rotate(-14deg)' },
+            { transform: 'rotate(11deg)' },
+            { transform: 'rotate(-6deg)' },
+            { transform: 'rotate(0deg)' }
+        ], { duration: 420, easing: 'ease-out' });
+    }
+
+    function tileBtn(cls, face, label, attrs, resuming, locked) {
         const swap = resuming ? ' set-tile-swap' : '';
 
-        return `<button class="${cls}" ${attrs} style="flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
+        // Beside the face and not in it: the game draws its face into the tile
+        // again when it grows it (see growTiles), and would draw over the lock
+        const lock = locked
+            ? `<span class="set-tile-lock" aria-hidden="true" style="position: absolute; top: 0; left: 50%; width: ${TILE}px; height: ${TILE}px; margin-left: -${TILE / 2}px; display: grid; place-items: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}8c; z-index: 2; pointer-events: none;">${signSvg('lock', TILE_LOCK, palette.title, TILE_LOCK_INK)}</span>`
+            : '';
+
+        return `<button class="${cls}" ${attrs} style="position: relative; flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
             <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
             <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: ${NAME_ROOM}; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
                 <span class="set-tile-face" style="grid-area: 1 / 1; ${NAME_FACE}"><span class="set-tile-name">${label}<span class="set-tile-name-again" aria-hidden="true">${label}</span></span></span>
                 ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; white-space: nowrap;">${CONTINUE}</span>` : ''}
             </span>
+            ${lock}
         </button>`;
     }
 
@@ -4349,60 +4444,31 @@ function catalog(container) {
     const WORDS_REACH = 6;
 
     /*
-     * How tall a set's words may stand: as tall as leaves the app, with that one
-     * set in it, inside 600 of the screen's pixels -- the most Chrome gives a
-     * popup. What is over that scrolls inside the set, between its bar and its
-     * games, which stay where they are (the owner, 26 November 2026). Every set
-     * has the same cap, so with two the page scrolls as it always did.
+     * How tall a set's words may stand: 300 of the app's own pixels, and what is
+     * over that scrolls inside the set, between its bar and its games, which
+     * stay where they are (the owner, 26 November 2026). Every set has the same
+     * cap, so with two the page scrolls as it always did.
      *
-     * The 600 are the screen's, and the app is drawn larger or smaller than it
-     * is laid out (see --app-scale in app.css): at the width it opens at they are
-     * 552.6 of its own. --app-unscale turns the one into the other, so dragging
-     * the corner needs nothing measured again. What is taken off them is the rest
-     * of the app, measured after the draw -- see capWords -- and is the same at
-     * any width.
+     * One number, the owner's call the same day. For a few hours it was worked
+     * out instead -- as much as left the app, with one set in it, inside the 600
+     * screen pixels a popup gets, the rest of the app measured after every draw
+     * so that a name on two lines was counted too. The measuring is what went
+     * wrong: the header is sticky, measured by where it stood on a page scrolled
+     * down it made every set as much shorter as the page was scrolled, and a
+     * press on Edit further down the list squashed the others. A fixed cap has
+     * nothing to measure. With a long name, a banner over the list or the app
+     * drawn wider, one set and its row of stars may now run past the 600, and
+     * the page scrolls.
      *
      * The box keeps the air round the bubbles inside it (BUBBLE_ROOM), so what
      * hangs over a bubble's edge is cut by the box, where it was cut by the frame
-     * round it before the box scrolled. Its height counts that air -- border-box
-     * -- for the sum in capWords to come out.
+     * round it before the box scrolled; the 300 count that air (border-box).
      *
      * No scrollbar, like everything else in the app (see app.css). What says
      * there is more is a shade along the top and the foot of a box that scrolls,
      * which the bubbles go under -- see .set-words-frame in app.css.
      */
-    const WORDS_CAP = 'box-sizing: border-box; max-height: calc(600px * var(--app-unscale) - var(--set-rest, 0px));'
-        + ' overflow-x: hidden; overflow-y: auto;';
-
-    /*
-     * The rest of the app, beside one set's words: the header and the row under
-     * the list (the stars or the note), the same for every set, and the set's
-     * own name, bar and games, which are not -- a name runs to two lines and
-     * more. Measured rather than written down, in the app's own units (appRect),
-     * and handed to the set's words as --set-rest -- see WORDS_CAP.
-     *
-     * Not counted: the onboarding's strip, which goes once its cards are read,
-     * and the New set form, which goes on save. Both stand over the list, and
-     * while one is there the app with one set is that much over the 600.
-     *
-     * Rounded up, and a pixel more, for the fractions the zoom leaves in what is
-     * measured.
-     */
-    function capWords(list) {
-        const app = appRect(container);
-        const header = appRect(container.querySelector('.dict-header'));
-        const shelf = appRect(list);
-        const around = (header.bottom - app.top) + parseFloat(getComputedStyle(list).marginTop) + (app.bottom - shelf.bottom);
-
-        list.querySelectorAll('.set-card').forEach(card => {
-            const words = card.querySelector('.set-words-bubbles');
-            if (!words) return;
-
-            const rest = around + appRect(card).height - appRect(words.parentElement).height;
-
-            words.style.setProperty('--set-rest', `${Math.ceil(rest) + 1}px`);
-        });
-    }
+    const WORDS_CAP = 'box-sizing: border-box; max-height: 300px; overflow-x: hidden; overflow-y: auto;';
 
     /*
      * A title takes as many lines as it needs, at one size whatever its length (the
@@ -4924,18 +4990,44 @@ function catalog(container) {
             // them. Shared by the markup below and by the timeout that runs
             // the bar up when the catalog opens, so there is one description
             // of what a segment looks like rather than two that must agree.
+            //
+            // A dot with a sign that is not lit yet is the sign instead, once
+            // the set has any progress -- a lock, a flame or a heart, see
+            // LOCK_DOTS. It is the sign from the first frame, so the wave runs
+            // past it: it is the state the dot ends in, and a lock that came and
+            // went at every opening would say a game was locked that is not.
+            //
+            // And a dot with nothing on it, not lit, is a ring once the set has
+            // any progress (the owner, 26 November 2026): the rings are what is
+            // still to fill, in the ink and the share of the signs. At nought the
+            // dots stay the resting colour, filled -- the bar as it always was.
+            // The rings are the waiting state too, so the wave fills them.
+            const ringed = progress !== 0;
+
             const stepLook = (i) => {
                 const lit = i < ladder.lit;
-                const colour = lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle;
+                const sign = !lit && ringed ? signOf(i + 1) : undefined;
+                const ring = !lit && !sign && ringed;
+                const colour = sign || ring ? 'transparent' : lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle;
 
                 return {
                     colour,
                     edge: (lit && palette.stepEdge) ? shade(colour, palette.stepEdge) : '',
-                    width: i < ladder.grown ? '100%' : `${STEP_SIZE}px`
+                    width: i < ladder.grown ? '100%' : `${STEP_SIZE}px`,
+                    sign,
+                    ring
                 };
             };
 
-            const waiting = { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px` };
+            const waiting = ringed
+                ? { colour: 'transparent', edge: '', width: `${STEP_SIZE}px`, ring: true }
+                : { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px` };
+
+            // The hairline of a lit dot, or the ring of an empty one: both drawn
+            // as shadows, which take nothing from the dot's size -- see below
+            const stepShadow = (look) => look.edge ? `0 0 0 0.5px ${look.edge}`
+                : look.ring ? `inset 0 0 0 ${STEP_RING}px color-mix(in srgb, ${palette.hint} ${STEP_LOCK_INK * 100}%, transparent)`
+                : '';
 
             /*
              * Nothing here eases. A segment arrives at its state the moment
@@ -4959,9 +5051,9 @@ function catalog(container) {
             //
             // Each segment is a share of the row with the dot or the bar in
             // the middle of it -- see SEGMENTS.
-            const stepStyle = (look) => `flex: none; width: ${look.width}; height: ${STEP_SIZE}px; border-radius: ${STEP_SIZE / 2}px;`
+            const stepStyle = (look) => `flex: none; display: flex; align-items: center; justify-content: center; width: ${look.width}; height: ${STEP_SIZE}px; border-radius: ${STEP_SIZE / 2}px;`
                 + ` background-color: ${look.colour};`
-                + (look.edge ? ` box-shadow: 0 0 0 0.5px ${look.edge};` : '');
+                + (stepShadow(look) ? ` box-shadow: ${stepShadow(look)};` : '');
 
             // Drawn empty and coloured in a frame later, so the boxes light up
             // when the catalog opens rather than being found already lit. The
@@ -4986,7 +5078,7 @@ function catalog(container) {
 
                 <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_SIZE}px; margin-bottom: ${BUBBLE_ROOM}px;">
                     ${Array.from({ length: SEGMENTS }, (_, i) => `<div style="flex: 1; display: flex; justify-content: center;"><div class="set-progress-step"
-                        style="${stepStyle(grows ? waiting : stepLook(i))}"></div></div>`).join('')}
+                        style="${stepStyle(grows && !stepLook(i).sign ? waiting : stepLook(i))}">${stepLook(i).sign ? signSvg(stepLook(i).sign, STEP_LOCK, palette.hint, STEP_LOCK_INK) : ''}</div></div>`).join('')}
                 </div>
 
                 <div class="set-words-frame" style="overflow: hidden; margin: 0 -${BUBBLE_ROOM + WORDS_REACH}px; --words-shade: ${palette.cardBg};">
@@ -4994,7 +5086,13 @@ function catalog(container) {
                 </div>
 
                 <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM + TILES_SINK}px; margin-bottom: -${TILES_SINK}px;">
-                    ${ROW_GAMES.map(g => tileBtn(g.soon ? 'set-soon-btn' : 'set-play-btn', '', g.title, `data-game="${g.id}" title="${tr('pitch_' + g.id, null, g.pitch)}"`, unfinished(g))).join('')}
+                    ${ROW_GAMES.map(g => {
+                        const locked = !g.soon && lockedBy(g, ladder);
+                        const cls = g.soon ? 'set-soon-btn' : locked ? 'set-locked-btn' : 'set-play-btn';
+
+                        // A locked game has no way back in either, and does not say so
+                        return tileBtn(cls, '', g.title, `data-game="${g.id}" title="${tr('pitch_' + g.id, null, g.pitch)}"`, !locked && unfinished(g), locked);
+                    }).join('')}
                 </div>
             `);
 
@@ -5039,13 +5137,13 @@ function catalog(container) {
                         const look = stepLook(i);
 
                         step.style.backgroundColor = look.colour;
-                        step.style.boxShadow = look.edge ? `0 0 0 0.5px ${look.edge}` : '';
+                        step.style.boxShadow = stepShadow(look);
                         step.style.width = look.width;
                     }, 150 + i * STEP_WAVE_MS);
                 });
             }
 
-            card.querySelectorAll('.set-play-btn').forEach(btn => {
+            card.querySelectorAll('.set-play-btn, .set-locked-btn').forEach(btn => {
                 const game = GAMES.find(g => g.id === btn.dataset.game);
 
                 // Its face, drawn by the game into the box the row left for it
@@ -5059,7 +5157,15 @@ function catalog(container) {
                 // for a new one: resume keeps the pool, the dots and the place
                 // in it, and starting over would throw away the half that was
                 // played. Everything else on the row is an ordinary start.
+                //
+                // A locked one starts nothing: its lock gives a shake, which is
+                // all a press on it can be answered with until the dot is lit.
                 btn.addEventListener('click', () => {
+                    if (btn.classList.contains('set-locked-btn')) {
+                        if (!stillMotion()) shakeLock(btn.querySelector('.set-tile-lock svg'));
+                        return;
+                    }
+
                     if (unfinished(game)) nav.resume(game, set.id);
                     else launch(game, set.id);
                 });
