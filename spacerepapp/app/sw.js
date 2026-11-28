@@ -1,17 +1,26 @@
 /*
- * Offline shell for the web build. Registered by web.js, which exists only on
- * the site — the extension ships a zero-byte web.js and never gets here.
+ * Offline shell for the site. Registered by web.js, which returns at once in
+ * the extension, so the extension never gets here.
  *
  * Cache Storage is an origin-wide namespace, the same as IndexedDB: a bare "v1"
- * would collide with any other app served from this domain.
+ * would collide with any other app served from this domain, and so would a
+ * second copy of this one -- tu3.me has held two at once. Hence the scope in
+ * the name, and the cleanup below touching only names under its own scope:
+ * it used to delete every "spaced-repetition-app-*" but its own, and two copies
+ * on one origin would have wiped each other's offline copy on every visit.
  *
- * The "v1" below is only what the file says when read on its own: build.sh
- * replaces it with a hash of everything in the bundle, so every real change
- * ships under a new name. Nothing is refetched until the name changes, which is
- * what makes the app instant offline — and what would serve stale code if the
- * name were left to a person to remember.
+ * The name changes with every change of the code, which is what makes a new
+ * release reach people: nothing is refetched until it does. It comes from
+ * core/stamp.js (written by stamp.py after every change of app/), loaded here
+ * rather than written in by a build step, so app/ served as it is works. The
+ * browser checks imported scripts for changes as well as this file, so a new
+ * stamp is a new worker. Before 28 November 2026 build.sh wrote a hash of the
+ * bundle in here instead.
  */
-const CACHE = 'spaced-repetition-app-v1';
+importScripts('core/stamp.js');
+
+const PREFIX = 'spaced-repetition-app-' + self.registration.scope + ' ';
+const CACHE = PREFIX + CODE_STAMP.version + ' ' + CODE_STAMP.changed;
 
 // Every file the app needs to start with no network. A new game means its
 // lines here -- the page, the game and its icon.js -- alongside its line in
@@ -19,7 +28,7 @@ const CACHE = 'spaced-repetition-app-v1';
 const SHELL = [
     './',
     'index.html',
-    'manifest.json',
+    'site.webmanifest',
     'registry.js',
     'i18n.js',
     'onboarding.js',
@@ -105,7 +114,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
             .then(names => Promise.all(
-                names.filter(n => n.startsWith('spaced-repetition-app-') && n !== CACHE)
+                names.filter(n => n.startsWith(PREFIX) && n !== CACHE)
                     .map(n => caches.delete(n))
             ))
             .then(() => self.clients.claim())

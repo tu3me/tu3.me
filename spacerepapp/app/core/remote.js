@@ -55,22 +55,19 @@ function remote() {
     }
 
     /*
-     * The version, which only the extension can read off its manifest: the
-     * site ships the PWA manifest in that place, which has no version in it.
-     * build.sh writes the extension's number in over the placeholder below, so
-     * the site says the same thing the extension it was built with does.
+     * The version. The extension reads it off its manifest; the site takes the
+     * one stamp.py writes into core/stamp.js from that same manifest, so both
+     * deliveries of one commit say the same thing. (Until 28 November 2026
+     * build.sh wrote it into a placeholder here.)
+     *
+     * Development -- the dev server, a file opened from disk -- says "dev", so
+     * its visits are told from those of the site at tu3.me, which talks to the
+     * same test server. The version the settings show is CODE_STAMP itself.
      */
-    const BUILD_VERSION = '__APP_VERSION__';
-
-    // Unbuilt -- served straight out of app/ while developing -- the
-    // placeholder is still there, and says so as "dev": the analytics of
-    // development are told from those of the site at tu3.me by it, which
-    // talks to the same test server. Asked as a prefix rather than spelled
-    // out, or build.sh would replace the question too. The version the
-    // settings show is another thing -- see CODE_STAMP in core/stamp.js.
     function version() {
         if (inExtension && chrome.runtime.getManifest) return chrome.runtime.getManifest().version;
-        return BUILD_VERSION.startsWith('__') ? 'dev' : BUILD_VERSION;
+        if (location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return 'dev';
+        return typeof CODE_STAMP === 'undefined' ? 'dev' : CODE_STAMP.version;
     }
 
     /*
