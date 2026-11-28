@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -30 480 480" width="480" height="480"><defs>
+<linearGradient id="goldSv34" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset=".55" stop-color="#f6c232"/><stop offset="1" stop-color="#d9921a"/></linearGradient>
+<linearGradient id="tailSv34" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2b92e"/><stop offset="1" stop-color="#c98414"/></linearGradient>
+</defs><rect x="30" y="30" width="340" height="355" rx="64" fill="#56c4a6" stroke="#c9a54a" stroke-width="7"/><g transform="matrix(1.4 0 0 1.4 -89 -345.2)">
+<path d="M144.45 463.23C149.54 461.17 224.22 476.6 233.79 454.33C247.33 422.87 167.13 413.07 161.13 368C153.71 312.18 153.83 300.99 209.33 300.99C218.27 300.99 234.72 297.82 242.4 303.17C252.5 310.2 252.57 319.98 252.35 331.5C251.42 380.6 237.9 356.99 205.51 368C202.54 369.01 201.25 372.66 201.47 375.5C202.49 388.94 304.33 420.73 252.67 476.48C230.77 500.1 141.4 484.94 144.45 463.23Z" fill="#fff" stroke="#fff" stroke-width=".5" stroke-linejoin="round"/>
+<circle cx="228.8" cy="331.7" r="17.5" fill="#56c4a6"/><circle cx="192.4" cy="332.4" r="9.1" fill="#56c4a6"/><circle cx="228.8" cy="331.7" r="6" fill="#fff"/><circle cx="192.4" cy="332.4" r="3" fill="#b9cfd8"/>
+</g></svg>
