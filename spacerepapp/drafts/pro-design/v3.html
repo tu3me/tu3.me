@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Полка с доком: третья версия</title>
+<!--
+  The third designer's pass, after the owner's reference of 28 November 2026
+  (refs/shelf-wide.jpg): the shelf is the main screen, the set is picked in
+  the header and the games sit in a dock at the bottom. Drawn on a wide
+  screen, as the reference is. The reference's look is kept and its slips
+  are not: the real intervals, the real counts of «Слова набора», the dock
+  clear of the boxes, colour that means something. A draft: nothing in app/
+  reads it.
+-->
+<style>
+:root {
+    --page: #08141b;
+    --page-ink: #e3edf0;
+    --page-muted: #93a9b4;
+    --page-line: rgba(227, 237, 240, 0.1);
+    --page-card: #0f2330;
+    --win-zoom: 0.7;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--page-ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: #f5b9a8; }
+.intro, .screen { max-width: 1360px; margin: 0 auto; padding: 0 28px; }
+.intro { padding-top: 28px; }
+.intro h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.2; }
+.intro .lede { margin: 0 0 18px; max-width: 960px; color: var(--page-muted); }
+/* Not sticky, by the owner's choice: the whole page scrolls as one. */
+.switches { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; max-width: 1360px; margin: 0 auto; padding: 10px 28px; border-bottom: 1px solid var(--page-line); }
+.switch { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.switch button { padding: 5px 11px; border: 1px solid var(--page-line); border-radius: 99px; background: transparent; color: var(--page-ink); font: inherit; cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--page-ink); color: var(--page); border-color: var(--page-ink); }
+.screen { padding-top: 34px; padding-bottom: 28px; border-bottom: 1px solid var(--page-line); }
+.screen h2 { margin: 0 0 2px; font-size: 21px; }
+.screen .sub { margin: 0 0 16px; color: var(--page-muted); max-width: 960px; }
+.row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.side { flex: 1 1 300px; max-width: 400px; }
+.thumbs { display: flex; gap: 12px; margin-bottom: 16px; }
+.thumbs figure { margin: 0; flex: 1; }
+.thumbs img { display: block; width: 100%; border-radius: 10px; box-shadow: 0 0 0 1px var(--page-line); }
+.thumbs figcaption { margin-top: 4px; font-size: 12.5px; color: var(--page-muted); }
+body[data-before="off"] .thumbs { display: none; }
+.notes { margin: 0; padding: 0; list-style: none; }
+.notes li { position: relative; margin: 0 0 10px; padding-left: 16px; font-size: 14.5px; line-height: 1.45; }
+.notes li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 3px; background: #ef6f5a; }
+.notes b { font-weight: 650; }
+.ref { color: var(--page-muted); font-size: 12.5px; white-space: nowrap; }
+
+/* ---------- the window ---------- */
+.frame { flex: none; zoom: var(--win-zoom); padding: 12px; border-radius: 30px; background: #04090c; box-shadow: 0 0 0 1.5px #1e2c34 inset, 0 30px 70px rgba(0, 0, 0, 0.55); }
+.win {
+    --ink: #eaf0f2;
+    --muted: #a7b6bd;
+    --teal: #8fdcea;
+    --accent: #ef6f5a;
+    --on-accent: #0f2b3c;
+    --go: #9fe6ae;
+    position: relative; width: 1280px; height: 720px; overflow: hidden; border-radius: 20px;
+    background:
+        radial-gradient(900px 380px at 50% -12%, rgba(52, 86, 106, 0.55), transparent 70%),
+        linear-gradient(180deg, #142632 0%, #0e1d27 100%);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.win button { font: inherit; color: inherit; cursor: pointer; }
+.win svg { display: block; }
+
+/* header */
+.top { position: absolute; left: 0; right: 0; top: 0; height: 96px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; z-index: 4; }
+.brand { display: flex; align-items: center; gap: 12px; width: 300px; }
+.wm { line-height: 1.04; }
+.wm b { display: block; font-size: 25px; font-weight: 800; letter-spacing: 0.22em; }
+.wm span { display: block; font-size: 19.5px; font-weight: 700; letter-spacing: 0.075em; }
+.picker {
+    display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 22px 0 28px;
+    border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 28px;
+    background: linear-gradient(180deg, #2c3d48, #1f2e37);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 16px rgba(0, 0, 0, 0.3);
+    font-size: 23px !important; font-weight: 750 !important; letter-spacing: 0.035em; text-transform: uppercase;
+}
+.picker svg { color: var(--muted); }
+.picker.open { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(143, 220, 234, 0.35); }
+.right { display: flex; gap: 12px; width: 300px; justify-content: flex-end; }
+.tbtn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 56px; padding: 0 22px;
+    border: 1px solid rgba(143, 220, 234, 0.32); border-radius: 15px;
+    background: linear-gradient(180deg, #24414b, #19303a);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 16px rgba(0, 0, 0, 0.3);
+    color: var(--teal) !important; font-size: 21px !important; font-weight: 600 !important;
+}
+.tbtn.sq { width: 56px; padding: 0; }
+
+/* the cabinet: it ends above the dock, which in the reference covered the
+   labels of boxes 12 to 14 */
+.cab {
+    position: absolute; left: 24px; right: 24px; top: 100px; height: 488px; padding: 14px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #37322c, #29251f);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 22px 44px rgba(0, 0, 0, 0.5);
+}
+.cab-in {
+    position: relative; height: 100%; border-radius: 8px; overflow: hidden;
+    display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(3, 1fr);
+    background: linear-gradient(180deg, #1d1b19, #161514);
+    box-shadow: inset 0 10px 22px rgba(0, 0, 0, 0.65), inset 0 -4px 10px rgba(0, 0, 0, 0.3);
+}
+.plank { position: absolute; left: 0; right: 0; height: 14px; background: linear-gradient(180deg, #46413a 0, #46413a 4px, #312d28 4px, #26231f 100%); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.45); z-index: 2; }
+.cell { position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14px; z-index: 1; }
+.dimmed .cab, .dimmed .dock { filter: brightness(0.42) saturate(0.7) blur(1.5px); }
+
+/* a bin: what it shows is what it holds -- green, there is something
+   ready (and the garland, as in the app); slate, cards that wait; olive,
+   empty */
+.bin { --face: #5a5f66; --face-low: #42464c; --rim: #727980; --inside: #222529; position: relative; width: 190px; height: 136px; }
+.bin.go { --face: #6f9168; --face-low: #4f6f4b; --rim: #86a57e; --inside: #273325; }
+.bin.empty { --face: #67624f; --face-low: #4b4739; --rim: #7a745f; --inside: #191813; }
+.bin-back { position: absolute; left: 7px; right: 7px; top: 2px; height: 74px; border-radius: 12px 12px 0 0; border: 2.5px solid var(--rim); border-bottom: 0; background: linear-gradient(180deg, var(--inside), #000); }
+.slip { position: absolute; left: 22px; right: 22px; height: 50px; border-radius: 4px; background: linear-gradient(180deg, #efe6d3, #d6cab3); box-shadow: inset 0 1px 0 #fffaf0, 0 -1px 0 rgba(0, 0, 0, 0.25), 0 2px 3px rgba(0, 0, 0, 0.35); }
+.bin-front {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 86px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 10px 10px 14px 14px; border: 1px solid rgba(0, 0, 0, 0.45);
+    background: linear-gradient(180deg, var(--face), var(--face-low));
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), inset 0 -3px 0 rgba(0, 0, 0, 0.25), 0 8px 12px rgba(0, 0, 0, 0.45);
+}
+/* the label holder: brushed metal, two screws */
+.plate {
+    position: relative; min-width: 74px; height: 34px; padding: 0 16px; border-radius: 6px;
+    display: grid; place-items: center;
+    background: linear-gradient(180deg, #f1f3f4 0%, #c9ced2 45%, #a6adb3 100%);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.55);
+    color: #2a2f33; font-size: 22px; font-weight: 800; letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+}
+.plate::before, .plate::after { content: ""; position: absolute; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #7d858b); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25); }
+.plate::before { left: 5px; } .plate::after { right: 5px; }
+.meta { display: flex; align-items: center; gap: 9px; font-size: 18px; font-weight: 650; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.meta .when { display: inline-flex; align-items: center; gap: 4px; }
+/* a luggage tag: the border is a second clipped layer under the fill */
+.tag { display: inline-flex; --tag-edge: rgba(255, 255, 255, 0.34); --tag-fill: rgba(10, 12, 14, 0.45); --tag-ink: #d3d9dc; padding: 1.5px; background: var(--tag-edge); clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%); border-radius: 0 6px 6px 0; }
+.tag > span { display: flex; align-items: center; gap: 5px; height: 25px; padding: 0 9px 0 14px; background: var(--tag-fill); color: var(--tag-ink); clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); border-radius: 0 5px 5px 0; font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; text-shadow: none; }
+.tag i { width: 6px; height: 6px; border-radius: 3px; background: currentColor; }
+.go .tag { --tag-edge: rgba(150, 230, 165, 0.75); --tag-fill: rgba(16, 48, 26, 0.7); --tag-ink: var(--go); }
+.garland { position: absolute; left: -18px; top: -20px; width: 226px; height: 176px; overflow: visible; pointer-events: none; z-index: 3; }
+
+/* the lamp keeps its corner */
+.lamp { position: absolute; right: 6px; bottom: 12px; width: 220px; height: 150px; overflow: visible; }
+
+/* the dock */
+.dock {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    display: flex; gap: 6px; padding: 10px 14px 8px;
+    border-radius: 26px; border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(26, 39, 48, 0.86); backdrop-filter: blur(14px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 12px 30px rgba(0, 0, 0, 0.5);
+    z-index: 5;
+}
+.dock button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 104px; padding: 0 0 8px; border: 0; background: none; }
+.dock .tile { width: 62px; height: 62px; border-radius: 19px; overflow: hidden; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
+.dock .tile > span { position: relative; display: block; width: 50px; height: 50px; zoom: 1.24; }
+.dock small { font-size: 15px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.dock .on small { color: var(--ink); }
+.dock .on::after { content: ""; position: absolute; bottom: 0; left: 50%; width: 30px; height: 4px; margin-left: -15px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent), 0 0 4px var(--accent); }
+
+/* the set picker */
+.menu {
+    position: absolute; left: 50%; top: 90px; width: 600px; margin-left: -300px; z-index: 6;
+    padding: 10px; border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(28, 42, 52, 0.97);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.menu-row { display: block; width: 100%; padding: 12px 14px 12px 16px; border: 0; border-radius: 14px; background: none; text-align: left; }
+.menu-row + .menu-row { margin-top: 2px; }
+.menu-row.cur { background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(143, 220, 234, 0.25); }
+.mr-head { display: flex; align-items: center; gap: 12px; }
+.mr-head b { font-size: 21px; font-weight: 750; }
+.mr-head .meta2 { font-size: 15px; color: var(--muted); }
+.mr-head .go-tag, .mr-head .new-tag { display: flex; margin-left: auto; }
+.mr-head .tick { color: var(--teal); }
+.go-tag .tag { --tag-edge: rgba(150, 230, 165, 0.75); --tag-fill: rgba(16, 48, 26, 0.7); --tag-ink: var(--go); }
+.new-tag .tag { --tag-edge: rgba(143, 220, 234, 0.6); --tag-fill: rgba(16, 40, 48, 0.7); --tag-ink: var(--teal); }
+.mr-words { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; zoom: 0.92; }
+
+/* word cards, the app's (see v2) */
+.note { position: relative; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 44px; padding: 5px 9px; text-align: center; }
+.note::before { content: ''; position: absolute; inset: -0.4px; z-index: -1; border-radius: 6px; background: var(--bubble); clip-path: var(--bubble-edge); }
+.note b { font-size: 14px; font-weight: 800; line-height: 1.15; }
+.note small { font-size: 14px; font-weight: 600; line-height: 1.1; }
+.note.more { color: var(--muted); font-size: 14px; font-weight: 700; }
+.note.more::before { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2); clip-path: none; }
+/* The seven uneven edges of app.css, taken in turn along a row */
+.note:nth-child(7n+1) {
+    --bubble-edge: shape(from 5.1px 0.63px, curve to 43% 0.24px with 24% 0.59px, curve to calc(100% - 5.3px) 0.77px with 68% 0.12px, curve to calc(100% - 0.38px) 5.3px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.11px) 43% with calc(100% - 0.74px) 30%, curve to calc(100% - 1.21px) calc(100% - 6.2px) with calc(100% - 0.82px) 72%, curve to calc(100% - 6.2px) calc(100% - 0.78px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.08px) with 76% calc(100% - 0.24px), curve to 5.1px calc(100% - 0.3px) with 22% calc(100% - 0.97px), curve to 0.41px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.74px 48% with 0.65px 74%, curve to 0.62px 5.1px with 0.83px 27%, curve to 5.1px 0.82px with 0.5px 0.5px);
+}
+.note:nth-child(7n+2) {
+    --bubble-edge: shape(from 5.1px 0.01px, curve to 39% 0.6px with 23% 0.86px, curve to calc(100% - 5.6px) 0.75px with 74% 0px, curve to calc(100% - 0.78px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.22px) 53% with calc(100% - 0.2px) 27%, curve to calc(100% - 0.07px) calc(100% - 5.6px) with calc(100% - 1.02px) 71%, curve to calc(100% - 5.6px) calc(100% - 0.64px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 55% calc(100% - 0.85px) with 77% calc(100% - 0.02px), curve to 4.3px calc(100% - 0.08px) with 32% calc(100% - 0.64px), curve to 0.11px calc(100% - 4.3px) with 0.5px calc(100% - 0.5px), curve to 1.23px 56% with 0.14px 76%, curve to 1.21px 5.1px with 0.67px 28%, curve to 5.1px 0.7px with 0.5px 0.5px);
+}
+.note:nth-child(7n+3) {
+    --bubble-edge: shape(from 4.6px 0.23px, curve to 37% 0.83px with 19% 0.8px, curve to calc(100% - 5.6px) 0.23px with 67% 0.66px, curve to calc(100% - 0.27px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.37px) 55% with calc(100% - 0.16px) 24%, curve to calc(100% - 1.24px) calc(100% - 5.6px) with calc(100% - 1.04px) 71%, curve to calc(100% - 5.6px) calc(100% - 1.09px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 62% calc(100% - 1.11px) with 80% calc(100% - 1.03px), curve to 6px calc(100% - 0.93px) with 24% calc(100% - 0.99px), curve to 0.32px calc(100% - 6px) with 0.5px calc(100% - 0.5px), curve to 1.06px 57% with 1.12px 78%, curve to 0.71px 4.6px with 0.54px 26%, curve to 4.6px 1.11px with 0.5px 0.5px);
+}
+.note:nth-child(7n+4) {
+    --bubble-edge: shape(from 4.3px 0.34px, curve to 38% 0.36px with 17% 0.82px, curve to calc(100% - 5.7px) 0.38px with 76% 1.09px, curve to calc(100% - 0.49px) 5.7px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.14px) 50% with calc(100% - 0.28px) 29%, curve to calc(100% - 0.45px) calc(100% - 5.6px) with calc(100% - 0.33px) 78%, curve to calc(100% - 5.6px) calc(100% - 0.19px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.83px) with 80% calc(100% - 0.21px), curve to 6.3px calc(100% - 0.81px) with 23% calc(100% - 0.74px), curve to 0.03px calc(100% - 6.3px) with 0.5px calc(100% - 0.5px), curve to 0.34px 54% with 0.5px 77%, curve to 1.12px 4.3px with 0.12px 29%, curve to 4.3px 0.86px with 0.5px 0.5px);
+}
+.note:nth-child(7n+5) {
+    --bubble-edge: shape(from 6.3px 1.23px, curve to 34% 0.07px with 18% 1.07px, curve to calc(100% - 4px) 1.25px with 69% 0.15px, curve to calc(100% - 0.58px) 4px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.44px) 54% with calc(100% - 0.33px) 27%, curve to calc(100% - 1.17px) calc(100% - 5.8px) with calc(100% - 0.26px) 75%, curve to calc(100% - 5.8px) calc(100% - 1px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.38px) with 84% calc(100% - 0.53px), curve to 4.4px calc(100% - 0.72px) with 28% calc(100% - 0.61px), curve to 0.58px calc(100% - 4.4px) with 0.5px calc(100% - 0.5px), curve to 1px 56% with 0.71px 77%, curve to 0.51px 6.3px with 1.08px 24%, curve to 6.3px 0.61px with 0.5px 0.5px);
+}
+.note:nth-child(7n+6) {
+    --bubble-edge: shape(from 4.9px 0.51px, curve to 44% 0.89px with 19% 0.79px, curve to calc(100% - 5.2px) 0.01px with 70% 1.02px, curve to calc(100% - 0.83px) 5.2px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.19px) 51% with calc(100% - 0.03px) 27%, curve to calc(100% - 1.2px) calc(100% - 5px) with calc(100% - 0.32px) 72%, curve to calc(100% - 5px) calc(100% - 1.01px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 60% calc(100% - 0.79px) with 83% calc(100% - 0.57px), curve to 5.1px calc(100% - 0.78px) with 26% calc(100% - 1.23px), curve to 0.98px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.45px 55% with 0.98px 75%, curve to 0.62px 4.9px with 0.65px 25%, curve to 4.9px 1.19px with 0.5px 0.5px);
+}
+.note:nth-child(7n+7) {
+    --bubble-edge: shape(from 5.3px 0.96px, curve to 45% 0.68px with 20% 0.14px, curve to calc(100% - 5.9px) 0.03px with 72% 1.02px, curve to calc(100% - 0.52px) 5.9px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.07px) 52% with calc(100% - 0.8px) 30%, curve to calc(100% - 0.17px) calc(100% - 6.3px) with calc(100% - 0.69px) 72%, curve to calc(100% - 6.3px) calc(100% - 1.02px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.19px) with 84% calc(100% - 0.7px), curve to 4.7px calc(100% - 1.19px) with 25% calc(100% - 0.41px), curve to 0.15px calc(100% - 4.7px) with 0.5px calc(100% - 0.5px), curve to 0.89px 44% with 0.39px 71%, curve to 0.63px 5.3px with 1.07px 29%, curve to 5.3px 1.25px with 0.5px 0.5px);
+}
+
+/* review: the card is taken out onto the table */
+.review-top { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; height: 56px; padding: 0 22px; border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.14); background: linear-gradient(180deg, #2c3d48, #1f2e37); font-size: 19px; font-weight: 650; z-index: 6; }
+.review-top .bar { width: 220px; height: 10px; border-radius: 5px; background: rgba(0, 0, 0, 0.35); overflow: hidden; }
+.review-top .bar i { display: block; height: 100%; border-radius: 5px; background: #56c4a6; }
+.end { position: absolute; right: 26px; top: 20px; z-index: 6; }
+.table { position: absolute; left: 0; right: 0; top: 190px; z-index: 6; display: flex; flex-direction: column; align-items: center; }
+/* the controls take the dock's place while the dock is away */
+.controls { position: absolute; left: 0; right: 0; bottom: 16px; z-index: 6; display: flex; flex-direction: column; align-items: center; }
+.icard {
+    --band: #dcc39b;
+    position: relative; width: 520px; aspect-ratio: 268 / 158;
+    border-radius: 16px; border: 2px solid #241a13;
+    background:
+        linear-gradient(180deg, var(--band) 0, var(--band) 46px, #241a13 46px, #241a13 47.5px, rgba(214, 120, 100, 0.5) 47.5px, rgba(214, 120, 100, 0.5) 49.5px, transparent 49.5px),
+        repeating-linear-gradient(180deg, transparent 0 37px, rgba(110, 145, 170, 0.22) 37px 38.5px),
+        #e6d7b8;
+    box-shadow: 0 0 50px rgba(255, 196, 120, 0.22), 0 24px 50px rgba(0, 0, 0, 0.6);
+    transform: rotate(-1.2deg); color: #3a2a1c;
+}
+.icard .band { position: absolute; left: 20px; right: 16px; top: 0; height: 46px; display: flex; align-items: center; justify-content: space-between; font-size: 17px; font-weight: 800; letter-spacing: 0.08em; color: #4a3628; }
+.icard .face { position: absolute; left: 0; right: 0; top: 50px; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.icard .small { font-size: 26px; font-weight: 650; color: #7a654c; }
+.icard .rule { width: 64px; height: 2.5px; margin: 6px 0; border-radius: 2px; background: rgba(58, 42, 28, 0.25); }
+.icard .big { display: flex; align-items: center; gap: 16px; font-size: 64px; font-weight: 750; line-height: 1.05; }
+.icard .big svg { color: #a08868; }
+.grade { display: flex; gap: 16px; }
+.grade button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 250px; height: 82px; border: 0; border-radius: 20px; color: var(--on-accent) !important; }
+.grade span { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 800; }
+.grade small { font-size: 16px; font-weight: 650; opacity: 0.88; }
+.grade .dunno { background: var(--accent); box-shadow: 0 4px 0 #b9503e; }
+.grade .know { background: #56c4a6; box-shadow: 0 4px 0 #2f8f75; }
+.keys { margin: 12px 0 0; font-size: 16px; color: var(--muted); }
+.keys kbd { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); font: 700 15px/22px system-ui, sans-serif; text-align: center; }
+</style>
+</head>
+<body data-before="on">
+
+<header class="intro">
+    <h1>Полка с доком: третья версия</h1>
+    <p class="lede">
+        По твоему первому референсу: главный экран — полка выбранного набора, набор выбирается в шапке, игры — в доке снизу; каталог становится
+        выпадающим списком. Нарисовано на широком экране, как в референсе (планшет, окно PWA). Вид взят из референса, а его ошибки нет: интервалы
+        и счёт карточек настоящие — «Слова набора», 17 слов, 10 готовы, — док не закрывает коробки, а цвет коробки что-то значит.
+        Рядом с каждым экраном — референс и снимок нынешнего приложения. Вторая версия — <a href="v2.html">здесь</a>, четвёртая — <a href="v4.html">здесь</a>.
+    </p>
+</header>
+
+<nav class="switches" aria-label="Переключатели">
+    <div class="switch" data-switch="before">Референс и «было»:
+        <button data-v="on" aria-pressed="true">показать</button>
+        <button data-v="off" aria-pressed="false">скрыть</button>
+    </div>
+</nav>
+
+<main id="screens"></main>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <radialGradient id="bulb-glow"><stop offset="0" stop-color="#ffe7a3" stop-opacity="0.95"/><stop offset="0.35" stop-color="#ffb648" stop-opacity="0.55"/><stop offset="1" stop-color="#ff9a30" stop-opacity="0"/></radialGradient>
+        <radialGradient id="lamp-glow"><stop offset="0" stop-color="#ffd79a" stop-opacity="0.55"/><stop offset="0.5" stop-color="#ffb860" stop-opacity="0.16"/><stop offset="1" stop-color="#ffb860" stop-opacity="0"/></radialGradient>
+        <linearGradient id="lamp-cone" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd896" stop-opacity="0.38"/><stop offset="1" stop-color="#ffd896" stop-opacity="0"/></linearGradient>
+    </defs>
+</svg>
+
+<script src="icons.js"></script>
+<script>
+const stroke = (d, size = 22, w = 2.2) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+    chevD: (s = 22) => stroke('<path d="m6 9.5 6 6 6-6"/>', s, 2.6),
+    chevL: (s = 20) => stroke('<path d="M15 5l-7 7 7 7"/>', s, 2.8),
+    chevR: (s = 20) => stroke('<path d="M9 5l7 7-7 7"/>', s, 2.8),
+    plus: (s = 22) => stroke('<path d="M12 5v14M5 12h14"/>', s, 2.4),
+    gear: (s = 26) => stroke(`<path d="${ICONS.gear}"/><circle cx="12" cy="12" r="3"/>`, s, 2),
+    clock: (s = 18) => stroke('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', s, 2.3),
+    tick: (s = 24) => stroke('<path d="M5 12.5l4.5 4.5L19 7.5"/>', s, 2.8),
+    close: (s = 22) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, 2.4),
+    check: (s = 22) => stroke('<path d="M5 12.5l4.5 4.5L19 7.5"/>', s, 3),
+    x: (s = 22) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, 3),
+    speaker: (s = 34) => stroke('<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>', s, 2),
+};
+const LOGO = `<svg width="56" height="56" viewBox="0 0 32 32" aria-hidden="true"><g transform="rotate(-7 16 16)"><rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a"/><circle cx="11.37" cy="16" r="4.405" fill="#0f2b3c" stroke="#ffffff" stroke-width="2.41"/><circle cx="23.02" cy="16" r="3.01" fill="#0f2b3c" stroke="#ffffff" stroke-width="1.5"/></g></svg>`;
+
+// ---------- data: «Слова набора», as v2 has it ----------
+// Box n: [ready, total]; labels as the app writes them
+const BOXES = [[0, 0], [2, 2], [2, 3], [2, 2], [2, 2], [0, 0], [1, 2], [1, 2], [0, 1], [0, 0], [0, 0], [0, 1], [0, 0], [0, 2]];
+const LABELS = ['now', '5m', '15m', '45m', '2h', '6h', '1d', '3d', '7d', '14d', '30d', '60d', '120d', '240d'];
+const READY = BOXES.reduce((s, [r]) => s + r, 0);
+const GAMES = [['flashcards', 'Flashcards'], ['quiz', 'Quiz'], ['snake', 'Snake'], ['search', 'Word search'], ['search2', 'Word search 2']];
+const STAGES = ['#ebedef', '#fbedc3', '#f8eabf', '#ebf1bb', '#d4efb9', '#c0edb9', '#bdefc8', '#bff0dc', '#bcf0f0', '#b8dff0', '#b4ccf0', '#b1b1f0', '#c6adf1', '#c7a2f1', '#cb91f2'];
+const INK = { '#ebedef': ['#4a4f55', '#6d737a'], '#f8eabf': ['#605124', '#857647'], '#ebf1bb': ['#596024', '#7d8547'], '#d4efb9': ['#426024', '#668547'], '#c0edb9': ['#2c6024', '#508547'], '#bff0dc': ['#246048', '#47856c'], '#bcf0f0': ['#246060', '#478585'], '#b8dff0': ['#244e60', '#477285'] };
+const FAIL = '#b8102f';
+const SETS = [
+    { title: 'Слова набора', meta: '17 words · 46%', tag: `${READY} ready`, kind: 'go', cur: true, more: 11,
+      words: [['wonder', 'чудо', 2], ['brave', 'смелый', 5], ['journey', 'путешествие', 8], ['forest', 'лес', 4], ['spark', 'искра', 5], ['mist', 'туман', 3, true]] },
+    { title: 'Early', meta: '1 word · 14%', tag: '1 ready', kind: 'go', words: [['one', '1', 2]] },
+    { title: 'Español A1', meta: '5 words · not started', tag: '5 new', kind: 'new', words: [['la casa', 'дом', 0], ['el agua', 'вода', 0], ['gracias', 'спасибо', 0], ['hola', 'привет', 0], ['por favor', 'пожалуйста', 0]] },
+];
+
+// ---------- pieces ----------
+const tag = (text) => `<span class="tag"><span><i></i>${text}</span></span>`;
+
+function bin(n, ready, total) {
+    const kind = ready ? 'go' : total ? '' : 'empty';
+    let slips = '';
+    for (let k = 0; k < (total ? Math.min(total + 1, 4) : 0); k++) slips += `<span class="slip" style="top:${30 - k * 7}px; left:${22 + k * 2}px; right:${22 + k * 2}px"></span>`;
+    const garland = ready ? `<svg class="garland" viewBox="0 0 226 176"><path class="wire" d="M14 78 C 18 54, 22 40, 30 34 C 62 56, 92 52, 113 38 C 136 54, 166 56, 196 34 C 206 42, 210 56, 212 78" fill="none" stroke="#3b2a1a" stroke-width="1.5"/></svg>` : '';
+    return `<div class="bin ${kind}" role="button" aria-label="Box ${n}, ${LABELS[n - 1]}, ${ready} of ${total} ready">
+        <span class="bin-back"></span>${slips}
+        <div class="bin-front"><span class="plate">${String(n).padStart(2, '0')}</span>
+            <span class="meta"><span class="when">${I.clock()}${LABELS[n - 1]}</span>${tag(`${ready}/${total}`)}</span></div>
+        ${garland}</div>`;
+}
+
+function lamp() {
+    return `<svg class="lamp" viewBox="0 0 220 150" aria-hidden="true">
+        <ellipse cx="96" cy="146" rx="120" ry="16" fill="url(#lamp-glow)"/>
+        <path d="M128 52 L10 150 L150 150 Z" fill="url(#lamp-cone)"/>
+        <circle cx="130" cy="50" r="58" fill="url(#lamp-glow)"/>
+        <ellipse cx="166" cy="144" rx="26" ry="6" fill="#4a3a26"/>
+        <path d="M144 141 a22 7 0 0 1 44 0 v3 a22 7 0 0 1 -44 0 z" fill="#8b6a3e"/>
+        <path d="M166 138 L178 82 L140 40" fill="none" stroke="#c9995a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="178" cy="82" r="5.5" fill="#a87d45"/><circle cx="140" cy="40" r="5" fill="#a87d45"/>
+        <g transform="rotate(38 136 46)"><path d="M118 30 L154 30 L162 62 L110 62 Z" fill="#3f8f84"/><path d="M118 30 L154 30 L156 38 L116 38 Z" fill="#5fb0a4"/><ellipse cx="136" cy="62" rx="26" ry="6" fill="#fff1cc"/></g>
+    </svg>`;
+}
+
+function header(open) {
+    return `<div class="top">
+        <div class="brand">${LOGO}<span class="wm"><b>SPACED</b><span>REPETITION</span></span></div>
+        <button class="picker ${open ? 'open' : ''}" aria-haspopup="listbox" aria-expanded="${open}">Слова набора ${I.chevD()}</button>
+        <div class="right"><button class="tbtn">${I.plus()}New set</button><button class="tbtn sq" aria-label="Settings">${I.gear()}</button></div>
+    </div>`;
+}
+
+function shelf() {
+    const cells = BOXES.map(([r, t], i) => `<div class="cell">${bin(i + 1, r, t)}</div>`).join('') + `<div class="cell">${lamp()}</div>`;
+    const planks = [0, 1, 2].map(r => `<span class="plank" style="top:calc(${(r + 1) * 100 / 3}% - 14px)"></span>`).join('');
+    return `<div class="cab"><div class="cab-in">${planks}${cells}</div></div>`;
+}
+
+function dock() {
+    return `<div class="dock">${GAMES.map(([id, name], i) => `<button class="${i === 0 ? 'on' : ''}" aria-current="${i === 0 ? 'page' : 'false'}"><span class="tile"><span>${ICONS.tiles[id]}</span></span><small>${name}</small></button>`).join('')}</div>`;
+}
+
+function hub() {
+    return `${header(false)}${shelf()}${dock()}`;
+}
+
+function note([w, t, stage, failed]) {
+    const fill = STAGES[stage];
+    const [ink, sub] = INK[fill];
+    return `<span class="note" style="--bubble:${fill}"><b style="color:${failed ? FAIL : ink}">${w}</b><small style="color:${failed ? FAIL : sub}">${t}</small></span>`;
+}
+
+function pickerOpen() {
+    const rows = SETS.map(s => `<button class="menu-row ${s.cur ? 'cur' : ''}" role="option" aria-selected="${!!s.cur}">
+        <span class="mr-head"><b>${s.title}</b><span class="meta2">${s.meta}</span><span class="${s.kind}-tag">${tag(s.tag)}</span>${s.cur ? `<span class="tick">${I.tick()}</span>` : '<span style="width:24px"></span>'}</span>
+        <span class="mr-words">${s.words.map(note).join('')}${s.more ? `<span class="note more">+${s.more}</span>` : ''}</span>
+    </button>`).join('');
+    return `<div class="dimmed">${header(true)}${shelf()}${dock()}</div><div class="menu" role="listbox">${rows}</div>`;
+}
+
+function review() {
+    return `<div class="dimmed">${shelf()}</div>
+        <div class="brand" style="position:absolute; left:26px; top:20px; z-index:6">${LOGO}<span class="wm"><b>SPACED</b><span>REPETITION</span></span></div>
+        <div class="review-top">Box 2<span class="bar"><i style="width:20%"></i></span>3 / ${READY}</div>
+        <button class="tbtn end">${I.close()}End review</button>
+        <div class="table">
+            <div class="icard"><div class="band"><span>BOX 2</span><span style="display:flex; gap:10px; opacity:.7">${I.chevL()}${I.chevR()}</span></div>
+                <div class="face"><span class="small">чудо</span><span class="rule"></span><span class="big">${I.speaker()}wonder</span></div></div>
+        </div>
+        <div class="controls">
+            <div class="grade">
+                <button class="dunno"><span>${I.x()}Don’t know</span><small>To box 1 · now</small></button>
+                <button class="know"><span>${I.check()}Know</span><small>To box 3 · in 15m</small></button>
+            </div>
+            <p class="keys"><kbd>←</kbd> and <kbd>→</kbd>, <kbd>Space</kbd> turns the card</p>
+        </div>`;
+}
+
+const SCREENS = [
+    {
+        title: '1. Полка — главный экран',
+        sub: 'Набор — в шапке, его коробки — на полке, игры — в доке. Открыл приложение — сразу видно, что готово и куда нажать.',
+        thumbs: [['refs/shelf-wide.jpg', 'Референс'], ['before/shelf.jpg', 'Было']],
+        render: hub,
+        notes: [
+            '<b>Из референса:</b> тёмная полка на три ряда по пять, коробки с металлическими табличками, бирки «⏱ 5m • 2/2», гирлянда, лампа в свободной ячейке, док игр. Каталог больше не отдельный экран, а список под названием набора.',
+            '<b>Док не закрывает коробки.</b> В референсе он лежит поверх подписей 12–14; здесь полка кончается над ним.',
+            '<b>Цвет коробки = состояние.</b> Зелёная — есть готовые карточки, и на ней гирлянда (в приложении гирлянда значит то же). Серая — карточки ждут своего часа. Оливковая — пустая. В референсе цвета случайны. <span class="ref">с. 520</span>',
+            '<b>Числа настоящие:</b> «Слова набора», 10 готовых в коробках 2–5, 7 и 8; интервалы — из <code>srs.js</code> (в референсе дважды «3d» и «7d» у коробки 10).',
+            '<b>Бирка готовых — не только цвет:</b> зелёная рамка и точка; таблички 22 px, подписи 18 px — читаются и с расстояния. <span class="ref">с. 520, 924</span>',
+            '<b>Подписи в доке целиком:</b> «Word search», «Word search 2», а не «earch», как сейчас в каталоге. Выбранная игра — подсветка под плиткой.',
+        ],
+    },
+    {
+        title: '2. Выбор набора',
+        sub: 'Каталог стал выпадающим списком под названием набора. У каждого набора — сколько готово и первые слова, теми же карточками, что сейчас.',
+        thumbs: [['refs/shelf-wide.jpg', 'Референс'], ['before/catalog-dark.jpg', 'Было']],
+        render: pickerOpen,
+        notes: [
+            '<b>Список, а не экран:</b> полка темнеет, но видна — понятно, откуда открыт список и куда вернёшься. <span class="ref">с. 492</span>',
+            '<b>В строке — ответ на «где сегодня работа»:</b> «10 ready», «1 ready», «5 new». Новые слова — бирюзой, не зелёным: это не повторение.',
+            '<b>Карточки слов остаются</b> — первые шесть и «+11». Это то, что тебе нравится в каталоге, и здесь оно помогает узнать набор с одного взгляда.',
+            '<b>Ошибочное слово видно и тут:</b> «mist» с красной строкой, как в каталоге.',
+        ],
+    },
+    {
+        title: '3. Повторение',
+        sub: 'Карточка вынимается из коробки на стол. Полка уходит в тень, док прячется, пока идёт повторение.',
+        thumbs: [['refs/shelf-wide.jpg', 'Референс'], ['before/card.jpg', 'Было']],
+        render: review,
+        notes: [
+            '<b>Индекс-карточка — нынешняя:</b> бумага, крафтовая полоса оборота, линейки, наклон. На широком экране — 520 px, слово 64 px.',
+            '<b>Сейчас карточка лежит поверх полки, а соты закрывают коробки.</b> Здесь полка в тени: видно, что ты всё ещё у шкафа, но смотреть есть на что одно. <span class="ref">с. 585</span>',
+            '<b>Наверху — какая коробка и сколько осталось:</b> «Box 2 · 3 / 10»; выход — «End review», словами.',
+            '<b>Кнопки с последствием:</b> «To box 1 · now», «To box 3 · in 15m»; клавиши ← → и пробел. <span class="ref">с. 505</span>',
+        ],
+    },
+];
+
+const thumbs = (list) => `<div class="thumbs">${list.map(([src, cap]) => `<figure><img src="${src}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`).join('')}</div>`;
+
+document.getElementById('screens').innerHTML = SCREENS.map(s => `<section class="screen">
+    <h2>${s.title}</h2><p class="sub">${s.sub}</p>
+    <div class="row"><div class="frame"><div class="win">${s.render()}</div></div>
+        <div class="side">${thumbs(s.thumbs)}<ul class="notes">${s.notes.map(n => `<li>${n}</li>`).join('')}</ul></div></div>
+</section>`).join('');
+
+// Bulbs along each garland's wire, evenly, now that the wire is on the page
+document.querySelectorAll('.garland').forEach((svg, g) => {
+    const wire = svg.querySelector('.wire');
+    const len = wire.getTotalLength();
+    let bulbs = '';
+    for (let d = 6, k = 0; d < len - 2; d += 27, k++) {
+        const p = wire.getPointAtLength(d);
+        bulbs += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(7 + (k * 7 + g) % 3).toFixed(0)}" fill="url(#bulb-glow)"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.3" fill="#ffeab0"/>`;
+    }
+    svg.insertAdjacentHTML('beforeend', bulbs);
+});
+
+const zoom = new URLSearchParams(location.search).get('zoom');
+if (zoom) document.documentElement.style.setProperty('--win-zoom', zoom);
+
+document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    document.body.dataset[sw.dataset.switch] = b.dataset.v;
+}));
+</script>
+</body>
+</html>
