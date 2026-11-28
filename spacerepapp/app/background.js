@@ -4,10 +4,10 @@
  * page on the first install, tells the analytics about installs and updates,
  * and points Chrome at the farewell page for the uninstall.
  *
- * Not to be confused with web/sw.js — that one is the offline cache of the
- * site, registered by the page itself, and it never ships here. This file is
- * the opposite: an MV3 worker that exists only in the extension package, and
- * build.sh strips it back out of the web build.
+ * Not to be confused with sw.js beside it — that one is the offline cache of
+ * the site, registered by the page itself, and the store package leaves it out.
+ * This file is the opposite: an MV3 worker that only the extension runs. On the
+ * site it lies unused: no page loads it.
  *
  * chrome.tabs.create() needs no "tabs" permission. That permission only opens
  * up reading url/title/favIconUrl of tabs, which nothing here does — so the
