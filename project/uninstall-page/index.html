@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Goodbye!</title>
+<meta name="description" content="Spaced Repetition App has been uninstalled. Tell us why in one question.">
+<meta name="theme-color" content="#e0fff5">
+<meta property="og:title" content="Goodbye!">
+<meta property="og:description" content="You have uninstalled the Spaced Repetition App extension.">
+<meta property="og:type" content="website">
+
+<!-- Nothing here should be indexed: the page is reached only by Chrome, on its
+     way out, and a search result leading to a farewell form is worse than no
+     result at all. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-7 16 16)'%3E%3Crect x='1.95' y='4.34' width='28.09' height='23.31' rx='5.23' fill='%23ef6f5a'/%3E%3Ccircle cx='11.37' cy='16' r='4.86' fill='none' stroke='%23fff' stroke-width='2.83'/%3E%3Ccircle cx='23.02' cy='16' r='3.01' fill='none' stroke='%23fff' stroke-width='1.75'/%3E%3C/g%3E%3C/svg%3E">
+
+<style>
+/* Deliberately the same ground, type and favicon as the welcome page. These two
+   are the only pages of the product a person ever sees outside the extension,
+   and they are the first and the last of it — looking like one thing is most of
+   what tells them the farewell is not some third party's form. */
+:root {
+    color-scheme: light;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --page: #e0fff5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 56px 20px 80px;
+    background: var(--page);
+    color: #1d1d1f;
+    font: 400 19px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-align: center;
+}
+
+main { max-width: 640px; margin: 0 auto; }
+
+p { margin: 0; }
+
+.lead { font-size: clamp(19px, 3.4vw, 23px); }
+
+/* The form is the page. Everything above it is one sentence, because every
+   extra line between arriving here and the single question costs answers, and
+   answers are the only reason this page exists. */
+.form {
+    margin-top: 28px;
+    width: 100%;
+    height: 620px;
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 6px 28px rgba(0, 0, 0, .16);
+
+    /* The form is white to its edges and the page is not, which is what makes
+       it read as a card rather than as part of the page — the same trick the
+       welcome page plays with its screenshots. */
+    background: #ffffff;
+}
+
+/* Generous on purpose. A cross-origin iframe cannot tell the page how tall its
+   contents are, and Google's form grows when it shows a validation error and
+   again when it swaps in the thank-you. Too short and the form gets a scrollbar
+   of its own inside the page's — which is exactly the friction this page cannot
+   afford. */
+@media (max-height: 760px) {
+    body { padding: 32px 20px 40px; }
+    .form { height: 560px; }
+}
+
+@media (max-width: 560px) {
+    body { padding-top: 40px; }
+}
+</style>
+</head>
+
+<body>
+
+<!--
+  The departure, told to the app's own analytics under the device it belongs
+  to. The extension puts its device id, version and server into this page's
+  address after a # (see app/background.js); this runs before the counter
+  below, takes them back out of the address -- so Metrika never sees an id --
+  and sends one visit with one event, `uninstall`, the way the app sends its
+  own (see docs/ANALYTICS.md). Same site as the API, so no CORS; keepalive, so
+  a reader who closes the tab at once still gets it out. Without the id, from a
+  bookmark or a search, nothing is sent.
+-->
+<script>
+    (function () {
+        var hash = location.hash.slice(1);
+        if (!hash) return;
+
+        history.replaceState(null, '', location.pathname + location.search);
+
+        var about = new URLSearchParams(hash);
+        var device = about.get('d') || '';
+        if (!/^[0-9A-HJKMNP-TV-Z]{12}$/.test(device)) return;
+
+        var api = about.get('t') === '1' ? '/test/api/' : '/api/';
+        var tz = null;
+        try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { }
+
+        var visit = {
+            device: device,
+            user: '',
+            v: (about.get('v') || '').slice(0, 32),
+            p: 'e',
+            start: Date.now(),
+            state: { tz: tz, utc: -new Date().getTimezoneOffset() },
+            events: [[0, 'uninstall']]
+        };
+
+        try {
+            fetch(api + 'events.php', {
+                method: 'POST',
+                body: JSON.stringify({ visits: [visit] }),
+                headers: { 'Content-Type': 'text/plain' },
+                keepalive: true
+            }).catch(function () { });
+        } catch (e) { }
+    })();
+</script>
+
+<!--
+  The same counter as the welcome page, and deliberately the same one rather
+  than a second: it is one site, and the two pages separate themselves in the
+  reports by URL. Two counters would split the picture instead.
+
+  What it is here for is the number the form cannot give. The form counts
+  answers; it has no idea how many people saw it and left without writing
+  anything. Landings against answers is the response rate, and that is the only
+  figure that says whether this page is working at all — the lesson promises
+  5-15%, and without the first number there is nothing to compare.
+
+  Nothing of this may appear in app/: the Web Store listing declares that no
+  data is collected and the store's scanners look for strings like mc.yandex.ru.
+  uninstall-page/ is a website, build.sh never copies it into dist/, and the
+  store zip is app/ alone. See ARCHITECTURE.md §11.
+-->
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112837742', 'ym');
+
+    ym(112837742, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112837742" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+
+<main>
+
+<p class="lead">Sorry to see you go. What went wrong?</p>
+
+<!--
+  One question, and nothing else on the page.
+
+  The form lives in the team's Drive, in the bootcamp folder, as
+  "Spaced Repetition App - uninstall feedback". Responders are set to "anyone
+  with the link": a farewell form that asks a departing user to sign in to
+  Google first collects nothing.
+
+  The id below is the RESPONDER id (/d/e/...), not the one in the editing URL
+  (/d/...). They are different strings for the same form, and the editing one
+  renders a permission error for everybody but the owner.
+
+  hl=en pins the form's own furniture — the answer placeholder, the submit
+  button, the small print — to English. Without it Google localises that
+  chrome to each visitor while the question and the line above it stay English,
+  and a Russian "Отправить" under an English question looks like somebody else's
+  form embedded by mistake.
+-->
+<iframe class="form"
+        title="Why have you deleted the app?"
+        src="https://docs.google.com/forms/d/e/1FAIpQLSeikK9Crj2sTbE-9IZslg1laIstN4nWMVIIGPMSu3Omai5V4A/viewform?embedded=true&amp;hl=en">
+    Loading…
+</iframe>
+
+</main>
+</body>
+
+</html>

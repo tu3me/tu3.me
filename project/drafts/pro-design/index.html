@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Каталог и Flashcards: дизайн</title>
+<!--
+  A designer's pass over the catalog and the Flashcards screens, after the
+  owner's request of 28 November 2026 and the book attached to it (Best in
+  Class iOS, Book Two: Design; page numbers below are the book's). A draft:
+  nothing here ships, and nothing in app/ reads it. The screens are drawn from
+  one set of templates in both themes, so a change to a screen is made once.
+-->
+<style>
+/* ---------- the page around the phones ---------- */
+:root {
+    --page: #e9e5df;
+    --page-ink: #26221e;
+    --page-muted: #6c645b;
+    --page-line: rgba(38, 34, 30, 0.12);
+    --page-card: #f6f3ee;
+    --phone-zoom: 0.86;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--page);
+    color: var(--page-ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.intro, .screen, .guide { max-width: 1480px; margin: 0 auto; padding: 0 28px; }
+.intro { padding-top: 28px; }
+.intro h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.2; }
+.intro .lede { margin: 0 0 18px; max-width: 880px; color: var(--page-muted); }
+.principles { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+.principles li { padding: 12px 14px; border-radius: 12px; background: var(--page-card); }
+.principles b { display: block; margin-bottom: 2px; }
+.principles span { color: var(--page-muted); font-size: 14px; }
+.ref { color: var(--page-muted); font-size: 12.5px; white-space: nowrap; }
+
+/* Not sticky, by the owner's choice: the whole page scrolls as one. */
+.switches {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center;
+    max-width: 1480px; margin: 0 auto; padding: 10px 28px;
+    border-bottom: 1px solid var(--page-line);
+}
+.switch { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.switch button {
+    padding: 5px 11px; border: 1px solid var(--page-line); border-radius: 99px;
+    background: transparent; color: var(--page-ink); font: inherit; cursor: pointer;
+}
+.switch button[aria-pressed="true"] { background: var(--page-ink); color: #fff; border-color: var(--page-ink); }
+
+.screen { padding-top: 34px; padding-bottom: 6px; border-bottom: 1px solid var(--page-line); }
+.screen h2 { margin: 0 0 2px; font-size: 21px; }
+.screen .sub { margin: 0 0 16px; color: var(--page-muted); max-width: 900px; }
+.row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; padding-bottom: 28px; }
+.before { margin: 0; width: 250px; flex: none; }
+.before img { display: block; width: 100%; border-radius: 22px; box-shadow: 0 0 0 1px var(--page-line); }
+.before figcaption { margin-top: 6px; font-size: 13px; color: var(--page-muted); }
+.before .none {
+    display: grid; place-items: center; height: 300px; padding: 20px; border-radius: 22px;
+    border: 1.5px dashed var(--page-line); color: var(--page-muted); text-align: center; font-size: 14px;
+}
+.notes { flex: 1 1 320px; max-width: 440px; margin: 0; padding: 0; list-style: none; }
+.notes li { position: relative; margin: 0 0 10px; padding-left: 16px; font-size: 14.5px; line-height: 1.45; }
+.notes li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 3px; background: #d0442e; }
+.notes b { font-weight: 650; }
+
+body[data-theme-mode="light"] .phone[data-theme="dark"],
+body[data-theme-mode="dark"] .phone[data-theme="light"] { display: none; }
+body[data-theme-mode="light"] .before img[data-theme="dark"],
+body[data-theme-mode="dark"] .before img[data-theme="light"],
+body[data-theme-mode="both"] .before img[data-theme="dark"] { display: none; }
+body[data-before="off"] .before { display: none; }
+
+.guide { padding-top: 34px; padding-bottom: 60px; }
+.guide h2 { margin: 0 0 14px; font-size: 21px; }
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
+.guide-panel { border-radius: 18px; overflow: hidden; }
+
+/* ---------- the phone ---------- */
+.phone { flex: none; zoom: var(--phone-zoom); }
+.phone-cap { margin: 0 0 8px; font-size: 16px; color: var(--page-muted); text-align: center; }
+.device {
+    width: 410px; height: 864px; padding: 10px;
+    border-radius: 56px; background: #121212;
+    box-shadow: 0 0 0 1.5px #3a3a3a inset, 0 24px 60px rgba(30, 20, 10, 0.18);
+}
+
+/* ---------- the app's UI: tokens ---------- */
+.ui {
+    position: relative; width: 390px; height: 844px; overflow: hidden;
+    border-radius: 46px;
+    background: var(--bg); color: var(--label);
+    font-family: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+/* Light: warm neutrals from the app's own beige, white cards, one accent.
+   The accent is the brand coral, deepened until white text on it reads
+   (#ef6f5a under white is 3:1; #d0442e is 4.6:1). */
+.ui[data-theme="light"] {
+    --bg: #f5f0e9;
+    --surface: #ffffff;
+    --surface-2: #faf7f2;
+    --fill: rgba(120, 96, 66, 0.09);
+    --fill-2: rgba(120, 96, 66, 0.16);
+    --label: #1f1c19;
+    --label-2: #6b645c;
+    --label-3: #8d847a;
+    --sep: rgba(60, 44, 28, 0.11);
+    --tint: #c63f2a;
+    --tint-fill: #d0442e;
+    --on-tint: #ffffff;
+    --tint-soft: rgba(208, 68, 46, 0.1);
+    --know: #23774a;
+    --know-soft: rgba(37, 128, 79, 0.12);
+    --dunno: #bf3a34;
+    --dunno-soft: rgba(198, 58, 53, 0.1);
+    --shadow: 0 1px 2px rgba(70, 48, 24, 0.06), 0 6px 18px rgba(70, 48, 24, 0.06);
+    --lift: 0 2px 6px rgba(70, 48, 24, 0.08), 0 18px 40px rgba(70, 48, 24, 0.12);
+    --paper-line: rgba(208, 68, 46, 0.35);
+}
+/* Dark: the app's navy kept as the ground; a surface is a step lighter, and
+   the accent turns lighter with dark text on it, the way iOS lifts its tints. */
+.ui[data-theme="dark"] {
+    --bg: #0c202d;
+    --surface: #15303f;
+    --surface-2: #1b3a4b;
+    --fill: rgba(166, 200, 214, 0.1);
+    --fill-2: rgba(166, 200, 214, 0.17);
+    --label: #eef4f5;
+    --label-2: #a6b8c0;
+    --label-3: #7f949e;
+    --sep: rgba(255, 255, 255, 0.08);
+    --tint: #ff8f78;
+    --tint-fill: #f37d66;
+    --on-tint: #2a0d07;
+    --tint-soft: rgba(243, 125, 102, 0.16);
+    --know: #66d396;
+    --know-soft: rgba(102, 211, 150, 0.14);
+    --dunno: #ff8b84;
+    --dunno-soft: rgba(255, 139, 132, 0.14);
+    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.035);
+    --lift: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px rgba(0, 0, 0, 0.35);
+    --paper-line: rgba(255, 143, 120, 0.4);
+}
+
+.ui button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ui svg { display: block; }
+
+.status {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3; height: 50px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 30px 0 40px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+}
+.status .sys { display: flex; gap: 6px; align-items: center; }
+.island { position: absolute; top: 11px; left: 50%; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; z-index: 4; }
+.content {
+    position: absolute; top: 50px; left: 0; right: 0; bottom: 0;
+    overflow-y: auto; scrollbar-width: none;
+}
+.content::-webkit-scrollbar { display: none; }
+.home { position: absolute; bottom: 8px; left: 50%; z-index: 5; width: 136px; height: 5px; margin-left: -68px; border-radius: 3px; background: var(--label); }
+
+/* ---------- type scale: roles, not sizes (book p. 924) ---------- */
+.t-large { font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -0.025em; }
+.t-title2 { font-size: 24px; line-height: 1.2; font-weight: 800; letter-spacing: -0.015em; }
+.t-title3 { font-size: 20px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; }
+.t-headline { font-size: 17px; line-height: 1.3; font-weight: 600; }
+.t-body { font-size: 17px; line-height: 1.4; }
+.t-sub { font-size: 15px; line-height: 1.35; }
+.t-foot { font-size: 13px; line-height: 1.38; }
+.t-cap { font-size: 12px; line-height: 1.3; }
+.muted { color: var(--label-2); }
+.faint { color: var(--label-3); }
+
+/* ---------- shared controls ---------- */
+.navbar { display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 8px 0 16px; }
+.icon-btn {
+    display: grid; place-items: center; width: 44px; height: 44px; flex: none;
+    padding: 0; border: 0; border-radius: 22px; background: transparent; color: var(--label-2);
+}
+.icon-btn.filled { width: 36px; height: 36px; margin: 4px; background: var(--fill); color: var(--label); }
+.text-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--tint) !important; font-weight: 600 !important; font-size: 17px !important; }
+.btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 50px; padding: 0 16px; border: 0; border-radius: 14px;
+    font-size: 17px !important; font-weight: 600 !important; letter-spacing: -0.01em;
+}
+.btn.big { height: 56px; border-radius: 16px; }
+.btn.primary { background: var(--tint-fill); color: var(--on-tint) !important; }
+.btn.gray { background: var(--fill); color: var(--label) !important; }
+.section-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 8px 8px 20px; }
+
+/* ---------- catalog ---------- */
+.brand { display: flex; align-items: center; gap: 8px; }
+.wm { display: block; line-height: 1.04; }
+.wm b { display: block; font-size: 13.5px; font-weight: 800; letter-spacing: 0.235em; }
+.wm span { display: block; font-size: 10.8px; font-weight: 700; letter-spacing: 0.075em; }
+.hero-title { padding: 6px 20px 0; }
+.hero-title p { margin: 4px 0 0; }
+
+.set { margin: 0 16px 12px; padding: 16px 16px 12px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+.set-head { display: flex; align-items: flex-start; gap: 6px; }
+.set-head > div { flex: 1; min-width: 0; }
+.set h3 { margin: 0; }
+.set .meta { margin: 1px 0 0; }
+.set-head .icon-btn { margin: -10px -10px -6px 0; }
+.progress { height: 6px; margin: 12px 0 14px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.progress > i { display: block; height: 100%; border-radius: 3px; background: var(--r4); }
+.words { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.word {
+    position: relative; display: inline-flex; flex-direction: column; justify-content: center;
+    min-height: 44px; padding: 5px 11px 5px 21px; border-radius: 12px; background: var(--fill);
+}
+.word i { position: absolute; left: 8px; top: 11.5px; width: 8px; height: 8px; border-radius: 4px; }
+.word b { font-size: 15px; line-height: 1.2; font-weight: 600; }
+.word small { font-size: 13px; line-height: 1.25; color: var(--label-2); }
+.word.more { padding: 5px 12px; background: transparent; box-shadow: inset 0 0 0 1px var(--sep); color: var(--label-2); font-size: 15px; font-weight: 600; }
+.row-btn {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; margin-top: 8px;
+    padding: 9px 8px 9px 12px; border: 0; border-radius: 14px; background: var(--fill); text-align: left;
+}
+.row-btn .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row-btn .txt b { font-size: 16px; line-height: 1.25; font-weight: 600; }
+.row-btn .txt small { font-size: 13px; line-height: 1.3; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-btn .chev { color: var(--label-3); }
+.stack { display: flex; flex: none; }
+.gi { position: relative; width: 30px; height: 30px; flex: none; border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 2px var(--surface); }
+.gi + .gi { margin-left: -9px; }
+.gi > span { position: relative; display: block; width: 50px; height: 50px; zoom: 0.6; }
+.locked .gi { filter: grayscale(1); opacity: 0.45; }
+.medals { display: flex; gap: 4px; flex: none; }
+
+/* ---------- flashcards: overview ---------- */
+.nav-title { display: inline-flex; align-items: center; gap: 4px; height: 44px; padding: 0 6px; border: 0; background: none; font-size: 17px !important; font-weight: 600 !important; }
+.back { display: inline-flex; align-items: center; gap: 0; height: 44px; padding: 0 8px 0 0; margin-left: -8px; border: 0; background: none; color: var(--tint) !important; font-size: 17px !important; }
+.navbar.center { padding: 0 8px; }
+.summary { margin: 6px 16px 0; padding: 18px 18px 16px; border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); }
+.summary .big-num { display: flex; align-items: baseline; gap: 10px; }
+.summary .big-num strong { font-size: 52px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; }
+.summary p { margin: 6px 0 14px; }
+.summary + .section-head { padding-top: 16px; }
+.explain { margin: 0; padding: 0 20px 12px; }
+.boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px 40px; }
+.box {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    min-height: 96px; padding: 7px 2px 7px; border: 0; border-radius: 16px;
+    background: var(--surface); box-shadow: var(--shadow);
+}
+.box svg { margin-bottom: 2px; }
+.box .int { font-size: 13px; line-height: 1.25; font-weight: 600; }
+.box .cnt { font-size: 12px; line-height: 1.3; color: var(--label-2); }
+.box.ready .cnt { color: var(--tint); font-weight: 650; }
+.box.empty { background: transparent; box-shadow: inset 0 0 0 1px var(--sep); }
+.box.empty svg { opacity: 0.55; }
+
+/* ---------- flashcards: a card on the table ---------- */
+.session { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.session-bar { display: flex; align-items: center; gap: 6px; height: 56px; padding: 0 8px; }
+.pbar { flex: 1; height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+.pbar > i { display: block; height: 100%; border-radius: 4px; background: var(--tint-fill); }
+.pcount { min-width: 44px; font-size: 15px; font-weight: 600; color: var(--label-2); text-align: center; font-variant-numeric: tabular-nums; }
+.stage { flex: 1; min-height: 0; padding: 6px 16px 16px; display: flex; flex-direction: column; }
+.card {
+    position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0;
+    border-radius: 28px; background: var(--surface); box-shadow: var(--lift);
+}
+.card-top { display: flex; align-items: center; justify-content: space-between; height: 58px; padding: 0 8px 0 18px; border-bottom: 1.5px solid var(--paper-line); }
+.box-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 650; letter-spacing: 0.02em; color: var(--label-2); }
+.box-tag i { width: 9px; height: 9px; border-radius: 3px; }
+.card-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px; text-align: center; }
+.card-word { font-size: 46px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
+.card-word.small { font-size: 22px; font-weight: 600; color: var(--label-2); letter-spacing: 0; }
+.card-rule { width: 56px; height: 2px; margin: 18px 0; border-radius: 1px; background: var(--sep); }
+.card-hint { padding: 0 0 22px; text-align: center; }
+.actions { padding: 0 16px 40px; }
+.key-hint { margin: 10px 0 0; text-align: center; }
+.key-hint kbd { display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 5px; background: var(--fill); font-family: inherit; font-size: 12px; font-weight: 600; line-height: 18px; color: var(--label-2); }
+.grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grade button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    height: 76px; border: 0; border-radius: 18px; font-size: 17px !important; font-weight: 650 !important;
+}
+.grade button span { display: inline-flex; align-items: center; gap: 6px; }
+.grade small { font-size: 12.5px; font-weight: 500; opacity: 0.85; }
+.grade .dunno { background: var(--dunno-soft); color: var(--dunno) !important; }
+.grade .know { background: var(--know-soft); color: var(--know) !important; }
+
+/* quiz */
+.card.short { flex: none; height: 214px; }
+.options { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 0; }
+.opt {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-height: 56px; padding: 0 16px 0 18px; border: 0; border-radius: 16px;
+    background: var(--surface); box-shadow: var(--shadow); font-size: 17px !important; font-weight: 600 !important; text-align: left;
+}
+.opt.wrong { background: var(--dunno-soft); box-shadow: inset 0 0 0 2px var(--dunno); color: var(--dunno) !important; }
+.opt.right { background: var(--know-soft); box-shadow: inset 0 0 0 2px var(--know); color: var(--know) !important; }
+.opt.dim { opacity: 0.45; }
+.sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 16px 40px;
+    border-radius: 28px 28px 0 0; background: var(--surface);
+    box-shadow: 0 -1px 0 var(--sep), 0 -12px 32px rgba(0, 0, 0, 0.08);
+}
+.ui[data-theme="dark"] .sheet { background: var(--surface-2); }
+.sheet-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+.sheet-row .dot { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 16px; background: var(--dunno-soft); color: var(--dunno); }
+.sheet-row b { display: block; font-size: 17px; line-height: 1.3; color: var(--dunno); }
+.sheet-row p { margin: 2px 0 0; }
+
+/* done */
+.done { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.done-body { flex: 1; padding: 8px 16px 0; text-align: center; }
+.badge { position: relative; width: 96px; height: 96px; margin: 18px auto 16px; }
+.badge .disc { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 48px; background: var(--know-soft); color: var(--know); }
+.badge .bit { position: absolute; border-radius: 2px; }
+.done-body h1 { margin: 0; }
+.done-body > p { margin: 6px 0 22px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+.stat { padding: 12px 6px 11px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+.stat strong { display: block; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
+.stat span { font-size: 13px; color: var(--label-2); }
+.list { border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); text-align: left; overflow: hidden; }
+.list-head { padding: 12px 16px 4px; font-size: 13px; font-weight: 650; color: var(--label-2); }
+.li { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 16px; }
+.li + .li { box-shadow: 0 -1px 0 var(--sep); }
+.li i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.li b { flex: 1; font-size: 16px; font-weight: 500; }
+.li span { font-size: 15px; color: var(--label-2); }
+.done-actions { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 40px; }
+
+/* ---------- style guide ---------- */
+.ui.flat { width: auto; height: auto; border-radius: 18px; padding: 18px; }
+.sw-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.sw { font-size: 11.5px; line-height: 1.3; color: var(--label-2); }
+.sw i { display: block; height: 40px; margin-bottom: 5px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--sep); }
+.ramp { display: flex; gap: 0; height: 26px; margin: 14px 0 4px; border-radius: 8px; overflow: hidden; }
+.ramp i { flex: 1; }
+.type-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 0; box-shadow: 0 1px 0 var(--sep); }
+.type-row small { flex: none; font-size: 11.5px; color: var(--label-3); }
+</style>
+</head>
+<body data-theme-mode="both" data-before="on">
+
+<header class="intro">
+    <h1>Каталог и Flashcards: как сделал бы дизайнер</h1>
+    <p class="lede">
+        Черновик по книге <i>Best in Class iOS</i>, второй том «Design», и главе «Text that Works». Данные настоящие: наборы, слова и коробки взяты из
+        приложения, иконки игр и логотип — его же рисунки. Слева «было» (снимок приложения 28 ноября), дальше светлая и тёмная тема, справа что
+        изменено и почему. Подписи в интерфейсе по-английски, как в приложении по умолчанию; в настоящей вёрстке они шли бы через <code>tr()</code>.
+    </p>
+    <ul class="principles">
+        <li><b>Один экран — один вопрос</b><span>Миссия приложения в одну строку: «несколько минут в день, чтобы слова не забывались». Каталог отвечает, что повторить сейчас; Flashcards — показывает одну карточку. Остальное — второй план.</span> <span class="ref">с. 398, 597</span></li>
+        <li><b>Цвет начинается с текста</b><span>Четыре уровня текста (заголовок, подзаголовок, основной, подпись), один акцент — коралл бренда — и только на действиях. Сила памяти — одна шкала оттенков вместо радуги. Тёмная тема — с первого макета.</span> <span class="ref">с. 520</span></li>
+        <li><b>Ясность, уступчивость, глубина</b><span>Текст читается при любом размере, украшения не спорят с содержимым, глубина — одна тень и лист снизу, а не дерево за карточкой.</span> <span class="ref">с. 585</span></li>
+        <li><b>Текст как часть дизайна</b><span>Глагол на кнопке («Review 12 cards»), правильное множественное («1 card / 2 cards»), время словами («in 15 min», «tomorrow»), ничего не обрезается, системный шрифт.</span> <span class="ref">с. 541, 924</span></li>
+        <li><b>Уверенный пользователь</b><span>Подтвердить, что произошло; сообщить, что будет; дать отменить; дать почувствовать. И не больше: обратная связь в меру.</span> <span class="ref">с. 505</span></li>
+        <li><b>Голос и игривость</b><span>Дружелюбный и спокойный: скругления, тёплые нейтральные, коробки как метафора. Радость — точечно: «столько, сколько нужно, и как можно меньше».</span> <span class="ref">с. 438, 551</span></li>
+    </ul>
+</header>
+
+<nav class="switches" aria-label="Переключатели">
+    <div class="switch" data-switch="theme-mode">Тема:
+        <button data-v="both" aria-pressed="true">обе</button>
+        <button data-v="light" aria-pressed="false">светлая</button>
+        <button data-v="dark" aria-pressed="false">тёмная</button>
+    </div>
+    <div class="switch" data-switch="before">Было:
+        <button data-v="on" aria-pressed="true">показать</button>
+        <button data-v="off" aria-pressed="false">скрыть</button>
+    </div>
+</nav>
+
+<main id="screens"></main>
+
+<section class="guide">
+    <h2>Токены</h2>
+    <div class="guide-grid" id="guide"></div>
+</section>
+
+<script src="icons.js"></script>
+<script>
+// ---------- small drawings ----------
+const stroke = (d, size = 22, w = 2.2) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+    chevL: (s = 24) => stroke('<path d="M15 4.5 7.5 12l7.5 7.5"/>', s, 2.6),
+    chevR: (s = 16) => stroke('<path d="m9 5.5 6.5 6.5L9 18.5"/>', s, 2.4),
+    chevD: (s = 16) => stroke('<path d="m6 9.5 6 6 6-6"/>', s, 2.6),
+    more: (s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
+    plus: (s = 20) => stroke('<path d="M12 5v14M5 12h14"/>', s, 2.5),
+    close: (s = 22) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, 2.4),
+    undo: (s = 22) => stroke('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', s, 2.2),
+    speaker: (s = 22) => stroke('<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>', s, 2),
+    check: (s = 20, w = 2.6) => stroke('<path d="M5 12.5l4.5 4.5L19 7.5"/>', s, w),
+    x: (s = 20, w = 2.6) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, w),
+    lock: (s = 20) => stroke('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>', s, 2),
+    gear: (s = 22) => stroke(`<path d="${ICONS.gear}"/><circle cx="12" cy="12" r="3"/>`, s, 2),
+    // The Flashcards tile's own drawing, from app/flashcards/icon.js
+    cards: (s = 22) => stroke('<g transform="rotate(-8 12 12)"><path d="M6 9.4V6.6a2 2 0 0 1 2-2h9.4" transform="rotate(16 10.5 6.4)"/><rect x="3" y="8.8" width="17.4" height="11" rx="2.6"/></g>', s, 2.2),
+};
+
+// The achievement marks the owner kept in drafts/catalog-one-button.html
+// (set 1: filled, with a sign): honeycomb, spell, quiz.
+const BLUE = '#3d8bd4', VIOLET = '#9b72d4', GOLD = '#d9a520';
+const hexPts = (r) => [0, 60, 120, 180, 240, 300].map(a => `${(12 + r * Math.cos(a * Math.PI / 180)).toFixed(2)},${(12 + r * Math.sin(a * Math.PI / 180)).toFixed(2)}`).join(' ');
+const letters = (t, size, y) => `<text x="12" y="${y}" text-anchor="middle" font-size="${size}" font-weight="800" fill="#fff" font-family="system-ui, sans-serif">${t}</text>`;
+const MEDALS = [
+    ['Honeycomb', `<polygon points="${hexPts(10.6)}" fill="${BLUE}" stroke="${BLUE}" stroke-width="2.4" stroke-linejoin="round"/>${letters('a', 13.5, 16.4)}`],
+    ['Spell', `<rect x="0.6" y="4.4" width="22.8" height="15.2" rx="4.6" fill="${VIOLET}"/>${letters('ab', 11, 15.9)}`],
+    ['Quiz', `<circle cx="12" cy="12" r="11" fill="${GOLD}"/><path d="M7.2 12.3l3.2 3.2 6.4-6.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`],
+];
+const medal = ([title, d]) => `<svg width="22" height="22" viewBox="0 0 24 24" role="img" aria-label="${title} won">${d}</svg>`;
+
+const gameIcon = (id) => `<span class="gi"><span>${ICONS.tiles[id]}</span></span>`;
+
+// ---------- colour ----------
+const hex2rgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, t) => '#' + hex2rgb(a).map((v, i) => Math.round(v + (hex2rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+
+// Memory strength: one hue from pale to deep, for words and boxes alike, so
+// the catalog and the shelf speak the same colour (book p. 520: fewer colours,
+// hierarchy from colour). Index 0 is a word not yet started.
+const RAMP = {
+    light: ['#d3cabd', '#b0dccd', '#83c9b3', '#50b096', '#2e937c', '#1d7262'],
+    dark: ['#56707e', '#2f6f6a', '#358a7b', '#45a68f', '#62c0a4', '#8edbc3'],
+};
+function rampAt(theme, t) {
+    // t in 0..1 along stops 1..5
+    const s = RAMP[theme].slice(1);
+    const x = Math.min(0.9999, Math.max(0, t)) * (s.length - 1);
+    const i = Math.floor(x);
+    return mix(s[i], s[i + 1], x - i);
+}
+
+// ---------- the data, as the app has it ----------
+const SET1 = [
+    ['wonder', 'чудо', 1], ['brave', 'смелый', 2], ['journey', 'путешествие', 3], ['forest', 'лес', 2],
+    ['spark', 'искра', 2], ['adventure', 'приключение', 4], ['mist', 'туман', 1], ['cozy', 'уютный', 1],
+    ['apple', 'яблоко', 1], ['heart', 'сердце', 1], ['story', 'история', 3], ['star', 'звезда', 3],
+    ['book', 'книга', 5], ['focus', 'сосредоточенность', 3], ['sky', 'небо', 2], ['dream', 'мечта', 5],
+    ['to pull oneself together', 'взять себя в руки', 5],
+];
+const SPANISH = [['la casa', 'дом', 0], ['el agua', 'вода', 0], ['gracias', 'спасибо', 0], ['hola', 'привет', 0], ['por favor', 'пожалуйста', 0]];
+// Box n: [ready, total], from the shelf of «Слова набора»
+const BOXES = [[0, 0], [2, 2], [3, 3], [2, 2], [2, 2], [0, 0], [2, 2], [1, 2], [0, 1], [0, 0], [0, 0], [0, 1], [0, 0], [0, 2]];
+const INTERVALS = ['Now', '5 min', '15 min', '45 min', '2 hours', '6 hours', '1 day', '3 days', '1 week', '2 weeks', '1 month', '2 months', '4 months', '8 months'];
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// ---------- screens ----------
+function statusBar() {
+    return `<div class="island"></div><div class="status"><span>9:41</span><span class="sys">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.4 0 4.6.9 6.2 2.5l1.2-1.2A10.4 10.4 0 0 0 8 .5 10.4 10.4 0 0 0 .6 3.5l1.2 1.2A8.7 8.7 0 0 1 8 2.2Zm0 3.4c1.5 0 2.8.6 3.8 1.5L13 5.9A7 7 0 0 0 8 3.9a7 7 0 0 0-5 2l1.2 1.2c1-.9 2.3-1.5 3.8-1.5Zm0 3.4c.6 0 1.1.2 1.5.6L8 11.1 6.5 9.6c.4-.4.9-.6 1.5-.6Z"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity="0.45"/></svg>
+    </span></div>`;
+}
+
+function wordChip(theme, [w, t, s]) {
+    const c = s === 0 ? RAMP[theme][0] : RAMP[theme][s];
+    return `<span class="word"><i style="background:${c}"></i><b>${w}</b><small>${t}</small></span>`;
+}
+
+function setCard(theme, o) {
+    const shown = o.words.slice(0, o.show);
+    const rest = o.words.length - shown.length;
+    const games = ['quiz', 'snake', 'search', 'search2'];
+    const more = o.locked
+        ? `<button class="row-btn locked"><span class="stack">${games.slice(0, 3).map(gameIcon).join('')}</span>
+              <span class="txt"><b>More games</b><small>Unlock as you learn</small></span><span class="faint">${I.lock(20)}</span></button>`
+        : `<button class="row-btn"><span class="stack">${games.slice(0, 3).map(gameIcon).join('')}</span>
+              <span class="txt"><b>More games</b><small>Quiz, Snake +2</small></span>
+              <span class="medals">${MEDALS.map(medal).join('')}</span><span class="chev">${I.chevR()}</span></button>`;
+    return `<article class="set">
+        <div class="set-head"><div><h3 class="t-title3">${o.title}</h3><p class="meta t-sub muted">${o.meta}</p></div>
+            <button class="icon-btn" aria-label="Set options">${I.more()}</button></div>
+        <div class="progress"><i style="width:${o.pct}%; background:${RAMP[theme][4]}"></i></div>
+        <div class="words">${shown.map(x => wordChip(theme, x)).join('')}${rest ? `<span class="word more">+${rest}</span>` : ''}</div>
+        <button class="btn primary">${I.cards(22)}${o.cta}</button>
+        ${more}
+    </article>`;
+}
+
+function catalog(theme) {
+    return `<div class="content">
+        <div class="navbar">
+            <div class="brand">${ICONS.logo}<span class="wm"><b>SPACED</b><span>REPETITION</span></span></div>
+            <button class="icon-btn" aria-label="Settings">${I.gear(23)}</button>
+        </div>
+        <div class="hero-title"><div class="t-large">Today</div><p class="t-sub muted">13 cards to review and 5 new words</p></div>
+        <div class="section-head"><span class="t-title3">Your sets</span><button class="text-btn">${I.plus(19)}New set</button></div>
+        ${setCard(theme, { title: 'Слова набора', meta: '17 words · 46% learned', pct: 46, words: SET1, show: 6, cta: 'Review 12 cards' })}
+        ${setCard(theme, { title: 'Early', meta: '1 word · 14% learned', pct: 14, words: [['one', '1', 1]], show: 1, cta: 'Review 1 card', locked: true })}
+        ${setCard(theme, { title: 'Español A1', meta: '5 words · not started', pct: 0, words: SPANISH, show: 5, cta: 'Learn 5 new words', locked: true })}
+        <div style="height:34px"></div>
+    </div>`;
+}
+
+function boxArt(theme, n, total) {
+    const c = rampAt(theme, (n - 1) / 13);
+    const back = mix(c, '#000000', theme === 'light' ? 0.22 : 0.35);
+    const paper = theme === 'light' ? '#fffdf8' : '#e4ebee';
+    const edge = theme === 'light' ? 'rgba(60,40,20,0.18)' : 'rgba(0,0,0,0.3)';
+    const cards = Math.min(total, 3);
+    let slips = '';
+    for (let k = 0; k < cards; k++) {
+        slips += `<rect x="${12 + k * 1.5}" y="${12 - k * 3.2}" width="${40 - k * 3}" height="20" rx="2" fill="${paper}" stroke="${edge}" stroke-width="0.8"/>`;
+    }
+    return `<svg width="62" height="46" viewBox="0 0 64 48" aria-hidden="true">
+        <rect x="7" y="13" width="50" height="18" rx="3" fill="${back}"/>
+        ${slips}
+        <rect x="4" y="20" width="56" height="27" rx="6" fill="${c}"/>
+        <rect x="21" y="26" width="22" height="14" rx="3.5" fill="#ffffff" fill-opacity="0.92"/>
+        <text x="32" y="36.6" text-anchor="middle" font-size="10" font-weight="800" fill="#1f1c19" font-family="system-ui, sans-serif">${n}</text>
+    </svg>`;
+}
+
+function shelf(theme) {
+    const tiles = BOXES.map(([ready, total], i) => {
+        const n = i + 1;
+        const cnt = ready === 0 ? (total === 0 ? 'Empty' : plural(total, 'card', 'cards'))
+            : ready === total ? `${ready} ready` : `${ready} of ${total} ready`;
+        const cls = ready ? 'ready' : total === 0 ? 'empty' : '';
+        return `<button class="box ${cls}" aria-label="Box ${n}, ${INTERVALS[i]}, ${cnt}">${boxArt(theme, n, total)}<span class="int">${INTERVALS[i]}</span><span class="cnt">${cnt}</span></button>`;
+    }).join('');
+    return `<div class="content">
+        <div class="navbar center">
+            <button class="back">${I.chevL()}Sets</button>
+            <button class="nav-title">Слова набора ${I.chevD(15)}</button>
+            <button class="icon-btn" aria-label="More">${I.more()}</button>
+        </div>
+        <div class="summary">
+            <div class="big-num"><strong>12</strong><span class="t-headline">cards ready</span></div>
+            <p class="t-sub muted">About 3 minutes. The rest come back over the next weeks.</p>
+            <button class="btn primary big">${I.cards(22)}Start review</button>
+        </div>
+        <div class="section-head"><span class="t-title3">Boxes</span></div>
+        <p class="explain t-foot muted">A card you know moves one box right and comes back later. A card you miss drops three boxes back.</p>
+        <div class="boxes">${tiles}</div>
+    </div>`;
+}
+
+function sessionBar(done, all) {
+    return `<div class="session-bar">
+        <button class="icon-btn" aria-label="End review">${I.close()}</button>
+        <div class="pbar"><i style="width:${(done / all * 100).toFixed(1)}%"></i></div>
+        <span class="pcount">${done + 1} / ${all}</span>
+        <button class="icon-btn" aria-label="Undo last answer">${I.undo()}</button>
+    </div>`;
+}
+
+const boxTag = (theme, n) => `<span class="box-tag"><i style="background:${rampAt(theme, (n - 1) / 13)}"></i>BOX ${n}</span>`;
+
+function cardFront(theme) {
+    return `<div class="content"><div class="session">
+        ${sessionBar(2, 12)}
+        <div class="stage"><div class="card">
+            <div class="card-top">${boxTag(theme, 2)}<button class="icon-btn" aria-label="Say it">${I.speaker()}</button></div>
+            <div class="card-body"><div class="card-word">wonder</div></div>
+            <div class="card-hint t-foot faint">Tap the card to turn it over</div>
+        </div></div>
+        <div class="actions">
+            <button class="btn gray big">Show answer</button>
+            <p class="key-hint t-cap faint">or press <kbd>Space</kbd></p>
+        </div>
+    </div></div>`;
+}
+
+function cardBack(theme) {
+    return `<div class="content"><div class="session">
+        ${sessionBar(2, 12)}
+        <div class="stage"><div class="card">
+            <div class="card-top">${boxTag(theme, 2)}<button class="icon-btn" aria-label="Say it">${I.speaker()}</button></div>
+            <div class="card-body"><div class="card-word small">wonder</div><div class="card-rule"></div><div class="card-word">чудо</div></div>
+            <div class="card-hint t-foot faint">Swipe left or right to answer</div>
+        </div></div>
+        <div class="actions">
+            <div class="grade">
+                <button class="dunno"><span>${I.x(19)}Don’t know</span><small>Back to box 1</small></button>
+                <button class="know"><span>${I.check(19)}Know</span><small>To box 3 · in 15 min</small></button>
+            </div>
+            <p class="key-hint t-cap faint"><kbd>←</kbd> and <kbd>→</kbd> work too</p>
+        </div>
+    </div></div>`;
+}
+
+function quizWrong(theme) {
+    return `<div class="content"><div class="session">
+        ${sessionBar(5, 12)}
+        <div class="stage" style="flex:none; padding-bottom:0"><div class="card short">
+            <div class="card-top">${boxTag(theme, 3)}<button class="icon-btn" aria-label="Say it">${I.speaker()}</button></div>
+            <div class="card-body"><div class="card-word" style="font-size:40px">story</div><div class="t-sub muted" style="margin-top:8px">Pick the translation</div></div>
+        </div></div>
+        <div class="options">
+            <button class="opt wrong">сердце ${I.x(20)}</button>
+            <button class="opt right">история ${I.check(20)}</button>
+            <button class="opt dim">звезда</button>
+            <button class="opt dim">туман</button>
+        </div>
+        <div class="sheet">
+            <div class="sheet-row"><span class="dot">${I.x(17, 2.8)}</span>
+                <div><b>Not quite</b><p class="t-sub muted">“story” is “история”. The card goes back to box&nbsp;1 and comes round again in this session.</p></div></div>
+            <button class="btn primary big">Continue</button>
+        </div>
+    </div></div>`;
+}
+
+function sessionDone(theme) {
+    const bits = [[-8, 18, BLUE, 8, 8, 20], [102, 10, VIOLET, 7, 10, -25], [96, 74, GOLD, 9, 6, 15], [-14, 70, '#d0442e', 6, 6, 45], [44, -10, GOLD, 6, 6, 0], [20, 98, BLUE, 7, 5, -10]];
+    const confetti = bits.map(([x, y, c, w, h, r]) => `<i class="bit" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px; background:${c}; transform:rotate(${r}deg)"></i>`).join('');
+    const rows = [[2, 'Missed: 2 cards', 'now'], [3, '3 cards', 'in 15 min'], [4, '4 cards', 'later today'], [7, '3 cards', 'in 3 days']];
+    return `<div class="content"><div class="done">
+        <div class="navbar" style="justify-content:flex-start; padding-left:8px"><button class="icon-btn" aria-label="Close">${I.close()}</button></div>
+        <div class="done-body">
+            <div class="badge"><span class="disc">${I.check(46, 2.8)}</span>${confetti}</div>
+            <h1 class="t-title2">Nice work!</h1>
+            <p class="t-body muted">12 cards reviewed in 3 minutes.</p>
+            <div class="stats">
+                <div class="stat"><strong style="color:var(--know)">10</strong><span>Knew</span></div>
+                <div class="stat"><strong style="color:var(--dunno)">2</strong><span>Missed</span></div>
+                <div class="stat"><strong>52%</strong><span>Learned, +6%</span></div>
+            </div>
+            <div class="list">
+                <div class="list-head">Coming back</div>
+                ${rows.map(([n, a, b]) => `<div class="li"><i style="background:${n === 2 ? 'var(--dunno)' : rampAt(theme, (n - 1) / 13)}"></i><b>${a}</b><span>${b}</span></div>`).join('')}
+            </div>
+        </div>
+        <div class="done-actions">
+            <button class="btn gray">Review 2 missed cards</button>
+            <button class="btn primary">Done</button>
+        </div>
+    </div></div>`;
+}
+
+const SCREENS = [
+    {
+        title: '1. Каталог',
+        sub: 'Главный экран отвечает на один вопрос — что повторить сейчас. Набор стал карточкой с одной главной кнопкой; игры и достижения — на второй строке.',
+        before: { light: 'before/catalog-light.jpg', dark: 'before/catalog-dark.jpg' },
+        render: catalog,
+        notes: [
+            '<b>Главное действие — глагол с числом:</b> «Review 12 cards», «Learn 5 new words». Сейчас, чтобы начать, надо выбрать из пяти одинаково ярких плиток. <span class="ref">с. 398, 541</span>',
+            '<b>Один акцент.</b> Коралл бренда — только на том, что нажимают. Уровни слов — точка из одной шкалы оттенков, а не радуга плашек; карточки слов нейтральные. <span class="ref">с. 520</span>',
+            '<b>Ничего не обрезается.</b> Пять плиток не помещались, и подписи резались: «earch», «Wor», «arch 2». Игры ушли в строку «More games» с медалями достижений — это твоя кнопка «Flashcards and more», только Flashcards вынесены в главную кнопку. <span class="ref">с. 924</span>',
+            '<b>13 точек с замками → одна полоса</b> и подпись «46% learned». Замки — на строке игр: «Unlock as you learn».',
+            '<b>Слова — две строки и «+11».</b> Содержимое видно, но набор не занимает экран, и при трёх наборах не надо листать до второго. Таймеры «4d», «57d», «238d» ушли из каталога — их место на экране Flashcards.',
+            '<b>Карандаш и глаз → одно меню «•••»</b> с подписанными пунктами. Все касаемые места — не меньше 44 pt. <span class="ref">с. 831</span>',
+            '<b>Тёмная тема — сразу,</b> а не после: у карточек свой подъём над фоном, коралл светлее и с тёмным текстом, потому что белый на коралле даёт 3:1. <span class="ref">с. 520, 1102</span>',
+        ],
+    },
+    {
+        title: '2. Flashcards: коробки',
+        sub: 'Полка осталась — метафора хорошая, — но коробки плоские, а наверху то, ради чего пришли: сколько готово и одна кнопка начать.',
+        before: { light: 'before/shelf.jpg' },
+        render: shelf,
+        notes: [
+            '<b>Наверху — «12 cards ready» и «Start review».</b> Сейчас надо понять, что жёлтая бирка «2/2» значит «готово», и самому выбрать коробку. Выбор коробки остался: коробки нажимаются. <span class="ref">с. 505</span>',
+            '<b>Метафора без декораций.</b> Коробки с карточками внутри — игривость к месту; дерево, гирлянда и лампа — украшения, которые спорят с содержимым. Лампу можно оставить пасхалкой в меню «•••». <span class="ref">с. 551, 585</span>',
+            '<b>Подписи словами:</b> «5 min», «1 week», «2 months» вместо «5m», «7d», «60d»; «2 ready», «1 card», «Empty» вместо «2/2», «0/1». <span class="ref">с. 541</span>',
+            '<b>Одна строка объясняет систему:</b> знаешь — карточка уходит на коробку вправо, ошибся — на три назад, не ниже первой (так в <code>srs.js</code>).',
+            '<b>Цвет коробки — та же шкала,</b> что точки у слов в каталоге: одно значение цвета на всё приложение. Готовые коробки отмечены акцентом в подписи. <span class="ref">с. 520</span>',
+            '<b>Текст не мельче 12 px.</b> На бирках полки сейчас 9–10 px. <span class="ref">с. 191, 924</span>',
+        ],
+    },
+    {
+        title: '3. Карточка: вопрос',
+        sub: 'Карточка одна на чистом столе. Прогресс, выход и отмена — в шапке.',
+        before: { light: 'before/card.jpg' },
+        render: cardFront,
+        notes: [
+            '<b>Ничего за карточкой.</b> Сейчас она лежит поверх полки, и соты накрывают коробки. Глубина — одна мягкая тень. <span class="ref">с. 585</span>',
+            '<b>«3 / 12» и полоса</b> — человек знает, сколько осталось; крестик — выход в любой момент. <span class="ref">с. 505, informational</span>',
+            '<b>Отмена в шапке</b> («↶ Undo last answer») вместо стрелок на карточке: ошибся пальцем — вернул. <span class="ref">с. 505, reversible; с. 812</span>',
+            '<b>Сначала вспомнить, потом оценить:</b> кнопки оценки появляются после переворота. Пробел переворачивает, как и сейчас.',
+            '<b>Красная линия индекс-карточки</b> — единственный кивок к бумаге, остальное — слово крупно.',
+        ],
+    },
+    {
+        title: '4. Карточка: ответ',
+        sub: 'Две равные кнопки оценки, и под каждой — куда уйдёт карточка.',
+        before: null,
+        render: cardBack,
+        notes: [
+            '<b>Текст и знак, а не только цвет:</b> «✕ Don’t know» и «✓ Know». Сейчас кнопки — только иконки на красном и зелёном, а красный с зелёным путает каждый двенадцатый мужчина. <span class="ref">с. 520</span>',
+            '<b>Последствие видно до нажатия:</b> «Back to box 1», «To box 3 · in 15 min». Это и есть уверенный пользователь. <span class="ref">с. 505</span>',
+            '<b>Обе кнопки одного веса</b> (тональные), чтобы не подталкивать к «Know».',
+            '<b>Свайп как ускоритель:</b> влево — не знаю, вправо — знаю; кнопки и стрелки ← → остаются. <span class="ref">с. 563</span>',
+            '<b>Тактильный отклик</b> на телефоне — короткая вибрация на ответ (navigator.vibrate), где её нет — ничего. <span class="ref">с. 505, 802</span>',
+        ],
+    },
+    {
+        title: '5. Quiz: ошибка',
+        sub: 'Тот же стол, варианты ниже. После ошибки ответ остаётся на месте до «Continue» — как в 06d4986.',
+        before: null,
+        render: quizWrong,
+        notes: [
+            '<b>Три состояния сразу видны:</b> выбранный неверный — красный с ✕, верный — зелёный с ✓, остальные гаснут.',
+            '<b>Объяснение — в листе снизу,</b> на время решения: «Not quite — “story” is “история”». Лист — модальность ровно на одно действие. <span class="ref">с. 492</span>',
+            '<b>Без укора и без шуток над ошибкой:</b> спокойный тон того же голоса. <span class="ref">с. 541, 551</span>',
+            '<b>Сказано, что будет с карточкой</b> — вернётся в первую коробку и придёт ещё раз в этой сессии.',
+            'Spell и соты строятся так же: карточка сверху, поле ответа снизу, тот же лист после ответа.',
+        ],
+    },
+    {
+        title: '6. Конец сессии',
+        sub: 'Нового экрана в приложении нет: сейчас после последней карточки снова полка.',
+        before: null,
+        render: sessionDone,
+        notes: [
+            '<b>Подтверждение, что дело сделано:</b> сколько повторено, сколько знал, на сколько вырос процент. <span class="ref">с. 505, confirmational</span>',
+            '<b>«Coming back» — когда вернутся карточки,</b> время словами: «in 15 min», «later today», «in 3 days». <span class="ref">с. 541</span>',
+            '<b>Радость — точечно:</b> галочка и шесть конфетти, без фейерверка и звука. «As much as needed, as little as possible». <span class="ref">с. 551</span>',
+            '<b>Два выхода:</b> повторить две пропущенные или «Done» — обратно в каталог.',
+        ],
+    },
+];
+
+function phone(theme, html) {
+    return `<div class="phone" data-theme="${theme}"><p class="phone-cap">${theme === 'light' ? 'светлая' : 'тёмная'}</p>
+        <div class="device"><div class="ui" data-theme="${theme}">${statusBar()}${html}<div class="home"></div></div></div></div>`;
+}
+
+function before(b) {
+    if (!b) return `<figure class="before"><div class="none">В приложении этого состояния нет или оно не снято</div></figure>`;
+    const imgs = Object.entries(b).map(([t, src]) => `<img src="${src}" alt="Было" data-theme="${Object.keys(b).length === 1 ? 'any' : t}">`).join('');
+    return `<figure class="before">${imgs}<figcaption>Было, снимок приложения</figcaption></figure>`;
+}
+
+document.getElementById('screens').innerHTML = SCREENS.map(s => `<section class="screen">
+    <h2>${s.title}</h2><p class="sub">${s.sub}</p>
+    <div class="row">${before(s.before)}${phone('light', s.render('light'))}${phone('dark', s.render('dark'))}
+        <ul class="notes">${s.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
+</section>`).join('');
+
+// ---------- style guide ----------
+const TOKENS = ['--bg', '--surface', '--fill', '--label', '--label-2', '--label-3', '--tint-fill', '--tint', '--know', '--dunno', '--know-soft', '--dunno-soft'];
+document.getElementById('guide').innerHTML = ['light', 'dark'].map(theme => `
+    <div class="guide-panel"><div class="ui flat" data-theme="${theme}">
+        <div class="t-headline" style="margin-bottom:12px">${theme === 'light' ? 'Светлая' : 'Тёмная'}</div>
+        <div class="sw-grid">${TOKENS.map(t => `<div class="sw"><i style="background:var(${t})"></i>${t.slice(2)}</div>`).join('')}</div>
+        <div class="ramp">${RAMP[theme].map(c => `<i style="background:${c}"></i>`).join('')}</div>
+        <div class="t-cap muted" style="margin-bottom:14px">Сила памяти: не начато → коробка 14</div>
+        <div class="type-row"><span class="t-large">Today</span><small>Large title 34/800</small></div>
+        <div class="type-row"><span class="t-title3">Слова набора</span><small>Title 3 20/700</small></div>
+        <div class="type-row"><span class="t-headline">More games</span><small>Headline 17/600</small></div>
+        <div class="type-row"><span class="t-sub muted">17 words · 46% learned</span><small>Subhead 15, secondary</small></div>
+        <div class="type-row"><span class="t-foot faint">Tap the card to turn it over</span><small>Footnote 13, tertiary</small></div>
+        <div style="display:grid; gap:8px; margin-top:14px">
+            <button class="btn primary">${I.cards(22)}Review 12 cards</button>
+            <button class="btn gray">Show answer</button>
+        </div>
+    </div></div>`).join('');
+
+// ---------- switches ----------
+document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    document.body.dataset[sw.dataset.switch === 'theme-mode' ? 'themeMode' : 'before'] = b.dataset.v;
+}));
+</script>
+</body>
+</html>

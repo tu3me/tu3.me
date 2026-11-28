@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vocabulary games: learn words by playing</title>
+<meta name="description" content="Play free vocabulary games in your browser: quiz, word building, snake and flashcards. Pick a language, try a game, then add your own words in the app. No sign-up.">
+<link rel="canonical" href="https://vocabugames.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Vocabulary games that help you remember words">
+<meta property="og:description" content="Quiz, word building, snake and flashcards with a review schedule. Free, no sign-up, on phone and desktop.">
+<meta property="og:url" content="https://vocabugames.com/">
+<meta name="theme-color" content="#3b5bdb">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b5bdb'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Arial' font-weight='700' font-size='20' fill='white'%3EV%3C/text%3E%3C/svg%3E">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "Vocabulary Games",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any device with a web browser",
+      "description": "Vocabulary games with a spaced review schedule: quiz, word building, snake and flashcards.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "Are vocabulary games a good way to learn words?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They work best when the game makes you recall the word yourself. Here you choose, build or spell the word, so every round is a small recall. Games don't replace reading and speaking, but they give you many repetitions without much boredom." } },
+        { "@type": "Question", "name": "Is it free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. There is no account to create and there are no ads." } },
+        { "@type": "Question", "name": "Which languages can I learn?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The demo on this page has eight. In the app you can add words in any language and write the translation in yours." } },
+        { "@type": "Question", "name": "Can I use my own words?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, in the app. Paste a list, type words one by one, or paste columns from a spreadsheet." } },
+        { "@type": "Question", "name": "Does it work on my phone?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. It runs in a mobile browser and you can add it to your home screen. Laptops and desktops work too." } },
+        { "@type": "Question", "name": "Does it work offline?",
+          "acceptedAnswer": { "@type": "Answer", "text": "After the first load, yes. Your progress stays on the device and you can move it to another one with a sync code." } },
+        { "@type": "Question", "name": "Who is it for?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Anyone learning a language, and anyone who has a word list to learn, for example for the SAT, TOEFL or GRE. The app doesn't ship ready-made exam lists, so you add your own." } }
+      ]
+    }
+  ]
+}
+</script>
+
+<style>
+:root {
+  --bg: #fbf8f3; --ink: #1f2430; --muted: #5b6475; --card: #ffffff; --line: #e7e1d6;
+  --accent: #3b5bdb; --accent-ink: #ffffff; --accent-soft: #e8edff; --amber: #f59f00;
+  --good: #2f9e44; --good-soft: #e3f6e8; --bad: #e03131; --bad-soft: #fde8e8;
+  --board: #f1ece2; --tile: #ffffff; --snake: #3b5bdb;
+  --radius: 16px; --shadow: 0 1px 2px rgba(31,36,48,.06), 0 8px 24px rgba(31,36,48,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161c; --ink: #eceef3; --muted: #a1a8b8; --card: #1d2029; --line: #2c3140;
+    --accent: #748ffc; --accent-ink: #10131c; --accent-soft: #232a45;
+    --good: #51cf66; --good-soft: #1b3324; --bad: #ff6b6b; --bad-soft: #3a1f23;
+    --board: #181b23; --tile: #262a36; --snake: #748ffc;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; letter-spacing: -.01em; }
+h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+h2 { font-size: clamp(1.6rem, 3.6vw, 2.2rem); }
+h3 { font-size: 1.25rem; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+section { padding: 56px 0; }
+.lead { font-size: 1.15rem; color: var(--muted); max-width: 640px; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--card); padding: 8px 12px; border-radius: 8px; z-index: 20; }
+.skip:focus { left: 8px; }
+:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+  padding: 10px 20px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+  color: var(--ink); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { min-height: 38px; padding: 6px 14px; font-size: .95rem; }
+.btn[disabled] { opacity: .45; cursor: default; }
+
+/* header */
+header.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 20px; min-height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--ink); text-decoration: none; margin-right: auto; }
+.brand svg { width: 30px; height: 30px; }
+nav.links { display: flex; gap: 20px; }
+nav.links a { color: var(--ink); text-decoration: none; font-weight: 500; }
+nav.links a:hover { color: var(--accent); }
+@media (max-width: 720px) { nav.links { display: none; } }
+
+/* hero */
+.hero { padding: 64px 0 24px; }
+.hero h1 { max-width: 800px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.chips li { background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 4px 14px; font-weight: 600; font-size: .95rem; }
+
+/* demo */
+.demo { padding-top: 24px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.panel-head label { font-weight: 600; }
+select {
+  font: inherit; min-height: 44px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink);
+}
+.langbar { display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; position: sticky; top: 68px; z-index: 5; width: max-content; max-width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); }
+.langbar label { font-weight: 600; }
+.game { display: grid; gap: 28px; grid-template-columns: 1fr 1fr; align-items: center; padding: 32px 0; }
+.game:nth-of-type(even) .g-text { order: 2; }
+@media (max-width: 760px) { .game { grid-template-columns: 1fr; } .game:nth-of-type(even) .g-text { order: 0; } }
+.g-text p { color: var(--muted); }
+.stage { min-height: 320px !important; }
+.demo-foot.panel { margin-top: 12px; }
+.stage { background: var(--accent-soft); padding: 20px 16px 24px; min-height: 320px; }
+.stage-inner { max-width: 520px; margin: 0 auto; }
+.hud { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: var(--muted); font-size: .95rem; }
+.hud b { color: var(--ink); }
+.big-word { font-size: clamp(2rem, 8vw, 3rem); font-weight: 700; text-align: center; margin: 8px 0 0; line-height: 1.2; }
+.reading { text-align: center; color: var(--muted); min-height: 1.6em; margin-bottom: 4px; }
+.say { display: block; margin: 0 auto 14px; }
+.options { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 420px) { .options { grid-template-columns: 1fr; } }
+.opt {
+  min-height: 52px; padding: 10px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card);
+  color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.opt:hover:not([disabled]) { border-color: var(--accent); }
+.opt.good { border-color: var(--good); background: var(--good-soft); }
+.opt.bad { border-color: var(--bad); background: var(--bad-soft); }
+.msg { min-height: 1.6em; text-align: center; margin: 14px 0 0; font-weight: 600; }
+.msg.good { color: var(--good); } .msg.bad { color: var(--bad); }
+.hint { text-align: center; color: var(--muted); margin: 0 0 12px; }
+
+.slots, .pieces { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0; min-height: 56px; }
+.slot { min-width: 64px; min-height: 56px; border: 2px dashed var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; padding: 0 10px; background: var(--card); }
+.slot.filled { border-style: solid; border-color: var(--accent); }
+.piece { min-height: 56px; min-width: 64px; padding: 0 14px; font-size: 1.4rem; font-weight: 700; border-radius: 12px; border: 2px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; font-family: inherit; }
+.piece:hover:not([disabled]) { border-color: var(--accent); }
+.piece[disabled] { opacity: .3; cursor: default; }
+.slots.shake { animation: shake .35s; }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.row-btns { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
+
+.word-tiles { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.wt { min-width: 38px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; background: var(--card); border: 2px solid var(--line); padding: 0 6px; }
+.wt.done { background: var(--good-soft); border-color: var(--good); }
+.wt.next { border-color: var(--accent); }
+.snake-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.snake-cv { border-radius: 14px; border: 2px solid var(--line); touch-action: none; background: var(--board); max-width: 100%; }
+.dpad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 6px; }
+.dpad button { border-radius: 12px; border: 2px solid var(--line); background: var(--card); color: var(--ink); font-size: 1.2rem; cursor: pointer; }
+.dpad .up { grid-column: 2; } .dpad .left { grid-column: 1; grid-row: 2; } .dpad .down { grid-column: 2; grid-row: 2; } .dpad .right { grid-column: 3; grid-row: 2; }
+
+.card3d { perspective: 800px; margin: 8px auto 14px; max-width: 360px; }
+.flip {
+  width: 100%; min-height: 190px; border-radius: 18px; border: 2px solid var(--line); background: var(--card);
+  color: var(--ink); font: inherit; cursor: pointer; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+}
+.flip .front { font-size: 2.4rem; font-weight: 700; }
+.flip .back { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+.flip small { color: var(--muted); }
+
+.demo-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); color: var(--muted); }
+.demo-foot p { margin: 0; }
+
+/* feature blocks */
+
+/* steps and cards */
+.grid3 { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) { .grid3 { grid-template-columns: 1fr; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.card h3 { margin-bottom: .35em; }
+.card p:last-child { margin-bottom: 0; }
+.num { display: inline-flex; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); align-items: center; justify-content: center; font-weight: 700; margin-bottom: 10px; }
+.alt { background: color-mix(in srgb, var(--card) 60%, var(--bg)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.langs { display: grid; gap: 12px; grid-template-columns: repeat(4, 1fr); margin-top: 22px; }
+@media (max-width: 760px) { .langs { grid-template-columns: repeat(2, 1fr); } }
+.lang-btn { text-align: left; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.lang-btn:hover { border-color: var(--accent); }
+.lang-btn b { display: block; }
+.lang-btn span { color: var(--muted); font-size: .95rem; }
+
+/* FAQ */
+details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; padding: 0 18px; }
+summary { cursor: pointer; padding: 16px 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-size: 1.4rem; line-height: 1; color: var(--accent); }
+details[open] summary::after { content: "\2212"; }
+details p { color: var(--muted); }
+.updated { color: var(--muted); font-size: .9rem; }
+
+.closing { text-align: center; }
+.closing p { margin-left: auto; margin-right: auto; }
+footer { border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--muted); font-size: .95rem; }
+footer .cols { display: flex; flex-wrap: wrap; gap: 28px 56px; margin-bottom: 20px; }
+footer h3 { font-size: 1rem; color: var(--ink); margin-bottom: .4em; }
+footer a { display: block; color: var(--muted); text-decoration: none; padding: 2px 0; }
+footer a:hover { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .slots.shake { animation: none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="Vocabulary Games home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#3b5bdb"/><text x="16" y="23" text-anchor="middle" font-family="Arial" font-weight="700" font-size="20" fill="#fff">V</text></svg>
+      Vocabulary Games
+    </a>
+    <nav class="links" aria-label="Main">
+      <a href="#play">Games</a>
+      <a href="#how">How it works</a>
+      <a href="#languages">Languages</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn primary small" href="#play">Play free</a>
+  </div>
+</header>
+
+<main id="main">
+  <div id="top"></div>
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>Vocabulary games that help you remember words</h1>
+      <p class="lead">Quiz, word building, snake and flashcards in one free app. Each word comes back just before you would forget it, so what you learn stays. It runs on your phone and your computer, in any language you pick.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="#play">Try a game</a>
+        <a class="btn" href="#how">How it works</a>
+      </div>
+      <ul class="chips" aria-label="Highlights">
+        <li>Free</li><li>No sign-up</li><li>No ads</li><li>Phone and desktop</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="demo" id="play" aria-labelledby="play-title">
+    <div class="wrap">
+      <h2 id="play-title">Four games, one word list</h2>
+      <p class="lead">Every game works from the same words, so a word you miss in the quiz shows up again in the cards. Pick a language and try them below. The demo has 12 words. In the app you add your own.</p>
+      <div class="langbar">
+        <label for="lang">Words in</label>
+        <select id="lang"></select>
+      </div>
+
+      <div class="game" id="play-quiz">
+        <div class="g-text">
+          <h3>Pick the right translation</h3>
+          <p>You see a word and choose what it means. New words start with two options. As a word becomes familiar, more options appear, up to six, so a word you know well has to be picked out of more choices.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><strong>Quiz</strong><button class="btn small" type="button" data-restart="quiz">Restart</button></div>
+          <div class="stage"><div class="stage-inner" id="stage-quiz"></div></div>
+        </div>
+      </div>
+      <div class="game" id="play-wordcraft">
+        <div class="g-text">
+          <h3>Build the word piece by piece</h3>
+          <p>The word is cut into pieces and you put them back in order. After a few right answers, decoy pieces from other words join in. It plays like a word scramble game, except every word has a meaning attached.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><strong>Wordcraft</strong><button class="btn small" type="button" data-restart="wordcraft">Restart</button></div>
+          <div class="stage"><div class="stage-inner" id="stage-wordcraft"></div></div>
+        </div>
+      </div>
+      <div class="game" id="play-snake">
+        <div class="g-text">
+          <h3>Collect the letters</h3>
+          <p>Steer the snake through the letters of the word in the right order. A wrong letter ends the run. You have to look at every letter, which helps with spelling.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><strong>Snake</strong><button class="btn small" type="button" data-restart="snake">Restart</button></div>
+          <div class="stage"><div class="stage-inner" id="stage-snake"></div></div>
+        </div>
+      </div>
+      <div class="game" id="play-flashcards">
+        <div class="g-text">
+          <h3>Flip the card, then see it again later</h3>
+          <p>Classic flashcards with a schedule behind them. A word you missed comes back in minutes. A word you knew waits longer each time: 5 minutes, 15 minutes, a few hours, a day, a week, up to eight months.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><strong>Flashcards</strong><button class="btn small" type="button" data-restart="flashcards">Restart</button></div>
+          <div class="stage"><div class="stage-inner" id="stage-flashcards"></div></div>
+        </div>
+      </div>
+      <div class="demo-foot panel">
+        <p>Want your own words? You can paste a list or type it in the app. The app is coming to this site soon.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="why" aria-labelledby="why-title">
+    <div class="wrap">
+      <h2 id="why-title">Why the words stay</h2>
+      <p class="lead">Words stick when you pull them out of memory yourself.</p>
+      <p style="max-width:700px">Each round asks you to recall a word: pick the meaning, rebuild the spelling, steer to the right letter. The schedule decides when you need the word next. Missed words return soon and known words return much later, so your time goes to the words that need it.</p>
+    </div>
+  </section>
+
+  <section id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <h2 id="how-title">Start in a minute</h2>
+      <div class="grid3">
+        <div class="card"><span class="num">1</span><h3>Add your words</h3><p>Paste a list, type words one by one, or paste columns from a spreadsheet. You can also ask an AI for a list and paste what it gives you.</p></div>
+        <div class="card"><span class="num">2</span><h3>Play</h3><p>The games take the words that are due and mix them into short rounds. A round takes about a minute.</p></div>
+        <div class="card"><span class="num">3</span><h3>Come back tomorrow</h3><p>Words return when their time comes. Open the app, play the words that are due, and close it again.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="devices" aria-labelledby="devices-title">
+    <div class="wrap">
+      <h2 id="devices-title">On your phone and your computer</h2>
+      <p class="lead">Open it in a browser on a laptop, or add it to the home screen of your phone. After the first load it works without a connection. A short sync code moves your words and progress to another device.</p>
+    </div>
+  </section>
+
+  <section id="languages" aria-labelledby="lang-title">
+    <div class="wrap">
+      <h2 id="lang-title">Pick a language</h2>
+      <p class="lead">The demo has eight languages. In the app you can add words in any language, and the menus come in about 50.</p>
+      <div class="langs" id="lang-grid"></div>
+    </div>
+  </section>
+
+  <section class="alt" id="trust" aria-labelledby="trust-title">
+    <div class="wrap">
+      <h2 id="trust-title">Free, with nothing to sign up for</h2>
+      <div class="grid3">
+        <div class="card"><h3>Free to use</h3><p>You can play every game without paying.</p></div>
+        <div class="card"><h3>No account</h3><p>Open it and play. Moving between devices uses a code, not an email address.</p></div>
+        <div class="card"><h3>No ads</h3><p>No banners, no pop-ups between rounds.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="wrap" style="max-width:780px">
+      <h2 id="faq-title">Questions</h2>
+      <details><summary>Are vocabulary games a good way to learn words?</summary><p>They work best when the game makes you recall the word yourself. Here you choose, build or spell the word, so every round is a small recall. Games don't replace reading and speaking, but they give you many repetitions without much boredom.</p></details>
+      <details><summary>Is it free?</summary><p>Yes. There is no account to create and there are no ads.</p></details>
+      <details><summary>Which languages can I learn?</summary><p>The demo on this page has eight. In the app you can add words in any language and write the translation in yours.</p></details>
+      <details><summary>Can I use my own words?</summary><p>Yes, in the app. Paste a list, type words one by one, or paste columns from a spreadsheet.</p></details>
+      <details><summary>Does it work on my phone?</summary><p>Yes. It runs in a mobile browser and you can add it to your home screen. Laptops and desktops work too.</p></details>
+      <details><summary>Does it work offline?</summary><p>After the first load, yes. Your progress stays on the device and you can move it to another one with a sync code.</p></details>
+      <details><summary>Who is it for?</summary><p>Anyone learning a language, and anyone who has a word list to learn, for example for the SAT, TOEFL or GRE. The app doesn't ship ready-made exam lists, so you add your own.</p></details>
+    </div>
+  </section>
+
+  <section class="alt closing" aria-labelledby="close-title">
+    <div class="wrap">
+      <h2 id="close-title">Try a game, then bring your own words</h2>
+      <p class="lead">Free, no account, on every device you own.</p>
+      <div class="cta-row" style="justify-content:center"><a class="btn primary" href="#play">Try a game</a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div><h3>Games</h3><a href="#play">Quiz</a><a href="#play">Wordcraft</a><a href="#play">Snake</a><a href="#play">Flashcards</a></div>
+      <div><h3>Learn</h3><a href="#why">Why it works</a><a href="#how">How it works</a><a href="#languages">Languages</a></div>
+      <div><h3>Vocabulary Games</h3><a href="#faq">FAQ</a></div>
+    </div>
+    <p>&copy; 2026 Vocabulary Games</p>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* ---------- demo word sets: [word, English meaning, reading] ---------- */
+const LANGS = {
+  es: { name: "Spanish", native: "Español", voice: "es-ES", words: [
+    ["casa","house"],["perro","dog"],["gato","cat"],["agua","water"],["libro","book"],["amigo","friend"],
+    ["ventana","window"],["manzana","apple"],["escuela","school"],["ciudad","city"],["comer","to eat"],["hablar","to speak"]] },
+  fr: { name: "French", native: "Français", voice: "fr-FR", words: [
+    ["maison","house"],["chien","dog"],["chat","cat"],["eau","water"],["livre","book"],["ami","friend"],
+    ["fenêtre","window"],["pomme","apple"],["école","school"],["ville","city"],["manger","to eat"],["parler","to speak"]] },
+  de: { name: "German", native: "Deutsch", voice: "de-DE", words: [
+    ["Haus","house"],["Hund","dog"],["Katze","cat"],["Wasser","water"],["Buch","book"],["Freund","friend"],
+    ["Fenster","window"],["Apfel","apple"],["Schule","school"],["Stadt","city"],["essen","to eat"],["sprechen","to speak"]] },
+  it: { name: "Italian", native: "Italiano", voice: "it-IT", words: [
+    ["casa","house"],["cane","dog"],["gatto","cat"],["acqua","water"],["libro","book"],["amico","friend"],
+    ["finestra","window"],["mela","apple"],["scuola","school"],["città","city"],["mangiare","to eat"],["parlare","to speak"]] },
+  pt: { name: "Portuguese", native: "Português", voice: "pt-PT", words: [
+    ["casa","house"],["cão","dog"],["gato","cat"],["água","water"],["livro","book"],["amigo","friend"],
+    ["janela","window"],["maçã","apple"],["escola","school"],["cidade","city"],["comer","to eat"],["falar","to speak"]] },
+  ja: { name: "Japanese", native: "日本語", voice: "ja-JP", words: [
+    ["いえ","house","ie"],["いぬ","dog","inu"],["ねこ","cat","neko"],["みず","water","mizu"],["ほん","book","hon"],["ともだち","friend","tomodachi"],
+    ["まど","window","mado"],["りんご","apple","ringo"],["がっこう","school","gakkou"],["まち","city","machi"],["たべる","to eat","taberu"],["はなす","to speak","hanasu"]] },
+  ko: { name: "Korean", native: "한국어", voice: "ko-KR", words: [
+    ["집","house","jip"],["개","dog","gae"],["고양이","cat","goyangi"],["물","water","mul"],["책","book","chaek"],["친구","friend","chingu"],
+    ["창문","window","changmun"],["사과","apple","sagwa"],["학교","school","hakgyo"],["도시","city","dosi"],["먹다","to eat","meokda"],["말하다","to speak","malhada"]] },
+  ru: { name: "Russian", native: "Русский", voice: "ru-RU", words: [
+    ["дом","house"],["собака","dog"],["кошка","cat"],["вода","water"],["книга","book"],["друг","friend"],
+    ["окно","window"],["яблоко","apple"],["школа","school"],["город","city"],["есть","to eat"],["говорить","to speak"]] }
+};
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const rnd = n => Math.floor(Math.random() * n);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const units = w => Array.from(w);
+const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+function speak(text, lang) {
+  if (!canSpeak) return;
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = lang; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { /* speech is optional */ }
+}
+function pickOther(list, last) { let i; do { i = rnd(list.length); } while (i === last && list.length > 1); return i; }
+function hud(root, l1 = "Score", l2 = "In a row") {
+  const bar = el("div", "hud");
+  const a = el("span"); const b = el("span");
+  bar.append(a, b); root.append(bar);
+  return (score, streak) => { a.innerHTML = l1 + " <b>" + score + "</b>"; b.innerHTML = l2 + " <b>" + streak + "</b>"; };
+}
+function sayButton(root, text, voice) {
+  if (!canSpeak) return;
+  const b = el("button", "btn small say", "\u{1F50A} Listen");
+  b.type = "button"; b.addEventListener("click", () => speak(text, voice)); root.append(b);
+}
+
+/* ---------- Quiz ---------- */
+function quiz(root, L) {
+  const show = hud(root);
+  const body = el("div"); const msg = el("p", "msg"); msg.setAttribute("aria-live", "polite");
+  root.append(body, msg);
+  let score = 0, streak = 0, last = -1, timer = 0;
+  function next() {
+    msg.textContent = ""; msg.className = "msg"; body.innerHTML = "";
+    last = pickOther(L.words, last);
+    const [w, en, rd] = L.words[last];
+    const n = Math.min(6, 2 + Math.floor(streak / 2));
+    const others = shuffle(L.words.filter((x, i) => i !== last)).slice(0, n - 1).map(x => x[1]);
+    const opts = shuffle([en, ...others]);
+    body.append(el("p", "big-word", w), el("p", "reading", rd || ""));
+    sayButton(body, w, L.voice);
+    const grid = el("div", "options");
+    opts.forEach(o => {
+      const b = el("button", "opt", o); b.type = "button";
+      b.addEventListener("click", () => {
+        const right = o === en;
+        grid.querySelectorAll("button").forEach(x => { x.disabled = true; if (x.textContent === en) x.classList.add("good"); });
+        if (right) { score++; streak++; msg.textContent = "Correct"; msg.className = "msg good"; }
+        else { streak = 0; b.classList.add("bad"); msg.textContent = w + " means " + en; msg.className = "msg bad"; }
+        show(score, streak);
+        timer = setTimeout(next, right ? 700 : 1500);
+      });
+      grid.append(b);
+    });
+    body.append(grid);
+    body.append(el("p", "hint", n + " options" + (n < 6 ? ". Keep going and more appear." : ".")));
+  }
+  show(score, streak); next();
+  return { destroy() { clearTimeout(timer); } };
+}
+
+/* ---------- Wordcraft ---------- */
+function splitWord(w) {
+  const u = units(w), k = u.length >= 6 ? 3 : 2, out = []; let s = 0;
+  for (let i = 0; i < k; i++) { const e = Math.round(u.length * (i + 1) / k); out.push(u.slice(s, e).join("")); s = e; }
+  return out;
+}
+function wordcraft(root, L) {
+  const show = hud(root);
+  const body = el("div"); const msg = el("p", "msg"); msg.setAttribute("aria-live", "polite");
+  root.append(body, msg);
+  const pool = L.words.filter(x => units(x[0]).length >= 2);
+  let score = 0, streak = 0, last = -1, timer = 0;
+  function next() {
+    msg.textContent = ""; msg.className = "msg"; body.innerHTML = "";
+    last = pickOther(pool, last);
+    const [w, en, rd] = pool[last];
+    const parts = splitWord(w);
+    const decoys = []; const want = Math.min(2, Math.floor(streak / 2));
+    shuffle(pool.filter((x, i) => i !== last)).forEach(x => {
+      if (decoys.length >= want) return;
+      const c = splitWord(x[0])[rnd(2)];
+      if (!parts.includes(c) && !decoys.includes(c)) decoys.push(c);
+    });
+    const pieces = shuffle([...parts, ...decoys]).map((t, id) => ({ t, id, used: false }));
+    let placed = []; let locked = false;
+    body.append(el("p", "hint", "Put the pieces in order to spell:"), el("p", "big-word", en), el("p", "reading", rd ? "(" + rd + ")" : ""));
+    const slots = el("div", "slots"); const pool_ = el("div", "pieces"); const row = el("div", "row-btns");
+    const undo = el("button", "btn small", "Undo"); undo.type = "button";
+    const clear = el("button", "btn small", "Clear"); clear.type = "button";
+    row.append(undo, clear); body.append(slots, pool_, row);
+    function draw() {
+      slots.innerHTML = ""; pool_.innerHTML = "";
+      for (let i = 0; i < parts.length; i++) {
+        const s = el("div", "slot" + (placed[i] ? " filled" : ""), placed[i] ? placed[i].t : "");
+        slots.append(s);
+      }
+      pieces.forEach(p => {
+        const b = el("button", "piece", p.t); b.type = "button"; b.disabled = p.used || locked;
+        b.addEventListener("click", () => {
+          if (locked || p.used) return;
+          p.used = true; placed.push(p); draw();
+          if (placed.length === parts.length) check();
+        });
+        pool_.append(b);
+      });
+      undo.disabled = clear.disabled = locked || !placed.length;
+    }
+    function reset() { placed.forEach(p => p.used = false); placed = []; locked = false; msg.textContent = ""; draw(); }
+    function check() {
+      locked = true;
+      if (placed.map(p => p.t).join("") === w) {
+        score++; streak++; msg.textContent = "Correct: " + w; msg.className = "msg good"; show(score, streak); draw();
+        timer = setTimeout(next, 1100);
+      } else {
+        streak = 0; show(score, streak); msg.textContent = "Not quite. Try again."; msg.className = "msg bad";
+        slots.classList.add("shake"); draw();
+        timer = setTimeout(() => { slots.classList.remove("shake"); msg.className = "msg"; reset(); }, 800);
+      }
+    }
+    undo.addEventListener("click", () => { const p = placed.pop(); if (p) { p.used = false; draw(); } });
+    clear.addEventListener("click", reset);
+    draw();
+  }
+  show(score, streak); next();
+  return { destroy() { clearTimeout(timer); } };
+}
+
+/* ---------- Snake ---------- */
+function snake(root, L) {
+  const N = 13;
+  const wrap = el("div", "snake-wrap");
+  const show = hud(root, "Words", "Length");
+  const info = el("div", "hint"); const tiles = el("div", "word-tiles");
+  const cv = el("canvas", "snake-cv"); cv.setAttribute("aria-label", "Snake board");
+  const msg = el("p", "msg"); msg.setAttribute("aria-live", "polite");
+  const play = el("button", "btn primary", "Play"); play.type = "button";
+  const pad = el("div", "dpad");
+  [["up", "▲", 0, -1], ["left", "◀", -1, 0], ["down", "▼", 0, 1], ["right", "▶", 1, 0]].forEach(([c, t, dx, dy]) => {
+    const b = el("button", c, t); b.type = "button"; b.setAttribute("aria-label", c);
+    b.addEventListener("click", () => turn(dx, dy)); pad.append(b);
+  });
+  wrap.append(info, tiles, cv, msg, play, pad); root.append(wrap);
+  const ctx = cv.getContext("2d");
+  const pool = L.words.filter(x => { const n = units(x[0]).length; return n >= 2 && n <= 8; });
+  const allChars = [...new Set(L.words.flatMap(x => units(x[0])))];
+  let body, dir, nd, letters, target, idx, entry, running = false, timer = 0, score = 0, cell = 0, lastWord = -1, pending = 0;
+
+  function sizeCanvas() {
+    const w = Math.max(220, Math.min(root.clientWidth || 360, 380)), dpr = window.devicePixelRatio || 1;
+    cv.style.width = w + "px"; cv.style.height = w + "px";
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr); cell = cv.width / N; draw();
+  }
+  function renderTiles() {
+    tiles.innerHTML = "";
+    target.forEach((ch, i) => tiles.append(el("span", "wt" + (i < idx ? " done" : i === idx ? " next" : ""), ch)));
+  }
+  function free(x, y) { return !body.some(s => s.x === x && s.y === y) && !letters.some(l => l.x === x && l.y === y); }
+  function place(ch) { for (let t = 0; t < 300; t++) { const x = rnd(N), y = rnd(N); if (free(x, y) && Math.abs(x - body[0].x) + Math.abs(y - body[0].y) > 3) { letters.push({ x, y, ch }); return; } } }
+  function newWord() {
+    lastWord = pickOther(pool, lastWord); entry = pool[lastWord]; target = units(entry[0]); idx = 0;
+    letters = [];
+    target.forEach(ch => place(ch));
+    const spare = shuffle(allChars.filter(c => !target.includes(c)));
+    for (let i = 0; i < 3 && i < spare.length; i++) place(spare[i]);
+    info.textContent = "Collect the letters in order: " + entry[1] + (entry[2] ? " (" + entry[2] + ")" : "");
+    renderTiles(); draw();
+  }
+  function reset() {
+    clearTimeout(timer); running = false; pending = 0;
+    const m = Math.floor(N / 2);
+    body = [{ x: m, y: m }, { x: m - 1, y: m }, { x: m - 2, y: m }]; dir = { x: 1, y: 0 }; nd = dir;
+    msg.textContent = ""; msg.className = "msg"; score = 0; show(score, body.length); newWord();
+  }
+  function turn(dx, dy) {
+    if (!running) return;
+    if (dx === -dir.x && dy === -dir.y) return;
+    nd = { x: dx, y: dy };
+  }
+  function end(text) {
+    running = false; clearTimeout(timer); msg.textContent = text; msg.className = "msg bad";
+    play.textContent = "Play again"; play.hidden = false; draw();
+  }
+  function tick() {
+    dir = nd;
+    const h = { x: (body[0].x + dir.x + N) % N, y: (body[0].y + dir.y + N) % N };
+    const li = letters.findIndex(l => l.x === h.x && l.y === h.y);
+    let grow = false;
+    if (li >= 0) {
+      if (letters[li].ch === target[idx]) { letters.splice(li, 1); idx++; grow = true; pending++; renderTiles(); }
+      else { body.unshift(h); body.pop(); return end("Wrong letter. The word was " + entry[0] + "."); }
+    }
+    if (body.slice(0, grow ? body.length : body.length - 1).some(s => s.x === h.x && s.y === h.y)) return end("The snake bit its tail.");
+    body.unshift(h); if (!grow) body.pop();
+    if (idx === target.length) {
+      score++; msg.textContent = entry[0] + " = " + entry[1]; msg.className = "msg good";
+      newWord();
+    }
+    show(score, body.length);
+    draw();
+    timer = setTimeout(tick, 210);
+  }
+  function draw() {
+    const cs = getComputedStyle(document.documentElement);
+    const col = n => cs.getPropertyValue(n).trim();
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = col("--board"); ctx.fillRect(0, 0, cv.width, cv.height);
+    const pad = cell * 0.08;
+    const rr = (x, y, s, r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, s, s, r) : ctx.rect(x, y, s, s); ctx.fill(); };
+    ctx.font = "700 " + Math.round(cell * 0.6) + 'px system-ui, "Noto Sans JP", "Noto Sans KR", sans-serif';
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    letters.forEach(l => {
+      ctx.fillStyle = col("--tile"); rr(l.x * cell + pad, l.y * cell + pad, cell - 2 * pad, cell * 0.2);
+      ctx.fillStyle = col("--ink"); ctx.fillText(l.ch, l.x * cell + cell / 2, l.y * cell + cell / 2 + cell * 0.03);
+    });
+    ctx.fillStyle = col("--snake");
+    body.forEach((s, i) => { ctx.globalAlpha = Math.max(0.35, 1 - i * 0.05); rr(s.x * cell + pad, s.y * cell + pad, cell - 2 * pad, cell * 0.3); });
+    ctx.globalAlpha = 1;
+    const h = body[0]; ctx.fillStyle = "#fff";
+    [[0.3, 0.35], [0.7, 0.35]].forEach(([ex, ey]) => { ctx.beginPath(); ctx.arc(h.x * cell + cell * ex, h.y * cell + cell * ey, cell * 0.09, 0, 7); ctx.fill(); });
+  }
+  function onKey(e) {
+    if (!running) return;
+    const m = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] }[e.key];
+    if (m) { e.preventDefault(); turn(m[0], m[1]); }
+  }
+  let sx = 0, sy = 0;
+  cv.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  cv.addEventListener("touchend", e => {
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 1 : -1, 0); else turn(0, dy > 0 ? 1 : -1);
+  }, { passive: true });
+  play.addEventListener("click", () => { if (over()) reset(); running = true; play.hidden = true; msg.textContent = ""; tick(); });
+  function over() { return play.textContent === "Play again"; }
+  document.addEventListener("keydown", onKey);
+  const onResize = () => sizeCanvas(); window.addEventListener("resize", onResize);
+  // Pause while the board is off screen: the page has four games and the snake must not run unseen.
+  let paused = false;
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(es => {
+    const vis = es[0].isIntersecting;
+    if (!vis && running && !paused) { paused = true; clearTimeout(timer); }
+    else if (vis && paused) { paused = false; timer = setTimeout(tick, 210); }
+  }) : null;
+  if (io) io.observe(cv);
+  reset(); sizeCanvas();
+  return { destroy() { clearTimeout(timer); running = false; paused = false; if (io) io.disconnect(); document.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize); } };
+}
+
+/* ---------- Flashcards ---------- */
+const GAPS = ["5 min", "15 min", "45 min", "2 hours"];
+function flashcards(root, L) {
+  const head = el("div", "hud"); const left = el("span"); const done = el("span"); head.append(left, done); root.append(head);
+  const body = el("div"); const msg = el("p", "msg"); msg.setAttribute("aria-live", "polite"); root.append(body, msg);
+  let queue = shuffle(L.words).map(w => ({ w, step: 0 })), scheduled = 0, flipped = false;
+  function counts() { left.innerHTML = "To review <b>" + queue.length + "</b>"; done.innerHTML = "Scheduled <b>" + scheduled + "/" + L.words.length + "</b>"; }
+  function render() {
+    body.innerHTML = ""; counts();
+    if (!queue.length) {
+      body.append(el("p", "big-word", "All 12 scheduled"), el("p", "hint", "In the app these words would come back after 5 minutes, 15 minutes, 2 hours and so on, at real time."));
+      const b = el("button", "btn primary say", "Start over"); b.type = "button";
+      b.addEventListener("click", () => { queue = shuffle(L.words).map(w => ({ w, step: 0 })); scheduled = 0; msg.textContent = ""; render(); });
+      body.append(b); return;
+    }
+    const c = queue[0]; flipped = false;
+    const card = el("div", "card3d"); const f = el("button", "flip"); f.type = "button";
+    const front = el("span", "front", c.w[0]); const rd = el("small", "", c.w[2] || "");
+    const back = el("span", "back", "Tap to see the meaning"); back.style.fontSize = "1.1rem"; back.style.color = "var(--muted)";
+    f.append(front, rd, back); card.append(f); body.append(card);
+    sayButton(body, c.w[0], L.voice);
+    const row = el("div", "row-btns"); row.hidden = true;
+    const miss = el("button", "btn", "Missed it"); miss.type = "button";
+    const got = el("button", "btn primary", "Got it"); got.type = "button";
+    row.append(miss, got); body.append(row);
+    f.addEventListener("click", () => {
+      if (flipped) return; flipped = true;
+      back.textContent = c.w[1]; back.style.fontSize = ""; back.style.color = ""; row.hidden = false;
+    });
+    miss.addEventListener("click", () => {
+      queue.shift(); c.step = 0; queue.splice(Math.min(2, queue.length), 0, c);
+      msg.textContent = "Back in a few minutes"; msg.className = "msg bad"; render();
+    });
+    got.addEventListener("click", () => {
+      queue.shift(); c.step++;
+      if (c.step >= GAPS.length) { scheduled++; msg.textContent = "Learned for now. Next gap: " + GAPS[GAPS.length - 1]; }
+      else { queue.splice(Math.min(2 + c.step * 2, queue.length), 0, c); msg.textContent = "Back in " + GAPS[c.step - 1]; }
+      msg.className = "msg good"; render();
+    });
+  }
+  body.after(msg);
+  const note = el("p", "hint", "Demo speed: the gaps are squeezed into a few cards."); root.append(note);
+  render();
+  return { destroy() {} };
+}
+
+/* ---------- wiring ---------- */
+const GAMES = { quiz, wordcraft, snake, flashcards };
+let lang = "es";
+const current = {};
+const sel = $("#lang");
+Object.entries(LANGS).forEach(([k, v]) => { const o = el("option", "", v.name + " · " + v.native); o.value = k; sel.append(o); });
+function mount(id) {
+  if (current[id]) current[id].destroy();
+  const box = $("#stage-" + id);
+  box.innerHTML = "";
+  current[id] = GAMES[id](box, LANGS[lang]);
+}
+function mountAll() { Object.keys(GAMES).forEach(mount); }
+sel.addEventListener("change", () => { lang = sel.value; mountAll(); });
+document.querySelectorAll("[data-restart]").forEach(b => b.addEventListener("click", () => mount(b.dataset.restart)));
+const grid = $("#lang-grid");
+Object.entries(LANGS).forEach(([k, v]) => {
+  const b = el("button", "lang-btn"); b.type = "button";
+  const s = v.words[0];
+  b.append(el("b", "", v.name), el("span", "", s[0] + " = " + s[1]));
+  b.addEventListener("click", () => { lang = k; sel.value = k; mountAll(); $("#play").scrollIntoView({ behavior: "smooth" }); });
+  grid.append(b);
+});
+mountAll();
+</script>
+</body>
+</html>

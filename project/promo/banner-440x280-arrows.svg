@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+    <!--
+        Small promo tile, 440x280 — a second take on banner-440x280.svg.
+
+        The three things inside are set on one line with arrows between them, so
+        the row says an order rather than a list: flashcards lead to quizzes,
+        quizzes to the memory games. Which is what the app actually does with a
+        set — the same words come back through all three.
+
+        An arrow only reads between words on the same line, so nothing is broken
+        over two lines here, and one line is what sets the size: measured, the
+        three run 325 wide at 20px and 357 at 22, and only the first leaves
+        enough between them for an arrow to sit in. Each of the two gaps is
+        37.5, of which the arrow takes 18 and the air either side 10.
+
+        The arrows are the app's muted grey, not one of the three colours: they
+        belong to none of the three things and should not look like a fourth.
+
+        They sit at 217, which is the middle of the x-height rather than of the
+        line: measured, the small letters run 212 to 222, and an arrow hung on
+        the line's own centre floats above the word it joins.
+    -->
+    <defs>
+        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1b4a63" />
+            <stop offset="0.55" stop-color="#11374c" />
+            <stop offset="1" stop-color="#0a2130" />
+        </linearGradient>
+
+        <radialGradient id="glow" cx="0.18" cy="0.28" r="0.55">
+            <stop offset="0" stop-color="#56c4a6" stop-opacity="0.22" />
+            <stop offset="1" stop-color="#56c4a6" stop-opacity="0" />
+        </radialGradient>
+    </defs>
+
+    <rect width="440" height="280" fill="url(#ground)" />
+    <rect width="440" height="280" fill="url(#glow)" />
+
+    <g transform="translate(30 45) scale(3)">
+        <g transform="rotate(-7 16 16)">
+            <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a" />
+            <circle cx="11.37" cy="16" r="4.86" fill="none" stroke="#ffffff" stroke-width="2.83" />
+            <circle cx="23.02" cy="16" r="3.01" fill="none" stroke="#ffffff" stroke-width="1.75" />
+        </g>
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" fill="#eef6f7">
+        <text x="148" y="92" font-size="48" font-weight="800" letter-spacing="11.3">SPACED</text>
+        <text x="148" y="136" font-size="38" font-weight="700" letter-spacing="2.85">REPETITION</text>
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+       font-size="20" font-weight="800" text-anchor="middle">
+        <text x="70" y="222" fill="#ff9d88">flashcards</text>
+        <text x="194" y="222" fill="#ecc04a">quizzes</text>
+        <text x="344" y="222" fill="#72dcbe">memory games</text>
+    </g>
+
+    <g stroke="#9bb4c1" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M130 217H148M142 212L148 217L142 222" />
+        <path d="M240 217H258M252 212L258 217L252 222" />
+    </g>
+</svg>

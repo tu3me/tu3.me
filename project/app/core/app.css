@@ -1,0 +1,1031 @@
+/*
+ * The page chrome, shared by the catalog and by every game page.
+ *
+ * Everything that decides how the page looks on its first frame lives here and
+ * is driven by attributes and variables that core/prepaint.js sets before <body>
+ * is parsed. The popup reboots on every navigation, so anything decided after an
+ * async read shows up as a flicker each time.
+ */
+
+/*
+ * Pull-to-refresh: off inside a game, left alone in the catalog.
+ *
+ * The gesture gets in the way while playing — snake is driven by dragging across
+ * the screen, cards are swiped — and reloading mid-session loses the round. The
+ * catalog is an ordinary scrolling list, where the gesture is what a phone user
+ * expects, so there is no reason to take it away there.
+ *
+ * The class sits in the markup of the game pages rather than being added by a
+ * script: the rule has to hold from the first frame, before anything runs.
+ */
+:root.game-page,
+:root.game-page body {
+    overscroll-behavior: none;
+}
+
+/*
+ * Double tap: a gesture this app has its own use for.
+ *
+ * A phone reads two quick taps as "zoom in", and to be able to it holds the
+ * second one back to see whether a third is coming — so a screen that means
+ * something by a double tap either gets it late or does not get it at all. A
+ * card in cards says the letter, then the word, then the line as the taps
+ * repeat, and every one of those has to arrive.
+ *
+ * `manipulation` gives up double-tap zoom and nothing else: scrolling with a
+ * finger and pinching to zoom both carry on. The zoom that is given up was not
+ * worth much here to begin with — the layout is a fixed 350px designed to be
+ * read at arm's length.
+ *
+ * On the root, where it covers the whole page: touch-action is not inherited,
+ * but what a touch is allowed to do is decided by every element from the target
+ * up, so a root that has given up double-tap zoom has given it up for all of
+ * them.
+ */
+:root {
+    touch-action: manipulation;
+}
+
+/*
+ * Which palette the browser's own parts are drawn from.
+ *
+ * Everything the app paints follows the theme already; everything it does not
+ * paint — the list a <select> drops down, the scrollbars, the caret, a focus
+ * ring — is drawn by the browser, and without this it draws them light. On the
+ * dark theme that is a white menu with grey type over a navy app, which looks
+ * like a bug in the app and is a declaration the app never made.
+ *
+ * Keyed off the attribute the theme already sets rather than the media query:
+ * the app has its own switch, and a phone set to dark with the app set to light
+ * would otherwise get dark menus over a cream page.
+ */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+/*
+ * The grey box a phone paints over whatever was tapped.
+ *
+ * It is the platform saying "I saw that" — drawn before the page can answer, in
+ * a colour the page never chose, over the whole of whatever was pressed. A card
+ * lit up edge to edge in system grey is the loudest thing on the screen at the
+ * moment the quietest is wanted.
+ *
+ * Everything here answers a tap on its own: a card and a bubble grow while they
+ * are being read, a word takes the mark, a button has its pressed state. Two
+ * answers to one tap, and only one of them was designed.
+ *
+ * Inherited, so it is said once. Desktop never showed it — this is a touch-only
+ * flourish, which is why it went unnoticed for so long.
+ */
+:root {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * How large the app is drawn against how large it is written.
+ *
+ * The layout is 350px wide and always will be — see body below — and the
+ * handle on its left edge does not change that number, it changes the zoom the
+ * whole of it is shown at. So one of these is the scale and the other is its
+ * reciprocal, for the two or three things that have to undo it.
+ *
+ * Unitless, because a zoom is a number and because it is the only form both
+ * uses can be written from without nesting one calc inside another.
+ * --app-width is a plain count of screen pixels, set by prepaint.js from
+ * storage before the first frame and by the handle while it is dragged.
+ *
+ * Absent is 380: the width the app opens at for someone who has never touched
+ * the handle, and the width a double-click on it goes back to. It is not the
+ * layout — that is the 350 underneath, and it does not move — so the default is
+ * the drawing shown a little larger than it is written. 350 was the default for
+ * as long as the two numbers were the same one, which made it look like a fact
+ * about the layout rather than a choice about the window.
+ *
+ * The number is a trade with the popup's ceiling. Chrome stops a popup at 600
+ * screen pixels, and the wider the app is shown the fewer of its own pixels
+ * those 600 are: 525 at 400, 552.6 at 380. Snake spends the difference on its
+ * d-pad, which is the thing that gives when the window is short.
+ */
+:root {
+    --app-scale: calc(var(--app-width, 380) / 350);
+    --app-unscale: calc(350 / var(--app-width, 380));
+}
+
+/*
+ * Ground and ink sit on :root, not on body, for two reasons: prepaint.js runs
+ * before body exists, and the root background is what paints the canvas.
+ *
+ * Three states, not two — an explicit choice stamps data-theme, and the default
+ * (nothing stamped) leaves only the system preference to go on.
+ */
+:root {
+    /* Dark is what the app starts in, so it is the base here too: the very first
+       frame has to be right, and the stylesheet is the only thing that paints
+       before prepaint.js has read anything at all.
+
+       Named rather than written inline so light and dark differ by two values in
+       one place instead of by a rule each. (The status bar is deliberately not
+       one of the things that follows this — see the theme-color tag in the
+       pages: it stays dark in both themes.) */
+    --ground: #0f2b3c;
+    --ink: #eef6f7;
+
+    background-color: var(--ground);
+    color: var(--ink);
+
+    /* Reserved popup height, set by prepaint.js from the height the popup had
+       last time and released once the real content is laid out. Zero everywhere
+       else, so the mechanism does not exist outside the extension. */
+    min-height: var(--boot-height, 0px);
+
+    transition: background-color 0.2s, color 0.2s;
+}
+
+/* The system preference deliberately plays no part: everyone starts dark, and
+   light is only ever an explicit choice the player made. */
+:root[data-theme="light"] {
+    /* The same two values as LIGHT.ground and LIGHT.ink in tokens.js, and they
+       have to be kept the same by hand: this rule exists so the page is the
+       right colour in the first frame, before any script has run, and a script
+       is exactly what it cannot wait for.
+
+       The catalog's ground: every game page sets its own over it, in a <style>
+       of its own (22 November 2026) -- see page.ground. */
+    --ground: #e8dfd0;
+    --ink: #153040;
+}
+
+/*
+ * No scrollbar is drawn anywhere in the app: not the window's, not the
+ * popup's, not a panel's, a dialog's or a text box's. Whatever scrolled still
+ * scrolls -- the wheel, a finger, the keys and focus move it as before -- and
+ * content cut off at an edge is its own cue that there is more.
+ *
+ * Decided by the owner on 26 October 2026, for every screen at once. Until
+ * then only the popup hid its bar. The site reserved the width of one on both
+ * edges of the window (scrollbar-gutter: stable both-edges), because the app
+ * is a 350px column centred by auto margins and a bar coming and going slid it
+ * sideways by half its width -- opening the new-set form did exactly that. A
+ * hidden bar takes no width to begin with, so the jump went, and the
+ * reservation with it; and so did the one thing the reservation broke: a fixed
+ * box was measured from inside the left strip, fifteen pixels right of where
+ * its numbers put it on Windows.
+ *
+ * Both spellings: the standard property for Chrome and Firefox, and the WebKit
+ * pseudo-element for Safari before 18.2, which knows only that one.
+ */
+* {
+    scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/*
+ * Popup only, switched on by prepaint.js.
+ *
+ * Chrome caps the popup at 600px and, past that, scrolls the popup itself. Its
+ * scrollbar changes the window width, so every navigation between a page that
+ * scrolls and one that does not shifts the whole popup sideways. Capping the
+ * document at the same 600px keeps that scrollbar from ever appearing and moves
+ * the scrolling inside, where it cannot reach the window.
+ *
+ * This composes with the height reservation rather than replacing it: the
+ * reservation still stops the popup collapsing while the content is being built,
+ * and the cap still stops it growing past what Chrome would show.
+ */
+:root.in-popup {
+    max-height: 600px;
+    overflow: hidden;
+}
+
+:root.in-popup body {
+    /* Chrome's 600 is 600 of the screen's pixels; this cap is inside the zoom
+       and is counted in the layout's. At a smaller scale they are not the same
+       number, and the plain 600 would cut the page off well above the fold. */
+    max-height: calc(600px * var(--app-unscale));
+    overflow-y: auto;
+
+    /* Its scrollbar is not drawn, like every other -- see the rule above. It
+       mattered here first: an inner bar is not zero-width on Windows and would
+       eat into the 350px layout exactly as the popup's own did. */
+}
+
+/*
+ * In the popup the app hangs from the right edge instead of being centred.
+ *
+ * While nothing is resizing the two are the same place: the column is the
+ * window. They differ for one frame at a time while the grip is being dragged.
+ * Chrome takes the popup's size from the document and gets there a frame
+ * behind, so the freshly narrowed body spends that frame in a window that is
+ * still the old width -- and a centred body spends it half a shrink away from
+ * where it is about to be, which across a drag is the whole interface
+ * shivering sideways. Held against the edge Chrome anchors the window by, it
+ * does not move at all.
+ *
+ * Only in the popup. On the web the window is nobody's to resize and the
+ * column belongs in the middle of it.
+ */
+:root.in-popup body {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+body {
+    /* A plain absolute width, and deliberately nothing viewport-derived — no vw,
+       no width media query. In a popup the viewport is derived from the content,
+       so any such rule closes a feedback loop: Chrome lays out at a provisional
+       width, the rule shrinks the body to match, that becomes the measured width,
+       and the popup settles at its minimum (or shudders between sizes) instead of
+       at 350px.
+       A phone narrower than this is handled by the viewport meta tag in each page
+       — the browser scales the fixed 350px layout down to fit, which costs nothing
+       here because the design is a fixed-width popup to begin with.
+
+       None of that changed when the app became resizable, because the layout
+       did not: it is 410 at every size, and what the handle on the left edge
+       moves is the zoom it is all shown at. Which is also why every other
+       number in the app — the paddings, the type sizes, the board's cells, the
+       two dozen radii — can go on being written in plain pixels and go on being
+       right: in the units they are written in, the app is never another size.
+       Scaling rather than reflowing, because one column of cards has no second
+       arrangement to find; at 340 it is the same drawing, smaller.
+
+       The zoom is a stored number and not a measurement of anything, which is
+       what keeps the loop above open: nothing here asks how wide the window
+       is. */
+    width: 350px;
+    zoom: var(--app-scale);
+    margin: 0 auto;
+
+    /* No background of its own: a transparent body lets the root's ground paint
+       the canvas, which is what prepaint.js is able to set in time. */
+    background-color: transparent;
+
+    user-select: none;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14.3px;
+}
+
+/*
+ * The margin the whole app stands in, on every page.
+ *
+ * Small on purpose. What it holds is already inset -- cards have their own
+ * padding, the games' header is a row of buttons with air built into them -- so
+ * this one is the gap between that and the window, and a window this size has
+ * none to spare. At 10.2 the games' header, 29 tall, sat with eleven pixels of
+ * nothing above it, which read as the app starting late rather than as a margin.
+ */
+.app-main-content {
+    padding: 6.8px;
+}
+
+/*
+ * The handle in the app's top-left corner, taken hold of to see the layout at
+ * a width other than the one it is drawn at.
+ *
+ * On the left, because that is the edge the popup has to give. Chrome hangs the
+ * popup off the toolbar button at the top right and grows it down and to the
+ * left, so the right edge is the one that never moves: the window follows the
+ * document's size, and the document can only lose width on the left.
+ *
+ * In the corner, which is the one point of a page that is always in the same
+ * place -- and the corner of a window is where a hand already looks for the
+ * thing that resizes it. The layout keeps 10.2px of air along both edges, so the
+ * mark sits on the app's own empty margin rather than over anything it draws.
+ *
+ * Only where there is a mouse. It is a small target to be caught and held,
+ * which is a thing a pointer does and a fingertip does not, and on a phone it
+ * would be a smudge down the side of every screen with nothing able to use it.
+ * `any-pointer` rather than `pointer`: a laptop with a touchscreen answers
+ * "coarse" to the second one and still has the mouse this is for.
+ *
+ * Where it sits is set from script -- see resizeGrip in base.js -- because the
+ * app is a column held in the middle of whatever it is shown in, and on a wide
+ * window the window's own edge is nowhere near the app's.
+ */
+.app-grip {
+    display: none;
+    position: fixed;
+
+    /* Over the dialogs, which stop at 100. It is the window's furniture rather
+       than part of what the window is showing, and a dialog is exactly when a
+       popup is at its tallest. */
+    z-index: 200;
+
+    /* Sixteen square, which is the size a window's own resize corner is and
+       nobody has ever missed one. No padding around it: the layout keeps 10.2px
+       of air in this corner and the mark is allowed the four past that, but a
+       hit area any bigger would reach into the button below it — the way out
+       in a game sits at exactly 12,12 — and take the press meant for it. */
+    width: 13.7px;
+    padding: 0;
+    line-height: 0;
+
+    /* Out of the app's zoom, which it is inside of. It is the handle that sets
+       that zoom, and a handle that shrank with what it was shrinking would be
+       at its smallest exactly where it most needs catching -- and would have
+       to have every coordinate the script gives it divided by the same number
+       it is being placed by. */
+    zoom: var(--app-unscale);
+    color: var(--ink);
+    opacity: 0.32;
+
+    /* Sideways, and only sideways: the cursor says what the grip does, and
+       what it does no longer has anything to do with height. */
+    cursor: ew-resize;
+
+    /* A drag here is a resize and never a scroll: without this the browser
+       claims the gesture on anything with a touchscreen before the first
+       pointermove arrives. */
+    touch-action: none;
+
+    transition: opacity 0.2s;
+}
+
+@media (any-pointer: fine) {
+    .app-grip {
+        display: block;
+    }
+}
+
+.app-grip:hover {
+    opacity: 0.7;
+}
+
+/*
+ * The sound switch, answering a tap it had to swallow.
+ *
+ * A word was asked for and nothing was said, which without this reads as a tap
+ * that missed or an app that is broken. The switch that swallowed it moves —
+ * out and back, twice the width of a breath — which points at both the cause
+ * and the cure, since the same button is what turns the sound back on.
+ *
+ * Twice, and the count is on the two elements that set this running rather than
+ * here, because keyframes cannot hold one. A single pass is 420ms on a 29px
+ * button in the corner, while the eye is on the word that was tapped; by the
+ * time it arrives the movement is over. The second pass is what it arrives to.
+ *
+ * Scale rather than colour: the button already means something by its colour,
+ * and a size is the one thing about it that nothing else is using.
+ */
+/*
+ * What the hand does while it waits to be obeyed.
+ *
+ * One hand now. A second one used to slide in from the edge of the shelf
+ * holding up a card with a question on it, and it shared every rule below; what
+ * it offered to explain is a card of the catalog's own these days — see
+ * onboarding.js — so its three animations have gone with it.
+ *
+ * A press, and a slow one: the hand rises off the button and comes back down
+ * onto it. Rising rather than growing, because the thing being asked for is a
+ * tap and a tap is a movement towards the screen — and because a hand that
+ * changes size beside a button that does not reads as a picture loading.
+ *
+ * At the bottom of that press it thins to a third, and that is what the bottom
+ * is for. The hand stands over the word on the button it is pointing at — it
+ * has to, or it would hang off the end of the page — so the thing it is naming
+ * is the thing it is covering. Thinning as it lands gives that word back once
+ * every cycle, at the moment the hand is closest to the button, which is the
+ * moment the press is being mimed rather than explained.
+ *
+ * A third rather than nothing at all. Gone entirely, the hand would blink out
+ * of existence once a second and read as something failing to load; left at a
+ * third it is plainly still there, and the word underneath is plainly legible
+ * through it.
+ *
+ * Endless on purpose. It is taken away by the press it asks for, and until then
+ * there is nothing else on the screen saying what to do.
+ */
+@keyframes hand-nudge {
+    0%, 100% { translate: 0 0; opacity: 0.3; }
+    45% { translate: 0 -5px; opacity: 1; }
+}
+
+.pointing-hand {
+    animation: hand-nudge 1.5s ease-in-out infinite;
+}
+
+/*
+ * "+ New Card Set", centred on its letters rather than on its line box.
+ *
+ * The paddings were equal and the label still sat low: 12 above the letters
+ * against 10.16 below. A font reserves room over the capitals for accents and
+ * under the baseline for descenders, and "+ New Card Set" has neither — so
+ * both reserves show as empty space, and the one above is the larger of the
+ * two.
+ *
+ * Trimmed to the cap height and the baseline, the box holds the letters and
+ * nothing else, and equal padding is then equal space. The padding is larger
+ * here than the number it replaces because it now pays for the whole gap rather
+ * than for what the font left over, and it is chosen to leave the button the
+ * height it had.
+ *
+ * Behind @supports, and the plain rule above it is the old one exactly: where
+ * the trim is not understood the button is what it has always been, rather than
+ * a button grown by nine pixels of padding meant for a box that was never
+ * trimmed.
+ */
+.dict-add-set-btn {
+    padding: 5.1px 12px;
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+    .dict-add-set-btn {
+        text-box: trim-both cap alphabetic;
+        padding: 9.7px 12px;
+    }
+}
+
+/*
+ * The gap under a section's heading, and only when something stands there.
+ *
+ * An empty "My stuff" is a heading, a button and a border, and every pixel
+ * between them is one the catalogue below does not get: the window stops at 600
+ * and the first card of the catalogue is what the screen is for. A margin
+ * written into the heading would be paid whether or not anything followed it.
+ */
+.dict-sets-list:not(:empty) {
+    margin-top: 8.5px;
+}
+
+/*
+ * The five stars at the foot of the list, grey until a cursor runs along them.
+ *
+ * Lit up to the cursor, which is the only thing a row of stars can mean: the
+ * fourth one hovered lights four, and the three it lights besides itself stand
+ * to its left. CSS reaches the siblings that follow an element and never the
+ * ones before it, so the row is written backwards -- five first -- and turned
+ * round again with row-reverse. The markup and the screen disagree on purpose.
+ *
+ * Amber is written here rather than taken from the palette, because a star is
+ * amber in either theme -- the same reason the coral and the mint are fixed; see
+ * tokens.js. What does come from the palette is the colour it rests in, through
+ * --star-idle, since a line colour belongs to the theme that is on.
+ */
+.dict-rate-star {
+    color: var(--star-idle);
+    transition: color 0.15s;
+}
+
+.dict-rate-star:hover,
+.dict-rate-star:focus-visible,
+.dict-rate-star:hover ~ .dict-rate-star,
+.dict-rate-star:focus-visible ~ .dict-rate-star {
+    color: #ffb300;
+}
+
+/*
+ * One card of the onboarding strip replacing another -- see onboarding.js.
+ *
+ * The corner of the window used to pulse here instead, in coral and a third
+ * bigger, until somebody took hold of it. What it was asking for is one of those
+ * cards now, and a strip that says one thing at a time needs the turn of a page
+ * to be visible more than the app needs a second blinking thing on the screen.
+ *
+ * It comes in from the side it was pressed from, which is the whole of what the
+ * movement has to say: the arrow on the right brings the next card in from the
+ * right. The distance is handed in by the element, because the two directions
+ * are the same animation and only one of these can be written here.
+ *
+ * Ten pixels and 180ms: a page turn, not a slide. Anything further reads as the
+ * card having arrived from somewhere else on the screen, and the card is not
+ * going anywhere -- it is the same card showing something else.
+ */
+/*
+ * The marks on the first card, arriving after what they are about.
+ *
+ * The card is a sentence first: somebody who has just opened the app gets the
+ * two lines of it to themselves, and only then does the hand come over the top
+ * and point at the two things in the room. Drawn at the same instant, the
+ * arrows are competing with the words they are an aside to -- and the eye goes
+ * to the moving thing, which here is the wrong one.
+ *
+ * Half a second is the wait, which is about as long as the sentence takes to
+ * land and shorter than anybody would call a delay.
+ */
+/*
+ * The arrow on the width card, drawing itself from the card up to the corner.
+ *
+ * A stroke that arrives all at once is a picture; a stroke that is drawn is a
+ * hand showing you something, and the thing it is showing is a long way from
+ * where the sentence is. Following the line while it is being made is the whole
+ * of what carries the eye up there.
+ *
+ * Done with the dash: the path is told its own length is 1 -- see pathLength on
+ * the paths themselves -- so one dash of 1 covers it whole, and sliding the
+ * offset from 1 to 0 uncovers it from its first point to its last. Which means
+ * the direction it draws in is the direction the path is written in, and that
+ * is why the shaft is written from the card and not from the corner.
+ *
+ * From a little past 1, and with a gap of 2 rather than 1, so that nothing shows
+ * before a stroke starts. At exactly 1 the dash ends on the path's first point, and
+ * its round cap stood there as a dot for as long as the stroke waited its turn; the
+ * longer gap keeps the next dash from coming in at the far end instead.
+ */
+@keyframes onb-draw {
+    from { stroke-dashoffset: 1.1; }
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes onb-mark {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes onb-turn {
+    from { opacity: 0; translate: var(--onb-from, 10px) 0; }
+    to { opacity: 1; translate: 0 0; }
+}
+
+/*
+ * The strip's hand-drawn marks, put away while the new-set form covers the
+ * strip (data-covered, see coverStrip in catalog.js).
+ *
+ * The form covers the card and nothing that reaches out of it: the arrow at
+ * New set rises above the card's top edge, and the arrow off "this" stands over
+ * the list on purpose, so that it can land on the first set -- which put it
+ * over the form as well, across the help text, pointing at nothing. Hidden
+ * rather than sent under the form, because a layer low enough to go under the
+ * form is under the set it was lifted to reach.
+ *
+ * Gone from the moment the form starts to open, in a fade shorter than the
+ * form takes to grow, so that the arrow at the bottom of the card has left
+ * before the form's edge gets there. Visibility after the fade, because a
+ * stroke at nought opacity still takes the presses that land on it.
+ */
+.onb-strip[data-covered] .onb-point {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+}
+
+/*
+ * What the speakers in the set form's dropdowns mean -- see voiceKey in catalog.js.
+ * The press is written in here rather than on the element because what it changes is
+ * a state, and the markup draws a form in that state from the start: a redraw with
+ * the text open should not flicker shut.
+ *
+ * The air between the three goes after each rather than before the next. Open, the
+ * text wraps wherever it has to, and air in front of a part that starts a line would
+ * indent that line.
+ */
+.set-voice-key {
+    display: block;
+    width: 100%;
+    margin-top: 8.5px;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 9.7px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.set-voice-key > span:not(:last-child) {
+    margin-inline-end: 4.3px;
+}
+
+.set-voice-key[aria-expanded="true"] {
+    white-space: normal;
+    cursor: auto;
+}
+
+/*
+ * The name under a game that was started and left, saying so: it becomes
+ * "Continue" and a play mark, then goes back, and so on. The tile above it stays
+ * as it is -- until 26 October 2026 its drawing turned into a play triangle in
+ * time with the name; see CONTINUE in catalog.js.
+ *
+ * A swap and not a fade. What is being said is not "look here" -- that is what
+ * the corner's pulse is for and one of those per screen is plenty -- but "this
+ * one is open": the name shows the two states it is between. Nothing fades or
+ * resizes, because a word half-way through dissolving says nothing at all,
+ * while either of these says something on every frame it is up.
+ *
+ * step-end is what makes it a swap: the keyframes name two instants, and the
+ * only thing between them is which face is at opacity 1. The alternate face
+ * runs the same animation half a cycle behind, so the pair is always showing
+ * exactly one of itself.
+ */
+@keyframes tile-face {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.set-tile-swap > .set-tile-face {
+    animation: tile-face 2.4s step-end infinite;
+}
+
+.set-tile-swap > .set-tile-face-alt {
+    animation-delay: -1.2s;
+}
+
+/*
+ * A game's name that is wider than its tile's fifth of the row runs through it
+ * in a loop, as a ticker does: a rest where it starts, and then it moves off to
+ * the left with a copy of itself following, until the copy stands where the
+ * name stood and the loop starts again -- with nothing to see where it joins.
+ * A name that fits stands still. The owner's call, 26 November 2026; see
+ * NAME_FACE in catalog.js for the history.
+ *
+ * All of it CSS, and nothing measured. The room there is comes from the label,
+ * as --name-room -- worked out in catalog.js, see NAME_ROOM -- and inside the
+ * name's own box 100% is the name itself (a percentage in translate and in
+ * `left` is the box's own width, or its containing block's). Then:
+ *
+ *  - The way it moves, clamp(-100% - gap, (room - 100%) * 1000, nought): the
+ *    middle term is a large step one way or the other, depending on whether the
+ *    name is wider than the room, and the clamp turns it into one of the two
+ *    ends -- the full turn of the loop for a long name, nothing for a short one.
+ *    Nought is --name-zero and not a 0px written in: the minifier of the
+ *    store's build (clean-css, build-min.sh) writes a 0px as a bare 0, which is
+ *    a number and not a length, and a clamp with both in it is thrown away
+ *    whole. A custom property it leaves as it is.
+ *
+ *  - The copy stands a gap after the name, or, after a short one, a whole room
+ *    after it (max(gap, room - 100%)), which is past the edge it is clipped at
+ *    from wherever a short name stands centred. Out of the flow, so the name's
+ *    box is the name alone: a short one is centred by it, a long one starts at
+ *    the left, which is where text that overflows its line stands.
+ *
+ * Nothing newer than clamp() and max() (Chrome 79, Safari 13.1). The room was
+ * read off the face in container units for a day, and on an old phone, which
+ * knows none, the names stood still and a short one read twice: a line with a
+ * var() in it is not dropped where a value is unknown, as a plain one is, but
+ * goes to its initial value, and the copy's `left` went to auto -- right after
+ * the name. A browser older still, with no max(), has the copy hidden below.
+ *
+ * A short name still has the animation, which moves it by nought: what a
+ * measurement would have saved is a translation the compositor does by
+ * itself. One speed for all is the thing CSS cannot do -- a duration cannot be
+ * worked out from a length -- so a longer name goes a little faster; the two
+ * long ones today are 61 and 70 pixels.
+ *
+ * Stopped for those who asked for less motion, below: the name stays at its
+ * start, clipped at the edge, and its copy out of sight past it.
+ */
+.set-tile-name {
+    --name-gap: 1em;
+    --name-zero: 0px;
+
+    display: inline-block;
+    position: relative;
+    animation: tile-name-roll 9s linear infinite;
+}
+
+.set-tile-name-again {
+    position: absolute;
+    top: 0;
+    left: calc(100% + max(var(--name-gap), var(--name-room) - 100%));
+}
+
+@supports not (left: max(1px, 2px)) {
+    .set-tile-name-again {
+        display: none;
+    }
+}
+
+@keyframes tile-name-roll {
+    0%, 22% { transform: translateX(0); }
+    100% { transform: translateX(clamp(-100% - var(--name-gap), (var(--name-room) - 100%) * 1000, var(--name-zero))); }
+}
+
+/*
+ * The shade along the top and the foot of a set's words, when they scroll (see
+ * WORDS_CAP in catalog.js): a band that darkens to the edge, over the bubbles,
+ * which go under it as they scroll by (the owner, 26 November 2026). On the
+ * frame round the box rather than in it, where the box's own flex row would
+ * take it for one more bubble; the two have the same edges, and the frame does
+ * not scroll. Over the bubbles by z-index -- one with a timer is lifted to 1, see
+ * createBubble -- and not in the way of a press.
+ *
+ * Only where there is something to scroll. A set whose words all fit has
+ * nothing going under its edges, and a shade there would be a band across the
+ * card for no reason. Told apart in CSS alone, by the box's scroll timeline:
+ * with nothing to scroll the timeline is inactive, an animation on it has no
+ * effect, and the shade stays at its opacity of nought; with something to
+ * scroll the animation holds it at 1, wherever the scroll is -- the shade at
+ * the foot stays at the end of the list too, as the owner had it in the draft
+ * of the drawer (v5). The name is the frame's own (timeline-scope), so each
+ * set's shade answers to its own box. Where scroll timelines are not known
+ * (Firefox, for now) there is no shade, and the box scrolls as before.
+ *
+ * The colour is the card's own (palette.cardBg, as --words-shade on the frame),
+ * so the bubbles fade into the card at the edges rather than into a shadow --
+ * the owner's call, the same day, after a dark one on both themes.
+ *
+ * Each band reaches two pixels out past the box's edge, over the card's empty
+ * air above and below it, and its first three pixels are the colour whole: the
+ * card's colour on the card's colour, which is nothing to see, and covers the
+ * edge whatever the bubbles do there. Laid to the edge, it left a hairline of
+ * bubbles showing over the top band and under the bottom one on an old phone
+ * (reported by the owner, 26 November 2026): the app's zoom puts the edge
+ * between two of the screen's pixels, and what the box cuts its bubbles off at
+ * and where the band starts were rounded apart. A pixel past the edge was tried
+ * first, with the frame clipping like the box, and the line stayed: the frame
+ * cut the overhang off at the very edge it was there to cover. So the frame
+ * clips nothing -- the box cuts its own bubbles -- and the bands stand out of
+ * it into air that is the card's.
+ */
+.set-words-frame {
+    position: relative;
+    timeline-scope: --set-words;
+}
+
+.set-words-bubbles {
+    scroll-timeline: --set-words block;
+
+    /* A layer of its own, for the bubbles in it to lie one under the next below
+       nought (see `lift` in createBubble) without going under the card, and
+       under the shade over them (the z-index above) whatever their order. */
+    isolation: isolate;
+}
+
+.set-words-frame::before,
+.set-words-frame::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    animation: words-shade linear both;
+    animation-timeline: --set-words;
+}
+
+.set-words-frame::before {
+    top: -2px;
+    background: linear-gradient(var(--words-shade) 3px, transparent);
+}
+
+.set-words-frame::after {
+    bottom: -2px;
+    background: linear-gradient(transparent, var(--words-shade) calc(100% - 3px));
+}
+
+@keyframes words-shade {
+    from, to { opacity: 1; }
+}
+
+/*
+ * A word bubble's shape: small corners, no two of one size, and edges a
+ * little uneven, as if cut out by hand -- the paper cards of Flashcards,
+ * brought to the catalog in their shape alone (the owner, 25 November 2026).
+ * The flat colour, the sizes and the type are what they were. For a day a set
+ * could be put back to the even shape, rounded by 12px, from its view menu; the
+ * owner had that choice taken away on 26 November 2026, and this is the only
+ * shape -- see dropRetiredViews in migrate.js for what it left behind.
+ *
+ * The colour is a layer of its own under the words, cut to the shape with
+ * clip-path. Not the bubble itself: the timer's badge hangs over its corner and
+ * would be cut with it. It is a pseudo-element, so there is nothing in the
+ * markup but the colour, `--bubble`.
+ *
+ * Each shape is written in shares of the bubble and pixels in from its edges,
+ * so one does for a bubble of any size, and the corners never stretch. Seven of
+ * them, taken in turn along a row: enough that two alike are never side by side.
+ * Generated (a random hand with a limit of 1.25px) and written down, rather than
+ * made as the page opens: nothing to compute, and the same at every draw. Which
+ * shape a bubble has comes of where it stands, and means nothing.
+ *
+ * shape() is Chrome 135, Safari 18.4. Where it is not known the property falls
+ * away with it, and the bubble is a plain rectangle with small round corners.
+ *
+ * What was tried before it, on the same cards (25 November 2026): a picture in
+ * nine slices (border-image), which needs one for every colour, made by script
+ * at the opening; as an SVG it was drawn over again for every bubble coming into
+ * sight and dropped a frame in ten of a scroll; a filter that roughens the edge
+ * (feDisplacementMap), which roughens the words too and costs more than all of
+ * them; corners of eight different radii, whose edges stay straight.
+ */
+.bubble-uneven {
+    position: relative;
+    isolation: isolate;
+}
+
+.bubble-uneven::before {
+    content: '';
+    position: absolute;
+    top: -0.4px;
+    right: -0.4px;
+    bottom: -0.4px;
+    left: -0.4px;
+    z-index: -1;
+    border-radius: 6px;
+    background: var(--bubble);
+    clip-path: var(--bubble-edge);
+    pointer-events: none;
+}
+
+.bubble-uneven:nth-child(7n+1) {
+    --bubble-edge: shape(from 5.1px 0.63px, curve to 43% 0.24px with 24% 0.59px, curve to calc(100% - 5.3px) 0.77px with 68% 0.12px, curve to calc(100% - 0.38px) 5.3px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.11px) 43% with calc(100% - 0.74px) 30%, curve to calc(100% - 1.21px) calc(100% - 6.2px) with calc(100% - 0.82px) 72%, curve to calc(100% - 6.2px) calc(100% - 0.78px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.08px) with 76% calc(100% - 0.24px), curve to 5.1px calc(100% - 0.3px) with 22% calc(100% - 0.97px), curve to 0.41px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.74px 48% with 0.65px 74%, curve to 0.62px 5.1px with 0.83px 27%, curve to 5.1px 0.82px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+2) {
+    --bubble-edge: shape(from 5.1px 0.01px, curve to 39% 0.6px with 23% 0.86px, curve to calc(100% - 5.6px) 0.75px with 74% 0px, curve to calc(100% - 0.78px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.22px) 53% with calc(100% - 0.2px) 27%, curve to calc(100% - 0.07px) calc(100% - 5.6px) with calc(100% - 1.02px) 71%, curve to calc(100% - 5.6px) calc(100% - 0.64px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 55% calc(100% - 0.85px) with 77% calc(100% - 0.02px), curve to 4.3px calc(100% - 0.08px) with 32% calc(100% - 0.64px), curve to 0.11px calc(100% - 4.3px) with 0.5px calc(100% - 0.5px), curve to 1.23px 56% with 0.14px 76%, curve to 1.21px 5.1px with 0.67px 28%, curve to 5.1px 0.7px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+3) {
+    --bubble-edge: shape(from 4.6px 0.23px, curve to 37% 0.83px with 19% 0.8px, curve to calc(100% - 5.6px) 0.23px with 67% 0.66px, curve to calc(100% - 0.27px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.37px) 55% with calc(100% - 0.16px) 24%, curve to calc(100% - 1.24px) calc(100% - 5.6px) with calc(100% - 1.04px) 71%, curve to calc(100% - 5.6px) calc(100% - 1.09px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 62% calc(100% - 1.11px) with 80% calc(100% - 1.03px), curve to 6px calc(100% - 0.93px) with 24% calc(100% - 0.99px), curve to 0.32px calc(100% - 6px) with 0.5px calc(100% - 0.5px), curve to 1.06px 57% with 1.12px 78%, curve to 0.71px 4.6px with 0.54px 26%, curve to 4.6px 1.11px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+4) {
+    --bubble-edge: shape(from 4.3px 0.34px, curve to 38% 0.36px with 17% 0.82px, curve to calc(100% - 5.7px) 0.38px with 76% 1.09px, curve to calc(100% - 0.49px) 5.7px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.14px) 50% with calc(100% - 0.28px) 29%, curve to calc(100% - 0.45px) calc(100% - 5.6px) with calc(100% - 0.33px) 78%, curve to calc(100% - 5.6px) calc(100% - 0.19px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.83px) with 80% calc(100% - 0.21px), curve to 6.3px calc(100% - 0.81px) with 23% calc(100% - 0.74px), curve to 0.03px calc(100% - 6.3px) with 0.5px calc(100% - 0.5px), curve to 0.34px 54% with 0.5px 77%, curve to 1.12px 4.3px with 0.12px 29%, curve to 4.3px 0.86px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+5) {
+    --bubble-edge: shape(from 6.3px 1.23px, curve to 34% 0.07px with 18% 1.07px, curve to calc(100% - 4px) 1.25px with 69% 0.15px, curve to calc(100% - 0.58px) 4px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.44px) 54% with calc(100% - 0.33px) 27%, curve to calc(100% - 1.17px) calc(100% - 5.8px) with calc(100% - 0.26px) 75%, curve to calc(100% - 5.8px) calc(100% - 1px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.38px) with 84% calc(100% - 0.53px), curve to 4.4px calc(100% - 0.72px) with 28% calc(100% - 0.61px), curve to 0.58px calc(100% - 4.4px) with 0.5px calc(100% - 0.5px), curve to 1px 56% with 0.71px 77%, curve to 0.51px 6.3px with 1.08px 24%, curve to 6.3px 0.61px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+6) {
+    --bubble-edge: shape(from 4.9px 0.51px, curve to 44% 0.89px with 19% 0.79px, curve to calc(100% - 5.2px) 0.01px with 70% 1.02px, curve to calc(100% - 0.83px) 5.2px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.19px) 51% with calc(100% - 0.03px) 27%, curve to calc(100% - 1.2px) calc(100% - 5px) with calc(100% - 0.32px) 72%, curve to calc(100% - 5px) calc(100% - 1.01px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 60% calc(100% - 0.79px) with 83% calc(100% - 0.57px), curve to 5.1px calc(100% - 0.78px) with 26% calc(100% - 1.23px), curve to 0.98px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.45px 55% with 0.98px 75%, curve to 0.62px 4.9px with 0.65px 25%, curve to 4.9px 1.19px with 0.5px 0.5px);
+}
+
+.bubble-uneven:nth-child(7n+7) {
+    --bubble-edge: shape(from 5.3px 0.96px, curve to 45% 0.68px with 20% 0.14px, curve to calc(100% - 5.9px) 0.03px with 72% 1.02px, curve to calc(100% - 0.52px) 5.9px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.07px) 52% with calc(100% - 0.8px) 30%, curve to calc(100% - 0.17px) calc(100% - 6.3px) with calc(100% - 0.69px) 72%, curve to calc(100% - 6.3px) calc(100% - 1.02px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.19px) with 84% calc(100% - 0.7px), curve to 4.7px calc(100% - 1.19px) with 25% calc(100% - 0.41px), curve to 0.15px calc(100% - 4.7px) with 0.5px calc(100% - 0.5px), curve to 0.89px 44% with 0.39px 71%, curve to 0.63px 5.3px with 1.07px 29%, curve to 5.3px 1.25px with 0.5px 0.5px);
+}
+
+/*
+ * What a word bubble does while it waits its turn.
+ *
+ * A word whose time has come hops. It says the same thing the missing timer
+ * badge says, but from across the screen and without being read — which set has
+ * something to do in it is the one question the catalog is opened to answer.
+ *
+ * A word still ripening hops the same hop, fifteen times slower. One set of
+ * keyframes for both, and only the duration between them: at that speed the
+ * movement stops being a hop and becomes breathing, which is the difference
+ * worth showing — one word asking to be answered, the other waiting its turn.
+ *
+ * Every value here is a third of what it started as. At full size the hop was a
+ * jump; the point is to catch the eye at the edge of it, not to hold the eye in
+ * the middle of it.
+ *
+ * Keyframes cannot be written in a style attribute, so they live here with the
+ * placeholder rule below. How fast a bubble takes them is decided in
+ * catalog.js, where the stage and the timer are known.
+ */
+@keyframes bounce {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.0022 1.0333; transform: skew(1.111deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.222deg; }
+    75% { scale: 1.0022 1.0556; transform: skew(-0.222deg, 0deg); }
+}
+
+/*
+ * The same hop on the word "Bounce" in the set's view menu, which says what the
+ * switch does by doing it -- see viewMenu in catalog.js. Stretched further,
+ * because a stretch is a share of the height: what is two pixels on a bubble
+ * forty tall would be under one on a word fifteen tall, and not seen at all.
+ */
+@keyframes bounce-word {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.006 1.09; transform: skew(3deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.6deg; }
+    75% { scale: 1.006 1.15; transform: skew(-0.6deg, 0deg); }
+}
+
+/*
+ * A timer plate breathing, in the dialog that turns a game away while every
+ * word is still counting down -- see confirmEarly in catalog.js.
+ *
+ * The hop above was tried there first and cannot be seen: it is cut to a
+ * bubble, where its widest moment stretches a thing by a twentieth, and a
+ * twentieth of a badge is two thirds of a pixel. True in the numbers, absent
+ * from the screen.
+ *
+ * So the badge is given the one motion a thing that small can wear -- the whole
+ * of it growing and shrinking about its own middle. Nothing leans, nothing
+ * tilts: a pill two characters wide has no room to do either legibly.
+ *
+ * It also keeps the two apart in meaning, which matters more than the size
+ * does. The hop is a word asking to be answered, and the menu behind a set's
+ * eye says as much by name. This plate is the opposite -- a word that cannot be
+ * answered yet -- so it must not arrive wearing the motion the app has taught as
+ * "now".
+ *
+ * An eighth bigger at the top, which on a plate this size is a few pixels: far
+ * enough to be caught by the corner of an eye, near enough that nothing beside
+ * it has to move out of the way.
+ */
+@keyframes timer-pulse {
+    0%, 100% { scale: 1; }
+    50% { scale: 1.12; }
+}
+
+/*
+ * One piece of the confetti that comes down over a finished snake board.
+ *
+ * It falls, and that is the whole of it: in above the top edge, out below the
+ * bottom one, drifting a little to one side and turning over on the way.
+ *
+ * Linear, with no easing at all, which is the one thing that makes falling
+ * paper look like falling paper: it reaches its speed in the first inch and
+ * keeps it. An eased fall accelerates the whole way down, which is what a stone
+ * does. How fast is each piece's own business — see the script — and pieces at
+ * different speeds are what turn a curtain coming down into rain.
+ *
+ * The sway is four stops of lean, one way and then the other, and it is the
+ * difference between confetti and a screen of falling dots. It rides on top of
+ * the drift rather than replacing it, so a piece wanders as it goes across.
+ *
+ * Everything else about where a piece goes arrives as custom properties — one
+ * rule, four dozen paths. --fall is how far down it goes, --dx how far across,
+ * --sway how wide it wanders doing it, --spin how far it turns.
+ *
+ * It fades in at the top and out at the bottom, so that nothing is seen either
+ * appearing out of nowhere or stopping in mid-air.
+ */
+@keyframes snake-rain {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    25% { transform: translate(calc(var(--dx) * 0.25 + var(--sway)), calc(var(--fall) * 0.25)) rotate(calc(var(--spin) * 0.25)); }
+    50% { transform: translate(calc(var(--dx) * 0.5 - var(--sway)), calc(var(--fall) * 0.5)) rotate(calc(var(--spin) * 0.5)); }
+    75% { transform: translate(calc(var(--dx) * 0.75 + var(--sway)), calc(var(--fall) * 0.75)) rotate(calc(var(--spin) * 0.75)); }
+    88% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--fall)) rotate(var(--spin)); opacity: 0; }
+}
+
+/*
+ * A stranger put out with a word, going once the word is collected -- see
+ * view.sweep in snake.js: a little swell, and shrunk away to nothing.
+ */
+@keyframes snake-sweep {
+    0% { transform: scale(1); opacity: 1; }
+    30% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.2); opacity: 0; }
+}
+
+/*
+ * Motion that never stops is exactly what this setting is set for, and a screen
+ * of bubbles all moving at once is the worst of it. The colours and the badge
+ * carry the same information standing still.
+ *
+ * The confetti is the other kind — it happens once and is over — but it is
+ * also the loudest thing in the app, so it goes as well. Nothing is lost with
+ * it: the banner says Victory in words.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .word-bubble-card,
+    .set-view-hop,
+    .set-tile-name {
+        animation: none !important;
+    }
+
+    /* The badge in the early dialog, which breathes. The one in a bubble has no
+       animation of its own -- it is carried by the bubble, stopped above. */
+    .bubble-timer-badge {
+        animation: none !important;
+    }
+
+    .snake-confetti {
+        display: none !important;
+    }
+}
+
+/* A placeholder cannot be styled from a style attribute, so this one rule lives
+   here. Mid grey on purpose: readable on the white input of the light theme and
+   on the near black one of the dark theme alike. */
+.set-edit-textarea::placeholder,
+.dict-feedback-text::placeholder {
+    color: #94a3b8;
+}
+
+/*
+ * The box at the foot of the list, one line tall until there is more to show --
+ * see feedbackBox in catalog.js.
+ *
+ * Left to the browser rather than measured. Measuring means setting the height
+ * back to auto first, which shortens the page for an instant, and this stands at
+ * the very bottom of it: the page would be scrolled back up a little on every key.
+ * Where the browser cannot do it the field stays one line, with a handle to drag.
+ */
+.dict-feedback-text {
+    field-sizing: content;
+    resize: none;
+}
+
+@supports not (field-sizing: content) {
+    .dict-feedback-text {
+        resize: vertical;
+    }
+}

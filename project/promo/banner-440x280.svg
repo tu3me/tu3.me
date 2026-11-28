@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+    <!--
+        Small promo tile, 440x280 — the Chrome Web Store size.
+
+        The app's own ground and the app's own logo, at the geometry
+        make-icons.py and the header both draw it. Nothing invented for the
+        picture, so the tile and the thing it advertises are recognisably one
+        product.
+
+        The three things inside are named in the three game colours, lightened.
+        registry.js paints its buttons in coral, gold and mint for a white
+        label on top of them; the same colours as text on this ground are
+        dimmer than they should be, so each is taken a few steps up its own hue:
+        4.89 to 7.19, 6.45 to 8.42, 6.79 to 8.76. Lighter still washes the hue
+        out and they stop being the app's colours.
+
+        Two of the three are broken over two lines, and that is what buys the
+        size. Whole, "flashcards" is 158 wide at 24px and holds the whole row
+        down to that; split, the widest column is "cards" and the row runs at
+        36px — 94, 131 and 148, which with two gaps of 14 fills the 400 between
+        the margins. At 38 the gaps fall to 3 and the columns run together.
+
+        Lower case rather than capitals: the same words in capitals are a fifth
+        wider and cap the row at 30px. Six points of size is worth more here
+        than the density capitals would add, and the name above stays the only
+        thing set in them.
+
+        "quizzes" stays whole, so a single word sits between two stacked pairs.
+        That is why it is centred on their two lines rather than set on the
+        first: the three read as one row of three things.
+
+        The two single words are centred against that two-line column rather
+        than sharing its first baseline, so the row reads as three things of
+        equal weight and not as a list with something hanging off it.
+
+        The logo is centred on the name rather than hung from the same top edge,
+        which is what the header does with the two beside each other. Measured:
+        the drawn logo runs 44 to 124 and the two lines of the name 40 to 146,
+        so their middles are 84 and 93 — the nine pixels between them are what
+        the translate below takes out.
+    -->
+    <defs>
+        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1b4a63" />
+            <stop offset="0.55" stop-color="#11374c" />
+            <stop offset="1" stop-color="#0a2130" />
+        </linearGradient>
+
+        <radialGradient id="glow" cx="0.18" cy="0.28" r="0.55">
+            <stop offset="0" stop-color="#56c4a6" stop-opacity="0.22" />
+            <stop offset="1" stop-color="#56c4a6" stop-opacity="0" />
+        </radialGradient>
+    </defs>
+
+    <rect width="440" height="280" fill="url(#ground)" />
+    <rect width="440" height="280" fill="url(#glow)" />
+
+    <g transform="translate(30 45) scale(3)">
+        <g transform="rotate(-7 16 16)">
+            <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a" />
+            <circle cx="11.37" cy="16" r="4.86" fill="none" stroke="#ffffff" stroke-width="2.83" />
+            <circle cx="23.02" cy="16" r="3.01" fill="none" stroke="#ffffff" stroke-width="1.75" />
+        </g>
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" fill="#eef6f7">
+        <text x="148" y="92" font-size="48" font-weight="800" letter-spacing="11.3">SPACED</text>
+        <text x="148" y="136" font-size="38" font-weight="700" letter-spacing="2.85">REPETITION</text>
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+       font-size="36" font-weight="800" text-anchor="middle">
+        <text x="66" y="205" fill="#ff9d88">flash</text>
+        <text x="66" y="243" fill="#ff9d88">cards</text>
+        <text x="193" y="223" fill="#ecc04a">quizzes</text>
+        <text x="346" y="205" fill="#72dcbe">memory</text>
+        <text x="346" y="243" fill="#72dcbe">games</text>
+    </g>
+</svg>

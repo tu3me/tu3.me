@@ -1,0 +1,6756 @@
+/**
+ * The catalog — the start screen: word sets, their progress bubbles, the theme
+ * toggle and the entry points into the games. Owns the bubble rendering and the
+ * "nothing to repeat yet" dialog, since nothing else uses them.
+ *
+ * It learns which mechanics exist only from GAMES, and which session is
+ * unfinished only from active_session. It never reads a game's own state.
+ */
+function catalog(container) {
+    let palette = {};
+
+    // The unfinished session, or null. Handed in at boot.
+    let session = null;
+
+    /*
+     * The two answers the app is built on: the language the reader has, and the
+     * languages they want.
+     *
+     * A property of the person and not of a set, which is why they are asked
+     * once and kept in the settings: somebody learning Spanish is learning it in
+     * every set they open, and being asked again per set is being asked the same
+     * question all day.
+     *
+     * Nothing is guessed. Until the pair of questions has been answered there is
+     * no shelf to filter and no set to make, so the first screen is the question
+     * itself -- see askLanguages.
+     */
+    let myLang = null;
+
+    let learnLangs = [];
+
+    /*
+     * Whether the two questions have been put at all, which is not the same as
+     * whether they were answered.
+     *
+     * Skip is a real answer: somebody who opens the app to look at it does not
+     * owe it a language before being allowed in, and the starting set is enough
+     * to see what the thing does. Without this flag the screen would have no way
+     * to tell "has not decided" from "decided not to", and would ask again on
+     * every visit -- which is how a question becomes a wall.
+     */
+    let langsAsked = false;
+
+/*
+     * Which cards have their form open, and what has been typed into each.
+     *
+     * Not on the set objects: store.save() writes the list whole, so anything
+     * left on a set becomes domain data, and a box holding "banana --" is not a
+     * set. It lives beside them under a key of its own instead -- the same deal
+     * the games get for a session they have not finished.
+     *
+     * It used to live nowhere at all, and a form went with the window. In a
+     * popup that is not a reload, it is a glance: look a word up somewhere else,
+     * come back, and what had been typed was never there.
+     *
+     * The text is what is kept, not the set it would parse to. Half a line is an
+     * ordinary state for a box to be in, and a parser handed "banana --" either
+     * drops the half or invents the rest.
+     */
+    const editing = new Set();
+
+    // What an open form holds: the box's text, the language chosen for each side
+    // of the whole set, and the picks made for single words. Keyed by set id,
+    // the draft's own id included.
+    const openForms = new Map();
+
+    /*
+     * The set the New Set form is writing, and null when no such form is open.
+     *
+     * Outside the store, and that is the whole point of it. It used to be added
+     * to the list on the press and taken back out by Cancel, which left every
+     * other way off this screen leaking it: store.save() writes the list whole,
+     * so tapping a game on another card — nav.game saves before it navigates —
+     * wrote an untitled empty set into the database. It came back at the top of
+     * the catalog with its own "Set is empty" and its own row of games, and the
+     * only way to be rid of it was to open it and save it empty. Kept out of the
+     * list, there is no save anywhere that can see it.
+     */
+    let draft = null;
+
+    /*
+     * The open forms as they stand, written after every change rather than when
+     * a form is closed.
+     *
+     * There is no closing to hook. A popup goes when it loses focus, without
+     * warning and without asking, and an unload handler could not finish the
+     * write anyway: it returns, and the commit lands after it, with the page
+     * already gone. So the record is kept current instead of being made correct
+     * at the end, and a badly timed close costs the last keystroke, which the
+     * next one puts back.
+     *
+     * The whole list goes every time. It is a handful of strings, and a write
+     * that carries everything cannot leave half of an older one behind.
+     */
+    function saveForms() {
+        const list = [];
+
+        openForms.forEach((form, id) => list.push({
+            id: id,
+            isDraft: !!draft && draft.id === id,
+            text: form.text,
+            choice: form.choice
+        }));
+
+        return storage.set('open_forms', list);
+    }
+
+    // Opening a form is already worth remembering: a box someone opened and left
+    // empty is still a box they opened.
+    function rememberForm(id, text) {
+        openForms.set(id, {
+            text: text,
+            choice: { originalLang: null, translationLang: null }
+        });
+
+        return saveForms();
+    }
+
+    function forgetForm(id) {
+        openForms.delete(id);
+        return saveForms();
+    }
+
+    // What the box shows for a set nobody has typed into yet.
+    function setAsText(set) {
+        return [set.title].concat(set.words.map(w => `${w.original} -- ${w.translation}`)).join('\n');
+    }
+
+    // Whether the next draw should grow the bars out of nothing. Armed by
+    // catalog.render(), which is the entry the page itself calls — opening the
+    // catalog, or coming back to it from a game. The redraws the screen does to
+    // itself, toggling the theme or opening an edit form, call render() straight
+    // and leave it alone: replaying the animation every time a set is saved is
+    // fidgety rather than lively.
+    let introduce = false;
+
+    // Armed by the New Set button just before the redraw it causes, and spent by
+    // that redraw. The catalog rebuilds itself wholesale, so the form arrives as
+    // a brand new element with no past to animate out of: the only way to move
+    // it is to hand it a starting state and let it off a frame later.
+    let unfolding = null;
+
+    // Whether the settings panel is open. Screen state like the edit form: it
+    // has no business surviving a reload.
+    let settingsOpen = false;
+
+    // The set whose view menu is open, as the text of its id. Screen state like
+    // the panel above -- see viewMenu.
+    let viewFor = null;
+
+    /*
+     * Whether everything under the theme switch is folded out.
+     *
+     * Shut to begin with, and that is the point of it: the panel is opened to
+     * change the theme or to wipe the data, and what lay between those two was
+     * a question about word boundaries and fifteen numbers. Both are worth
+     * having and neither is worth meeting on the way past.
+     *
+     * Drawn as a heading and not as a row — small caps in the hint colour with
+     * a rule running off to the edge, no pill and no border. In the pill it
+     * wore first it was the third switch in a column of switches, and a switch
+     * is a thing that has a state: it read as a setting called Advanced that
+     * was currently off.
+     */
+    let advancedOpen = false;
+
+    // Whether the interval ladder is folded out. Panel state like the hint
+    // above it, and it outlives a redraw for a sharper reason: every interval
+    // taken redraws the catalog under the panel, and a section that put itself
+    // away each time would be a section you can change one number in.
+    let intervalsOpen = false;
+
+    // Whether the list of codes used before is folded out, what the code field
+    // holds when it is not this device's own code, and what was said last
+    // about it. Panel state like the folds above: a redraw under the panel
+    // should not take away a code half typed or the answer it got.
+    let pastOpen = false;
+    let syncTyped = null;
+    let joinNote = '';
+
+    // Set while the form is folding shut. The fold has to finish before the set
+    // behind it is dropped, and until then the button still works — a second
+    // press would start a second fold on a card that is already half gone.
+    let closing = false;
+
+    // The ramp lives in tokens.js. Captured once and never rebound: it is the
+    // same in both themes, because a stage means the same thing in both.
+    const stageRamp = tokens.stages();
+
+    function getStageColors(stage) {
+        const idx = Math.min(Math.max(stage || 0, 0), stageRamp.length - 1);
+        return stageRamp[idx];
+    }
+
+    /*
+     * The logo, drawn rather than loaded.
+     *
+     * It used to be icons/icon-128.png, and a PNG cannot be recoloured — the
+     * blue is baked into the pixels. Redrawn here it takes a fill like anything
+     * else, and it stays sharp at any size instead of being a 109.3px bitmap
+     * squeezed into 32.
+     *
+     * The geometry is make-icons.py's, resolved to a 32-unit grid: a landscape
+     * card tilted seven degrees with two rings on it, the left one larger, which
+     * is what gives the face its puzzled look. The tilt scaling that script
+     * applies so the turned card still fits its canvas is baked into the numbers
+     * below.
+     *
+     * Drawn at LOGO_SIZE, which is a few pixels taller than the two-line
+     * wordmark beside it. Matching that height exactly makes the mark look like
+     * a third line of the text rather than the thing the text is next to.
+     *
+     * It was cut to 29 for a while, to make this header exactly as tall as the
+     * games' row of 29px buttons. The two screens are still one app, but the
+     * catalogue's header is the only place the app says its own name, and a mark
+     * sized to a row of buttons on another screen is a mark sized by something
+     * that is not on this one.
+     */
+    const LOGO_SIZE = 34.1;
+
+    /*
+     * The two rings of the mark, which are eyes: a dark pupil inside a thin
+     * white ring, the same face the snake's head wears — see EYES in
+     * snake.js. They were hollow outlines once, and a press on the mark
+     * switched between the two; the switch is gone and the eyes stayed.
+     *
+     * The pupil is the dark theme's own ground, written out rather than taken
+     * from tokens: one fixed value in both themes, the way the game colours
+     * are, and a pupil that followed the theme would be a mark that changes
+     * when the page does. Not black, which on this coral is a hole punched
+     * through the card; this is the navy the whole app is built on, and at
+     * this size it reads as a dark that belongs to something.
+     *
+     * Shut is a line across the eye — the same eye with the lid down, and
+     * the same drawing the snake closes with.
+     *
+     * An eye is written as the two circles a reader actually sees: `eye`, how
+     * far the white reaches, and `pupil`, where the dark ends. The ring
+     * between them is whatever is left over. SVG wants the other pair — a
+     * path radius with a stroke straddling it — and converting is two sums,
+     * which is a better place for the arithmetic than a comment explaining
+     * that a radius of 4.4 and a stroke of 2.4 happen to make an eye of 5.6.
+     *
+     * It also keeps the one rule this drawing has: the left eye is the larger
+     * of the two, and how much of it is pupil is a separate question from how
+     * big it is. The left pupil is the smaller share on purpose — two pupils
+     * of the same size in eyes of different sizes is what a face does when it
+     * is looking at something.
+     */
+    const RINGS = [
+        { cx: 11.37, eye: 5.61, pupil: 3.2 },
+        { cx: 23.02, eye: 3.76, pupil: 2.26 }
+    ];
+
+    const RING_INK = '#0f2b3c';
+    const LID = 1.5;
+
+    let ringsShut = false;
+
+    function ringsSvg() {
+        return RINGS.map(ring => ringsShut
+            ? `<path d="M${ring.cx - ring.eye + LID / 2} 16H${ring.cx + ring.eye - LID / 2}" fill="none"
+                    stroke="#ffffff" stroke-width="${LID}" stroke-linecap="round" />`
+            : `<circle cx="${ring.cx}" cy="16" r="${(ring.eye + ring.pupil) / 2}" fill="${RING_INK}"
+                    stroke="#ffffff" stroke-width="${ring.eye - ring.pupil}" />`).join('');
+    }
+
+    // `glad`: the eyes of an update -- see updated. In a group of another
+    // name, so that the blink, which looks for the rings, passes them by.
+    //
+    // A mark smaller than LOGO_SIZE stands in the middle of the room the
+    // usual one takes, so that the name beside it stays where it always is
+    // (the owner, 3 November 2026: the name moved with the smaller mark).
+    function logoSvg(fill, size, glad) {
+        return `<svg class="dict-logo" width="${size}" height="${size}" viewBox="0 0 32 32"
+            aria-hidden="true" style="display: block; flex-shrink: 0; margin: 0 ${(LOGO_SIZE - size) / 2}px;">
+            <g transform="rotate(-7 16 16)">
+                <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="${fill}" />
+                ${glad ? `<g class="dict-logo-glad">${GLAD_EYES}</g>` : `<g class="dict-logo-eyes">${ringsSvg()}</g>`}
+            </g>
+        </svg>`;
+    }
+
+    // The name beside the mark, in two lines
+    const WORDMARK = `<span class="dict-wordmark" style="display: block; line-height: 1.06;">
+            <span class="dict-wordmark-top" style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span>
+            <span class="dict-wordmark-bottom" style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span>
+        </span>`;
+
+    /*
+     * The blink. It runs from the first render to the end of the page, and it
+     * is the one place in this file that changes what is on screen without
+     * redrawing it.
+     *
+     * Everything else here answers a press, and a press is rare enough that
+     * rebuilding the catalog costs nothing. This happens every few seconds for
+     * as long as the mark is wearing eyes, and a redraw on that clock would
+     * restart every bubble's animation on the shelf below — the whole page
+     * twitching in time with a blink. So the two rings are replaced where they
+     * stand, in a group of their own kept for exactly that.
+     *
+     * The group is looked up again on every beat rather than held: a redraw for
+     * some other reason throws the old svg away, and a reference to it would go
+     * on blinking an element that is no longer in the page.
+     *
+     * The gap is uneven, for the reason snake.js gives at its own blink: on a
+     * metronome it reads as a machine.
+     *
+     * Started once, from the first render, and never stopped: there is one
+     * catalog page and it lives as long as the tab does.
+     */
+    const BLINK_SHUT_MS = 130;
+    const BLINK_GAP_MS = 2400;
+
+    let blinkTimer = null;
+    let blinking = false;
+
+    function startBlinking() {
+        if (blinking) return;
+
+        blinking = true;
+        blinkLogo();
+    }
+
+    function blinkLogo() {
+        clearTimeout(blinkTimer);
+
+        ringsShut = false;
+
+        blinkTimer = setTimeout(() => {
+            ringsShut = true;
+            paintRings();
+
+            blinkTimer = setTimeout(() => {
+                ringsShut = false;
+                paintRings();
+                blinkLogo();
+            }, BLINK_SHUT_MS);
+        }, BLINK_GAP_MS + Math.random() * 2000);
+    }
+
+    function paintRings() {
+        const eyes = container.querySelector('.dict-logo-eyes');
+        if (eyes) eyes.innerHTML = ringsSvg();
+    }
+
+    /*
+     * The app has just been updated: until the page is loaded again the mark
+     * is the updated one -- a size smaller, its eyes shut in two glad arcs --
+     * and over it a note says "Updated", tilted, in the ink of the buttons
+     * across the header. The owner's call, 3 November 2026: draft 130 in
+     * drafts/logo-updated/note-lower.html, the eyes of draft 116. Earlier
+     * the same day it was a band of gold run twice across the mark and the
+     * name, and it went for this.
+     *
+     * Updated is the stamp in the code -- the version, and when the code was
+     * last changed, see core/stamp.js -- against the one this device saw
+     * last. The time changes with every change, so every deploy is an update,
+     * and every change while testing; the version alone stayed the same across
+     * deploys. Kept in localStorage -- this device's own, and wanted before
+     * the first drawing -- and written at once, so that the next page with the
+     * same code shows the mark as it always is. A device's first visit has
+     * nothing to compare and is not an update.
+     *
+     * Asked once for the page and not at each drawing: the catalog is drawn
+     * again for many reasons -- a sync landing, a press -- and the mark stays
+     * the updated one through all of them, to the end of the page.
+     *
+     * A press on the mark puts the same look on it whether or not the app was
+     * updated, and the next press takes it off, until the catalog is next
+     * drawn; nothing is kept -- the owner's calls, the same day. See the
+     * header in render.
+     */
+    const SEEN_STAMP_KEY = 'seen-stamp';
+
+    const updated = (() => {
+        const stamp = CODE_STAMP.version + ' ' + CODE_STAMP.changed;
+
+        try {
+            const seen = localStorage.getItem(SEEN_STAMP_KEY);
+            localStorage.setItem(SEEN_STAMP_KEY, stamp);
+
+            return seen !== null && seen !== stamp;
+        } catch (e) {
+            return false;
+        }
+    })();
+
+    // A size under LOGO_SIZE, in a header that keeps its height (see the
+    // header in render): the room it leaves over the mark is the note's
+    const UPDATED_LOGO_SIZE = 31;
+
+    // Shut in two arcs, the left the larger, as the left ring is. They do not
+    // blink -- see logoSvg.
+    const GLAD_EYES = `<path d="M6.88 18.24 Q11.37 9.55 15.86 18.24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M20.01 17.5 Q23.02 11.68 26.03 17.5" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
+
+    // Over the mark and to the right of the corner the width is dragged by,
+    // no nearer than 2px to the top of the page. Where the draft has it
+    // against the mark, which here stands in by half of what it is smaller
+    // by -- see logoSvg -- and the note goes in with it.
+    const NOTE_LEFT = 17 + (LOGO_SIZE - UPDATED_LOGO_SIZE) / 2;
+
+    function updatedNote() {
+        return `<span class="dict-updated-note" style="position: absolute; top: 3.5px; left: ${NOTE_LEFT}px; white-space: nowrap; pointer-events: none; transform: rotate(-4deg); transform-origin: left bottom; font: italic 600 7px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.03em; color: ${palette.softColor};">Updated</span>`;
+    }
+
+    // Chrome icons: the same 24-unit grid and 2-unit stroke as the game icons,
+    // so the header does not look like it was drawn by someone else.
+    function chromeIcon(body, size = 15.4) {
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true" style="display: block;">${body}</svg>`;
+    }
+
+    // A disc and eight marks around it. The rays are half what they were and the
+    // disc is wider: at 15.4px eight long spokes crowd the ring until the middle
+    // of the sun is the smallest part of it, which is the one thing a sun is
+    // not. Short marks read as light coming off something.
+    const SUN = chromeIcon(`
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 2.6v1.6M12 19.8v1.6M4.2 4.2l1.2 1.2M18.6 18.6l1.2 1.2M2.6 12h1.6M19.8 12h1.6M4.2 19.8l1.2-1.2M18.6 5.4l1.2-1.2" />`);
+
+    /*
+     * Sliders rather than a cog: the cog that suits this line weight is a ring
+     * with spokes, and that is the sun sitting next to it.
+     *
+     * Two tracks, not three, and lying down rather than standing up. Three
+     * upright channels with their handles crossing them came to eleven strokes
+     * inside 18 pixels, and at that size eleven strokes are a texture — a
+     * hatched square you take on trust because it sits where settings usually
+     * sit. Two knobs on two lines have somewhere to be: one pushed left, one
+     * pushed right, which is what a setting looks like.
+     */
+    /*
+     * The settings button: a cog with six teeth rather than the eight or ten
+     * a cog usually has.
+     *
+     * The icon is drawn on a 24 grid and shown at 18, so a tooth is about two
+     * pixels of screen. Eight of them at this stroke close the gaps between
+     * themselves and the ring turns into a blurred circle; six keep air
+     * between them and still read as a cog. Seven was tried too and looked
+     * like a six with a mistake in it; five reads as a rounded pentagon,
+     * because an odd count has no axis to stand on.
+     *
+     * It is also half a flower. There are no corners anywhere on it: the
+     * radius follows a cosine, 9.6 at the top of a lobe and 6.4 at the bottom
+     * of a valley, so the six bumps are petals as much as they are teeth. The
+     * wave was shallower at first and the petals were only implied; a third
+     * deeper and they are the thing you see, while the outline is still round
+     * everywhere and never points. A
+     * cog drawn the honest way — arcs joined by straight radial sides — is a
+     * picture of a machine part, and at eighteen pixels a picture of a
+     * machine part is a smudge. This one is the idea of one, and the softer
+     * silhouette survives being small.
+     *
+     * Generated rather than drawn: the curve is sampled four times per lobe
+     * and the samples joined with Catmull-Rom, which is what makes it smooth
+     * at every point rather than smooth in places. Six samples per lobe were
+     * indistinguishable and half again as long; three began to flatten the
+     * valleys into a hexagon. Changing the count, the depth or the sampling
+     * means generating it again, not nudging points.
+     */
+    const GEAR = chromeIcon(`
+        <path d="M21.60 12.00 C21.60 12.69 20.40 13.54 19.73 14.07 C19.05 14.60 17.89 14.60 17.54 15.20 C17.20 15.80 17.78 16.80 17.66 17.66 C17.53 18.51 17.40 19.97 16.80 20.31 C16.20 20.66 14.87 20.05 14.07 19.73 C13.27 19.41 12.69 18.40 12.00 18.40 C11.31 18.40 10.73 19.41 9.93 19.73 C9.13 20.05 7.80 20.66 7.20 20.31 C6.60 19.97 6.47 18.51 6.34 17.66 C6.22 16.80 6.80 15.80 6.46 15.20 C6.11 14.60 4.95 14.60 4.27 14.07 C3.60 13.54 2.40 12.69 2.40 12.00 C2.40 11.31 3.60 10.46 4.27 9.93 C4.95 9.40 6.11 9.40 6.46 8.80 C6.80 8.20 6.22 7.20 6.34 6.34 C6.47 5.49 6.60 4.03 7.20 3.69 C7.80 3.34 9.13 3.95 9.93 4.27 C10.73 4.59 11.31 5.60 12.00 5.60 C12.69 5.60 13.27 4.59 14.07 4.27 C14.87 3.95 16.20 3.34 16.80 3.69 C17.40 4.03 17.53 5.49 17.66 6.34 C17.78 7.20 17.20 8.20 17.54 8.80 C17.89 9.40 19.05 9.40 19.73 9.93 C20.40 10.46 21.60 11.31 21.60 12.00 Z" />
+        <circle cx="12" cy="12" r="3" />`);
+
+    const MOON = chromeIcon(`
+        <path d="M20.6 14.4A8.7 8.7 0 0 1 9.6 3.4 8.7 8.7 0 1 0 20.6 14.4z" />`);
+
+    const CHEVRON = chromeIcon(`<path d="M9 5l7 7-7 7" />`);
+
+    // The same arrow cut down for the Advanced heading, where it stands beside
+    // a 10.2px word rather than a 12.8px one.
+    const CHEVRON_SMALL = chromeIcon(`<path d="M9 5l7 7-7 7" />`, 12);
+
+    /*
+     * The three ways to have this app — see platformStrip. Drawn a size up from
+     * the chrome around them: they are the picture in a cell rather than the
+     * mark on a button, and at 18 they read as three smudges.
+     *
+     * A puzzle piece for the extension, because that is the picture the browser
+     * itself uses for one — it is on the button this popup hangs from. A
+     * monitor and a handset for the other two: the thing that separates them is
+     * the machine it is opened on, and a globe would have said "the web", which
+     * is what all three are.
+     */
+    const PUZZLE = chromeIcon(`<path d="M5 6a1 1 0 0 1 1-1h4a2 2 0 0 1 4 0h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4a2 2 0 0 0 0-4z" />`, 22);
+
+    const DESKTOP = chromeIcon(`
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M12 17v4" />
+        <path d="M8 21h8" />`, 22);
+
+    const HANDSET = chromeIcon(`
+        <rect x="6" y="2" width="12" height="20" rx="3" />
+        <path d="M11 18h2" />`, 22);
+
+    // The same speaker the words carry, with and without what comes out of it.
+    // Crossed out rather than greyed: a grey icon is one you cannot press, and
+    // this one is the only way back to the sound.
+    const SPEAKER = chromeIcon(`
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+        <path d="M18.8 5.2a9 9 0 0 1 0 13.6" />`);
+
+    const SPEAKER_OFF = chromeIcon(`
+        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+        <path d="M16 9.5l5 5M21 9.5l-5 5" />`);
+
+    /*
+     * The ways a word list gets here, each folded away under the box it ends in.
+     *
+     * Written out because the box on its own answers the wrong question: it says
+     * what the text has to look like, not where a hundred words are supposed to
+     * come from. Typing them one at a time is the answer nobody wants, and all
+     * three of these end in a paste.
+     *
+     * A step is a line of text, a line that leads somewhere, a line that carries
+     * an icon, or a line with a prompt worth pasting into an AI tool.
+     *
+     * The prompt is written out rather than described because the shape of the
+     * answer is the whole point: one "word -- translation" per line is exactly
+     * what the box above parses, so a good answer needs no editing.
+     *
+     * Data rather than three blocks of markup: they are the same shape, and a
+     * fourth route should cost one entry.
+     */
+    /*
+     * All three of them behind one heading, because the form is for the box and
+     * not for them: a person who already has a list in the clipboard opened
+     * this to paste it, and three questions between the box and Save is three
+     * questions asked of someone who was not asking.
+     *
+     * The heading names the sources rather than promising instructions — what
+     * is wanted is not "how do I export from Google Translate" but the fact
+     * that a hundred words can come from somewhere other than the keyboard.
+     *
+     * Cut to one line, which at 278.3px of label is about forty-seven
+     * characters: two lines of heading over three headings is a paragraph, and
+     * a paragraph is the thing this fold exists to put away. What the nouns
+     * lost is only detail the sections under them repeat — a book is a paper
+     * book, a video is a YouTube video.
+     */
+    const routeList = () => [
+        {
+            id: 'translate',
+            question: tr('routeTranslateQ'),
+            steps: [
+                {
+                    text: tr('routeTranslate1'),
+                    linkText: tr('routeTranslate1Link'),
+                    link: 'https://translate.google.com/saved'
+                },
+                { text: tr('routeTranslate2'), icon: 'sheet' },
+                tr('routeTranslate3')
+            ]
+        },
+        {
+            id: 'paper',
+            question: tr('routePaperQ'),
+            steps: [
+                tr('routePaper1'),
+                { text: tr('routeAsk'), prompt: tr('routePaperPrompt') },
+                tr('routePasteResult')
+            ]
+        },
+        {
+            id: 'web',
+            question: tr('routeWebQ'),
+            steps: [
+                tr('routeWeb1'),
+                { text: tr('routeAsk'), prompt: tr('routeWebPrompt') },
+                tr('routePasteResult')
+            ]
+        }
+    ];
+
+    /*
+     * One folding section: a header that toggles, and a body that is there or
+     * not. Open is written into the markup rather than set afterwards, so the
+     * section is drawn in the state it belongs in and nothing flickers shut.
+     *
+     * A real button, not a div with a click handler: it is reachable by keyboard
+     * and says what it is out loud, both for free.
+     *
+     * `name` says which section it is to the analytics, where every one of them
+     * is a press on set-fold-toggle -- see data-press in track.js.
+     */
+    function foldingSection(label, bodyHtml, open, name) {
+        return `<div class="set-fold">
+            <button class="set-fold-toggle" data-press="${name}" aria-expanded="${open}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; padding: 7.7px 0; background: transparent; border: none; color: ${palette.title}; font-family: inherit; font-size: 12.3px; font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer;">
+                <span class="set-fold-chevron" style="display: block; flex: none; color: ${palette.softColor}; transform: rotate(${open ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
+                <span class="set-fold-label" style="flex: 1;">${label}</span>
+            </button>
+            <div class="set-fold-body" style="padding-bottom: 8.5px;"${open ? '' : ' hidden'}>${bodyHtml}</div>
+        </div>`;
+    }
+
+    /*
+     * The spreadsheet the Export button on the Translate page is marked with.
+     * Drawn rather than fetched: it is the only image this screen would need,
+     * and the app has no picture files to begin with.
+     *
+     * The tile takes the step's own colour, and the grid is cut out of it in the
+     * card's colour rather than painted white — on the dark theme white lines
+     * would glare, and a hole reads as a hole in both.
+     */
+    function sheetIcon() {
+        return `<svg width="15.4" height="15.4" viewBox="0 0 24 24" aria-hidden="true" style="display: inline-block; vertical-align: -4px; margin-left: 4.3px;">
+            <rect x="2.5" y="2.5" width="19" height="19" rx="4.6" fill="currentColor" />
+            <g stroke="${palette.cardBg}" stroke-width="3">
+                <path d="M10.3 5.6v12.8" />
+                <path d="M5.6 9.9h12.8" />
+            </g>
+        </svg>`;
+    }
+
+    /*
+     * What goes inside a step: its line, with a link in it if it leads somewhere,
+     * and the prompt box if it carries one.
+     *
+     * linkText names the words that carry the link — the ones that name the
+     * destination, so the underline marks where it goes instead of dragging
+     * along the verb and the pronoun in front of it. Without it the whole line
+     * becomes the link.
+     *
+     * The link keeps the text's own colour and takes an underline instead. The
+     * palette has no colour to spare for it — coral is the Save button and mint
+     * is progress, and mint on the light theme's white card is 2.1:1 besides.
+     * An underline says "link" everywhere and costs no contrast.
+     */
+    function stepBody(step) {
+        if (typeof step === 'string') return step;
+
+        let line = step.text;
+
+        if (step.link) {
+            const label = step.linkText || step.text;
+            const anchor = `<a class="set-step-link" href="${step.link}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">${label}</a>`;
+            line = step.linkText ? line.replace(label, anchor) : anchor;
+        }
+
+        if (step.icon === 'sheet') line += sheetIcon();
+
+        return step.prompt ? line + promptBox(step.prompt) : line;
+    }
+
+    /*
+     * A prompt and the button that lifts it.
+     *
+     * The button is worth more than it looks: the prompt is three lines long and
+     * has to arrive in another app intact, and retyping it on a phone is exactly
+     * the work this screen exists to avoid.
+     *
+     * The line above the box is left out of it on purpose: the box is what the
+     * button lifts, and a caption inside it would ride along into the paste.
+     */
+    function promptBox(text) {
+        return `<div class="set-prompt-lead" style="margin-top: 3.4px;">${tr('promptLead')}</div>
+        <div class="set-prompt" style="margin: 4.3px 0 6px; background: ${palette.inputBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px;">
+            <div class="set-prompt-text" style="font-size: 10.8px; font-weight: 500; line-height: 1.45; color: ${palette.inputText};">${text}</div>
+            <button class="set-prompt-copy" style="display: block; margin: 6px 0 0 auto; padding: 2.6px 8.5px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 10.8px; font-weight: 600; cursor: pointer;">${tr('copy')}</button>
+        </div>`;
+    }
+
+    /*
+     * The words of the box, as they would be saved.
+     *
+     * Pulled out of the save handler because the plates under the box need the
+     * same answer while the text is still being typed. One reader, so the thing
+     * shown and the thing saved cannot disagree.
+     *
+     * Returns null when the box is empty — that is the request to delete the set,
+     * and it is the caller's business what to do about it.
+     */
+    function readWords(text, set) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) return null;
+
+        // A first line that already carries a separator is a word, not a title:
+        // the name was simply left out. An existing set keeps the name it had.
+        const titled = !/\t|--/.test(lines[0]);
+
+        // Existing words keep what is already known about them
+        const existingMap = new Map(set.words.map(w => [w.original.toLowerCase(), w]));
+        const words = [];
+
+        for (let i = titled ? 1 : 0; i < lines.length; i++) {
+            // "--" or a tab, whichever comes first: the tab is what a paste from a
+            // spreadsheet brings. Everything past that first separator is the
+            // translation, so it may contain either character itself.
+            const cut = lines[i].search(/\t|--/);
+            const original = (cut === -1 ? lines[i] : lines[i].slice(0, cut)).trim();
+            const translation = cut === -1 ? '' : lines[i].slice(cut).replace(/^(\t|--)/, '').trim();
+
+            if (!original) continue;
+
+            // Rebuilt rather than edited, so the one thing already known about a
+            // word has to be carried across by hand: its history. A word that
+            // kept its spelling keeps it; one nobody has seen before arrives
+            // bare. The languages are the set's and are not here at all.
+            const old = existingMap.get(original.toLowerCase());
+
+            words.push({
+                original: original,
+                translation: translation,
+                repetitions: old ? old.repetitions : []
+            });
+        }
+
+        return { title: titled ? lines[0] : (set.title || tr.of(shownMyLang(), 'newSetName')), words };
+    }
+
+    /*
+     * Language tags turned into something a person reads: "Ukrainian", not
+     * "uk-UA". The region is dropped on purpose — en-US and en-GB are one
+     * answer to the question the plate asks.
+     *
+     * Intl.DisplayNames is in every browser this runs in; where it is not, the
+     * tag itself is still an answer, just a worse one.
+     */
+    const LANGUAGE_NAMES = (() => {
+        try {
+            return new Intl.DisplayNames(['en'], { type: 'language' });
+        } catch (e) {
+            return null;
+        }
+    })();
+
+    // Intl hands the code back for a language it cannot name, and a list with
+    // "ba" in it among a hundred and thirty names is a list with a hole in it.
+    const NAMED_BY_HAND = { ba: 'Bashkir', bo: 'Tibetan' };
+
+    /*
+     * Which separator the lines of a set were written with, for the analytics:
+     * the form takes "--" or a tab, and a tab is what a paste out of a
+     * spreadsheet brings -- so this is how sets typed by hand are told from
+     * sets carried over from a table. Read the way readWords reads, the first
+     * separator of each line; `both` for a set that has some of each, `none`
+     * for one with a single column.
+     */
+    function separatorOf(text) {
+        let tab = false;
+        let dash = false;
+
+        String(text || '').split('\n').forEach(row => {
+            const cut = row.search(/\t|--/);
+            if (cut === -1) return;
+
+            if (row[cut] === '\t') tab = true;
+            else dash = true;
+        });
+
+        if (tab && dash) return 'both';
+        if (tab) return 'tab';
+        return dash ? 'dash' : 'none';
+    }
+
+    function languageName(tag) {
+        const base = String(tag || '').split('-')[0];
+        if (!base) return null;
+
+        let named = null;
+        try {
+            named = LANGUAGE_NAMES && LANGUAGE_NAMES.of(base);
+        } catch (e) {
+            named = null;
+        }
+
+        if (named && named !== base) return named;
+        return NAMED_BY_HAND[base] || base;
+    }
+
+    /*
+     * What the dropdowns offer: every language there is a code for, not the
+     * sixty-odd the detector can name. Recognising and choosing are different
+     * questions — a set in Dutch is still in Dutch, and its words carry no
+     * letter that could ever prove it.
+     *
+     * Sorted by name, because that is the order a person looks through a list
+     * in.
+     */
+    const LANGUAGE_CHOICES = (() => {
+        const taken = new Set();
+
+        return speech.allLanguages()
+            .map(tag => ({ tag, name: languageName(tag) }))
+            .filter(c => {
+                // Anything the browser cannot name is dropped: a bare "za" among
+                // two hundred names is a hole, not an option. So is a second
+                // entry with a name already in the list — the browser calls both
+                // ak and tw "Akan", and a list cannot ask you to choose between
+                // two identical lines.
+                if (!c.name || c.name === c.tag || taken.has(c.name)) return false;
+                taken.add(c.name);
+                return true;
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+    })();
+
+    /*
+     * The options every dropdown on the form is filled with, built as text and
+     * handed out as many times as asked — there is a pair of them per word.
+     *
+     * Three speakers for the three answers speech.readableBy gives: the language
+     * has a voice of its own here, it will be read by the voice that owns its
+     * writing system — Italian by an English one, Ukrainian by a Russian one —
+     * or there is nothing on this device that can say it.
+     *
+     * The last one is marked rather than left bare. A missing mark is read as a
+     * line the app has not got round to, and the crossed-out speaker says what
+     * no mark only implied: this one will be silent here.
+     *
+     * The list is the same everywhere and the marks are not: they come from the
+     * voices the browser happens to have, which differ between Chrome and Edge
+     * on one machine and between a laptop and a phone. Nothing about the marks
+     * is stored — choosing a language this device cannot say is allowed, and on
+     * the next device it may be the only one it can.
+     */
+    const OWN_VOICE = '🔊';
+    const BORROWED_VOICE = '🔈';
+    const NO_VOICE = '🔇';
+
+    // A language named the way the dropdowns name it: with what this device
+    // would read it in.
+    function markedName(tag) {
+        const by = speech.readableBy(tag);
+        const mark = by === tag ? OWN_VOICE : (by ? BORROWED_VOICE : NO_VOICE);
+        return mark + ' ' + languageName(tag);
+    }
+
+    /*
+     * The first option is hidden and belongs to nobody: it is where a select
+     * puts what it has to say when no single option says it — a set in three
+     * languages, or a word in none.
+     *
+     * Hidden keeps it out of the open list, where it would read as a choice,
+     * and leaves it free to be the selected one, which is all the closed select
+     * ever shows. That is what makes "Auto" a thing you ask for rather than a
+     * thing the form claims to be in: asked for, it is answered by a language,
+     * and the language is what stands there afterwards.
+     */
+    const STATE_VALUE = '__state';
+
+    /*
+     * One dropdown, drawn the same wherever it stands. The set form has a pair
+     * of them per word and the catalogue has two in its header, and a select
+     * that looked different in the two places would read as two controls.
+     *
+     * A function and not a constant because it is built out of the palette,
+     * which changes under the app when the theme does.
+     */
+    function selectStyle() {
+        return `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6px 8.5px;`
+            + ` font-family: inherit; font-size: 11.8px; font-weight: 600; cursor: pointer; outline: none;`;
+    }
+
+    /*
+     * The languages the app has sets in: the table's columns, named the way the
+     * form's dropdowns name them but without the speaker marks.
+     *
+     * Those marks answer "will this be read aloud", which is a question about a
+     * voice on this device. Here the question is which language is being learned,
+     * and the answer does not change because a voice is missing.
+     *
+     * One tag per column, so Norwegian is here once. The table takes `nb` as
+     * another spelling of `no` -- see SAME_AS -- which is for a tag that arrives
+     * from somewhere else, not for offering the same column twice under two
+     * names.
+     */
+    const CATALOG_CHOICES = LANGUAGE_CHOICES.filter(c => vocab.languages().includes(c.tag));
+
+    // The languages the catalog itself can be read in, named in English like every
+    // other list of languages here -- see i18n.js.
+    const UI_CHOICES = tr.langs()
+        .map(tag => ({ tag, name: languageName(tag) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const uiOptions = () => UI_CHOICES
+        .map(c => `<option value="${c.tag}"${c.tag === tr.now ? ' selected' : ''}>${c.name}</option>`)
+        .join('');
+
+    function languageOptions() {
+        return `<option value="${STATE_VALUE}" hidden></option><option value="auto">${tr('auto')}</option>`
+            + LANGUAGE_CHOICES.map(c => `<option value="${c.tag}">${markedName(c.tag)}</option>`).join('');
+    }
+
+    /*
+     * Shows a select which language its side is in: the language itself when one
+     * of its options is it, and the hidden option when there is none -- an empty
+     * box, or a column of digits the detector could make nothing of.
+     *
+     * The hidden option used to carry a list, because a set could be in several
+     * languages at once and the select had to say so. A set is one language a
+     * side now, so the only thing left for it to say is that nothing is known
+     * yet.
+     */
+    function showLanguage(select, tag) {
+        const known = tag && select.querySelector(`option[value="${tag}"]`);
+
+        select.title = tag ? markedName(tag) : '–';
+
+        if (known) {
+            select.value = tag;
+            return;
+        }
+
+        select.querySelector(`option[value="${STATE_VALUE}"]`).textContent = '–';
+        select.value = STATE_VALUE;
+    }
+
+    // The words come from a textarea, so they are whatever was typed
+    function escapeText(text) {
+        return String(text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /*
+     * The box's own section: the same line of type as a route's header, with
+     * nothing to press.
+     *
+     * It does not fold because there is nothing to reveal: it is the box the
+     * whole form exists for, and without it the form is empty. A chevron on it
+     * would offer a fold that the section has no business performing.
+     *
+     * The label sits flush with the form's own left edge — the set name above it
+     * and the format hint below it start there too. It heads the box rather than
+     * joining the folding routes, so it lines up with what it heads rather than
+     * with the column their chevrons push them into.
+     *
+     * The section of the two language dropdowns is one of these too, the owner's
+     * call, 5 November 2026: it folded until then.
+     */
+    function staticSection(label, bodyHtml) {
+        return `<div class="set-fold">
+            <div class="set-fold-label" style="padding: 7.7px 0; color: ${palette.title}; font-size: 12.3px; font-weight: 600; line-height: 1.35;">${label}</div>
+            <div class="set-fold-body" style="padding-bottom: 8.5px;">${bodyHtml}</div>
+        </div>`;
+    }
+
+    // Compact timer text for bubble badges (e.g. "5m", "2h", "3d")
+    function getCompactTimerText(nextReview) {
+        if (!nextReview) return null;
+        const diffMs = nextReview - Date.now();
+        if (diffMs <= 0) return null; // due — no timer needed
+
+        const diffMins = Math.ceil(diffMs / (60 * 1000));
+        if (diffMins < 60) return `${diffMins}${tr('unitM')}`;
+
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}${tr('unitH')}`;
+
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays}${tr('unitD')}`;
+    }
+
+    /*
+     * An interval as the settings panel writes it, and as a person types it
+     * back: "0", "45m", "4h", "14d".
+     *
+     * The same notation the bubbles wear, because it is the same quantity —
+     * someone who has read "2h" on a word and wants it asked sooner should be
+     * able to write "1h" without learning a second way of saying an hour.
+     *
+     * In the largest unit that divides the span exactly, so that what is read
+     * back is what was typed: ninety minutes stays 90m instead of becoming an
+     * hour and a half rounded to one of them.
+     */
+    const SPAN_UNITS = { m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+
+    function spanText(ms) {
+        if (!ms) return '0';
+        if (ms % SPAN_UNITS.d === 0) return `${ms / SPAN_UNITS.d}${tr('unitD')}`;
+        if (ms % SPAN_UNITS.h === 0) return `${ms / SPAN_UNITS.h}${tr('unitH')}`;
+
+        return `${ms / SPAN_UNITS.m}${tr('unitM')}`;
+    }
+
+    /*
+     * And back, or null when what was typed is not an interval.
+     *
+     * Minutes when the unit is left off, which is the one guess worth making:
+     * the short rungs are the ones that get edited, and "5" is what a person
+     * types into a field already saying "5m".
+     *
+     * Null rather than a fallback for anything else. This is the only place in
+     * the app where a value is typed rather than picked, and a value that is
+     * not a number has to be refused here — srs.js says what a NaN does to
+     * every date it touches.
+     *
+     * The unit in the letters this interface writes it in, and in the Latin ones
+     * as well: the field is filled in the first, and a person who has always typed
+     * "2h" should not be refused for having switched the language of the screen.
+     */
+    const SPAN_NAMES = { m: 'unitM', h: 'unitH', d: 'unitD' };
+
+    function spanValue(text) {
+        const parts = /^\s*(\d+(?:[.,]\d+)?)\s*(\S*)\s*$/.exec(text || '');
+        if (!parts) return null;
+
+        const said = parts[2].toLowerCase();
+        const unit = !said ? 'm' : Object.keys(SPAN_UNITS).find(u => said === u || said === tr(SPAN_NAMES[u]).toLowerCase());
+
+        if (!unit) return null;
+
+        return Math.round(Number(parts[1].replace(',', '.')) * SPAN_UNITS[unit]);
+    }
+
+    /**
+     * Build bubble data for a word object based on its repetition history.
+     * Marks are the symbols of the whole timeline: results, skipped and pending intervals.
+     */
+    /*
+     * A word whose last answer was wrong, written in the red of the mark it just
+     * earned — the same #ff1744 the failed dot is drawn in, so the colour of the
+     * word and the colour of the dot under it are one statement and not two.
+     *
+     * Both lines of the bubble, the word and its translation: what is wrong is
+     * the word, not one of the two languages it is written in.
+     *
+     * This replaces a rule that painted stage 1 alone, which could never show
+     * anything this one does not — stage 1 is reachable by error only, so every
+     * word on it has a failed last answer. The other direction is not true, and
+     * that is the point of the change: a word with a long run behind it lands
+     * three rungs down rather than at the bottom, and was still just got wrong.
+     */
+    const FAIL_INK = '#ff1744';
+
+    /*
+     * Stage 1 is not a rung of the ramp so much as a hole under it: the only one
+     * a success cannot reach, where a word lands when a mistake has taken the
+     * whole of its run. The ramp's own colour for it is the first pale yellow of
+     * a series that means ripening, which is the opposite of what happened.
+     *
+     * So it wears the stone of stage 0, which is the app's colour for a word
+     * with nothing to show: that is what a mistake has just made of this one.
+     * Nothing was gained and the run that was there is gone, so the bubble goes
+     * back to looking like a word nobody has met -- and a tint of its own would
+     * be a fifteenth rung quietly added to an arc that means ripening.
+     *
+     * The two are not confusable even though the colour is one. A word on the
+     * floor is written in red and carries a red mark in its timeline; a word
+     * nothing has happened to is in its stage's own grey ink and has no marks
+     * at all. The plate is the same because what the plate says -- no progress
+     * -- is the same.
+     *
+     * Taken out of the ramp rather than written as a colour that matches it
+     * today, so that the two cannot drift apart the next time the arc is
+     * regenerated. Kept as a name of its own because the meaning is its own:
+     * stage 1 is not stage 0, it only looks like it.
+     *
+     * Two colours stood here before. A light red, the colour of a thing that
+     * has been hit, which said the same as the red text it carried and said it
+     * twice; then white, which on the light theme is the card as well, so the
+     * bubble became a hole in it.
+     */
+    const DAMAGED_FILL = stageRamp[0].fill;
+
+    /*
+     * The bar under a set's name: thirteen boxes, one per rung a word can
+     * climb, and the colour of each is the colour its bubbles wear on that
+     * rung. It is the legend the shelf never had — the bubbles have always
+     * been a ramp and nothing said so.
+     *
+     * Thirteen because that is how many rungs there are to climb: stage 0 is a
+     * word nothing has happened to and stage 1 is one an error has taken back
+     * to the floor, and neither is progress. The climbing starts at 2, so
+     * segment one is stage 2 and segment thirteen is the top of the ramp.
+     *
+     * Two words decide what it shows, and they are the two ends of the set:
+     *
+     *   the best word colours middles — how far anything here has got;
+     *   the worst word colours edges  — how far all of it has got.
+     *
+     * So a set fills in twice over, and a segment has three states it passes
+     * through in order:
+     *
+     *   waiting  a dot, in the resting colour — see stepIdle;
+     *   lit      the same dot in the colour of its stage;
+     *   grown    a bar the full width of its share of the row, as tall as
+     *            the dot is round.
+     *
+     * Dots since 29 October 2026, the owner's call. Until then all three
+     * were bars the width of their share, told apart by height alone -- a
+     * thin pill, a taller one and the full height (3.4, 5.1 and 9.4) -- and
+     * the two thin ones were hard to tell apart. Height came after a first
+     * attempt built of a border and a fill -- a thick transparent edge that
+     * the colour later filled in -- which was wrong in two ways at once. A
+     * transparent edge insets the strip sideways as well, so the small state
+     * sat in a gap three pixels wider at each end than the one the flex row
+     * gives, and a row of short dashes drifted apart. And a background is
+     * painted under the border unless it is clipped, so the small state was
+     * not small at all until background-clip was set.
+     *
+     * Every segment still has the same share of the row in all three states,
+     * a dot standing in the middle of its share, so nothing moves sideways
+     * when one grows into a bar; the gaps between them are the row's own.
+     *
+     * The gap between the passes is the spread of the set, which is worth
+     * seeing and which one number for the whole set can never show.
+     *
+     * Counting: a word on stage s has climbed s - 1 rungs of the thirteen, so
+     * stage 2 lights the first box and stage 14 lights the last. The ask said
+     * s - 2, which leaves the top box dark on a set that is entirely mastered —
+     * a bar that cannot be finished is a bar nobody trusts.
+     */
+    const SEGMENTS = 13;
+    const FIRST_RUNG = 2;
+
+    // The dot's diameter and the bar's height, one number for both: a bar is
+    // a dot drawn out to the width of its share
+    const STEP_SIZE = 9.4;
+
+    /*
+     * A colour of the tokens, #rrggbb, at `alpha`, as rgba -- which every
+     * browser reads. The empty dots' rings were drawn in a color-mix on the day
+     * they came, 26 November 2026, and an old phone's browser (Chrome before
+     * 111, Safari before 16.2) does not know it: a value it does not know drops
+     * the whole box-shadow, and the dots had no ring at all while the signs
+     * beside them, seen through by `opacity`, showed. The same thing happened
+     * to the veils in quiz.js and search.js on 8 November.
+     */
+    function fade(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    /*
+     * The same colour with the light turned down a notch.
+     *
+     * A lit segment on the light theme is a pastel on a white card — 1.2 to
+     * 2.4 against it — and a shape that pale has no edge of its own: thirteen
+     * of them read as one soft smear rather than as thirteen things. A
+     * hairline of the segment's own colour, taken a tenth darker, gives each
+     * one a boundary without giving it a second colour.
+     *
+     * Multiplying all three channels by the same factor rather than mixing
+     * towards black. It is the one operation that holds the hue: the channels
+     * keep their ratios, so both the hue angle and the purity — the HSV kind,
+     * (max - min) / max — come out where they went in. Measured across the
+     * ramp the hue angle moves by at most a fifth of a degree, and that is
+     * rounding to whole channel values, not the maths.
+     *
+     * The factor is read in gamma-encoded sRGB, which is where the hex sits,
+     * so 0.88 is not 12% less light: light goes to about 0.88^2.2, three
+     * quarters of what it was. That is the number to think in — a tenth off
+     * the code, a quarter off the lamp — and it is why so small a factor is
+     * enough to draw an edge.
+     *
+     * What it does not do is deepen the colour. Lab chroma drops by about a
+     * tenth along with the lightness, so the hairline is the same hue, a
+     * little darker and a hair less colourful. For a line half a pixel wide
+     * that is invisible; it is written down because the obvious guess — that
+     * darkening concentrates a colour — is the wrong way round here.
+     */
+    function shade(hex, by) {
+        const n = parseInt(hex.slice(1), 16);
+        const down = (v) => Math.round(v * by);
+
+        return `rgb(${down((n >> 16) & 255)}, ${down((n >> 8) & 255)}, ${down(n & 255)})`;
+    }
+
+    function ladderOf(words) {
+        const stages = (words || []).map(w => spacedRepetitions.getWordProgress(w).stage);
+        const climbed = (stage) => Math.max(0, Math.min(SEGMENTS, stage - FIRST_RUNG + 1));
+
+        if (stages.length === 0) return { lit: 0, grown: 0 };
+
+        return {
+            lit: climbed(Math.max(...stages)),
+            grown: climbed(Math.min(...stages))
+        };
+    }
+
+    // The language comes in rather than off the word: a bubble is tapped to hear
+    // it, and what it is in is the set's answer now -- see store.label.
+    //
+    // So does the set's view (store.viewOf), and what it leaves of the bubble
+    // goes into the data rather than being asked for at the drawing: the data
+    // is what says a bubble needs drawing again -- see redrawBubbles.
+    function buildBubbleData(word, lang, view) {
+        const progress = spacedRepetitions.getWordProgress(word);
+        const colors = getStageColors(progress.stage);
+        const timer = view.srs ? getCompactTimerText(progress.nextRepetition) : null;
+
+        return {
+            word: word.original,
+            translation: word.translation,
+            bgColor: progress.stage === 1 ? DAMAGED_FILL : colors.fill,
+            textColor: progress.lastFailed ? FAIL_INK : colors.ink,
+            transColor: progress.lastFailed ? FAIL_INK : colors.sub,
+            marks: view.srs ? progress.marks.filter(mark => view[MARK_ICONS[mark].shownBy]) : [],
+            stage: progress.stage, // TEMP (debug): stage number shown in the bubble
+            sad: progress.lastFailed,
+            timer,
+            bouncing: view.srs && view.bounce,
+            wordSize: view.original ? view.originalSize : null,
+            transSize: view.translation ? view.translationSize : null,
+            lang: lang
+        };
+    }
+
+    // How every timeline status is drawn: a symbol from the sprite in <body> and its output size.
+    // OK/LATE_OK and FAIL/LATE_FAIL look the same on purpose; MISSED is the same dark dot at half size.
+    // The size is in the units the row is drawn in -- see marksSvg, where a unit
+    // is one of the layout's pixels, and the symbols' own ten-unit grid is
+    // mapped onto it by <use>.
+
+    /*
+     * Four across, and two for a missed one.
+     *
+     * The row has no length of its own. A mark is added for every repetition
+     * and for every interval that went by without one, so a word somebody has
+     * kept for a season carries a dozen of them, and what that costs is paid by
+     * the bubble: the row wraps inside it and pushes the word and its
+     * translation apart. The dots are what decides how tall a long-studied word
+     * is drawn.
+     *
+     * A pixel off the diameter is half a pixel of edge on either side -- nothing
+     * at all on one dot -- and a fifth off the row, which is another mark or two
+     * on the line before it wraps. Tighter air between them as well: the gap in
+     * bubble-dots-group is under a pixel, which still parts two dark dots and no
+     * longer costs as much as a mark of its own every time it is spent. The row
+     * is read as a pattern rather than counted through, and a pattern survives
+     * being small; what it does not survive is being folded in half.
+     *
+     * The missed one stays half the rest, because that is the whole of what it
+     * says: a gap in the row rather than a thing in it. It is also the one that
+     * made the row's old arrangement untenable: at two pixels a mark is mostly
+     * its own edges, and where those edges land was being decided by the layout
+     * -- see marksSvg.
+     *
+     * `shownBy`: the switch of the set's view that keeps a mark on the bubble --
+     * see store.viewOf. A late answer goes with the regular ones because it
+     * looks like them: what makes it late is the small dots in front of it.
+     */
+    const MARK_ICONS = {
+        OK: { id: 'mark-dot-dark', size: 4, shownBy: 'regular' },
+        FAIL: { id: 'mark-dot-red', size: 4, shownBy: 'regular' },
+        LATE_OK: { id: 'mark-dot-dark', size: 4, shownBy: 'regular' },
+        LATE_FAIL: { id: 'mark-dot-red', size: 4, shownBy: 'regular' },
+        MISSED: { id: 'mark-dot-dark', size: 2, shownBy: 'missed' },
+        EARLY_OK: { id: 'mark-ring-dark', size: 4, shownBy: 'early' },
+        EARLY_FAIL: { id: 'mark-ring-red', size: 4, shownBy: 'early' }
+    };
+
+    // The air between two marks, and the line they stand on: the tallest mark
+    // there is, so every line is the same height whatever is on it.
+    const MARK_GAP = 0.6;
+    const MARK_LINE = Math.max(...Object.values(MARK_ICONS).map(icon => icon.size));
+
+    /*
+     * How far the row may run before it folds, in those same units.
+     *
+     * Arithmetic rather than a measurement, because the layout has one width and
+     * only ever zooms it -- see .app-main-content in app.css. 350, less the
+     * page's 6.8 of margin either side, less the set card's 1px border and 7.7
+     * of its padding either side (the bubbles' box reaches 6 into the card's
+     * 13.7, see WORDS_REACH), less the bubble's own 8.5: 302, which is the
+     * widest a bubble's contents can be before the bubble stops growing. It was
+     * 290 while the box kept to the card's padding.
+     *
+     * Sixty-odd marks, so most words will never reach it. It is here for the
+     * one that does -- a word somebody has kept for years -- and because the row
+     * used to be laid out by the browser, which wrapped it at exactly this width
+     * without being told to. Nothing should start overflowing a bubble because
+     * the drawing of the row moved into one element.
+     */
+    const MARK_WIDTH = 302;
+
+    /*
+     * The whole timeline as a single drawing.
+     *
+     * It was a row of little svgs before, one per mark, with the air between
+     * them a flexbox gap. Every one of those is positioned by the layout, and
+     * the layout rounds: the app is drawn at 350 and shown through a zoom, so
+     * each mark's left edge lands on a fraction and is pushed to the nearest
+     * device pixel on its own. The marks are drawn to a sixth of a pixel of each
+     * other and arrive at a third of one apart, which on a mark four pixels
+     * across is visible as an uneven row, and on the two-pixel missed ones --
+     * which are mostly edge -- it is the only thing you see.
+     *
+     * In one svg the positions are in its own coordinates, and the whole of it
+     * goes through a single transform on the way to the screen. The spacing is
+     * then exactly what is written here at any zoom: the row can be blurred by
+     * antialiasing but it can no longer be uneven, because nothing inside it is
+     * rounded separately from anything else.
+     *
+     * Which also moves the wrapping here, since the browser is no longer doing
+     * it: the marks are packed into lines of MARK_WIDTH and each line is centred
+     * on the widest, so a folded row sits under the word the way the flex one
+     * did.
+     *
+     * The box is exactly the drawing, so the outermost marks touch its edges,
+     * and an svg clips to its viewport by default. At the fractions a zoom
+     * leaves, the clip and the circle inside disagree by a fraction of a pixel
+     * and the clip takes that fraction out of the mark -- a flat edge on
+     * something meant to be round. Hence `overflow: visible`; nothing here needs
+     * clipping, as every mark is drawn to fill its own box and never anything
+     * more.
+     */
+    function marksSvg(marks) {
+        const icons = (marks || []).map(mark => MARK_ICONS[mark]).filter(Boolean);
+        if (icons.length === 0) return '';
+
+        const lines = [];
+
+        for (const icon of icons) {
+            const line = lines[lines.length - 1];
+            const grown = line ? line.width + MARK_GAP + icon.size : 0;
+
+            if (line && grown <= MARK_WIDTH) {
+                line.icons.push(icon);
+                line.width = grown;
+            } else {
+                lines.push({ icons: [icon], width: icon.size });
+            }
+        }
+
+        const width = Math.max(...lines.map(line => line.width));
+        const height = lines.length * MARK_LINE + (lines.length - 1) * MARK_GAP;
+
+        // Two decimals: every number here is a multiple of the gap or of half a
+        // mark, and anything past the second is noise in the markup.
+        const round = (v) => Number(v.toFixed(2));
+
+        const drawn = lines.map((line, n) => {
+            const middle = n * (MARK_LINE + MARK_GAP) + MARK_LINE / 2;
+            let x = (width - line.width) / 2;
+
+            return line.icons.map((icon) => {
+                const at = x;
+                x += icon.size + MARK_GAP;
+
+                return `<use href="#${icon.id}" x="${round(at)}" y="${round(middle - icon.size / 2)}" width="${icon.size}" height="${icon.size}" />`;
+            }).join('');
+        }).join('');
+
+        return `<svg class="bubble-progress" width="${round(width)}" height="${round(height)}" viewBox="0 0 ${round(width)} ${round(height)}" style="display: block; overflow: visible;">${drawn}</svg>`;
+    }
+
+    /**
+     * Creates a bubble HTML element and appends it to parent
+     */
+    /*
+     * How long a bubble takes to hop once.
+     *
+     * It runs forever, so `order` shifts each bubble into the cycle by a
+     * different amount — a negative delay starts it mid-flight — because a row
+     * of them moving in lockstep reads as one object jerking rather than as a
+     * handful of words.
+     */
+    const BOUNCE_MS = 650;
+
+    /*
+     * A word that was just got wrong takes the same hop five times slower.
+     *
+     * The same hop, because there is only one thing a moving bubble has to say —
+     * answer me — and a word that was got wrong is not asking for something
+     * different, it is asking less brightly. A shape of its own said that in a
+     * second language nobody had been taught.
+     *
+     * Five times is far enough that the two speeds are not compared but simply
+     * different: at three the slow one still read as the same hop being dragged,
+     * and a viewer measured it against its neighbours. At three and a quarter
+     * seconds it stops being a hop with a tempo and becomes something that moves
+     * about once while you are looking at it.
+     */
+    const SAD_BOUNCE_MS = BOUNCE_MS * 5;
+
+    /*
+     * And the tempo of the badge's breath in the dialog that turns a game away
+     * -- see confirmEarly, and timer-pulse in app.css for why it breathes
+     * rather than hops.
+     *
+     * Twice the hop, which is a speed neither of the two on the shelf has, and
+     * that is the point. The fast one is a word asking to be answered and the
+     * slow one is a word waiting its turn; what moves here is not a word at
+     * all. Slow enough not to be read as "now", quick enough to be seen at all:
+     * the waiting tempo is a breath every three seconds, which in something
+     * opened and answered inside of two is an animation nobody sees run.
+     */
+    const EARLY_PULSE_MS = BOUNCE_MS * 2;
+
+    /*
+     * The bubble that is being read, held a little larger until it stops.
+     *
+     * A bubble is said whole and has nothing inside it to mark, so without this
+     * a tap on one produces no visible answer at all — which on a phone reads as
+     * a tap that missed. Flashcards and the quiz have the mark on the word
+     * instead, and want none of this: growing a card would move the very line
+     * it is pointing at.
+     *
+     * Here rather than in speech.js, which knows about voices and languages and
+     * has no business knowing how this screen answers a finger. All it hands
+     * over is the moment the sound stops.
+     *
+     * Five per cent. Enough to catch as movement, small enough that a bubble in
+     * a row of bubbles does not shove its neighbours about.
+     *
+     * Written as `scale` with `!important`, which is not decoration: a bubble
+     * carries the bounce animation, a CSS animation outranks ordinary inline
+     * styles, and the keyframes animate `scale` themselves — a polite one would
+     * simply be ignored. Important beats an animation, so the bubble keeps its
+     * skew and its rotation and takes this size on top of them.
+     *
+     * One bubble at a time, because one word at a time is said.
+     */
+    const SWELL = 1.05;
+
+    let swollen = null;
+
+    function shrink() {
+        if (!swollen) return;
+
+        swollen.style.removeProperty('scale');
+        swollen = null;
+    }
+
+    function grow(bubble) {
+        shrink();
+
+        swollen = bubble;
+        bubble.style.transition = 'scale 140ms ease-out';
+        bubble.style.setProperty('scale', String(SWELL), 'important');
+    }
+
+    /*
+     * How a bubble moves, which is a single question: is this word asking to be
+     * answered right now.
+     *
+     * Only a word that is due moves at all, and the speed says how brightly it
+     * is asking. Everything else is still.
+     *
+     * Two kinds of still, and they look the same on purpose. A word nothing has
+     * happened to yet has nothing to be ready for — and would otherwise hop from
+     * the very first draw. A word counting down is not ready either, whatever it
+     * has been through: its badge says when, and a bubble that moved while its
+     * own timer was running would be contradicting it. Motion here means one
+     * thing or it means nothing, and the screen is quieter for having only the
+     * words that want something on it moving.
+     *
+     * `bouncing` is the set's own say in it -- see store.viewOf.
+     */
+    function bubbleMotion(stage, timer, sad, order, bouncing) {
+        if (!bouncing || stage === 0 || timer) return '';
+
+        const period = sad ? SAD_BOUNCE_MS : BOUNCE_MS;
+
+        return `animation: bounce ${period}ms ease-in-out ${-order * 170}ms infinite;`;
+    }
+
+    /*
+     * The plate a word wears while its timer runs.
+     *
+     * Written once for the two places it is drawn, because it is one badge and
+     * not two things that resemble each other: hung over the corner of a bubble
+     * here, and standing in the heading of the dialog that turns a game away
+     * while everything is still ripening -- see confirmEarly. Where it goes is
+     * the caller's business and arrives as `extra`; what it looks like is not.
+     *
+     * A slip of paper drawn round in brown, with no shadow -- the timers of
+     * the Flashcards cabinet, which came to the catalog with the bubbles' shape
+     * (the owner, 25 November 2026). It was a deep mint with a soft shadow until
+     * then; the lettering is what it was. Its paper was the cabinet's cream for a
+     * day, and is the grey of a bubble at stage 0 since -- see timerPaper.
+     */
+    const TIMER_BADGE = 'font-size: 9.2px; font-weight: 800; line-height: 1; padding: 1px 3.6px;'
+        + ' border-radius: 10.2px; white-space: nowrap; outline: none; letter-spacing: -0.2px;';
+
+    const timerBadge = (text, extra) => `<span class="bubble-timer-badge" style="${TIMER_BADGE} border: 1px solid ${palette.timerEdge}; background: ${palette.timerPaper}; color: ${palette.timerInk}; ${extra || ''}">${text}</span>`;
+
+    /*
+     * A bubble with no word on it at all, which the set's view allows: with
+     * everything switched off the set is a row of small coloured pills. Still
+     * something to press -- a tap says the word whatever is shown of it -- and
+     * still something that can hop.
+     */
+    const BARE_BUBBLE = 'min-width: 24px; min-height: 17px;';
+
+    function createBubble(bubbleData, parent, order) {
+        const { word, translation, bgColor, textColor, transColor, marks, stage, sad, timer, lang, bouncing, wordSize, transSize } = bubbleData;
+
+        // The repetition timeline: one mark per repetition or elapsed interval,
+        // drawn as a single picture -- see marksSvg.
+        let dotsHtml = marksSvg(marks);
+
+        // TEMP (debug): current stage number at the end of the timeline
+        //dotsHtml += `<span class="bubble-stage-debug" style="margin-left: 2px; -font-weight: 800; color: ${textColor};">${stage}</span>`;
+
+        // Optional timer badge in bottom-right corner, hanging out over it, and
+        // no further than the air kept round the bubbles (BUBBLE_ROOM), where
+        // the box that folds them away would cut it.
+        const timerHtml = timer ? timerBadge(timer, 'position: absolute; bottom: -6px; right: -5px; z-index: 3;') : '';
+
+        const wordHtml = wordSize ? `<span class="bubble-word-text" style="font-weight: 800; font-size: ${wordSize}px; line-height: 1.15; color: ${textColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${word}</span>` : '';
+        const transHtml = transSize ? `<span class="bubble-trans-text" style="font-size: ${transSize}px; font-weight: 600; line-height: 1.1; -margin-top: 2px; color: ${transColor}; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; text-align: center; outline: none;">${translation}</span>` : '';
+
+        // Empty, the row of marks is still the air between the word and its
+        // translation. With one of those gone it is air on one side of the
+        // other, which would stand off-centre in the bubble.
+        const dotsRow = dotsHtml || (wordHtml && transHtml)
+            ? `<div class="bubble-dots-group" style="font-size: 6px; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; line-height: 1;">
+                    ${dotsHtml}
+                </div>`
+            : '';
+
+        // The colour is handed to bubble-uneven in app.css, which cuts it to the
+        // bubble's shape. That makes the bubble a layer of its own (isolation),
+        // so its badge cannot lie over another bubble by its own z-index: it is
+        // as high as the bubble it hangs from.
+        //
+        // So the bubbles lie one under the next, the first on top: a badge hangs
+        // over its bubble's lower right corner, onto the bubbles after it -- the
+        // next in the row, or the row below -- and never onto one before, so each
+        // badge is over whatever it hangs on. Until 26 November 2026 only a bubble
+        // with a badge was lifted, one step over the rest, and of two side by side
+        // with badges the second covered the first one's (reported by the owner).
+        // A hop or a swell now goes under the bubbles before it, which they are
+        // too small to show. Below nought, so the box the bubbles are in has to be
+        // a layer of its own too -- see .set-words-bubbles in app.css.
+        const lift = ` z-index: ${-(order || 0)};`;
+
+        const bubbleHtml = `
+            <div class="word-bubble-card bubble-uneven" data-press style="${bubbleMotion(stage, timer, sad, order || 0, bouncing)} --bubble: ${bgColor};${lift} border: none; padding: 5.1px 8.5px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-sizing: border-box; position: relative; user-select: none; cursor: pointer; flex: 0 1 auto; ${wordHtml || transHtml ? 'min-width: 41px;' : BARE_BUBBLE} max-width: 100%;">
+                ${wordHtml}
+                ${dotsRow}
+                ${transHtml}
+                ${timerHtml}
+            </div>
+        `;
+
+        const bubble = $(parent, bubbleHtml);
+        looks.set(bubble, JSON.stringify(bubbleData));
+
+        // Tapping a word says it. The original rather than the translation, for
+        // the same reason the cards do it that way: the translation is in a
+        // language the player already has.
+        //
+        // Silent where the device has no voice for the script — speech.say says
+        // so by returning false, and there is nothing useful to do about it
+        // here. The pointer is offered anyway: whether a voice exists is not
+        // known at draw time, because the voice list arrives asynchronously and
+        // is usually still empty on the first render.
+        bubble.addEventListener('click', () => {
+            // Grown after the word is asked for rather than before: asking
+            // settles whatever was in the air, and settling takes the last
+            // bubble back down — this one included, when it is the one that was
+            // talking. Grown at all only if there was something to hear.
+            if (speech.say(word, lang, shrink)) return grow(bubble);
+
+            // Nothing heard because the sound is off, and the switch is what
+            // answers -- see pulseMute. Not where there is no voice for the
+            // word: switching the sound on would not make it heard.
+            if (speech.muted() && speech.readable(word, lang)) pulseMute();
+        });
+
+        return bubble;
+    }
+
+    /*
+     * The bubbles brought up to the clock, every BUBBLE_TICK: a badge that
+     * reads "5m" should not still read it five minutes on, and a word whose
+     * time has come should start asking. The owner's call, 29 October 2026;
+     * until then a bubble was as old as the last draw of the screen, which in
+     * an installed app left open could be hours.
+     *
+     * Bubble by bubble, and only the ones whose look has changed (`looks`),
+     * rather than the screen drawn again. A draw puts everything back the way
+     * the state says it is, and whoever is in the middle of something would
+     * feel it: the settings open, a form being typed into, the list scrolled.
+     * A bubble that looks the same is left alone, so its hop goes on from
+     * where it was; the one being said is left for the next tick, and so is a
+     * card whose words no longer match its bubbles -- a draw of its own is
+     * on the way for that.
+     */
+    const BUBBLE_TICK = 30 * 1000;
+
+    // What each bubble on the screen was drawn from, to tell whether it is due
+    // a new look
+    const looks = new WeakMap();
+
+    function refreshBubbles() {
+        if (document.hidden) return;
+
+        container.querySelectorAll('.set-card[data-set-id]').forEach(card => {
+            const set = store.sets().find(s => String(s.id) === card.dataset.setId);
+            if (set) redrawBubbles(card, set);
+        });
+    }
+
+    // `now`: for somebody watching this very card, for whom the next tick is
+    // half a minute too late -- the bubble being said is drawn again with the
+    // rest, and goes on being said. See viewMenu.
+    function redrawBubbles(card, set, now) {
+        const row = card.querySelector('.set-words-bubbles');
+        if (!row) return;
+
+        const bubbles = row.querySelectorAll('.word-bubble-card');
+        if (bubbles.length !== set.words.length) return;
+
+        const view = store.viewOf(set);
+
+        set.words.forEach((w, order) => {
+            const old = bubbles[order];
+            const data = buildBubbleData(w, set.originalLang, view);
+            if ((old === swollen && !now) || looks.get(old) === JSON.stringify(data)) return;
+
+            if (old === swollen) swollen = null;
+
+            old.replaceWith(createBubble(data, document.createElement('div'), order));
+        });
+    }
+
+    setInterval(refreshBubbles, BUBBLE_TICK);
+    document.addEventListener('visibilitychange', refreshBubbles);
+
+    /*
+     * The way to the sound switch, saying that the switch is the reason a
+     * bubble said nothing.
+     *
+     * It used to do this for every silent tap, and was stopped when the sound
+     * came on by default (5 October 2026): the quiet was then the player's own
+     * choice, and explaining it back to them seemed one answer too many. Back
+     * for the bubbles on 24 October 2026, because that choice gets forgotten:
+     * people turn the sound off, forget it, and tap bubble after bubble in a
+     * set without hearing anything or seeing why. A tap answered by neither a
+     * sound nor a movement looks like a tap that missed.
+     *
+     * Only the bubbles. The games keep their silence: a word tapped in a game
+     * is marked, so the tap is answered anyway, and their speakers are heard
+     * whatever the switch says.
+     *
+     * The switch has been in the settings since 26 October 2026, so it cannot
+     * be pulsed where it is: the gear does it instead, and wears the switch
+     * while it does -- turns into the crossed-out speaker, swells and comes
+     * back twice, and turns back into the gear. A pulse alone would say "look
+     * here" about a gear, and nobody who wants the sound looks for it behind
+     * one; the speaker coming out of it is what says where it went.
+     *
+     * Where motion is turned down, the two pictures only cross-fade and the
+     * button fades and comes back instead of swelling. A tap during a run
+     * starts it over rather than stacking another on top.
+     */
+    const SWAP = 180;
+    const PULSE = 420;
+    const SWAP_HOLD = 240;
+
+    let pulsing = [];
+
+    function pulseMute() {
+        const btn = container.querySelector('#settings-btn');
+        const gear = btn && btn.querySelector('svg');
+        if (!gear || !btn.animate) return;
+
+        pulsing.forEach(run => run.cancel());
+        btn.querySelectorAll('.dict-settings-sound').forEach(el => el.remove());
+
+        const sound = $(btn, `<span class="dict-settings-sound" aria-hidden="true" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${SPEAKER_OFF}</span>`);
+
+        const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // The gear goes out and the speaker comes in, the speaker is held
+        // through the two pulses and a beat after them, and they trade back.
+        const total = SWAP + PULSE * 2 + SWAP_HOLD + SWAP;
+        const inAt = SWAP / total;
+        const outAt = (total - SWAP) / total;
+
+        const away = still ? { opacity: 0 } : { opacity: 0, transform: 'rotate(90deg) scale(0.5)' };
+        const here = still ? { opacity: 1 } : { opacity: 1, transform: 'none' };
+        const small = still ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.5)' };
+
+        const trade = (from, to) => [
+            { ...from, easing: 'ease-out' },
+            { ...to, offset: inAt },
+            { ...to, offset: outAt, easing: 'ease-in' },
+            { ...from }
+        ];
+
+        pulsing = [
+            gear.animate(trade(here, away), total),
+            sound.animate(trade(small, here), total),
+            btn.animate(still ? BECKON_STILL : BECKON, { duration: PULSE, delay: SWAP, iterations: 2, easing: 'ease-out' })
+        ];
+
+        pulsing[1].onfinish = () => sound.remove();
+    }
+
+    // The swell a button makes to be found, twice over, and what it does
+    // instead where motion is turned down -- see pulseMute. The second is
+    // what the gear does in flyToGear too, where motion is turned down.
+    const BECKON = [{ scale: 1 }, { scale: 1.3, offset: 0.3 }, { scale: 0.94, offset: 0.65 }, { scale: 1 }];
+    const BECKON_STILL = [{ opacity: 1 }, { opacity: 0.3 }, { opacity: 1 }];
+
+    /*
+     * The help strip sent away by the cross on one of its cards: the card
+     * shrinks into its own question mark, the mark flies onto the gear, and
+     * as it lands the screen is drawn again without the strip and the button
+     * turns over to the mark and back to the gear -- see flipThrough.
+     *
+     * The flight is the point of it. The strip used to end on a card saying it
+     * could be had back in the settings, with an arrow to the gear; that card
+     * went on 26 October 2026, and the way back is now shown by the card itself
+     * going there. A strip that simply vanished would read as gone for good.
+     *
+     * In two steps, because one was not enough to follow. The whole card
+     * flying into the gear, squeezed to its box on the way, was a block of
+     * colour crossing the screen and gone -- seen, but not seen to be anything.
+     * Shrunk first into the mark every heading carries, it becomes the thing
+     * the gear's panel has a switch for (the same round question mark, see
+     * dict-onb-row), and that is what the eye follows into the gear.
+     *
+     * Shrunk beside the cross that was pressed, not into the mark in the
+     * card's own heading, which it did at first. That mark is at the far left
+     * of the card and the press is at the far right: the card collapsed away
+     * from where the reader was looking, and the mark set off from somewhere
+     * they had to find first. Beside the press it comes out where they are
+     * looking already -- to the left of it, by MARK_ASIDE, so that it is not
+     * under the pointer or the finger that pressed.
+     *
+     * Landing, it turns the button over, the owner's call of 29 October 2026:
+     * the mark takes the gear's place on its back, and the button turns back
+     * to the gear. Until then the mark fell into the gear, shrinking and
+     * fading, and the button swelled twice, the same as for a silent bubble
+     * (pulseMute) -- three times for part of 26 October 2026, and back to two
+     * the same day, as the owner asked.
+     *
+     * Copies do the moving, not the card. The card is in the column, under the
+     * sticky header and below the list's layer; the copies are fixed over all
+     * of it, and hung on the body, so a redraw while they are in the air does
+     * not take them away. The arrows drawn off the card stay behind -- in the
+     * copy they would draw themselves again on the way.
+     *
+     * The strip folds out of the column while the mark flies, so the shelf
+     * rises into its place rather than jumping there when the screen is drawn
+     * again -- margin and all, since the list's own margin is what stands under
+     * the header once there is no strip. Not while the card shrinks: the mark
+     * is still standing where the card was, and a shelf sliding under it then
+     * would be two things moving at once.
+     *
+     * The easing sits on the frames rather than on the run, which would bend
+     * the offsets as well -- see sayWhereSoon. Where motion is turned down the
+     * card only fades where it stands, and the gear blinks instead of swelling.
+     */
+    const SHRINK = 300;
+    const SHRINK_BEAT = 120;
+
+    // How far left of the pressed cross the mark comes out, centre to centre.
+    // The mark is twenty wide, so its near edge is thirty from the press:
+    // clear of a fingertip, which covers about forty across, and of an arrow
+    // pointer, which hangs down and to the right of its point.
+    const MARK_ASIDE = 40;
+    const FLY = 420;
+
+    // Half a turn of the button, and how long it shows the mark between its
+    // two turns
+    const FLIP = 160;
+    const FLIP_HOLD = 600;
+
+    /*
+     * The settings button turned over to the onboarding's mark and back: a
+     * quarter turn, the gear swapped for the mark edge-on where neither is
+     * seen, a quarter turn back with the mark on its face; a pause; and the
+     * same again with the gear. Turned about its upright with a little
+     * perspective, so it reads as a tile turning and not as a squeeze.
+     *
+     * Over the gear rather than in its place, in a box of its own inside the
+     * button, the way pulseMute lays the speaker over it: the button and its
+     * gear are the header's, and drawn again by every render.
+     */
+    function flipThrough(btn) {
+        const gear = btn.querySelector('svg');
+        if (!gear) return;
+
+        const mark = $(btn, `<span class="dict-settings-sign" aria-hidden="true" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;">${onboarding.sign()}</span>`);
+
+        const total = 4 * FLIP + FLIP_HOLD;
+        const at = (ms) => ms / total;
+        const turn = (deg) => `perspective(90px) rotateY(${deg}deg)`;
+
+        const over = at(FLIP);
+        const back = at(3 * FLIP + FLIP_HOLD);
+
+        btn.animate([
+            { transform: turn(0), easing: 'ease-in' },
+            { transform: turn(90), offset: over },
+            { transform: turn(-90), offset: over + 0.0001, easing: 'ease-out' },
+            { transform: turn(0), offset: at(2 * FLIP) },
+            { transform: turn(0), offset: at(2 * FLIP + FLIP_HOLD), easing: 'ease-in' },
+            { transform: turn(90), offset: back },
+            { transform: turn(-90), offset: back + 0.0001, easing: 'ease-out' },
+            { transform: turn(0) }
+        ], total);
+
+        const shows = (from) => [
+            { opacity: from },
+            { opacity: from, offset: over },
+            { opacity: 1 - from, offset: over + 0.0001 },
+            { opacity: 1 - from, offset: back },
+            { opacity: from, offset: back + 0.0001 },
+            { opacity: from }
+        ];
+
+        gear.animate(shows(1), total);
+        mark.animate(shows(0), total).onfinish = () => mark.remove();
+    }
+
+    // A fixed box at these layout pixels, put right by what it missed by.
+    // Until 26 October 2026 the page outside the popup kept a gutter for its
+    // scrollbar on both edges, and a fixed box was measured from inside the
+    // left one: fifteen screen pixels right of where its numbers said, on
+    // Windows. The gutter went with the scrollbars (see app.css) and the
+    // measuring stayed: one read, and right whatever stands between a fixed
+    // box and the edge of the window.
+    function pinAt(el, left, top) {
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+
+        const at = appRect(el);
+        el.style.left = `${2 * left - at.left}px`;
+        el.style.top = `${2 * top - at.top}px`;
+    }
+
+    function flyToGear(strip) {
+        const card = strip.querySelector('.onb-card');
+        const gear = container.querySelector('#settings-btn');
+
+        if (!card || !gear || !card.animate) {
+            render();
+            return;
+        }
+
+        const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const from = appRect(card);
+        const to = appRect(gear);
+
+        const ghost = card.cloneNode(true);
+        ghost.querySelectorAll('.onb-point').forEach(el => el.remove());
+
+        Object.assign(ghost.style, {
+            position: 'fixed', width: `${from.width}px`, height: `${from.height}px`,
+            boxSizing: 'border-box', margin: '0', zIndex: '50', pointerEvents: 'none'
+        });
+
+        document.body.appendChild(ghost);
+        pinAt(ghost, from.left, from.top);
+
+        strip.style.visibility = 'hidden';
+
+        const landing = () => {
+            render();
+
+            const settled = container.querySelector('#settings-btn');
+            if (!settled) return;
+
+            if (still) settled.animate(BECKON_STILL, { duration: PULSE, iterations: 2, easing: 'ease-out' });
+            else flipThrough(settled);
+        };
+
+        if (still) {
+            ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }).onfinish = () => {
+                ghost.remove();
+                landing();
+            };
+            return;
+        }
+
+        const holder = document.createElement('div');
+        holder.innerHTML = onboarding.sign();
+        const mark = holder.firstElementChild;
+
+        Object.assign(mark.style, { position: 'fixed', margin: '0', zIndex: '51', pointerEvents: 'none', opacity: '0' });
+        document.body.appendChild(mark);
+
+        // Level with the cross that was pressed, MARK_ASIDE to the left of it.
+        const cross = appRect(strip.querySelector('.onb-close'));
+        const size = mark.offsetWidth;
+        const sign = {
+            left: cross.left + cross.width / 2 - MARK_ASIDE - size / 2,
+            top: cross.top + cross.height / 2 - size / 2,
+            width: size,
+            height: size
+        };
+
+        pinAt(mark, sign.left, sign.top);
+
+        // The card shrinks round the place the mark comes out and is gone by
+        // the time it is the mark's size; the mark fades in as it goes.
+        ghost.style.transformOrigin = `${sign.left + size / 2 - from.left}px ${sign.top + size / 2 - from.top}px`;
+
+        ghost.animate([
+            { transform: 'none', opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.6, 1)' },
+            { opacity: 1, offset: 0.55 },
+            { transform: `scale(${size / from.width})`, opacity: 0 }
+        ], { duration: SHRINK, fill: 'forwards' }).onfinish = () => ghost.remove();
+
+        mark.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SHRINK / 2, delay: SHRINK / 2, fill: 'forwards' });
+
+        const away = SHRINK + SHRINK_BEAT;
+
+        strip.animate([
+            { height: `${strip.offsetHeight}px`, marginTop: getComputedStyle(strip).marginTop },
+            { height: '0px', marginTop: '0px' }
+        ], { duration: FLY, delay: away, easing: 'ease-in-out', fill: 'forwards' });
+
+        // Onto the middle of the gear, faster as it goes, the way a thing
+        // falls onto something, and still whole when it gets there: the
+        // button turns over to it as it lands -- see flipThrough.
+        const dx = (to.left + to.width / 2) - (sign.left + sign.width / 2);
+        const dy = (to.top + to.height / 2) - (sign.top + sign.height / 2);
+
+        mark.animate([
+            { transform: 'none', easing: 'cubic-bezier(0.5, 0, 0.75, 0)' },
+            { transform: `translate(${dx}px, ${dy}px)` }
+        ], { duration: FLY, delay: away, fill: 'forwards' }).onfinish = () => {
+            mark.remove();
+            landing();
+        };
+    }
+
+    /*
+     * The screen drawn again where it stands.
+     *
+     * Drawing empties the column before it fills it again, and for that moment
+     * the page is as short as an empty column: the browser pulls the scroll
+     * back to fit, and the list comes back under a page that is no longer
+     * where it was. Reported on a phone: Edit pressed on a set further down
+     * the list put the reader back at the top of it -- and so would any other
+     * redraw, a sync's among them. Not in the popup, whose scroller is the body
+     * (.in-popup in app.css) and kept its place; both are put back, the way
+     * showFromTop takes both to the top. So is the scroll inside each set.
+     *
+     * Except for the New set form opening, which goes in at the top of the
+     * list: kept where it stood, the reader further down would press the
+     * button and see nothing happen. That one goes to the top -- where the web
+     * already went, by the accident above, and the popup did not.
+     *
+     * `shaped` is for a redraw that gives something its starting size after
+     * the drawing and before the scroll is put back -- see redrawEased. A page
+     * at the size it is about to animate away from is the page the scroll was
+     * measured on; put back first, against the size it is animating to, a
+     * scroll near the bottom of a page that is about to get shorter is cut to
+     * fit it -- measured: 450 asked, 375 kept, and the set that was pressed
+     * standing 75px lower than where it was pressed.
+     */
+    function render(shaped) {
+        // The corner of the window is on every page and is made by base.js, which has
+        // no table to read: a game page keeps it in English. Here it is put right on
+        // every draw, because the language can change under it.
+        const grip = document.querySelector('.app-grip');
+
+        if (grip) grip.title = tr('gripHint');
+
+        const page = document.scrollingElement || document.documentElement;
+        const toTop = unfolding === 'set';
+        const pageTop = toTop ? 0 : page.scrollTop;
+        const bodyTop = toTop ? 0 : document.body.scrollTop;
+
+        // And each set's words, which scroll inside the set (see WORDS_CAP), by
+        // the set's id: the same set is a new card after the draw
+        const wordsTop = new Map();
+
+        document.querySelectorAll('.set-card').forEach(card => {
+            const words = card.querySelector('.set-words-bubbles');
+            if (words && words.scrollTop) wordsTop.set(card.dataset.setId, words.scrollTop);
+        });
+
+        draw();
+
+        if (typeof shaped === 'function') shaped();
+
+        page.scrollTop = pageTop;
+        document.body.scrollTop = bodyTop;
+
+        document.querySelectorAll('.set-card').forEach(card => {
+            const words = card.querySelector('.set-words-bubbles');
+            if (words && wordsTop.has(card.dataset.setId)) words.scrollTop = wordsTop.get(card.dataset.setId);
+        });
+
+        // Hung during the draw, from a button that had not got its scroll back
+        if (viewWatch) viewWatch.moved();
+    }
+
+    /*
+     * The answer about languages decides what is on the shelf, so it decides
+     * what is on the screen: a set the app made for a pair that is no longer
+     * the reader's is not shown.
+     *
+     * The pair, both halves of it. Checking only the language being learned
+     * was enough until somebody changed their own language in the settings:
+     * makeSets then built the same sets against the new one -- the ids carry
+     * both halves, so nothing was in the way -- and the old ones went on
+     * standing beside them. Six Spanish sets, three names printed twice, and no
+     * way to tell from the list which was which.
+     *
+     * Hidden, not deleted. The set stays in the store with everything that
+     * has been answered in it, and naming that pair again brings it back as
+     * it was -- makeSets passes over an id that is already there. An answer
+     * about languages that could destroy a month of repetitions is an answer
+     * nobody could safely change.
+     *
+     * Only the made ones, told apart by their id -- see CATALOG_ID and
+     * isOldSample. A set somebody wrote themselves belongs to them and not to an
+     * answer they gave on a first screen, whatever language it turned out to be in.
+     *
+     * Except one that a person has had a hand in, which is never hidden, whatever
+     * happens to the languages, the owner's call, 5 November 2026: answers or an edit
+     * gone from the screen are lost to whoever does not think of naming that pair
+     * again. Somebody who no longer wants such a set deletes it, as they would any
+     * other. So a change of language can leave two sets of one language on the list,
+     * each titled in the language it is read in, and that is what tells them apart.
+     * The answers as well as the date, because a set last played before dates were
+     * written on sets has answers in it and no date.
+     *
+     * And one to a pair -- see FIRST_LEVEL. A pair used to bring three, and those
+     * are still in the database of everybody who came before, or arrive from a
+     * device on an older version. An untouched one of the other two is nothing to
+     * lose.
+     */
+    function onShelf(set) {
+        const made = String(set.id).startsWith(CATALOG_ID) || isOldSample(set);
+
+        if (!made || set.changedAt || hasAnswers(set)) return true;
+
+        return isFirstSet(set) && learnLangs.includes(set.originalLang) && set.translationLang === myLang;
+    }
+
+    const hasAnswers = (set) => (set.words || []).some(w => w.repetitions && w.repetitions.length > 0);
+
+    function draw() {
+        // Read once per draw, so every card in the pass agrees, and cleared here
+        // rather than at the end: an exception further down should not leave the
+        // animation armed for whatever redraws next.
+        const intro = introduce;
+        introduce = false;
+
+        // Filled by the cards as they are drawn -- see growTiles
+        growing = [];
+
+        // Every bubble on the screen is about to be thrown away, the swollen one
+        // included. What is still being said goes on being said; there is just
+        // nothing left to take back down afterwards.
+        swollen = null;
+
+        const unfold = unfolding;
+        unfolding = null;
+
+        container.innerHTML = '';
+
+        const sets = store.sets();
+
+        // Whether a new set is being written. Needed before the header, because
+        // the New Set button reads it twice: for its own look, and to know that a
+        // press means close rather than open.
+        //
+        // The draft rather than `editing`: it is exactly what the New Set button
+        // made, and is gone again on save or cancel. Editing an existing set
+        // opens the same form further down the list, and has nothing to do with
+        // this button.
+        const addingSet = !!draft;
+
+        // Open, the button takes the form's own surface. The form is what the
+        // press produced, and one surface across both is what says the button is
+        // holding that form open rather than offering to open another.
+        const addBg = addingSet ? palette.cardBg : 'transparent';
+
+        /*
+         * The header keeps no air of its own above it and the page's own measure
+         * under it.
+         *
+         * It is the tallest thing on the screen -- the mark is 34.1 -- and air
+         * on both sides of something that tall is a lot of nothing before the
+         * first word of content. So nothing is added above: what stands there is
+         * the page's 6.8, the same as on every game screen.
+         *
+         * And the same 6.8 below, because the row of buttons is what the eye
+         * measures this band by. Inside the header they are centred -- 2.55 of
+         * slack over and under them, the mark being taller than they are -- so
+         * whatever stands outside the header is what decides whether they look
+         * centred. At 10.2 below they had 9.35 of air above and 12.75 under,
+         * which is a row of buttons sitting high in its own strip.
+         *
+         * The title is held at LOGO_SIZE tall whatever mark is in it: the mark
+         * of an update is smaller (see updated), and the header keeps the
+         * height it always has, with the mark in the middle of it -- and in
+         * the middle of the usual mark's width, see logoSvg.
+         */
+        const header = $(container, `<div class="dict-header" style="position: sticky; top: 0; z-index: 6; margin: -6.8px -6.8px 0; padding: 6.8px; background: ${palette.pageBg}; box-shadow: 0 -2px 0 ${palette.pageBg}; display: flex; justify-content: space-between; align-items: center;">
+            <h1 class="dict-title" style="margin: 0; min-height: ${LOGO_SIZE}px; display: flex; align-items: center; gap: 7.7px; color: ${palette.heading};">
+                ${updated ? logoSvg(palette.logo, UPDATED_LOGO_SIZE, true) : logoSvg(palette.logo, LOGO_SIZE)}
+                ${WORDMARK}
+            </h1>
+            ${updated ? updatedNote() : ''}
+            <div class="dict-header-actions" style="display: flex; align-items: center; gap: 6.8px;">
+                ${langsAsked ? `<button class="dict-add-set-btn" id="add-set-btn" style="flex: none; height: 29px; padding: 0 10.2px; background: ${addBg}; color: ${palette.softColor}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer; transition: all 0.2s;" title="${tr('newSetHint')}">${tr('newSet')}</button>` : ''}
+                ${langsAsked ? `<button class="dict-settings-btn" id="settings-btn" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: ${settingsOpen ? palette.cardBg : 'transparent'}; border: 1px solid ${palette.chromeBorder}; border-radius: 10.2px; cursor: pointer; color: ${palette.softColor}; transition: all 0.2s; will-change: scale;" title="${tr('settings')}">${GEAR}</button>` : ''}
+            </div>
+        </div>`);
+
+        // The gear wears will-change for its swells -- see pulseMute and
+        // flyToGear. A swell lifts it onto a layer of its own, drawn on whole
+        // pixels, while the app's zoom stands it on a fraction of one: the gear
+        // moved by that fraction the moment a swell ended and it was drawn into
+        // the page again (reported 26 October 2026). Kept on its layer, it is
+        // drawn the same way standing still and moving.
+        const addSetBtn = header.querySelector('#add-set-btn');
+
+        if (addSetBtn) addSetBtn.addEventListener('click', toggleNewSet);
+
+        // The mark keeps no state. What it does on its own is blink -- see
+        // blinkLogo -- and after an update it is another picture to the end
+        // of the page -- see updated.
+        startBlinking();
+
+        // A press on it, or on the name, puts the look of an update on the
+        // mark, and the next press takes it off again -- whichever it wore,
+        // updated or not. Until the catalog is next drawn, which builds this
+        // header again from `updated` alone. Written into the header where it
+        // stands, so that nothing has to remember it.
+        //
+        // No data-press on the title, and that is on purpose: the analytics
+        // are not to hear about this press at all (the owner, 3 November
+        // 2026). A heading is nothing track.js counts as pressable.
+        const title = header.querySelector('.dict-title');
+
+        title.addEventListener('click', () => {
+            const note = header.querySelector('.dict-updated-note');
+            const mark = title.querySelector('.dict-logo');
+
+            if (note) {
+                note.remove();
+                mark.outerHTML = logoSvg(palette.logo, LOGO_SIZE);
+            } else {
+                mark.outerHTML = logoSvg(palette.logo, UPDATED_LOGO_SIZE, true);
+                title.insertAdjacentHTML('afterend', updatedNote());
+            }
+        });
+
+        // Opens the settings layer and closes it again. A toggle, like the New
+        // Set button next to it: the press that opened something is the press
+        // that takes it away, whatever shape the something has.
+        //
+        // Not on the first screen, the owner's call, 4 November 2026: that screen
+        // is one question, and a way out of it beside Skip only asks for attention.
+        // Connecting a second device goes through Skip now, which loses nothing:
+        // the profile's languages replace whatever the first screen was told.
+        const settingsBtn = header.querySelector('#settings-btn');
+
+        if (settingsBtn) settingsBtn.addEventListener('click', () => {
+            if (closing) return;
+
+            if (settingsOpen) {
+                closeSettings();
+                return;
+            }
+
+            settingsOpen = true;
+            unfolding = 'settings';
+            render();
+        });
+
+        // A toggle, not a repeat action: pressed again, the button takes the form
+        // back down. Left as a plain action it would mint another empty set on
+        // every press, and the catalog would stack blank forms nobody asked for.
+        //
+        // Written here and attached further down, where the button it belongs to
+        // is drawn: the button moved into the "My" section, and this is about the
+        // header the app has rather than the one a section does.
+        function toggleNewSet() {
+            if (closing) return;
+
+            if (addingSet) {
+                closeNewSet();
+                return;
+            }
+
+            const id = Date.now().toString();
+            draft = {
+                id: id,
+                // Nameless on purpose: an empty box is what lets the placeholder example
+                // show, and saving without a name falls back to NEW SET NAME
+                title: '',
+                words: []
+            };
+            editing.add(id);
+            rememberForm(id, '');
+            unfolding = 'set';
+            render();
+        }
+
+        /*
+         * The question has not been put yet, so it is the whole screen. Asked
+         * once: what comes of it -- an answer or a shrug -- is written down, and
+         * everything after that is the ordinary list.
+         */
+        if (!langsAsked) {
+            askLanguages(container);
+            return;
+        }
+
+        /*
+         * Between the header and the first set: the cards that say what this
+         * screen is for, what the colours on it mean and what the corner of the
+         * window does. Which of them stand there, and whether any of them do, is
+         * decided in onboarding.js -- the catalog's whole part in it is this
+         * line, the switch in the settings and the palette it hands over.
+         */
+        onbStrip = onboarding.at(container);
+
+        /*
+         * One list, and the one it is of is yours.
+         *
+         * There were two sections here: what you had taken, and a shelf of what
+         * there was to take. Three ideas -- a shelf, a flag that moved a set off
+         * it, and two places a set could be -- for a reader who had not yet seen
+         * a single word. The shelf is now the first screen instead: the pair of
+         * questions is asked once, the sets it implies are made, and from then on
+         * there is a list of sets that are all equally yours.
+         */
+        const list = $(container, `<div class="dict-sets-list" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; margin-top: 6.8px;"></div>`);
+
+        // The form opens where the button that opened it stands -- at the top,
+        // under the header -- above the sets it is about to join.
+        if (draft) renderSetCard(list, draft, intro);
+
+        // Only what the answer about languages puts there -- see onShelf.
+        recent(sets.filter(onShelf)).forEach(set => renderSetCard(list, set, intro));
+
+        /*
+         * The form is open and the strip is in the column again: every draw puts
+         * it back there, and here is where it is taken out. Without animation,
+         * because nothing is moving -- this is a screen arriving in the state it
+         * was already in.
+         *
+         * Every draw with the form open rather than only the ones that follow an
+         * opening, because the form outlives the page: a popup closed over a
+         * half-written set opens again with the form still there, and the strip
+         * has no more business being visible then than it had a moment before
+         * the window went.
+         *
+         * Not on the draw that is about to open the form, though -- that one
+         * belongs to unfoldInto, which covers the strip as the first thing the
+         * growth starts from.
+         *
+         * And nothing at all when there is no strip to cover, which happens when
+         * the reader switches the onboarding off from the settings while the
+         * form is open.
+         */
+        if (!draft || !onbStrip) {
+            // Gone without folding, which is what Save does: the form is not
+            // closed, it becomes a card of the list. The strip has to come back
+            // into a column that is already drawn without it, so it is put back
+            // where it was covered and then let go -- the shelf slides down
+            // rather than being found lower.
+            if (onbCovered && onbStrip) revealStrip();
+
+            onbCovered = false;
+        } else if (unfold !== 'set') {
+            const open = newSetCard();
+
+            if (open) coverStrip(stripRise(appRect(open).height + listGap(open)));
+        }
+
+        if (unfold === 'set') {
+            const card = newSetCard();
+            if (card) unfoldInto(card);
+        }
+
+        // Under everything the list drew, which is where an ask belongs: the
+        // screen is for studying, and this is the app wanting something back.
+        rateUs(container);
+
+        // Last, so it is over everything this pass drew. Redrawn with the rest
+        // of the screen — the theme button repaints the catalog under an open
+        // panel — and it only rises into place when this pass is the one that
+        // opened it.
+        if (settingsOpen) renderSettings(container, unfold === 'settings');
+
+        if (viewFor !== null) viewMenu(false);
+
+        // The redraw emptied the container, and the hand was inside it. Put back
+        // here rather than at the one entry the page calls, so that it comes back
+        // from every way it can be taken away.
+        showHint();
+
+        if (growing.length) growTiles(growing);
+    }
+
+    /*
+     * The form growing out of nothing, and folding back into it.
+     *
+     * Height is animated through max-height because the form has no height to
+     * animate to: it is whatever the box, the routes and the header add up to,
+     * and that is known only once the thing is in the page. The cap is measured
+     * there and dropped as soon as the run ends — left on, it would clip the
+     * form the moment a route was opened inside it.
+     *
+     * The cap has to be dropped after the run and not before, which is what
+     * pin() below is for.
+     *
+     * Padding goes along with it when the card folds to nothing: max-height caps
+     * the content box, so padding alone would hold the card 27.3px tall with
+     * nothing in it.
+     *
+     * Nothing fades. The card grows out of nothing and shrinks back into it,
+     * which is one block changing shape — a fade would blank it for a moment
+     * instead, and there is nothing underneath worth a glimpse of.
+     *
+     * The list spaces its cards with a flex gap, which no card can animate. A
+     * negative margin of the same size cancels it, so the cards below slide
+     * instead of jumping the moment this one appears or leaves. Only when there
+     * is another card to be spaced from: alone, that margin would just crop the
+     * list.
+     */
+    const FOLD_OPEN = 260;
+    const FOLD_SHUT = 240;
+
+    function listGap(card) {
+        const list = card.parentElement;
+        if (!list || list.children.length < 2) return 0;
+        return parseFloat(getComputedStyle(list).rowGap) || 0;
+    }
+
+    /*
+     * The air above the first card, which the list pays only while it holds one
+     * -- see .dict-sets-list in app.css.
+     *
+     * It has to fold with the card, because the list stops paying it the instant
+     * the card leaves: a fold that ends with the gap still there ends in a drop
+     * of exactly that much.
+     *
+     * Folded on the list rather than cancelled from the card, which was tried
+     * first and does nothing. A negative margin on the only item of a flex
+     * column takes the item up, but the column's own height stops at nought --
+     * so the list went on reserving its gap with an item of no height inside it.
+     * The space belongs to the list, and the list is what has to give it up.
+     *
+     * Only for a card that is alone there, because only then does the list empty
+     * when it goes. A card with siblings leaves that gap standing: it belongs to
+     * whichever card is first, which after this one folds will be the next one.
+     */
+    function listLead(card) {
+        const list = card.parentElement;
+        if (!list || list.children.length !== 1) return null;
+        if (!parseFloat(getComputedStyle(list).marginTop)) return null;
+
+        return list;
+    }
+
+    /*
+     * Puts the starting state into the layout so there is something to move
+     * from. Both styles applied in one go would be collapsed into a single
+     * pass and the element would simply appear in its end state.
+     *
+     * A forced reflow rather than requestAnimationFrame. A tab that is not
+     * painting throttles rAF to whenever it next paints but leaves setTimeout
+     * alone, so the release timer below would fire first — and the callback,
+     * arriving afterwards, would put the cap back on and leave it there.
+     */
+    function pin(card) {
+        void card.offsetHeight;
+    }
+
+    /*
+     * The collapsed end of the fold: nothing at all, measured rather than
+     * assumed.
+     *
+     * Everything that takes height has to be taken down, or the fold stops short
+     * of the state the page is in once the card is gone and the difference is
+     * paid in one frame. This card ended 10.3px above that state -- 8.5 of the
+     * list's own gap above its first card, and 1.8 of the card's two border
+     * lines -- and that was the step left at the end of every close and the
+     * start of every open.
+     *
+     * The borders go to nought with the padding: a line is a line whatever the
+     * box behind it measures, and two of them are the one thing a card of no
+     * height still draws. The margin under it cancels the gap the list is
+     * holding there, and the list's own gap above it folds with it -- see
+     * listLead -- so at that end the card takes nothing out of the column at
+     * all.
+     *
+     * `under` is that margin, and it is not always the negative of the gap. Over
+     * a covered onboarding strip the collapsed card has to hold the strip's room
+     * open under itself instead, or the shelf would jump up by the height of the
+     * strip at the moment the form starts growing -- see unfoldInto.
+     *
+     * It used to fold down to the height of the "Continue" banner instead, which
+     * is what the form grew out of while the banner left. There is no banner now
+     * -- the game that was started is marked on its own tile -- so there is
+     * nothing above the list for a card to be measured against.
+     */
+    function collapsed(card, gap, lead, under) {
+        card.style.paddingTop = '0px';
+        card.style.paddingBottom = '0px';
+        card.style.borderTopWidth = '0px';
+        card.style.borderBottomWidth = '0px';
+        card.style.maxHeight = '0px';
+
+        if (under) card.style.marginBottom = `${under}px`;
+        if (lead) lead.style.marginTop = '0px';
+    }
+
+    /*
+     * The new-set form opens over the onboarding strip rather than below it.
+     *
+     * The form is as tall as a card and the strip is as tall as a card, and one
+     * arriving under the other pushed the whole shelf down the screen by both of
+     * them at once. What it does instead is start at the top of the column,
+     * where the strip begins, and grow downwards over it: it covers the strip
+     * first and moves the first set only once its lower edge has reached it,
+     * and then only by what is left of its height.
+     *
+     * Two levers do it, and neither of them moves the strip:
+     *
+     * The strip's own bottom margin goes negative by its whole height, at once
+     * and without animation, so that the list starts the growth already at the
+     * top of the column. A margin rather than a transform, which is the whole of
+     * why the strip's resting margin is nought (see onboarding.js): a negative
+     * margin takes the room out of the column for real, so the page ends where
+     * it should and the popup is the height it should be. A transform would have
+     * left the column as tall as it was, with the strip's height of nothing
+     * under everything.
+     *
+     * And the form carries the strip's room under itself, as a margin, giving it
+     * up exactly as fast as it takes it: at every moment the gap under the form
+     * is what is left of the strip once the form has grown into it. That is the
+     * lever that keeps the shelf still -- the first set does not move while
+     * there is strip left under the form, and from the moment there is none it
+     * is pushed, which is what the form has always done.
+     *
+     * Frame by frame rather than by a transition, because what that margin has
+     * to follow is `max(0, left over)` -- a straight line with a corner in it,
+     * and a transition can only draw the line. The corner is the moment the form
+     * reaches the shelf, which is the one moment in the whole movement anybody
+     * is meant to notice. What is read each frame is the form's real height, so
+     * the two cannot drift apart whatever the easing does.
+     *
+     * The strip itself never moves and is never folded. It stands where it
+     * stood, under a list that is given a layer of its own above it -- so what
+     * the eye sees is the form covering the card rather than the card being
+     * squeezed out.
+     */
+    // The cross on every card of the strip is this switch worded the other way
+    // round -- see the dict-onb-row press in renderSettings -- and what follows
+    // it is ours to draw: the strip is handed flyToGear rather than left to
+    // reach for our screen.
+    onboarding.setSendAway(flyToGear);
+
+    let onbStrip = null;
+    let onbCovered = false;
+    let onbRise = 0;
+
+    /*
+     * How much column the strip takes: the distance between the two tops, which
+     * is the strip and the air under it, and never more than the form has to
+     * cover it with. Pulled up further than that, the form could not reach the
+     * shelf even at its full height, and the gap under it would never close.
+     *
+     * In the app's own pixels rather than the screen's, because that is what a
+     * margin is written in and the two differ by whatever the corner is set to.
+     */
+    function stripRise(room) {
+        const list = container.querySelector('.dict-sets-list');
+
+        if (!onbStrip || !list) return 0;
+
+        return Math.max(0, Math.min(appRect(list).top - appRect(onbStrip).top, room));
+    }
+
+    // Read back by the fold rather than measured again: by then the strip is
+    // already out of the column, and the distance that is wanted is the one it
+    // used to take.
+    // Covered, the strip also puts away its hand-drawn arrows -- the one part
+    // of it the form cannot cover -- see onb-point in app.css. Nothing takes
+    // the mark off again: every way the form goes ends in a redraw, and the
+    // strip it draws is a new one, with its arrows drawing themselves anew.
+    function coverStrip(rise) {
+        if (!onbStrip) return;
+
+        onbStrip.dataset.covered = '';
+        onbStrip.style.marginBottom = `-${rise}px`;
+
+        onbRise = rise;
+        onbCovered = true;
+    }
+
+    function revealStrip() {
+        onbStrip.style.marginBottom = `-${onbRise}px`;
+
+        pin(onbStrip);
+
+        onbStrip.style.transition = `margin-bottom ${FOLD_SHUT}ms ease-out`;
+        onbStrip.style.marginBottom = '0px';
+
+        setTimeout(() => {
+            if (onbStrip) onbStrip.style.transition = '';
+        }, FOLD_SHUT + 40);
+    }
+
+    /*
+     * The shelf held still under a form that is still growing, and let go as
+     * soon as the form reaches it.
+     *
+     * One run at a time -- a close that interrupts an open takes the loop over
+     * -- and it ends by the clock rather than by the last frame, because a frame
+     * is not promised: a tab nobody is looking at is not drawn, and the landing
+     * is the one value that has to be right whether or not anything was ever
+     * painted.
+     */
+    let holdRun = 0;
+
+    function holdShelf(card, rise, gap, ms) {
+        const mine = ++holdRun;
+
+        const land = () => {
+            if (mine !== holdRun || !card.isConnected) return false;
+
+            card.style.marginBottom = `${Math.max(0, rise - gap - appRect(card).height)}px`;
+
+            return true;
+        };
+
+        const ends = performance.now() + ms;
+
+        const step = () => {
+            if (!land()) return;
+            if (performance.now() < ends) requestAnimationFrame(step);
+        };
+
+        step();
+        setTimeout(land, ms + 40);
+    }
+
+    function unfoldInto(card) {
+        const opened = card.scrollHeight;
+        const gap = listGap(card);
+        const lead = listLead(card);
+
+        // Before the card is flattened and before the lead is folded, so that
+        // what is measured is the column as it stands rather than one in the
+        // middle of being taken apart.
+        const rise = stripRise(opened + gap);
+
+        // Taken before they are overridden, and put back by value at the end.
+        // The card's padding and border are written in its own style attribute,
+        // so clearing the override does not uncover them — it uncovers nothing,
+        // and the card would keep the flattened values it was animated through.
+        // A border is worse than padding there: with no longhand and no rule to
+        // fall back on, border-width is `medium`, which is three pixels.
+        const padTop = getComputedStyle(card).paddingTop;
+        const padBottom = getComputedStyle(card).paddingBottom;
+        const lineTop = card.style.borderTopWidth || getComputedStyle(card).borderTopWidth;
+        const lineBottom = card.style.borderBottomWidth || getComputedStyle(card).borderBottomWidth;
+
+        card.style.overflow = 'hidden';
+
+        // Before the card is pinned, so that the state the growth starts from is
+        // the covered one: the strip out of the column, the form at the top of
+        // it with no height, and the shelf exactly where it was standing.
+        coverStrip(rise);
+        collapsed(card, gap, lead, rise ? rise - gap : -gap);
+
+        pin(card);
+
+        if (lead) lead.style.transition = `margin-top ${FOLD_OPEN}ms ease-out`;
+
+        // The margin under the card is left out of the transition when the strip
+        // is covered: it is driven by hand from there on, and a transition on a
+        // property being written every frame is a property that never arrives.
+        card.style.transition = `max-height ${FOLD_OPEN}ms ease-out,`
+            + ` padding ${FOLD_OPEN}ms ease-out, border-width ${FOLD_OPEN}ms ease-out`
+            + (rise ? '' : `, margin-bottom ${FOLD_OPEN}ms ease-out`);
+        card.style.maxHeight = `${opened}px`;
+        card.style.paddingTop = padTop;
+        card.style.paddingBottom = padBottom;
+        card.style.borderTopWidth = lineTop;
+        card.style.borderBottomWidth = lineBottom;
+
+        if (rise) holdShelf(card, rise, gap, FOLD_OPEN);
+        else card.style.marginBottom = '';
+
+        if (lead) lead.style.marginTop = '';
+
+        setTimeout(() => {
+            card.style.maxHeight = '';
+            card.style.overflow = '';
+            card.style.transition = '';
+
+            if (lead) lead.style.transition = '';
+        }, FOLD_OPEN + 40);
+    }
+
+    function foldAway(card, done) {
+        const gap = listGap(card);
+        const lead = listLead(card);
+
+        // What the strip took, remembered rather than measured: it is out of the
+        // column already, so there is nothing left to measure.
+        const rise = onbCovered ? onbRise : 0;
+
+        card.style.overflow = 'hidden';
+        card.style.maxHeight = `${card.scrollHeight}px`;
+
+        pin(card);
+
+        if (lead) lead.style.transition = `margin-top ${FOLD_SHUT}ms ease-in`;
+
+        card.style.transition = `max-height ${FOLD_SHUT}ms ease-in,`
+            + ` padding ${FOLD_SHUT}ms ease-in, border-width ${FOLD_SHUT}ms ease-in`
+            + (rise ? '' : `, margin-bottom ${FOLD_SHUT}ms ease-in`);
+        collapsed(card, gap, lead, rise ? rise - gap : -gap);
+
+        // The same hand on the same margin, running backwards: the shelf stays
+        // where it is until the shrinking form has let go of it, and the strip
+        // comes back out from under the form as the form leaves it.
+        if (rise) holdShelf(card, rise, gap, FOLD_SHUT);
+
+        // The strip's own margin stays where it is for the whole fold and is put
+        // back by the redraw that follows, which draws it afresh -- and by then
+        // the collapsed card is holding exactly the room the strip is about to
+        // take back, so the column does not move.
+        setTimeout(() => {
+            onbCovered = false;
+            done();
+        }, FOLD_SHUT);
+    }
+
+    // The card the New Set button opened, or null once it is gone.
+    function newSetCard() {
+        return draft ? container.querySelector(`.set-card[data-set-id="${draft.id}"]`) : null;
+    }
+
+    // Folds the form shut and then drops what was behind it. Without a card to
+    // fold — nothing open, or the screen redrawn under us — it just does the
+    // dropping, so the caller never has to know which case it is in.
+    function closeNewSet() {
+        const card = newSetCard();
+
+        if (!card) {
+            discardDraft();
+            render();
+            return;
+        }
+
+        closing = true;
+        foldAway(card, () => {
+            closing = false;
+            discardDraft();
+            render();
+        });
+    }
+
+    /*
+     * A set's card turning into its form, or the form back into the card,
+     * grown or shrunk into the new height rather than jumping to it.
+     *
+     * The form is two and three times the card, and arriving in one frame it
+     * shoved everything under it down the screen at once. Eased, the card
+     * stays where the press was and the list under it is seen to make room.
+     *
+     * The browser's own numbers at both ends, the way the strip reads them
+     * (see settle in onboarding.js): the content box from getComputedStyle,
+     * which is what a height is written in, inside the app's zoom -- both are
+     * the same .set-card, so the padding and the border are the same on each.
+     * Clipped while it moves, so that the form does not stand out of a card
+     * still growing into it.
+     */
+    function redrawEased(setId, ms) {
+        const cardOf = () => container.querySelector(`.set-card[data-set-id="${setId}"]`);
+
+        const was = cardOf();
+        const from = was ? getComputedStyle(was).height : null;
+
+        // Started inside the redraw, before the scroll is put back -- see
+        // render.
+        render(() => {
+            const card = cardOf();
+            if (!card || !from) return;
+
+            const to = getComputedStyle(card).height;
+            if (to === from) return;
+
+            card.style.height = from;
+            card.style.overflow = 'hidden';
+            pin(card);
+
+            card.style.transition = `height ${ms}ms ease-out`;
+            card.style.height = to;
+
+            setTimeout(() => {
+                card.style.transition = '';
+                card.style.height = '';
+                card.style.overflow = '';
+            }, ms + 40);
+        });
+    }
+
+    /*
+     * How long the panel takes to grow out of the button and to fold back into
+     * it.
+     *
+     * Shorter than the fold above, and out shorter than in: the fold moves a
+     * card the list has to make room for, while this only opens something over
+     * the page. A dismissal that lingers reads as the app thinking about it.
+     */
+    const RISE_IN = 170;
+    const RISE_OUT = 130;
+
+    /*
+     * Escape while the panel is up, and a window that changed size under it.
+     *
+     * Held on the document rather than on the overlay because a div gets no keys
+     * unless it is focused, and focusing the panel would take the caret out of
+     * whatever was being typed behind it.
+     *
+     * In the extension popup neither fires: the window is a fixed size, and
+     * Chrome closes the popup on Escape before the page sees it. On the site and
+     * in the installed app both do — a phone turned on its side moves the button
+     * the panel is hanging from, and a panel left where the button used to be
+     * points at nothing.
+     */
+    let watching = null;
+
+    function watchWhileOpen(panel, anchor) {
+        stopWatching();
+
+        watching = {
+            key: (e) => { if (e.key === 'Escape') closeSettings(); },
+            moved: () => { panel.style.transformOrigin = hangUnder(panel, anchor); }
+        };
+
+        document.addEventListener('keydown', watching.key);
+        window.addEventListener('resize', watching.moved);
+    }
+
+    function stopWatching() {
+        if (!watching) return;
+        document.removeEventListener('keydown', watching.key);
+        window.removeEventListener('resize', watching.moved);
+        watching = null;
+    }
+
+    // Folds the panel back into the button it came out of. It has nothing
+    // behind it to discard — the shrinking is the whole of the closing — and the
+    // redraw afterwards is what puts the button back to unpressed.
+    function closeSettings() {
+        const overlay = container.querySelector('.dict-settings-overlay');
+        stopWatching();
+
+        // The reader's own language among those learned goes as the panel
+        // does -- see blinkSame. Nothing to save: it was never saved
+        learnLangs = learnedReally();
+
+        if (!overlay) {
+            settingsOpen = false;
+            fillLearnLangs();
+            render();
+            return;
+        }
+
+        const panel = overlay.querySelector('.dict-settings-panel');
+
+        closing = true;
+        overlay.style.transition = `opacity ${RISE_OUT}ms ease-in`;
+        overlay.style.opacity = '0';
+        panel.style.transition = `transform ${RISE_OUT}ms ease-in, opacity ${RISE_OUT}ms ease-in`;
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        setTimeout(() => {
+            closing = false;
+            settingsOpen = false;
+            fillLearnLangs();
+            render();
+        }, RISE_OUT);
+    }
+
+    /*
+     * The list of languages being learned is not left empty by the settings, the
+     * owner's call, 5 November 2026: closed with nothing on it, it gets the default
+     * one, and that language's set the way any named language does. Not before the
+     * panel closes, because taking the last language off and adding another is an
+     * ordinary way to replace it, and a default appearing between the two presses
+     * would have to be taken off as well.
+     *
+     * Only a list emptied here. Somebody who skipped the question before there was a
+     * default has an empty list too, and opening the settings to look at something
+     * else is no change of languages.
+     *
+     * No `named`: this is not somebody asking for that language, so a set of it they
+     * deleted by hand stays deleted. See makeSets.
+     *
+     * The record already holds the default, from the moment the list went empty. A
+     * popup closes without warning and without asking (see saveForms), and there is
+     * no later moment to write it in. What it cannot do then is build the set, which
+     * waits for the next change of languages.
+     */
+    let learnEmptied = false;
+
+    // Without the reader's own language, which can stand on the list on the
+    // screen only -- see blinkSame
+    const learnedReally = () => learnLangs.filter(tag => tag !== shownMyLang());
+
+    function saveLearnLangs() {
+        const learned = learnedReally();
+        learnEmptied = !learned.length;
+
+        return saveSetting('learnLangs', learnEmptied ? [defaultLearn(shownMyLang())] : learned);
+    }
+
+    function fillLearnLangs() {
+        // A sync can have brought a list from another device in the meantime.
+        const empty = learnEmptied && !learnLangs.length;
+
+        learnEmptied = false;
+
+        if (!empty) return;
+
+        learnLangs = [defaultLearn(shownMyLang())];
+
+        langsChanged('default');
+        makeSets();
+    }
+
+    /*
+     * How a set is shown: the eye beside the pencil on its card, and a menu
+     * hung under it the way the settings hang under the gear -- the owner's
+     * call, 4 November 2026. What the switches do is store.viewOf's business;
+     * this is only how they are reached.
+     *
+     * No wash under it, which is where it parts from the settings. This menu is
+     * used by watching the bubbles change, and dimming them would dim the thing
+     * being judged. The layer is still there, clear, to catch the press that
+     * means "enough".
+     *
+     * A press writes the view and brings the set's bubbles up to it where they
+     * stand (redrawBubbles), rather than drawing the catalog again: a draw would
+     * throw the menu away and every bubble's hop with it, on every press of a
+     * plus. It stays on this device and nothing is sent -- see store.viewOf.
+     *
+     * Written down through the classes of its controls, see docs/ANALYTICS.md.
+     * The checkbox is what is counted and not its label, which a press on the
+     * label would count a second time: it passes the press on to the checkbox.
+     * What the press left the switch at goes as `view`: the press alone says it
+     * was pressed, the way `sound` does for the sound.
+     */
+    const VIEW_SIZE_STEP = 1;
+    const VIEW_SIZE_LEAST = 8.3;
+    const VIEW_SIZE_MOST = 24.3;
+
+    // The marks each switch answers for, on a white plate of their own: the dark
+    // ones are drawn for a bubble's pastel, and on the dark theme's panel they
+    // would not be seen at all. A size up from a bubble's, too, where they are too
+    // small to read as anything in a menu. The small dot stays half the rest, which
+    // is the whole of what it says.
+    const MARK_SAMPLES = {
+        missed: [{ id: 'mark-dot-dark', size: 3 }, { id: 'mark-dot-dark', size: 3 }],
+        regular: [{ id: 'mark-dot-dark', size: 5 }, { id: 'mark-dot-red', size: 5 }],
+        early: [{ id: 'mark-ring-dark', size: 5 }, { id: 'mark-ring-red', size: 5 }]
+    };
+
+    function viewMenuHtml(view) {
+        const check = (key, label, after) => `<div class="set-view-row" style="display: flex; align-items: center; gap: 6.8px; min-height: 27.3px;">
+                <input class="set-view-check" id="set-view-${key}" type="checkbox" data-press="${key}" ${view[key] ? 'checked' : ''} style="flex: none; width: 15px; height: 15px; margin: 0; accent-color: ${palette.accent}; cursor: pointer;">
+                <label for="set-view-${key}" data-untracked style="flex: 1; min-width: 0; font-size: 12.8px; font-weight: 600; line-height: 1.2; color: ${palette.dialogText}; cursor: pointer;">${label}</label>
+                ${after || ''}
+            </div>`;
+
+        const sizeBtn = (cls, side, step, title, path) => `<button class="${cls}" data-press="${side}" data-side="${side}" data-step="${step}" title="${title}" aria-label="${title}" style="display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px; padding: 0; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 7px; cursor: pointer;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="${path}"></path></svg>
+            </button>`;
+
+        const sizes = (side) => `<span style="display: flex; gap: 3.4px; flex: none;">
+                ${sizeBtn('set-view-smaller', side, -1, tr('viewSmaller'), 'M5 12H19')}
+                ${sizeBtn('set-view-bigger', side, 1, tr('viewLarger'), 'M12 5V19M5 12H19')}
+            </span>`;
+
+        const sample = (key) => `<span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; gap: 2.6px; flex: none; width: 23px; height: 14.5px; background: #ffffff; border-radius: 4.3px; box-shadow: 0 0 0 0.5px ${palette.softBorder};">
+                ${MARK_SAMPLES[key].map(m => `<svg width="${m.size}" height="${m.size}" viewBox="0 0 10 10" style="display: block; overflow: visible;"><use href="#${m.id}" /></svg>`).join('')}
+            </span>`;
+
+        return `${check('original', tr('viewOriginal'), sizes('original'))}
+            ${check('translation', tr('viewTranslation'), sizes('translation'))}
+            ${check('srs', tr('viewSrs'))}
+            <div class="set-view-children" style="padding-left: 21.8px;">
+                ${check('missed', tr('viewMissed'), sample('missed'))}
+                ${check('regular', tr('viewRegular'), sample('regular'))}
+                ${check('early', tr('viewEarly'), sample('early'))}
+                ${check('bounce', tr('viewBounce', { bounce: `<span class="set-view-hop" style="display: inline-block;">${tr('viewBounceWord')}</span>` }))}
+            </div>`;
+    }
+
+    /*
+     * Under the button, right edges together, as hangUnder does for the settings
+     * -- and lifted to stay on the screen where it does for a panel by letting
+     * it scroll inside itself. The settings hang from the top of the page and
+     * have the height of the window; this hangs from a card that can be anywhere
+     * in the list, and with no scrollbars drawn (see app.css) switches scrolled
+     * out of a menu this short would simply be gone.
+     */
+    function hangViewMenu(panel, anchor) {
+        hangUnder(panel, anchor);
+        panel.style.maxHeight = '';
+
+        const room = document.documentElement.clientHeight / appScale();
+        const top = Math.max(SCREEN_EDGE, Math.min(parseFloat(panel.style.top), room - panel.offsetHeight - SCREEN_EDGE));
+        const a = appRect(anchor);
+
+        panel.style.top = `${top}px`;
+        panel.style.maxHeight = `${room - top - SCREEN_EDGE}px`;
+        panel.style.transformOrigin = `${a.left + a.width / 2 - parseFloat(panel.style.left)}px ${a.top + a.height / 2 - top}px`;
+    }
+
+    // Escape, a window that changed size and a list that moved under the menu:
+    // the button it hangs from goes with the list, see watchWhileOpen.
+    let viewWatch = null;
+
+    function stopViewWatch() {
+        if (!viewWatch) return;
+
+        document.removeEventListener('keydown', viewWatch.key);
+        window.removeEventListener('resize', viewWatch.moved);
+        window.removeEventListener('scroll', viewWatch.moved, true);
+        viewWatch = null;
+    }
+
+    /*
+     * The menu of the set in `viewFor`. Drawn from there, so that a draw of the
+     * catalog under it brings it back -- a sync landing, say, with another copy
+     * of this very set -- and gone with the set if the set is.
+     */
+    function viewMenu(rising) {
+        stopViewWatch();
+
+        const set = store.sets().find(s => String(s.id) === viewFor);
+        const card = set && container.querySelector(`.set-card[data-set-id="${viewFor}"]`);
+        const anchor = card && card.querySelector('.set-view-btn');
+
+        if (!anchor) {
+            viewFor = null;
+            return;
+        }
+
+        anchor.style.background = palette.softBg;
+
+        // The set's id on the panel, for the analytics to read as they do off a
+        // card: the panel is not inside one.
+        const overlay = $(container, `<div class="set-view-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 100;">
+            <div class="set-view-panel" data-set-id="${set.id}" style="position: absolute; box-sizing: border-box; width: 244px; background: ${palette.dialogBg}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 6.8px 10.2px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+                ${viewMenuHtml(store.viewOf(set))}
+            </div>
+        </div>`);
+
+        const panel = overlay.querySelector('.set-view-panel');
+
+        const place = () => hangViewMenu(panel, anchor);
+
+        // What the state of the set leaves of the menu itself: the switches under
+        // the system go with it, and a plus or a minus with nothing to act on, or
+        // nowhere left to go, cannot be pressed.
+        const settle = () => {
+            const view = store.viewOf(set);
+
+            panel.querySelector('.set-view-children').hidden = !view.srs;
+
+            // The word in the switch's name hops while the bubbles do, at their
+            // tempo: switched off, nothing on the card moves and neither does it.
+            panel.querySelector('.set-view-hop').style.animation = view.bounce
+                ? `bounce-word ${BOUNCE_MS}ms ease-in-out infinite`
+                : 'none';
+
+            panel.querySelectorAll('[data-side]').forEach(btn => {
+                const size = view[`${btn.dataset.side}Size`] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
+
+                btn.disabled = !view[btn.dataset.side] || size < VIEW_SIZE_LEAST || size > VIEW_SIZE_MOST;
+                btn.style.opacity = btn.disabled ? '0.35' : '';
+                btn.style.cursor = btn.disabled ? 'default' : 'pointer';
+            });
+
+            place();
+        };
+
+        const change = (changes) => {
+            store.setView(set, changes);
+            Object.entries(changes).forEach(([what, value]) => track('view', set.id, what, Number(value)));
+
+            redrawBubbles(card, set, true);
+            settle();
+        };
+
+        panel.querySelectorAll('.set-view-check').forEach(box => {
+            box.addEventListener('change', () => change({ [box.dataset.press]: box.checked }));
+        });
+
+        panel.querySelectorAll('[data-side]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = `${btn.dataset.side}Size`;
+                const size = store.viewOf(set)[key] + Number(btn.dataset.step) * VIEW_SIZE_STEP;
+
+                change({ [key]: Number(size.toFixed(1)) });
+            });
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeViewMenu();
+        });
+
+        viewWatch = {
+            key: (e) => { if (e.key === 'Escape') closeViewMenu(); },
+            moved: place
+        };
+
+        document.addEventListener('keydown', viewWatch.key);
+        window.addEventListener('resize', viewWatch.moved);
+        window.addEventListener('scroll', viewWatch.moved, true);
+
+        settle();
+
+        if (!rising) return;
+
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        pin(panel);
+
+        panel.style.transition = `transform ${RISE_IN}ms ease-out, opacity ${RISE_IN}ms ease-out`;
+        panel.style.transform = '';
+        panel.style.opacity = '';
+
+        setTimeout(() => { panel.style.transition = ''; }, RISE_IN + 40);
+    }
+
+    // Folds it back into the eye. The catalog is not drawn again, having nothing
+    // to take back: only the eye's own background says the menu was open.
+    function closeViewMenu() {
+        const overlay = container.querySelector('.set-view-overlay');
+        const anchor = container.querySelector(`.set-card[data-set-id="${viewFor}"] .set-view-btn`);
+
+        stopViewWatch();
+        viewFor = null;
+
+        if (anchor) anchor.style.background = 'transparent';
+        if (!overlay) return;
+
+        const panel = overlay.querySelector('.set-view-panel');
+
+        overlay.style.pointerEvents = 'none';
+        panel.style.transition = `transform ${RISE_OUT}ms ease-in, opacity ${RISE_OUT}ms ease-in`;
+        panel.style.transform = 'scale(0.6)';
+        panel.style.opacity = '0';
+
+        setTimeout(() => overlay.remove(), RISE_OUT);
+    }
+
+    /*
+     * The settings panel: hung under the button that opens it, over the page.
+     *
+     * It used to open at the top of the list of sets, and that list is the one
+     * place on this screen that belongs to the player — their sets, in their
+     * order — with a panel of the app's own pushing the first of them down the
+     * page. Settings are not a set, and over the page nothing has to move to let
+     * them in.
+     *
+     * Under the button rather than in the middle of the screen. A centred sheet
+     * is the shape of a question that has to be answered before anything else
+     * can happen — which is what the early-play dialog is, and this is not. This
+     * is a drawer belonging to a control: it opens where that control is, it
+     * grows out of it, and it folds back into it.
+     *
+     * The wash underneath both catches the press that means "enough" and darkens
+     * what is behind it. The same wash as the early-play question, to the value:
+     * one screen with two different dimmings would read as two different kinds
+     * of layer, and these are one kind — something over the page, waiting to be
+     * dealt with before the page can be used again.
+     *
+     * It fades with the panel rather than snapping on. Appearing at full
+     * strength under something that is still growing reads as two events, and it
+     * is one.
+     *
+     * Fixed and held by its four sides rather than sized in vw — app.css says
+     * why no rule here may be viewport-derived in a popup. Sides at 0 are not:
+     * they take whatever the viewport turns out to be instead of having an
+     * opinion about it. Four of them rather than `inset: 0`, the same in one
+     * word, which an old phone's browser did not know (Chrome before 87,
+     * Safari before 14.1) and dropped -- found on 8 November 2026 under Word
+     * search's question, which was left with no size; every overlay here was
+     * the same.
+     *
+     * Two things in it. The light switch came out of the header, where it stood
+     * next to the one button this app is for: a header of three controls where
+     * two are about the app and one is about making sets reads as three equal
+     * offers, and they are not equal. A theme is chosen about as often as
+     * anything else in here — which is to say once — and this is where the
+     * things chosen once now live.
+     *
+     * The switch is a row rather than a bare icon, because in a list a picture
+     * with no name is a guess: pressed, it does something, and what it did is
+     * the only way to find out what it was. The row says which theme is on, and
+     * the icon stays as the picture of that answer.
+     *
+     * It sits outside the body below it, which the erase question rewrites
+     * wholesale — a control that vanished while a different question was being
+     * asked would look like part of the question.
+     *
+     * The second thing is the destructive one, which is why it asks first. The
+     * question replaces the button rather than opening something over the panel:
+     * the player is already inside a layer they chose to open, and stacking a
+     * second one to say a single sentence is more ceremony than the moment
+     * deserves.
+     *
+     * Coral marks the button by its border and not by its label. Coral text on
+     * this card is 3.7:1 in the dark theme and 3.0:1 in the light one — under
+     * what a 12.8px label needs — while the border carries the same warning at a
+     * size where that contrast is enough.
+     */
+    /*
+     * The ladder itself: one cell per stage, in the colour that stage wears on
+     * a bubble.
+     *
+     * The colours are half of what the section is for. A number of hours means
+     * little on its own, and the ramp is the only place the stages are ever
+     * seen — putting the two side by side is what turns fifteen numbers into a
+     * shape a person can recognise on the shelf behind the panel.
+     *
+     * Three columns because there are fifteen of them: in one column the
+     * ladder is taller than the panel, and a list you have to scroll to see the
+     * ends of is a list you cannot compare the ends of. Three fit across 256.1px
+     * once the cells are cut to what they hold — a two-digit stage and "14d",
+     * which is the longest interval anyone is going to type.
+     *
+     * Stage 0 has no field. It is the state of a word nothing has happened to,
+     * and its interval is never read — a repetition always leaves a word on
+     * stage 1 or above, which is where the waiting starts. It keeps its cell so
+     * that the ramp is shown whole, with the wait drawn as a blank.
+     */
+    function intervalRows() {
+        const spans = spacedRepetitions.intervals();
+
+        const cells = spans.map((ms, stage) => {
+            const c = getStageColors(stage);
+
+            // Stage 1 in the colours it is actually drawn in, which are not the
+            // ramp's — see DAMAGED_FILL. A swatch showing the pale yellow of a
+            // rung nothing is ever drawn in would be a legend for a colour that
+            // is not on screen.
+            const fill = stage === 1 ? DAMAGED_FILL : c.fill;
+            const ink = stage === 1 ? FAIL_INK : c.ink;
+
+            const field = stage === 0
+                ? `<span class="dict-interval-none" style="display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; border: 1px dashed ${palette.softBorder}; border-radius: 6.8px; font-size: 11.3px; font-weight: 700; color: ${palette.hint};">&mdash;</span>`
+                : `<input class="dict-interval-input" type="text" spellcheck="false" data-stage="${stage}" value="${spanText(ms)}" aria-label="${tr('stage', { n: stage })}" style="flex: 1; min-width: 0; height: 22.2px; box-sizing: border-box; padding: 0 2.6px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 6.8px; font-family: inherit; font-size: 11.3px; font-weight: 700; line-height: 1; text-align: center; outline: none;">`;
+
+            // min-width on the cell as well as on the field inside it: a grid
+            // item is auto-sized to its content, and a text input's content is
+            // whatever twenty characters come to — which pushed the first
+            // column wide enough to squeeze the second out of the panel.
+            return `<div class="dict-interval-row" style="display: flex; align-items: center; gap: 3.4px; min-width: 0;">
+                <span class="dict-interval-stage" style="display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20.5px; height: 22.2px; border-radius: 6.8px; background: ${fill}; color: ${ink}; font-size: 10.2px; font-weight: 700; line-height: 1;">${stage}</span>
+                ${field}
+            </div>`;
+        }).join('');
+
+        return `<div style="padding-top: 6.8px;">
+            <div class="dict-intervals-hint" style="margin-bottom: 6.8px; font-size: 9.7px; font-weight: 600; line-height: 1.5; color: ${palette.hint};">${tr('intervalsHint', { h: `<b>${tr('unitH')}</b>`, d: `<b>${tr('unitD')}</b>` })}</div>
+            <div class="dict-intervals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5.1px;">${cells}</div>
+            <div class="dict-intervals-foot" style="display: flex; justify-content: flex-end; margin-top: 6.8px;">
+                <button class="dict-intervals-reset" style="padding: 4.3px 8.5px; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; font-family: inherit; font-size: 11.3px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">${tr('defaults')}</button>
+            </div>
+        </div>`;
+    }
+
+    /*
+     * A block unrolled and rolled back, with nothing else on the panel moving:
+     * both the hint and the ladder are drawn where they belong and only hidden,
+     * so this is a fold rather than a redraw.
+     *
+     * Height through max-height, because neither has a height to animate to —
+     * it is however many lines the text wraps into at whatever width the panel
+     * ends up, and that is known only once it is in the page. The cap is
+     * measured there and dropped as soon as the run ends: left on, it would clip
+     * the content the moment anything reflowed it.
+     *
+     * Opacity alongside it, because content sliding out from under a cap reads
+     * as content being cut off; fading as it comes reads as content arriving.
+     *
+     * The panel is already as tall as the screen allows and scrolls inside
+     * itself, so a block longer than the room left over can still be read.
+     *
+     * The timers are held per element rather than in one variable: two folds
+     * can be running at once, and a press on one would otherwise arrive to tidy
+     * away the other one's run. Weakly, because the elements are thrown away on
+     * every redraw of the panel and there is no moment to clear the entry in.
+     */
+    const PANEL_OPEN = 190;
+    const PANEL_SHUT = 150;
+
+    const foldTimers = new WeakMap();
+
+    function foldOut(el, open) {
+        // A press during the run leaves the last one's clean-up in the air, and
+        // it would arrive to tidy away a fold going the other way.
+        clearTimeout(foldTimers.get(el));
+
+        if (open) el.hidden = false;
+
+        el.style.opacity = open ? '0' : '1';
+        el.style.maxHeight = open ? '0px' : `${el.scrollHeight}px`;
+
+        pin(el);
+
+        el.style.transition = open
+            ? `max-height ${PANEL_OPEN}ms ease-out, opacity ${PANEL_OPEN}ms ease-out`
+            : `max-height ${PANEL_SHUT}ms ease-in, opacity ${PANEL_SHUT}ms ease-in`;
+
+        el.style.opacity = open ? '1' : '0';
+        el.style.maxHeight = open ? `${el.scrollHeight}px` : '0px';
+
+        foldTimers.set(el, setTimeout(() => {
+            if (!open) el.hidden = true;
+
+            el.style.maxHeight = '';
+            el.style.opacity = '';
+            el.style.transition = '';
+        }, (open ? PANEL_OPEN : PANEL_SHUT) + 40));
+    }
+
+    /*
+     * Where this app can be had, and which of those exists.
+     *
+     * One codebase, three deliveries: the extension is the one that is
+     * finished, the site and the phone app are not. It goes at the top of the
+     * settings panel rather than into a readme because the panel is the only
+     * page a person opens without being sent to it, and the question this
+     * answers — "is a browser all this runs in?" — is asked once, early.
+     *
+     * The two that do not exist yet are drawn in dashes, the same dashes the
+     * stage with no interval of its own wears further down the panel: an
+     * outline with nothing filling it is the shortest way to say planned rather
+     * than missing.
+     *
+     * Those two can be pressed, and the press goes nowhere: it is counted --
+     * `click|dict-where-cell|||web` or `mobile`, see ANALYTICS.md -- and that
+     * count is why they are pressable at all. Which of the two to build first
+     * is a question only the people waiting for one can answer, the same way a
+     * press on a game that is not written yet answers it for the games. With
+     * "In progress" printed under each, there was nothing to press for, so the
+     * line under them stays empty until a press fills it with "Coming soon!",
+     * where the extension's cell says "You are here". It is there all along,
+     * only invisible, so nothing in the strip moves when it shows; and it
+     * fades again after a moment, so the next press has something to say too.
+     * A real button rather than a cell with a handler, so that a keyboard can
+     * reach it as well.
+     */
+    const WHERE_NOTE_MS = 2400;
+
+    function platformStrip() {
+        const spots = [
+            { icon: PUZZLE, name: tr('whereBrowser'), note: tr('whereHere'), here: true },
+            { icon: DESKTOP, name: tr('whereWeb'), note: tr('whereSoon'), press: 'web' },
+            { icon: HANDSET, name: tr('whereMobile'), note: tr('whereSoon'), press: 'mobile' }
+        ];
+
+        const cells = spots.map(spot => {
+            const tag = spot.here ? 'div' : 'button';
+            const press = spot.here ? '' : ` data-press="${spot.press}"`;
+            const button = spot.here ? '' : ' margin: 0; font-family: inherit; cursor: pointer;';
+
+            return `<${tag} class="dict-where-cell"${press} style="display: flex; flex-direction: column; align-items: center; gap: 4.3px; flex: 1; min-width: 0; box-sizing: border-box; padding: 7.7px 2px; border: 1px ${spot.here ? 'solid' : 'dashed'} ${palette.softBorder}; border-radius: 10.2px; background: ${spot.here ? palette.softBg : 'transparent'}; color: ${spot.here ? palette.title : palette.hint};${button}">
+                ${spot.icon}
+                <span style="font-size: 10.2px; font-weight: 700; line-height: 1;">${spot.name}</span>
+                <span class="dict-where-note" style="font-size: 9.7px; font-weight: 600; line-height: 1.2; text-align: center; color: ${palette.hint};${spot.here ? '' : ' opacity: 0;'}">${spot.note}</span>
+            </${tag}>`;
+        }).join('');
+
+        return `<div class="dict-where" style="display: flex; gap: 5.1px; margin-bottom: 8.5px;">${cells}</div>`;
+    }
+
+    // Shows the note from wherever it is now, so a second press during the
+    // first does not blink it out and back. The easing sits on the frames
+    // rather than on the whole run: over the whole run it bends the offsets
+    // too, and the note was measured fading from 1.6 s instead of 2.
+    function sayWhereSoon(cell) {
+        const note = cell.querySelector('.dict-where-note');
+        const from = getComputedStyle(note).opacity;
+
+        note.getAnimations().forEach(run => run.cancel());
+        note.animate([
+            { opacity: from, easing: 'ease-out' },
+            { opacity: 1, offset: 0.06 },
+            { opacity: 1, offset: 0.85, easing: 'ease-in' },
+            { opacity: 0 }
+        ], WHERE_NOTE_MS);
+    }
+
+    /*
+     * The reader's own language picked among those to learn -- the owner's
+     * call, 9 November 2026. Until then the list to learn left it out, and a
+     * reader looking for it there did not find it and could not tell why. Now
+     * the list is whole, and the language picked twice stays on the screen:
+     * its field under "Your language" and its chip under "Languages to learn"
+     * blink red in turn, SAME_BLINK each, until one of them is changed. Left
+     * as it is, it goes on the way out -- Start on the first screen, the
+     * panel closing in the settings -- so what is kept is what was kept
+     * before: the reader's own language is never one being learned. Never
+     * saved either, and not told to the analytics: it is a mistake on the
+     * screen, not an answer.
+     *
+     * Red, the heart's, as on the snake's board: a colour no control of the
+     * catalog wears. Standing still with motion turned down.
+     */
+    const SAME_BLINK = 300;
+    const SAME_RED = '#e5364b';
+
+    function blinkSame(root, mineSelector, chipSelector) {
+        const mine = root.querySelector(mineSelector);
+        const chip = root.querySelector(chipSelector);
+        if (!mine || !chip) return;
+
+        const n = parseInt(SAME_RED.slice(1), 16);
+        const lit = { borderColor: SAME_RED, backgroundColor: `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.28)` };
+        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        [mine, chip].forEach((el, k) => {
+            const style = getComputedStyle(el);
+            const was = { borderColor: style.borderColor, backgroundColor: style.backgroundColor };
+
+            if (still) {
+                el.style.borderColor = lit.borderColor;
+                el.style.backgroundColor = lit.backgroundColor;
+                return;
+            }
+
+            el.animate([
+                { ...lit, offset: 0 },
+                { ...lit, offset: 0.5 },
+                { ...was, offset: 0.5 },
+                { ...was, offset: 1 }
+            ], { duration: SAME_BLINK * 2, iterations: Infinity, iterationStart: k * 0.5 });
+        });
+    }
+
+    /*
+     * The two answers from the first screen, where they can be changed.
+     *
+     * Here and not on a screen of their own, because after the first run they
+     * are settings in the ordinary sense: rarely touched, and touched on
+     * purpose. The first screen asks them once because nothing can be built
+     * without them; afterwards they are two rows among the rest.
+     *
+     * Adding a language writes its three sets, the same way the first screen
+     * did, and brings back any that were written for it before. Removing one
+     * takes them off the screen and leaves them in the store: they may have been
+     * played, edited, half learned, and a list of languages is not a thing that
+     * should be able to destroy that. Sets written by hand are untouched either
+     * way -- they are nobody's answer to a question.
+     */
+    function languageRows() {
+        const mine = shownMyLang();
+
+        // The browser's own arrow, the owner's call, 5 November 2026. Until then this
+        // field and the first screen's switched it off and laid a chevron of the app's
+        // over it: Chrome pins its arrow to the border whatever the padding says, and
+        // the chevron could stand as far in as the text.
+        const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 5.1px 8.5px;`
+            + ` text-overflow: ellipsis;`
+            + ` font-family: inherit; font-size: 12.8px; font-weight: 600; cursor: pointer; outline: none;`;
+
+        const caption = (text) => `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+
+        const options = (label, skip, chosenTag) => (label ? `<option value="">${label}</option>` : '')
+            + CATALOG_CHOICES.concat(extra(mine))
+                .filter(c => !skip.includes(c.tag))
+                .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
+                .join('');
+
+        const chip = (tag) => `<span class="dict-lang-chip" data-tag="${tag}" style="display: inline-flex; align-items: center; gap: 3.4px; padding: 2.6px 3.4px 2.6px 6.8px; background: ${palette.cardBg}; color: ${palette.dialogText}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 11.3px; font-weight: 600;">
+                ${languageName(tag)}
+                <button class="dict-lang-drop" data-tag="${tag}" title="${tr('remove')}" style="display: inline-flex; align-items: center; justify-content: center; width: 13.7px; height: 13.7px; padding: 0; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer;">×</button>
+            </span>`;
+
+        // The same line as the first screen, in the same order, because it is the
+        // same question: somebody who answered it there and comes here to change
+        // it should not have to work out where it went.
+        // The same two rows as the first screen, in the same order and with the
+        // same captions: somebody who answered there and comes here to change it
+        // should recognise what they are looking at rather than work it out.
+        // Side by side they fitted, but only by cutting "Languages to learn" in
+        // a panel this narrow -- and the chips under the second one grow, which
+        // in a row of two pushes its neighbour about.
+        //
+        // The language of the interface does stand beside the reader's own, the
+        // owner's call, 4 November 2026: neither of the two grows, and both are
+        // one answer about the reader. Columns of exactly one width whatever is in
+        // them -- a select asks for the width of its longest option, and left to
+        // itself the column with the longest name would take the room of the other.
+        return `<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px; margin-top: 8.5px;">
+                    <div>
+                        ${caption(tr('yourLanguage'))}
+                        <select class="dict-my-lang" style="${field}">${options(null, [], mine)}</select>
+                    </div>
+                    <div>
+                        ${caption(tr('interface'))}
+                        <select class="dict-ui-lang" style="${field}">${uiOptions()}</select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8.5px;">${caption(tr('languagesToLearn'))}</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 3.4px; margin-bottom: ${learnLangs.length ? '3.4px' : '0'};">${learnLangs.map(chip).join('')}</div>
+                <select class="dict-learn-lang" style="${field}">${options(tr('addOne'), learnLangs, null)}</select>`;
+    }
+
+    /*
+     * The profile's code, and the way to take on another device's.
+     *
+     * Typed by hand on the second device -- copied here, pasted or typed
+     * there -- and the same on every device, with nothing in an address to
+     * open: a link would have to be got to the other device by hand anyway,
+     * and an id in an address is an id in history, in logs and in a Referer.
+     * See docs/BACKEND.md.
+     *
+     * Above Advanced, because it is the reason to open the panel on a second
+     * device at all.
+     *
+     * One field, which shows this device's code and takes another's. It was
+     * the code on show and a second box for a code from elsewhere, folded away
+     * behind a line of its own: two places for one thing, and the second had
+     * to be found. A code in the field that is not this device's own puts
+     * the warning and the button in place of Copy -- the move replaces
+     * everything on this device, and it says so before it is made rather than
+     * after.
+     *
+     * Under the field's arrow, the codes this device has used before (see
+     * sync.join), each with what it held when it was left: twelve characters
+     * on their own cannot be told apart. The code in use heads the list, which
+     * is also how a field typed over is put back.
+     */
+    function agoText(ms) {
+        const minutes = Math.floor(ms / 60000);
+
+        if (minutes < 1) return tr('justNow');
+        if (minutes < 60) return tr('minutesAgo', { n: minutes });
+        if (minutes < 24 * 60) return tr('hoursAgo', { n: Math.floor(minutes / 60) });
+
+        return tr('daysAgo', { n: Math.floor(minutes / (24 * 60)) });
+    }
+
+    // The day a code was left, with the year only when it is not this one.
+    function codeDay(at) {
+        const day = new Date(at);
+        const options = { month: 'short', day: 'numeric' };
+        if (day.getFullYear() !== new Date().getFullYear()) options.year = 'numeric';
+
+        return day.toLocaleDateString(tr.now, options);
+    }
+
+    /*
+     * Whether synchronisation is offered: not yet where the live server is,
+     * the store build and the live site. There the server is for learning how
+     * the app is used, and synchronisation runs underneath without being
+     * offered -- the sets still go, because the analytics reads the answers in
+     * them (docs/ANALYTICS.md), and the day it is offered every profile is
+     * already on the server. Everywhere else, where it is tested, it is shown.
+     * Decided 19 October 2026; offering it is this line.
+     */
+    const syncOffered = () => !remote.live();
+
+    function syncRows() {
+        const meta = remote.meta();
+        if (!meta || !syncOffered()) return '';
+
+        const caption = `<div style="font-size: 10.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 3.4px; padding-left: 9.5px;">${tr('syncCode')}</div>`;
+
+        /*
+         * Said plainly when syncing has stopped working, rather than an honest
+         * "Synced 1m ago" that reads as all is well -- measured: a device behind
+         * a proxy that refused every request showed exactly that through three
+         * visits. Not for a single failure a minute old, which the next page
+         * usually mends.
+         */
+        const now = Date.now();
+        const failing = meta.failedAt && now - meta.failedAt > 60000;
+
+        let synced = meta.syncedAt ? tr('synced', { ago: agoText(now - meta.syncedAt) }) : tr('notSynced');
+        if (failing) {
+            synced = meta.syncedAt
+                ? tr('lastSynced', { ago: agoText(now - meta.syncedAt) })
+                : tr('notSyncedServer');
+        }
+
+        const small = `font-size: 10.2px; font-weight: 600; line-height: 1.45; color: ${palette.hint};`;
+        const button = `flex: none; padding: 5.1px 8.5px; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;`;
+        const code = `font-size: 12.8px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums;`;
+
+        const past = meta.past || [];
+        const typed = syncTyped !== null && remote.normalize(syncTyped) !== meta.user;
+
+        const sets = (n) => tr('setsCount', { n });
+
+        // The code over what it held, in two lines: side by side they do not
+        // fit the panel, and a note cut short is the half that tells the codes
+        // apart.
+        const entry = (user, note, place) => `<button class="dict-sync-past" data-code="${remote.grouped(user)}" data-press="${place}" style="display: block; width: 100%; box-sizing: border-box; padding: 4.3px 6.8px; background: transparent; color: ${palette.softColor}; border: none; border-radius: 7.7px; font-family: inherit; text-align: left; cursor: pointer;">
+                <span style="display: block; ${code}">${remote.grouped(user)}</span>
+                <span style="display: block; ${small}">${note}</span>
+            </button>`;
+
+        const list = past.length ? `<div class="dict-sync-past-fold" style="overflow: hidden;"${pastOpen ? '' : ' hidden'}>
+                <div style="margin-top: 3.4px; padding: 2.6px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px;">
+                    ${entry(meta.user, tr('codeInUse'), 0)}
+                    ${past.map((p, i) => entry(p.user, tr('usedUntil', { sets: sets(p.sets), day: codeDay(p.left) }), i + 1)).join('')}
+                </div>
+            </div>` : '';
+
+        const arrow = past.length ? `<button class="dict-sync-list" aria-expanded="${pastOpen}" title="${tr('codesList')}" style="position: absolute; right: 3.4px; top: 50%; translate: 0 -50%; display: flex; align-items: center; justify-content: center; width: 22.2px; height: 22.2px; padding: 0; background: transparent; border: none; color: ${palette.softColor}; cursor: pointer;">
+                <span class="dict-sync-list-chevron" style="display: block; rotate: ${pastOpen ? -90 : 90}deg; transition: rotate 0.18s ease-out;">${CHEVRON}</span>
+            </button>` : '';
+
+        return `<div class="dict-sync" style="margin-top: 10.2px;">
+                ${caption}
+                <div style="display: flex; align-items: center; gap: 5.1px;">
+                    <div style="position: relative; flex: 1; min-width: 0;">
+                        <input class="dict-sync-input" type="text" value="${escapeText(typed ? syncTyped : remote.grouped(meta.user))}" placeholder="XXXX-XXXX-XXXX" aria-label="${tr('syncCode')}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" style="width: 100%; box-sizing: border-box; padding: 5.1px ${past.length ? '27.3px' : '8.5px'} 5.1px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; ${code} outline: none;">
+                        ${arrow}
+                    </div>
+                    <button class="dict-sync-copy" style="${button}"${typed ? ' hidden' : ''}>${tr('copy')}</button>
+                </div>
+                ${list}
+                <div class="dict-sync-hint" style="margin-top: 4.3px; padding-left: 9.5px; ${small}"${typed ? ' hidden' : ''}>${tr('syncHint')} ${synced}</div>
+                <div class="dict-sync-switch"${typed ? '' : ' hidden'}>
+                    <div style="margin-top: 4.3px; padding-left: 9.5px; ${small}">${tr('syncWarn')}</div>
+                    <button class="dict-sync-connect" style="${button} margin-top: 5.1px; background: ${palette.accent}; color: ${palette.onAccent}; border-color: ${palette.accent};">${tr('syncConnect')}</button>
+                </div>
+                <div class="dict-sync-status" style="margin-top: 3.4px; padding-left: 9.5px; ${small} color: ${palette.title};">${joinNote && tr(joinNote)}</div>
+            </div>`;
+    }
+
+    /*
+     * What the press on Connect does, and what it says when it cannot.
+     *
+     * A reload when it worked, because half of this screen was read at boot:
+     * the languages, the sets, a round that may have been left open.
+     */
+    const JOIN_NOTES = {
+        invalid: 'joinInvalid',
+        same: 'joinSame',
+        offline: 'joinOffline',
+        missing: 'joinMissing'
+    };
+
+    // One move at a time. A move now syncs the profile it leaves before it
+    // asks about the next, which is long enough to be pressed twice -- and a
+    // second move begun before the first has finished would file the code
+    // just taken as the one left.
+    let joining = false;
+
+    async function connect(input, status) {
+        if (joining) return;
+        joining = true;
+        status.textContent = tr('connecting');
+
+        const answer = await sync.join(input.value, GAMES.map(g => g.id));
+
+        if (answer === 'ok') {
+            location.reload();
+            return;
+        }
+
+        joining = false;
+        joinNote = JOIN_NOTES[answer] || '';
+        status.textContent = joinNote && tr(joinNote);
+    }
+
+    /*
+     * The foot of the settings, at the bottom of Advanced in small type: the
+     * version, and when its code was last changed -- the stamp in the code,
+     * see core/stamp.js -- the owner's call, 2 November 2026. The same
+     * wherever the code runs, built or not. In the device's own time,
+     * written year first, which reads the same whatever language the device
+     * is in.
+     */
+    function buildLine() {
+        const at = new Date(CODE_STAMP.changed);
+        const pad = (n) => String(n).padStart(2, '0');
+
+        return tr('version', { v: CODE_STAMP.version, at: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}` });
+    }
+
+    function renderSettings(parent, rising) {
+        const anchor = container.querySelector('#settings-btn');
+
+        const overlay = $(parent, `<div class="dict-settings-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); z-index: 100;">
+            <div class="dict-settings-panel" style="position: absolute; box-sizing: border-box; width: 256.1px; background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 15.4px; padding: 13.7px; overflow-y: auto; box-shadow: 0 10.2px 23.9px rgba(0, 0, 0, 0.32);">
+                <div class="dict-settings-head" style="display: flex; justify-content: space-between; align-items: center; gap: 10.2px; margin-bottom: 8.5px;">
+                    <div class="dict-settings-title" style="font-size: 14.3px; font-weight: 700; color: ${palette.heading};">${tr('settings')}</div>
+                    <div style="display: flex; align-items: center; gap: 5.1px; flex: none;">
+                        <button class="dict-onb-row" aria-pressed="${onboarding.showing()}" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: ${onboarding.showing() ? palette.pageBg : 'transparent'}; border: 1px solid ${palette.softBorder}; border-radius: 50%; font-family: inherit; font-size: 12.3px; font-weight: 700; line-height: 1; color: ${onboarding.showing() ? palette.heading : palette.softColor}; cursor: pointer;" title="${tr(onboarding.showing() ? 'hideHelp' : 'showHelp')}">?</button>
+                        <button class="dict-theme-row" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${tr(theme.isDark() ? 'themeDark' : 'themeLight')}">${palette.themeIcon}</button>
+                        <button class="dict-mute-btn" id="mute-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 25.6px; height: 25.6px; flex: none; padding: 0; background: transparent; border: 1px solid ${palette.softBorder}; border-radius: 8.5px; cursor: pointer; color: ${palette.softColor};" title="${tr(speech.muted() ? 'soundOff' : 'soundOn')}">${speech.muted() ? SPEAKER_OFF : SPEAKER}</button>
+                    </div>
+                </div>
+                ${platformStrip()}
+                ${languageRows()}
+                ${syncRows()}
+                <button class="dict-advanced-line" aria-expanded="${advancedOpen}" style="display: flex; align-items: center; gap: 5.1px; width: 100%; box-sizing: border-box; margin-top: 3.4px; padding: 5.1px 2px; background: transparent; border: none; font-family: inherit; font-size: 10.2px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${palette.hint}; cursor: pointer;">
+                    <span class="dict-advanced-chevron" style="display: block; flex: none; transform: rotate(${advancedOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON_SMALL}</span>
+                    <span>${tr('advanced')}</span>
+                    <span class="dict-advanced-rule" style="flex: 1; height: 1px; background: ${palette.softBorder};"></span>
+                </button>
+                <div class="dict-advanced-fold" style="overflow: hidden;"${advancedOpen ? '' : ' hidden'}>
+                <div class="dict-advanced-body" style="padding-top: 6.8px;">
+                <button class="dict-intervals-line" aria-expanded="${intervalsOpen}" style="display: flex; align-items: center; gap: 6.8px; width: 100%; box-sizing: border-box; margin-top: 0; padding: 6.8px 8.5px; background: ${palette.softBg}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; font-weight: 600; color: ${palette.softColor}; cursor: pointer;">
+                    <span class="dict-intervals-chevron" style="display: block; flex: none; transform: rotate(${intervalsOpen ? 90 : 0}deg); transition: transform 0.18s ease-out;">${CHEVRON}</span>
+                    <span style="flex: 1; text-align: left;">${tr('repetitionIntervals')}</span>
+                </button>
+                <div class="dict-intervals-fold" style="overflow: hidden;"${intervalsOpen ? '' : ' hidden'}>${intervalRows()}</div>
+                <div class="dict-settings-body" style="margin-top: 12px;"></div>
+                <div class="dict-build-line" style="margin-top: 10.2px; font-size: 9.7px; font-weight: 600; line-height: 1.4; color: ${palette.hint}; font-variant-numeric: tabular-nums;">${buildLine()}</div>
+                </div>
+                </div>
+            </div>
+        </div>`);
+
+        const panel = overlay.querySelector('.dict-settings-panel');
+        const body = panel.querySelector('.dict-settings-body');
+
+        blinkSame(panel, '.dict-my-lang', `.dict-lang-chip[data-tag="${shownMyLang()}"]`);
+
+        // Placed before anything is shown, because where it is placed is also
+        // where it grows from: the button's own middle, in the panel's
+        // coordinates — above its top edge, which a transform origin is allowed
+        // to be.
+        const origin = hangUnder(panel, anchor);
+        panel.style.transformOrigin = origin;
+
+        // Two ways out, Escape and a press on the page around it, and the third
+        // is the button that opened it. A press
+        // on the wash counts only when it lands on the wash itself: the panel
+        // sits inside it, and a click anywhere in the panel would otherwise
+        // bubble up and shut the thing being used.
+        // The panel is redrawn by the same render() the switch asks for, and it
+        // stays open through it: the row comes back saying the other theme, over
+        // a catalog that is already wearing it.
+        // A language that is also among those learned stays there, and the two
+        // blink until one of them is changed -- see blinkSame
+        overlay.querySelector('.dict-my-lang').addEventListener('change', async (e) => {
+            myLang = e.target.value;
+
+            await saveSetting('myLang', myLang);
+            await saveLearnLangs();
+            await setUiLang(tr.forLang(myLang), 'follow');
+            await langsChanged('mine');
+            await makeSets();
+
+            render();
+        });
+
+        // The screen first and the writing after, so that the press is answered at
+        // once: nothing in the redraw waits on the record, or writes to it.
+        overlay.querySelector('.dict-ui-lang').addEventListener('change', async (e) => {
+            const saved = setUiLang(e.target.value, 'pick');
+
+            render();
+
+            await saved;
+            await langsChanged();
+        });
+
+        overlay.querySelector('.dict-learn-lang').addEventListener('change', async (e) => {
+            if (!e.target.value) return;
+
+            // The reader's own language picked to learn: on the list to be
+            // seen, and in nothing else -- not saved, not told to the
+            // analytics, no sets made -- until it goes; see blinkSame
+            if (e.target.value === shownMyLang()) {
+                learnLangs = learnLangs.concat(e.target.value);
+                render();
+                return;
+            }
+
+            // The row above has been showing an inherited answer, and this is the
+            // first moment anything depends on it. Written down now rather than
+            // left standing: makeSets has nothing to read a set in without it,
+            // and a screen that shows a language and then refuses to use it is
+            // worse than one that never showed it.
+            if (!myLang) {
+                myLang = shownMyLang();
+
+                if (myLang) await saveSetting('myLang', myLang);
+            }
+
+            learnLangs = learnLangs.concat(e.target.value);
+
+            await saveLearnLangs();
+            await langsChanged('add');
+            await makeSets(e.target.value);
+
+            render();
+        });
+
+        overlay.querySelectorAll('.dict-lang-drop').forEach(button => {
+            button.addEventListener('click', async () => {
+                const same = button.dataset.tag === shownMyLang();
+                learnLangs = learnLangs.filter(tag => tag !== button.dataset.tag);
+
+                // The reader's own language taken off: nothing had been
+                // saved or told -- see blinkSame
+                if (same) return render();
+
+                await saveLearnLangs();
+                await langsChanged('drop');
+
+                render();
+            });
+        });
+
+        /*
+         * The cards at the top of the list, off and on.
+         *
+         * A round question mark, because that is the mark every one of those
+         * cards carries -- see onboarding.js -- and it is already the app's word
+         * for "explain this".
+         *
+         * Left of the theme switch because the two are the same kind of thing, a
+         * small switch for how the screen looks rather than for what is on it.
+         * It redraws the catalog behind the panel and leaves the panel open,
+         * which is also how the theme switch works.
+         *
+         * Switched on it wears the page's own colour and the ink of a heading,
+         * which reads as a hole cut in the panel rather than as another chip
+         * lying on it -- the same trick the percentage plate on a set card uses,
+         * and for the same reason: the panel is already the lifted surface, so a
+         * chip one step below it is four units of colour nobody can see. The
+         * neighbours cannot help here either, since both of them mean something
+         * by their picture rather than by being pressed.
+         */
+        overlay.querySelector('.dict-onb-row').addEventListener('click', () => {
+            onboarding.toggle();
+            render();
+        });
+
+        overlay.querySelector('.dict-theme-row').addEventListener('click', () => {
+            theme.set(!theme.isDark());
+            catalog.setTheme(theme.isDark());
+            render();
+        });
+
+        /*
+         * The sound, on and off -- in the corner where the panel's cross was.
+         *
+         * It stood in the header beside the gear until 26 October 2026, and it
+         * moved because it is pressed about as often as the other two switches
+         * up here: once, and then forgotten. The header keeps what is pressed
+         * every day. The cross it replaced was the panel's third way out, after
+         * a press on the page around it and on the gear itself, and a panel
+         * hung under a button is closed by pressing anywhere else.
+         *
+         * A bubble tapped while the sound is off points here -- see pulseMute.
+         *
+         * What the press left the sound at goes to the analytics: the press
+         * alone says it was pressed, not whether it turned the sound off or
+         * back on -- see `sound` in docs/ANALYTICS.md. Still `catalog`: it is
+         * the same screen's switch, only behind the gear now.
+         *
+         * Switched on over a device that cannot say the words on the shelf, it
+         * says how to give it a voice -- see speech.explainSilence. Hung under
+         * the switch the redraw has just drawn, since the one pressed is gone.
+         */
+        overlay.querySelector('#mute-btn').addEventListener('click', () => {
+            speech.mute(!speech.muted());
+            track('sound', speech.muted() ? 'off' : 'on', 'catalog');
+            saveSetting('muted', speech.muted());
+            render();
+
+            if (speech.muted()) return;
+
+            const words = store.sets().filter(onShelf)
+                .flatMap(set => set.words.map(w => ({ text: w.original, lang: set.originalLang })));
+
+            speech.explainSilence(container.querySelector('.dict-settings-panel #mute-btn'), words, 'catalog');
+        });
+
+        overlay.querySelectorAll('.dict-where-cell[data-press]').forEach(cell => {
+            cell.addEventListener('click', () => sayWhereSoon(cell));
+        });
+
+        const codeField = overlay.querySelector('.dict-sync-input');
+
+        if (codeField) {
+            const meta = remote.meta();
+            const copy = overlay.querySelector('.dict-sync-copy');
+            const hint = overlay.querySelector('.dict-sync-hint');
+            const move = overlay.querySelector('.dict-sync-switch');
+            const status = overlay.querySelector('.dict-sync-status');
+
+            const other = () => remote.normalize(codeField.value) !== meta.user;
+
+            // Copy under this device's own code, the warning and the button
+            // under any other -- see syncRows.
+            const settle = () => {
+                const elsewhere = other();
+
+                syncTyped = elsewhere ? codeField.value : null;
+                copy.hidden = elsewhere;
+                hint.hidden = elsewhere;
+                move.hidden = !elsewhere;
+
+                joinNote = '';
+                status.textContent = '';
+            };
+
+            codeField.addEventListener('input', settle);
+
+            // The clipboard where the browser allows it, and the code selected
+            // where it does not -- one press of a shortcut away either way.
+            copy.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(remote.grouped(meta.user));
+                    copy.textContent = tr('copied');
+                    setTimeout(() => { copy.textContent = tr('copy'); }, 1500);
+                } catch (e) {
+                    codeField.select();
+                }
+            });
+
+            overlay.querySelector('.dict-sync-connect').addEventListener('click', () => connect(codeField, status));
+            codeField.addEventListener('keydown', (e) => { if (e.key === 'Enter' && other()) connect(codeField, status); });
+
+            const arrow = overlay.querySelector('.dict-sync-list');
+
+            if (arrow) {
+                const fold = overlay.querySelector('.dict-sync-past-fold');
+                const turn = arrow.querySelector('.dict-sync-list-chevron');
+
+                const unroll = (open) => {
+                    pastOpen = open;
+                    arrow.setAttribute('aria-expanded', open);
+                    turn.style.rotate = `${open ? -90 : 90}deg`;
+                    foldOut(fold, open);
+                };
+
+                arrow.addEventListener('click', () => unroll(!pastOpen));
+
+                // A code picked goes into the field and nowhere further: the
+                // move is the button under the warning, the same as for a
+                // code typed in.
+                for (const line of fold.querySelectorAll('.dict-sync-past')) {
+                    line.addEventListener('click', () => {
+                        codeField.value = line.dataset.code;
+                        settle();
+                        unroll(false);
+                    });
+                }
+            }
+        }
+
+        /*
+         * Where a word ends — a question only the games ask. A tap on a card
+         * says the word it landed on, and what a word is decides what that is.
+         * Nothing on this screen changes shape when it is switched: the row is
+         * redrawn saying the other answer, and the next card drawn anywhere
+         * uses it.
+         *
+         * By spaces unless asked otherwise, because that answer is either right
+         * or plainly wrong. The other is right where the browser carries the
+         * dictionary for writing without spaces, and quietly wrong where it does
+         * not — speech.js says why that cannot be asked about in advance.
+         */
+        /*
+         * Advanced holds the other two folds inside it, and nothing has to be
+         * done about that: foldOut takes the cap off as soon as its run ends,
+         * so a section opened inside this one is free to make it taller
+         * afterwards. Only a fold left permanently capped would clip them.
+         */
+        const deep = overlay.querySelector('.dict-advanced-fold');
+        const deepLine = overlay.querySelector('.dict-advanced-line');
+        const deepTurn = overlay.querySelector('.dict-advanced-chevron');
+
+        deepLine.addEventListener('click', () => {
+            advancedOpen = !advancedOpen;
+            deepLine.setAttribute('aria-expanded', advancedOpen);
+            deepTurn.style.transform = `rotate(${advancedOpen ? 90 : 0}deg)`;
+            foldOut(deep, advancedOpen);
+        });
+
+        const ladder = overlay.querySelector('.dict-intervals-fold');
+        const ladderLine = overlay.querySelector('.dict-intervals-line');
+        const ladderTurn = overlay.querySelector('.dict-intervals-chevron');
+
+        ladderLine.addEventListener('click', () => {
+            intervalsOpen = !intervalsOpen;
+            ladderLine.setAttribute('aria-expanded', intervalsOpen);
+            ladderTurn.style.transform = `rotate(${intervalsOpen ? 90 : 0}deg)`;
+            foldOut(ladder, intervalsOpen);
+        });
+
+        /*
+         * An interval is taken when the field is left rather than as it is
+         * typed. A ladder rebuilt on every keystroke would pass through "1" on
+         * the way to "14d" — every timer in the catalog behind the panel redrawn
+         * against an interval nobody asked for, twice.
+         */
+        for (const field of overlay.querySelectorAll('.dict-interval-input')) {
+            field.addEventListener('change', () => takeInterval(field));
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') field.blur(); });
+        }
+
+        overlay.querySelector('.dict-intervals-reset')
+            .addEventListener('click', () => applyIntervals(spacedRepetitions.defaultIntervals()));
+
+        function takeInterval(field) {
+            const stage = Number(field.dataset.stage);
+            const ms = spanValue(field.value);
+            const spans = spacedRepetitions.intervals();
+
+            // Anything that is not an interval puts the field back to what it
+            // was showing. Refused without a word, because the refusal is the
+            // whole of the message and it is visible in the field itself.
+            if (ms === null) {
+                field.value = spanText(spans[stage]);
+                return;
+            }
+
+            if (ms === spans[stage]) return;
+
+            spans[stage] = ms;
+            applyIntervals(spans);
+        }
+
+        /*
+         * The catalog is redrawn rather than the panel alone, because the
+         * ladder is what every timer and every stage colour on the shelf is
+         * computed from: a word's stage is replayed from its history against
+         * the intervals in force, so a rung moved can move bubbles that are
+         * nowhere near the stage that was edited.
+         */
+        function applyIntervals(spans) {
+            if (!spacedRepetitions.setIntervals(spans)) return;
+
+            saveSetting('intervals', spans);
+            render();
+        }
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeSettings();
+        });
+        watchWhileOpen(panel, anchor);
+
+        if (rising) {
+            overlay.style.opacity = '0';
+            panel.style.transform = 'scale(0.6)';
+            panel.style.opacity = '0';
+
+            pin(panel);
+
+            overlay.style.transition = `opacity ${RISE_IN}ms ease-out`;
+            panel.style.transition = `transform ${RISE_IN}ms ease-out, opacity ${RISE_IN}ms ease-out`;
+            overlay.style.opacity = '';
+            panel.style.transform = '';
+            panel.style.opacity = '';
+
+            setTimeout(() => {
+                overlay.style.transition = '';
+                panel.style.transition = '';
+            }, RISE_IN + 40);
+        }
+
+        // One sentence for every build, on both steps. What the wipe does to
+        // the sync code is a matter for builds that offer synchronisation, and
+        // telling it only there would be a sentence per build.
+        const WIPE_NOTE = tr('wipeNote');
+
+        function offer() {
+            body.innerHTML = `
+                <button class="dict-wipe-btn" style="padding: 6px 10.2px; background: transparent; color: ${palette.title}; border: 1px solid ${palette.accent}; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('clearData')}</button>
+                <p class="dict-wipe-note" style="margin: 6.8px 0 0; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>`;
+
+            body.querySelector('.dict-wipe-btn').addEventListener('click', confirm);
+        }
+
+        function confirm() {
+            body.innerHTML = `
+                <p class="dict-wipe-note" style="margin: 0 0 8.5px; font-size: 11.3px; font-weight: 600; line-height: 1.4; color: ${palette.hint};">${WIPE_NOTE}</p>
+                <div class="dict-wipe-actions" style="display: flex; gap: 6.8px;">
+                    <button class="dict-wipe-confirm" style="padding: 6px 10.2px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-family: inherit; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('erase')}</button>
+                    <button class="dict-wipe-cancel" style="padding: 6px 10.2px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-weight: 600; font-size: 12.8px; cursor: pointer;">${tr('cancel')}</button>
+                </div>`;
+
+            body.querySelector('.dict-wipe-cancel').addEventListener('click', offer);
+            body.querySelector('.dict-wipe-confirm').addEventListener('click', wipeEverything);
+        }
+
+        offer();
+    }
+
+    /*
+     * The blue the onboarding strip is tinted with -- see onbBg -- which was
+     * the "All games" tile's until that went mint (and then went altogether,
+     * 29 October 2026), and stays: the strip's contrasts were measured against
+     * it, and the pale bubbles of the colours card are greens among others,
+     * which a mint ground would swallow.
+     */
+    const STRIP_TINT = '#4a90d9';
+
+    /*
+     * The games, as a phone draws an app: a coloured tile with nothing in it but
+     * the picture, and the name underneath on the background.
+     *
+     * The name used to be inside the tile with the picture, which is what a
+     * toolbar button looks like -- and it cost the picture most of its room,
+     * because a 49.5px button holding two lines of anything leaves 20 for the
+     * drawing. Out on the background the name costs the tile nothing, and the
+     * drawing is half again bigger than the whole button used to be tall.
+     *
+     * The tile is narrower than the column it sits in, and the name may use the
+     * whole of it. That is the arrangement on a home screen, and it is not
+     * decoration: "Flashcards" is one word and cannot wrap out of trouble, so
+     * what it needs is width the tile does not have to give.
+     *
+     * The corner radius is a third of the side, which is as round as this shape
+     * gets while it is still a shape. A phone icon is a squircle and a
+     * border-radius cannot draw one; what it can do is take the corner far
+     * enough that the eye stops reading a square with its corners filed off, and
+     * a third is where that happens. The next honest stop after it is a circle:
+     * between the two the straight part of each side is too short to be a side
+     * and too long to be an arc, and the tile reads as a circle somebody sat on.
+     */
+    /*
+     * What the name of an unfinished game turns into, in turns with itself: a
+     * "Continue" and a play mark.
+     *
+     * It used to be a banner over the whole list -- "Continue: Snake" with an
+     * arrow -- which said what was unfinished but not where. The set it belonged
+     * to was somewhere below, looking exactly like every other set, and the
+     * banner took a row of the screen to say so. On the tile there is nothing to
+     * look up: the game, the set and the way back in are one thing, in the place
+     * the player would have pressed anyway.
+     *
+     * Then it was a mark laid over the drawing, which hid most of it and had to
+     * pulse to be read as a mark rather than as part of it; then the drawing
+     * itself, turning into a white triangle and back in time with the name.
+     * Since 26 October 2026 the drawing stays as it is and only the name turns,
+     * with the triangle after "Continue", as the owner asked: the picture is
+     * the game's, and the name is where it says what to do with it.
+     *
+     * Drawn rather than typed. A triangle among the characters is either the
+     * emoji one, which phones paint as a coloured button, or one of the
+     * geometric shapes, which every font draws at a weight and a height of its
+     * own -- the reason the flags on the first screen stopped being emoji. A
+     * path in the name's own colour, as tall as its capitals and standing on its
+     * baseline, is the same mark everywhere. Rounded by its stroke rather than
+     * by its path: a polygon stroked in its own colour with a round join rounds
+     * where it turns, and one set of three points draws both.
+     *
+     * Under the word and not after it, since 4 November 2026, as the owner
+     * asked: after it the two came to the whole width of the tile's fifth. Taken
+     * out of the flow, so that it stands in the air under the row and the card
+     * does not grow for a mark that is there half the time; that air is the
+     * card's own padding, which is what it is taking up. The face it is in does
+     * not clip for the same reason -- see tileBtn.
+     */
+    const CONTINUE = `Continue<svg viewBox="0 0 12 12" width="0.82em" height="0.82em" aria-hidden="true" style="position: absolute; left: 50%; top: 100%; transform: translateX(-50%);"><path d="M2.4 1.8 10.2 6 2.4 10.2z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>`;
+
+    /*
+     * The tile's side, its corner and the drawing in it -- 57.6, 19.2 and 32
+     * until 26 October 2026, when the row stopped being four places. Five have
+     * to stand in one row of a card -- four games and the one to come (the
+     * door to the rest of the games, until it went) -- and a fifth of the row
+     * is 57.4 with the gaps taken out: room for a 57.6 tile and nothing on
+     * either side of it, and the names under them touching.
+     * Fifty leaves the tiles their air; the corner stays a third of the side
+     * and the drawing keeps its share of it.
+     */
+    const TILE = 50;
+    const TILE_RADIUS = TILE / 3;
+    const TILE_ICON = 28;
+
+    /*
+     * The games a set's row shows: all of them, the one still to come last --
+     * the owner's call, 29 October 2026.
+     *
+     * In the registry's order otherwise, so that a game keeps its place in the
+     * row. From 26 October 2026 until then the row was the games pinned to the
+     * set, and the rest were in a dialog behind a last tile, "All games",
+     * which held a line on what each is for and a pin beside it; the lines
+     * are the tiles' hints now (`title`, from `pitch` in registry.js), and
+     * what was pinned (`pinned` on a set) is left where it is and read by
+     * nothing -- see docs/ARCHITECTURE.md, "Список — не полка".
+     *
+     * Wordcraft is kept off it for now, so that the five left stand in one
+     * line (the owner, 26 November 2026). Only off the row: the game and its
+     * page are where they were.
+     */
+    const ROW_HIDDEN = ['wordcraft'];
+
+    const ROW_GAMES = GAMES.filter(g => !ROW_HIDDEN.includes(g.id))
+        .filter(g => !g.soon).concat(GAMES.filter(g => g.soon));
+
+    /*
+     * The games a set opens up as it is learnt: the first in the row from the
+     * start, and each of the next four when the set's bar lights a dot of its
+     * own -- the third, the fifth, the seventh and the ninth of its thirteen
+     * (the owner, 26 November 2026; for an hour that day the third, fifth,
+     * seventh and tenth). Until then the game wears a lock on its tile and does
+     * not start, and its dot wears a small lock in the bar until it is lit --
+     * once the set has any progress at all; a set at nought shows its bar as
+     * it always did.
+     *
+     * Two more dots wear a sign of their own the same way, and open nothing:
+     * the eleventh a flame and the last, the thirteenth, a heart (DOT_SIGNS).
+     * They were locks for a while the same day, with no game behind them.
+     *
+     * A dot is lit by the set's best word (see ladderOf), and that is all that
+     * opens a game: nothing is kept, so what is open is worked out from the
+     * words every time a set is drawn, on each set by itself. A word that slips
+     * back can close a game again; the dot it lit goes dark with it, and the
+     * two say the same thing.
+     *
+     * By place in the row, not by name: the second game is the third dot's,
+     * whichever game that is. A game past the last dot is open from the start
+     * -- there is no dot for it -- and so is one still to come (`soon`), which
+     * starts nothing anyway.
+     */
+    const LOCK_DOTS = [3, 5, 7, 9];
+    const DOT_SIGNS = { 11: 'fire', 13: 'heart' };
+
+    // What a dot of the bar wears until it is lit, if anything
+    const signOf = (dot) => LOCK_DOTS.includes(dot) ? 'lock' : DOT_SIGNS[dot];
+
+    const gateOf = (game) => {
+        const place = ROW_GAMES.filter(g => !g.soon).indexOf(game);
+        return place > 0 ? LOCK_DOTS[place - 1] : undefined;
+    };
+
+    const lockedBy = (game, ladder) => {
+        const dot = gateOf(game);
+        return dot !== undefined && ladder.lit < dot;
+    };
+
+    /*
+     * The signs, drawn, on one grid of 24 and standing on the same line, near
+     * its foot: a lock -- a shackle in a stroke and a body filled, so it still
+     * reads as a lock at the eleven pixels it has in the bar -- a flame and a
+     * heart, both filled for the same reason. In the colour they are given, at
+     * the size they are given.
+     *
+     * The flame a third larger than it is drawn, from the middle of the grid
+     * (the owner, the same day): a flame is narrow, and at the size of the lock
+     * and the heart it read as the smallest of the three.
+     */
+    const SIGNS = {
+        lock: (c) => `<path d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3" fill="none" stroke="${c}" stroke-width="2.8" stroke-linecap="round" />`
+            + `<rect x="4.5" y="10.5" width="15" height="11" rx="2.5" fill="${c}" />`,
+        fire: (c) => `<path d="M12 2.5C13 6.2 18 8.6 18 14.6a6 6 0 0 1-12 0c0-2.9 1.4-4.8 2.8-6.2.1 2 1 3.4 2.2 3.9-.1-3.5-.4-6.4 1-9.8z" fill="${c}" transform="translate(12 12) scale(1.3) translate(-12 -12)" />`,
+        heart: (c) => `<path d="M12 21.2s-7.6-4.7-9.4-9.4C1.4 8.4 3.6 4.6 7.3 4.6c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.7 0 5.9 3.8 4.7 7.2-1.8 4.7-9.4 9.4-9.4 9.4z" fill="${c}" />`
+    };
+
+    const signSvg = (kind, size, colour, opacity) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="display: block; flex: none; overflow: visible; opacity: ${opacity};">${SIGNS[kind](colour)}</svg>`;
+
+    // The sign in the bar, a little larger than the dot it stands for, and the
+    // lock on a tile, over a veil of the card's colour that says the drawing
+    // under it is not to be pressed yet: 65% of the card's colour, and the lock
+    // 26 across (the owner, the same day; 55% and 20 at first, which left the
+    // locked games too bright beside the open one and the lock too small).
+    //
+    // Both in the card's ink, and seen through: whole, the light theme's ink
+    // made them the darkest things on the card (reported by the owner, the
+    // same day). A share of the ink rather than a lighter colour of each
+    // theme's, so the one number does for both.
+    const STEP_LOCK = 11;
+    const TILE_LOCK = 26;
+    const STEP_LOCK_INK = 0.6;
+
+    // The line of an empty dot's ring, in the bar -- see stepLook
+    const STEP_RING = 1.2;
+
+    // And its size: as tall as the lock beside it, which stands from 2.1 to 21.5
+    // of its grid of 24 (the owner, 26 November 2026) -- a little less than the
+    // dot, so an empty one reads as a place still to fill rather than as a dot
+    const STEP_RING_SIZE = STEP_LOCK * (21.5 - 2.1) / 24;
+    const TILE_LOCK_INK = 0.5;
+
+    // Whether a game was left unfinished on a set, which is a question about
+    // both halves of it: the same game on another set is a game that was never
+    // started.
+    const openOn = (game, setId) => !!session && session.game === game.id
+        && String(session.setId) === String(setId);
+
+
+    /*
+     * Empties every store and starts the app over.
+     *
+     * The data and nothing else: IndexedDB and localStorage. The offline copy —
+     * the service worker and the shell it cached — is not data, it is the app,
+     * and it used to go with them.
+     *
+     * The reason it did was that a cache-first worker serves whatever build it
+     * installed, so the reload below came back on that build rather than on the
+     * newest one. That was true and it was the smaller problem. The bigger one
+     * is what the button left behind: a PWA with no shell, which is an app that
+     * does not open at all until it is next online — and being asked to start
+     * over is not a reason to lose the ability to open the thing.
+     *
+     * Nothing is lost by keeping it: the worker checks for a new build every
+     * time the app comes back to the front and reloads the page under itself
+     * when one lands — see web.js. The reset simply arrives on the build that
+     * was already there.
+     *
+     * Reloading rather than redrawing: half this app's state lives in variables
+     * that were read at boot, and a redraw over a database that no longer exists
+     * would show a catalog built from memories of it. A reload comes back to an
+     * empty store, which is what seeds the starting sets again.
+     *
+     * The server is not touched. This device starts again under a new profile
+     * -- remote.init makes one when there is none -- and the old one stays
+     * where it is, for its code to bring back and for the analytics.
+     *
+     * One thing outlives the wipe on purpose: the id of the device, put back
+     * into the new database before the reload, and with it the count of its
+     * visits. The analytics then see one device that started over rather than
+     * a stranger, which is the truth, and its visits numbered on without a
+     * restart that would read as lost visits -- see `seq` in track.js. What was
+     * gathered before goes first, under the profile it belongs to.
+     *
+     * The list of codes the device has used does not outlive it, and that is
+     * decided: erasing everything here erases the way back to those profiles
+     * too.
+     */
+    async function wipeEverything() {
+        track('wipe');
+        await track.close();
+
+        const meta = remote.meta();
+        const device = meta && meta.device;
+        const visits = (meta && meta.visits) || 0;
+
+        try {
+            localStorage.clear();
+        } catch (e) {
+            // Private mode, or storage switched off — there was nothing to clear
+        }
+
+        await storage.wipe();
+
+        if (device) await storage.set('sync', { device: device, visits: visits });
+
+        location.reload();
+    }
+
+    // Takes down whatever the New Set button opened. The set behind the form
+    // exists only because the form needed something to edit, so closing without
+    // saving leaves nothing worth keeping.
+    //
+    // Nothing is written to word_sets here, because nothing in it has changed:
+    // the draft was never in the list. The form is a different matter -- it was
+    // written down as it was typed, and this is the press that says to forget
+    // it.
+    function discardDraft() {
+        if (!draft) return;
+
+        editing.delete(draft.id);
+        forgetForm(draft.id);
+        draft = null;
+    }
+
+    /*
+     * One of those tiles, with its name under it.
+     *
+     * The button is the pair rather than the tile: on a home screen the name is
+     * part of what is pressed, and a name that only looks pressable is a strip
+     * of dead pixels across the middle of a row of targets.
+     *
+     * The name is never wrapped. Two lines under one tile and one under the
+     * next would leave the row with tiles at two different heights.
+     *
+     * Nor is it cut, or made smaller: one size for every name, the owner's call,
+     * 4 November 2026. "Word search" comes to 61 against a fifth of 57.4 and read
+     * "Word sea..." when it was held to its fifth, and for a while a name was set a
+     * size down until it fit. A name stands centred under its tile and simply takes
+     * what it needs out of the gap and its neighbour's margin. There is room: the
+     * longest are 61 here and a little more in a wider font, the names beside them
+     * are short, and the last in the row has the card's own padding to go into.
+     *
+     * An unfinished tile's name takes turns with "Continue" -- see CONTINUE --
+     * and the tile itself stays as it is. In English in every interface, the owner's
+     * call, as the name it takes turns with is.
+     *
+     * Each of the two names is a cell of the same one-cell grid rather than one
+     * box with something absolute over it. The cell takes the size of the wider
+     * one, so a name that fits and a "Continue" that does not cannot each be
+     * measured against a different box -- and when there is nothing to
+     * alternate with, one name in one cell lays out exactly as the plain span
+     * it replaces.
+     */
+    /*
+     * What a game's tile shows in this set is the game's to draw -- see
+     * `show` in core/icons.js. The catalog makes the box, the size of a tile,
+     * and asks for one of two faces: the plain one, or the one the set's
+     * achievements make; and for the second, at once or grown into. What is
+     * on either, and what happens on the way, it does not know.
+     *
+     * The face is the whole of the tile, the background included, and may
+     * stand out past the tile's edges: the snake's emblem has a crown over
+     * it and a star and a goblet at its sides. Since 28 October 2026; before
+     * that the catalog painted every tile its game's colour and a game could
+     * only decide what stood in it.
+     *
+     * Asked of the game with its own corner of the set's achievements and
+     * nothing else: the rule that the catalog knows no game by name runs the
+     * other way too, and a game handed the whole set would be a game reading
+     * words it has no business with.
+     */
+    const tileSpec = () => ({ size: TILE, radius: TILE_RADIUS, icon: TILE_ICON });
+
+    const logOf = (game, set) => (set && set.achievements && set.achievements[game.id]) || [];
+
+    /*
+     * The tiles growing what was achieved on their sets, one after another,
+     * as the catalog opens -- the owner's call, 28 October 2026: whoever
+     * comes in sees the tiles grow what they have already won, rather than
+     * finding it there. Drawn plain first, and each asked for its actual face
+     * with the growth when its turn comes; a game with nothing to grow on a
+     * set answers at once, and the next one does not wait. See `show` in
+     * core/icons.js.
+     *
+     * One at a time down the whole screen and not one per card: the point is
+     * to be watched, and two growing at once are two halves of a show.
+     *
+     * A tile out of sight when its turn comes is set to what it is at once
+     * and not waited for: a show nobody sees is a delay to the one after it.
+     * The ones below stay plain until their turn, so a reader who scrolls
+     * down early finds them still to come, and they grow when it does.
+     *
+     * Only on the draw that opens the catalog (see `introduce`), and never
+     * with motion turned down: then the tiles are drawn as they are. A draw
+     * that comes while they are growing throws the tiles away, and the ones
+     * left in the queue are skipped -- that draw drew them finished.
+     */
+    const GROW_AFTER = 400;
+
+    let growing = [];
+
+    const stillMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function growTiles(queue) {
+        const inView = (el) => {
+            const box = el.getBoundingClientRect();
+            return box.bottom > 0 && box.top < window.innerHeight;
+        };
+
+        const first = new Promise(resolve => setTimeout(resolve, GROW_AFTER));
+
+        queue.reduce((turn, { el, game, log }) => turn.catch(() => null).then(() => {
+            if (!el.isConnected) return null;
+            return game.show(el, tileSpec(), log, { actual: true, animate: inView(el) });
+        }), first);
+    }
+
+    /*
+     * The row's measure: five to a line, and a sixth starts the next one --
+     * see the row in renderSetCard. Every tile takes a fifth of the row, so a
+     * row of four is four fifths, centred, rather than four quarters: the
+     * tiles stand the same distance apart however many there are, and a row
+     * that loses a game closes up instead of spreading out.
+     *
+     * The names under them are a size down from what they were, 10.8 against
+     * 11.3, for the same fifth: "Continue" with its mark after it, as it then
+     * stood, came to 56.6 at that
+     * size, and a fifth of the row is 57.4.
+     */
+    const ROW_PLACES = 5;
+    const ROW_GAP = 5.1;
+
+    /*
+     * The face goes into a box the tile's size, and whatever it draws past the
+     * box -- the snake's crown, star and goblet -- is drawn over the row round
+     * it. A face keeps to its half of the gap on either side and to the room
+     * above the name, and is drawn to: the row has no other guard against two
+     * faces meeting, or a ribbon over a "Continue". See snake/icon.js.
+     */
+    const NAME_SIZE = 10.8;
+
+    /*
+     * A name keeps to its tile's fifth of the row, on one line, and one that is
+     * wider runs through it in a loop, as a ticker does (the owner, 26 November
+     * 2026) -- see .set-tile-name in app.css, where the whole of it is, in CSS
+     * and with nothing measured. Until that day a name was never broken, cut or
+     * made smaller, and took the room it needed out of the gap and its
+     * neighbour's fifth -- which held while the two long names, "Word search"
+     * and "Word search 2", had short ones between them. With Wordcraft off the
+     * row (ROW_HIDDEN) they stood side by side and ran into each other.
+     *
+     * The room is 94% of the fifth (NAME_ROOM), centred under the tile, so
+     * that two names running side by side have air between them as well as the
+     * gap (the owner, the same day; 90% at first, then 92%). Only the name's
+     * face is held to it: "Continue" stands in the same place and is not
+     * clipped -- see CONTINUE. The copy that follows the name round the loop is
+     * the same words again, hidden from a screen reader.
+     *
+     * The room is a number, in the app's own units, worked out here and handed
+     * to the CSS as --name-room, where the loop measures the name against it.
+     * Arithmetic rather than a measurement, for the reason MARK_WIDTH gives: the
+     * layout has one width and only zooms it. The row is 350, less the page's
+     * 6.8 either side, the card's 1px border and its 13.7 of padding either
+     * side: 307. The CSS read the room off the face itself for a day, in
+     * container units (100cqw), and an old phone's browser (Chrome before 105)
+     * knows none: the names did not move, and a short one read twice, its copy
+     * standing right after it (reported by the owner, 26 November 2026).
+     */
+    const ROW_WIDTH = 350 - 2 * 6.8 - 2 * 1 - 2 * 13.7;
+    const NAME_ROOM = 0.94;
+    const NAME_PX = (ROW_WIDTH - (ROW_PLACES - 1) * ROW_GAP) / ROW_PLACES * NAME_ROOM;
+    const NAME_FACE = 'justify-self: stretch; overflow: hidden; white-space: nowrap; text-align: center;';
+
+    // A lock pressed: a turn either way from where the shackle hangs, and back
+    function shakeLock(svg) {
+        if (!svg) return;
+
+        svg.style.transformOrigin = '50% 30%';
+        svg.animate([
+            { transform: 'rotate(0deg)' },
+            { transform: 'rotate(-14deg)' },
+            { transform: 'rotate(11deg)' },
+            { transform: 'rotate(-6deg)' },
+            { transform: 'rotate(0deg)' }
+        ], { duration: 420, easing: 'ease-out' });
+    }
+
+    function tileBtn(cls, face, label, attrs, resuming, locked) {
+        const swap = resuming ? ' set-tile-swap' : '';
+
+        // Beside the face and not in it: the game draws its face into the tile
+        // again when it grows it (see growTiles), and would draw over the lock
+        const lock = locked
+            ? `<span class="set-tile-lock" aria-hidden="true" style="position: absolute; top: 0; left: 50%; width: ${TILE}px; height: ${TILE}px; margin-left: -${TILE / 2}px; display: grid; place-items: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}a6; z-index: 2; pointer-events: none;">${signSvg('lock', TILE_LOCK, palette.title, TILE_LOCK_INK)}</span>`
+            : '';
+
+        return `<button class="${cls}" ${attrs} style="position: relative; flex: 0 0 calc((100% - ${(ROW_PLACES - 1) * ROW_GAP}px) / ${ROW_PLACES}); min-width: 0; padding: 0; background: none; border: none; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
+            <span class="set-tile" style="display: block; position: relative; width: ${TILE}px; height: ${TILE}px; flex: none;">${face}</span>
+            <span class="set-tile-label${swap}" style="display: grid; justify-items: center; width: ${NAME_PX}px; --name-room: ${NAME_PX}px; font-size: ${NAME_SIZE}px; font-weight: 600; line-height: 1.2; color: ${palette.title};">
+                <span class="set-tile-face" style="grid-area: 1 / 1; ${NAME_FACE}"><span class="set-tile-name">${label}<span class="set-tile-name-again" aria-hidden="true">${label}</span></span></span>
+                ${resuming ? `<span class="set-tile-face set-tile-face-alt" style="grid-area: 1 / 1; position: relative; white-space: nowrap;">${CONTINUE}</span>` : ''}
+            </span>
+            ${lock}
+        </button>`;
+    }
+
+    /*
+     * The air kept around the bubbles inside the box they scroll in. The box
+     * clips what it holds, and a bubble does not stay inside its own edges: the
+     * timer hangs five pixels over its corner, and the hop and the swell take it
+     * further still.
+     *
+     * Taken back from what stands beside the box: by a margin at the sides, and
+     * above and below out of the spaces to the bar and to the tiles, so the air
+     * costs the card nothing. Laid out this way for a fold, from 4 to 26
+     * November 2026, when the chevron could fold the box away: a margin there
+     * would have outlived the box folded to nothing and made the tiles jolt.
+     */
+    const BUBBLE_ROOM = 6;
+
+    /*
+     * And the box reaches that much further into the card's padding at the
+     * sides, so the bubbles have the 6 the air took from them back in width:
+     * their row runs to 7.7 from the card's edge, where the name, the bar and
+     * the games keep to 13.7 (the owner, 26 November 2026). Asked as the box's
+     * side padding taken away; done this way because without it the timer of a
+     * bubble at the end of a full row, which hangs five pixels past its corner,
+     * would be cut off by the box.
+     */
+    const WORDS_REACH = 6;
+
+    /*
+     * How tall a set's words may stand: 300 of the app's own pixels, and what is
+     * over that scrolls inside the set, between its bar and its games, which
+     * stay where they are (the owner, 26 November 2026). Every set has the same
+     * cap, so with two the page scrolls as it always did.
+     *
+     * One number, the owner's call the same day. For a few hours it was worked
+     * out instead -- as much as left the app, with one set in it, inside the 600
+     * screen pixels a popup gets, the rest of the app measured after every draw
+     * so that a name on two lines was counted too. The measuring is what went
+     * wrong: the header is sticky, measured by where it stood on a page scrolled
+     * down it made every set as much shorter as the page was scrolled, and a
+     * press on Edit further down the list squashed the others. A fixed cap has
+     * nothing to measure. With a long name, a banner over the list or the app
+     * drawn wider, one set and its row of stars may now run past the 600, and
+     * the page scrolls.
+     *
+     * The box keeps the air round the bubbles inside it (BUBBLE_ROOM), so what
+     * hangs over a bubble's edge is cut by the box, where it was cut by the frame
+     * round it before the box scrolled; the 300 count that air (border-box).
+     *
+     * No scrollbar, like everything else in the app (see app.css). What says
+     * there is more is a shade along the top and the foot of a box that scrolls,
+     * which the bubbles go under -- see .set-words-frame in app.css.
+     */
+    const WORDS_CAP = 'box-sizing: border-box; max-height: 300px; overflow-x: hidden; overflow-y: auto;';
+
+    /*
+     * A title takes as many lines as it needs, at one size whatever its length (the
+     * owner, 4 November 2026). It was once set a size down to stay on one line, and
+     * three sets of one language came out at three sizes.
+     *
+     * The air round it is what keeps the bar where it belongs. On one line the row
+     * of buttons, taller than the title, was all that held the title off the bar, so
+     * the gap above the bar came to the same 12 as the gap under it by that accident
+     * alone, and fell to 6.8 on the second line. Air of its own that adds up to the
+     * buttons' height on one line changes nothing there and keeps the 12 on any
+     * number of lines.
+     *
+     * Nothing is clipped here. This box used to hide its overflow at a line height of
+     * 1.1, which is less than the letters are tall, so the tails of the last line
+     * were cut off at its edge, right over the bar. A line height that holds the
+     * marks of Vietnamese clear of the line above, and a word too long for the row
+     * breaks rather than pushing the buttons out.
+     */
+    const SET_BUTTON = 27.3;
+    const TITLE_LINE = 18.5;
+    const TITLE_AIR = (SET_BUTTON - TITLE_LINE) / 2;
+
+    /*
+     * The header stands a little higher in the card than the card's padding
+     * puts it, and the bar under it has as much more room at its foot (the
+     * owner, 26 November 2026): the air over the name was more than it needed,
+     * and the bubbles had less over them than the 15.4 they have under them,
+     * which now they have on both sides (BUBBLE_ROOM and its box's padding,
+     * and this). The card is as tall as it was.
+     *
+     * A margin on the header, not less padding on the card: the same card holds
+     * the form that edits the set, which keeps its own air. The room under the
+     * bar is the top of the bubbles' box, as the rest of the air round them is
+     * -- see BUBBLE_ROOM.
+     */
+    const HEAD_LIFT = 3.4;
+
+    /*
+     * The same trade at the other end, the same day: the games stand a little
+     * lower, with that much more air over them and as much less under their
+     * names. A margin under the row taken back from the card's padding, for the
+     * same form's sake; the room over it is the row's own padding. The mark under
+     * a "Continue" stands in the air that is left -- see CONTINUE.
+     */
+    const TILES_SINK = 1.7;
+
+    function renderSetCard(parent, set, intro) {
+        const card = $(parent, `<div class="set-card" data-set-id="${set.id}" style="background: ${palette.cardBg}; border: 1px solid ${palette.cardBorder}; border-radius: 15.4px; padding: 13.7px;"></div>`);
+
+        if (editing.has(set.id)) {
+            /*
+             * Under the box, what the text in it is written in: the words on the
+             * left, their translations on the right.
+             *
+             * A real <select> rather than a plate with a menu built under it.
+             * Clicking it is what opens a dropdown on every platform, the
+             * keyboard works, and on a phone it is the system's own picker —
+             * none of which is worth rewriting to own the arrow.
+             *
+             * What the closed plate shows is the state, not a label: one
+             * language when every word is in it, all of them named in a row when
+             * they differ. refreshPlates keeps both in step with the box.
+             */
+            const SELECT_STYLE = selectStyle();
+
+            // A caption over a dropdown, cut to the width it has. Both of them
+            // are one line high whatever they hold, so the two columns stay
+            // level and the dropdowns under them line up across every row.
+            //
+            // The indent is the dropdown's own: its border plus its padding, so
+            // the word starts exactly above the language it names rather than a
+            // few pixels to the left of it.
+            //
+            // The line height is set rather than inherited, so a caption in Arabic
+            // or Devanagari — both taller than Latin at the same size — takes the
+            // same band as the word next to it in the ordinary case.
+            //
+            // Keeping the two dropdowns level is not left to that, though. The
+            // row is a grid and the captions share one of its rows: whichever of
+            // them turns out taller, both dropdowns begin where that row ends.
+            // Matching two boxes by eye is what was tried first, and a phone
+            // found a script where the numbers did not agree.
+            const caption = (text, strong, indent) => `<div style="font-size: 10.8px; line-height: 17.1px; font-weight: ${strong ? 700 : 600}; color: ${strong ? palette.softColor : palette.hint}; padding-left: ${indent}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+
+            const langPlate = (side) => `<select class="set-lang-select" data-side="${side}" style="${SELECT_STYLE}">${languageOptions()}</select>`;
+
+            // The pair's captions say which half of the line each dropdown
+            // answers for, in the same words the box uses for them: a line is a
+            // word and a translation, and these are all of one and all of the
+            // other. Set bold, unlike the captions on the rows below, because
+            // these two speak for the whole set and those speak for one word.
+            //
+            // The indent is this dropdown's border plus its padding, which is
+            // not the rows' -- their boxes are smaller. Written out rather than
+            // typed as a number so the two cannot drift apart.
+            const PLATE_INDENT = 1 + 8.5;
+
+            /*
+             * What the section is called, and what the dropdowns are doing
+             * inside it.
+             *
+             * Standing in the open directly beneath a box of "word --
+             * translation" lines, two language dropdowns read as the languages
+             * of the translation -- something to be set before the words mean
+             * anything. They set no such thing. The words are already in
+             * whatever languages they were pasted in, and all these choose is
+             * the voice that reads them aloud.
+             *
+             * So they went inside the section, and the section stopped being
+             * called "Advanced". A name that only says "there is more here" asks
+             * to be opened and then explains nothing; this one answers the
+             * question the dropdowns would otherwise raise.
+             *
+             * There were rows under them once, one per word, each with the same
+             * pair of dropdowns -- a set could be in several languages at a time
+             * and every word had to be able to say which. A set is a pair of
+             * languages now, so those rows answered a question that can no longer
+             * be asked, and the two dropdowns here are the whole of the subject.
+             */
+            const LANG_SECTION = tr('langSection');
+
+            /*
+             * What goes in the box: what was typed into it, and the set itself
+             * only if nothing was. Every way of opening a form remembers it
+             * first, so the second half answers a case that should not arise --
+             * it is here because a box has to be given something.
+             *
+             * Escaped, unlike the words this used to be built from. The text
+             * came off a keyboard and goes back into markup, so a line with a
+             * "<" in it would close the box and take the rest of the form with
+             * it.
+             */
+            const form = openForms.get(set.id);
+            const boxText = escapeText(form ? form.text : setAsText(set));
+
+            /*
+             * What the speakers in those dropdowns mean, the owner's call, 5 November
+             * 2026: one line, cut where it does not fit, and a press shows all of it,
+             * the same text wrapping where it has to. There is no folding it back, so
+             * the second press does nothing; the next opening of the form starts from
+             * one line again.
+             *
+             * Hence on the form and not in what saveForms writes: a redraw while the
+             * form is open must not fold it under somebody reading it, and a popup
+             * reopened on a form left open is a next opening like any other.
+             */
+            const voicesShown = !!(form && form.voicesShown);
+            const voiceKey = `<button class="set-voice-key" aria-expanded="${voicesShown}"${voicesShown ? ' disabled' : ''} style="color: ${palette.hint};">`
+                + `<span>${OWN_VOICE}&nbsp;${tr('voiceOwn')}</span> <span>${BORROWED_VOICE}&nbsp;${tr('voiceBorrowed')}</span> <span>${NO_VOICE}&nbsp;${tr('voiceNone')}</span>`
+                + `</button>`;
+
+            const box = `<label class="set-edit-hint" style="display: block; font-size: 11.3px; font-weight: 600; color: ${palette.hint}; margin-bottom: 5.1px;">
+                    ${tr('formHint')}
+                </label>
+                <textarea class="set-edit-textarea" placeholder="${tr('newSetName')}&#10;${tr('pairSample')}&#10;${tr('pairSampleMore')}" style="width: 100%; height: 98.2px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 6.8px; font-family: inherit; font-size: 13.3px; box-sizing: border-box; resize: vertical; outline: none;">${boxText}</textarea>
+                <div class="set-lang-area" style="margin-top: 6.8px;" hidden>
+                    ${staticSection(LANG_SECTION, `<div class="set-lang-plates" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.6px 6.8px; align-items: start;">
+                            ${caption(tr('words'), true, PLATE_INDENT)}
+                            ${caption(tr('translations'), true, PLATE_INDENT)}
+                            ${langPlate('originalLang')}
+                            ${langPlate('translationLang')}
+                        </div>
+                        ${voiceKey}`)}
+                </div>`;
+
+            // A set being written from scratch gets the box as the first section,
+            // always open — it is the one thing always needed. The three routes
+            // fold away underneath, where they are read once and then ignored by
+            // anyone who already has a list.
+            //
+            // Editing an existing set shows none of it: the words are already
+            // here, and the only reason the form is open is to change them.
+            const guided = set === draft;
+
+            const steps = r => `<ol class="set-fold-steps" style="margin: 0; padding-left: 35.9px; font-size: 11.3px; font-weight: 600; line-height: 1.45; color: ${palette.hint};">`
+                + r.steps.map(s => `<li style="margin-bottom: 2.6px;">${stepBody(s)}</li>`).join('')
+                + `</ol>`;
+
+            // The routes are nested one level in: the folds are plain hidden
+            // bodies, so a section inside a section needs nothing but the
+            // indent that says which is which.
+            const routes = `<div class="set-fold-nest" style="padding-left: 10.2px;">`
+                + routeList().map(r => foldingSection(r.question, steps(r), false, r.id)).join('')
+                + `</div>`;
+
+            const formBody = guided
+                ? staticSection(tr('pasteWords'), box)
+                    + foldingSection(tr('routesLabel'), routes, false, 'routes')
+                : box;
+
+            // The page turns selection off everywhere — it is a popup full of
+            // things to tap, and a dragged finger selecting a label is noise.
+            // This form is the exception: the prompts are here to be carried out
+            // to another app, and the hint explains a format worth copying.
+            const editForm = $(card, `<div class="set-edit-form" style="user-select: text; -webkit-user-select: text;">
+                <div class="set-edit-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6.8px;">
+                    <span class="set-edit-title" style="font-size: 13.3px; font-weight: 700; color: ${palette.heading};">${tr(guided ? 'formNew' : 'formEdit')}</span>
+                    <div class="set-edit-actions" style="display: flex; gap: 5.1px;">
+                        <button class="set-save-btn" style="padding: 3.4px 8.5px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">${tr('save')}</button>
+                        <button class="set-cancel-btn" style="padding: 3.4px 8.5px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 600; font-size: 12.3px; cursor: pointer;">${tr('cancel')}</button>
+                    </div>
+                </div>
+                ${formBody}
+            </div>`);
+
+            // Each header opens its own section and closes nothing else: the
+            // routes are alternatives, not steps, and comparing two of them
+            // should not mean opening one twice. The heading they sit under
+            // works the same way and needs no special case — every toggle's
+            // body is the element right after it, nested or not.
+            editForm.querySelectorAll('.set-fold-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const body = toggle.nextElementSibling;
+                    const opening = body.hidden;
+                    body.hidden = !opening;
+                    toggle.setAttribute('aria-expanded', opening);
+                    toggle.querySelector('.set-fold-chevron').style.transform = `rotate(${opening ? 90 : 0}deg)`;
+                });
+            });
+
+            editForm.querySelector('.set-voice-key').addEventListener('click', (e) => {
+                if (form) form.voicesShown = true;
+
+                e.currentTarget.setAttribute('aria-expanded', 'true');
+                e.currentTarget.disabled = true;
+            });
+
+            editForm.querySelectorAll('.set-prompt-copy').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const field = btn.closest('.set-prompt').querySelector('.set-prompt-text');
+                    let copied = true;
+
+                    try {
+                        await navigator.clipboard.writeText(field.textContent.trim());
+                    } catch (e) {
+                        // Refused — file:// has no clipboard permission, and nor
+                        // does a page the tap did not reach as a real gesture.
+                        // The text is selectable now, so select it and say what
+                        // is left to do rather than claiming a copy that did not
+                        // happen.
+                        copied = false;
+                        const range = document.createRange();
+                        range.selectNodeContents(field);
+                        const selection = window.getSelection();
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+
+                    btn.textContent = tr(copied ? 'copied' : 'pressCtrlC');
+                    setTimeout(() => { btn.textContent = tr('copy'); }, 1400);
+                });
+            });
+
+            const textarea = editForm.querySelector('.set-edit-textarea');
+
+            // The box is the one thing here that nothing else overhears: the
+            // plates below are redrawn from its text, but the text itself is
+            // only ever in the box.
+            textarea.addEventListener('input', () => {
+                if (!form) return;
+
+                form.text = textarea.value;
+                saveForms();
+            });
+
+            /*
+             * What the person chose on each plate, until the form is closed:
+             *
+             *     null   nothing chosen — a side that has a language keeps it,
+             *            a side that has none is named by the detector;
+             *     'auto' chosen by hand — that side is named again from scratch,
+             *            whatever it carried before;
+             *     a tag  that side is in that language.
+             *
+             * Null and 'auto' differ, and the difference matters: opening the
+             * form must not quietly re-guess what was already known, while
+             * asking for Auto is exactly the request to re-guess it.
+             */
+            const choice = form ? form.choice : { originalLang: null, translationLang: null };
+
+            /*
+             * Puts the two choices onto a set and lets the detector fill in what
+             * neither the person nor the set has answered.
+             *
+             * Given the set it is to write on rather than taking one: the plates
+             * are refreshed against a throwaway built from the box, and Save
+             * calls it on the real thing. One reader, so what the plate shows and
+             * what Save writes cannot disagree.
+             *
+             * A side the detector named and nobody has chosen since is marked as
+             * guessed (`guessedLangs` on the set), and a guess is made again
+             * from the words every time they change. A set's language used to be
+             * kept once named, guess or not, so a set saved broken stayed named
+             * after its broken shape -- measured: six Spanish lines written with
+             * a single dash were read as one Cyrillic column and named Russian,
+             * and the same lines fixed to "--" kept Russian on both sides, for
+             * the Russian voice to read the Spanish. What a person chose on a
+             * plate, and every language saved before the mark existed, is still
+             * kept: absent means known.
+             */
+            function nameSet(target) {
+                const guessed = new Set(target.guessedLangs || []);
+
+                ['originalLang', 'translationLang'].forEach(field => {
+                    if (choice[field] === 'auto' || (!choice[field] && guessed.has(field))) {
+                        delete target[field];
+                    } else if (choice[field]) {
+                        target[field] = choice[field];
+                        guessed.delete(field);
+                    }
+                });
+
+                const unnamed = ['originalLang', 'translationLang'].filter(field => !target[field]);
+                if ((target.words || []).length) store.label(target, preferredLangs());
+                unnamed.forEach(field => { if (target[field]) guessed.add(field); });
+
+                if (guessed.size) target.guessedLangs = [...guessed];
+                else delete target.guessedLangs;
+            }
+
+            // Which sides a person chose on a plate while this form was open,
+            // for the analytics: `o`, `t`, both or neither -- what lets a saved
+            // language be read as the person's answer rather than the
+            // detector's, see set_add in docs/ANALYTICS.md.
+            const byHand = () => (choice.originalLang && choice.originalLang !== 'auto' ? 'o' : '')
+                + (choice.translationLang && choice.translationLang !== 'auto' ? 't' : '');
+
+            /*
+             * The plates follow the box. The words are read exactly as saving
+             * would read them and named exactly as saving would name them — on a
+             * throwaway set built from what readWords returns, never on the one
+             * the app is holding — so what the plate shows is what Save will
+             * write.
+             */
+            const plates = editForm.querySelectorAll('.set-lang-select');
+
+            const langArea = editForm.querySelector('.set-lang-area');
+
+            function refreshPlates() {
+                const parsed = readWords(textarea.value, set);
+                const words = parsed ? parsed.words : [];
+
+                // An empty box has no languages to set. The controls arrive with
+                // the first word and leave with the last one.
+                langArea.hidden = !words.length;
+
+                // What Save would write, worked out on something nobody is
+                // holding: the set's own two languages are the starting point, so
+                // a language somebody chose is not re-guessed every keystroke --
+                // only one the detector gave, see nameSet.
+                const probe = {
+                    originalLang: set.originalLang,
+                    translationLang: set.translationLang,
+                    guessedLangs: set.guessedLangs,
+                    words: words
+                };
+
+                nameSet(probe);
+
+                plates.forEach(plate => showLanguage(plate, probe[plate.dataset.side]));
+            }
+
+            if (plates.length) {
+                refreshPlates();
+                textarea.addEventListener('input', refreshPlates);
+
+                /*
+                 * The voice list lands after the page does — getVoices() is
+                 * empty for the first moments — so a form opened right away
+                 * would mark nothing. One redraw when it arrives puts the
+                 * speakers in: the rows are rebuilt from scratch, and the two
+                 * plates keep what they were showing while their options are
+                 * replaced under them.
+                 */
+                if (speech.available()) {
+                    speechSynthesis.addEventListener('voiceschanged', () => {
+                        plates.forEach(plate => {
+                            const kept = plate.value;
+                            plate.innerHTML = languageOptions();
+                            plate.value = kept;
+                        });
+
+                        refreshPlates();
+                    }, { once: true });
+                }
+
+                plates.forEach(plate => plate.addEventListener('change', () => {
+                    choice[plate.dataset.side] = plate.value;
+
+                    refreshPlates();
+                    saveForms();
+                }));
+            }
+
+            // Neither form takes the caret. On a phone focus raises the keyboard
+            // over the half of the form that was just opened, and what is worth
+            // reading first — the words already in the box, the routes above it,
+            // the languages below — is exactly what the keyboard covers. Tapping
+            // the box is one tap, and it is the tap of someone who has decided
+            // to type.
+
+            editForm.querySelector('.set-save-btn').addEventListener('click', () => {
+                const parsed = readWords(textarea.value, set);
+                const keep = !!(parsed && parsed.words.length);
+
+                // What the detector made of the columns on its own, before
+                // either plate had a say -- the analytics hold it against the
+                // languages the set is saved with. See docs/BACKEND.md.
+                const guessed = keep ? store.label({ words: parsed.words }, preferredLangs()) : null;
+
+                if (keep) {
+                    set.title = parsed.title;
+                    set.words = parsed.words;
+
+                    // The same naming the plates have been showing all along
+                    nameSet(set);
+
+                    // Writing a set in a language is saying you are learning it.
+                    noteLearnLang(set.originalLang);
+                }
+
+                /*
+                 * No words, no set. An empty box has always meant delete, and a
+                 * box with nothing but a title means the same: a name with
+                 * nothing under it cannot be played, and the catalog would show
+                 * it only to say that it is empty.
+                 *
+                 * For a draft the same rule is not a deletion but the absence of
+                 * an addition: there is nothing of it in the list to remove.
+                 */
+                const langs = [set.originalLang, set.translationLang];
+                const found = guessed ? [guessed.originalLang, guessed.translationLang] : [];
+
+                /*
+                 * Deleting archives: the set is marked and kept, here and on
+                 * the server, so that the deletion reaches the other devices
+                 * as a change to the set rather than as a set going missing --
+                 * a set taken out of the list here would come back from the
+                 * next device that still had it. See store.archive.
+                 */
+                // A new set's form is over the strip and leaves by its own way
+                // -- see coverStrip; an existing set's eases back into its card.
+                const fresh = set === draft;
+
+                if (fresh) {
+                    if (keep) {
+                        store.addSet(set, true);
+                        track('set_add', 'form', separatorOf(textarea.value), set.words.length, found, langs, byHand());
+                    }
+                    draft = null;
+                } else if (keep) {
+                    store.touch(set);
+                    track('set_edit', set.id, separatorOf(textarea.value), set.words.length, found, langs, byHand());
+                } else {
+                    store.archive(set.id);
+                    track('set_archive', set.id);
+                }
+
+                editing.delete(set.id);
+                forgetForm(set.id);
+                store.save().then(syncCatalog);
+
+                if (fresh) render();
+                else redrawEased(set.id, FOLD_SHUT);
+            });
+
+            editForm.querySelector('.set-cancel-btn').addEventListener('click', () => {
+                // Cancel on a new set is the same closing as the button's, and
+                // folds the same way. Cancel on an existing set only puts the
+                // form away: the card stays where it is, so there is nothing to
+                // fold.
+                if (set === draft) {
+                    closeNewSet();
+                    return;
+                }
+
+                editing.delete(set.id);
+                forgetForm(set.id);
+                store.save();
+                redrawEased(set.id, FOLD_SHUT);
+            });
+
+        } else {
+            const totalWords = set.words.length;
+            const progress = spacedRepetitions.calculateSetProgress(set.words);
+
+            const view = store.viewOf(set);
+
+            // Every card has the same buttons: the words in it are yours,
+            // whether you typed them or the first screen wrote them for you.
+            //
+            // A third, a chevron, folded the bubbles away and brought them back,
+            // from 4 to 26 November 2026, when the owner had it taken away: the
+            // bubbles scroll inside the set by then, and a long set no longer
+            // stretches the list -- see WORDS_CAP.
+            const buttons = `<button class="set-edit-btn" title="${tr('edit')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg class="set-edit-svg" width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>
+                        <button class="set-view-btn" title="${tr('viewOptions')}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: ${viewFor === String(set.id) ? palette.softBg : 'transparent'}; color: ${palette.softColor}; border: none; border-radius: 10.2px; cursor: pointer; transition: color 0.2s;">
+                            <svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>`;
+
+            // Which of the tiles on this card is the one that was left open.
+            const unfinished = (game) => openOn(game, set.id);
+
+            // Where the bar animates from: the progress this set had when the
+            // running session started, kept in active_session rather than on the set.
+            // Where the bar starts before it runs to `progress`: at nothing when
+            // the catalog is opened, so the bars fill, and at the real value on
+            // the redraws the screen does to itself.
+            //
+            // The number beside it is not animated. A bar sweeping to its length
+            // reads as one motion; a digit counting up beside it reads as a
+            // second, slower one, and the eye ends up watching the wrong one.
+            const ladder = ladderOf(set.words);
+
+            // The three states of one segment, and the style that draws any of
+            // them. Shared by the markup below and by the timeout that runs
+            // the bar up when the catalog opens, so there is one description
+            // of what a segment looks like rather than two that must agree.
+            //
+            // A dot with a sign that is not lit yet is the sign instead, once
+            // the set has any progress -- a lock, a flame or a heart, see
+            // LOCK_DOTS. It is the sign from the first frame, so the wave runs
+            // past it: it is the state the dot ends in, and a lock that came and
+            // went at every opening would say a game was locked that is not.
+            //
+            // And a dot with nothing on it, not lit, is a ring once the set has
+            // any progress (the owner, 26 November 2026): the rings are what is
+            // still to fill, in the ink and the share of the signs. At nought the
+            // dots stay the resting colour, filled -- the bar as it always was.
+            // The rings are the waiting state too, so the wave fills them.
+            const ringed = progress !== 0;
+
+            const stepLook = (i) => {
+                const lit = i < ladder.lit;
+                const sign = !lit && ringed ? signOf(i + 1) : undefined;
+                const ring = !lit && !sign && ringed;
+                const colour = sign || ring ? 'transparent' : lit ? getStageColors(i + FIRST_RUNG).fill : palette.stepIdle;
+
+                return {
+                    colour,
+                    edge: (lit && palette.stepEdge) ? shade(colour, palette.stepEdge) : '',
+                    width: i < ladder.grown ? '100%' : `${ring ? STEP_RING_SIZE : STEP_SIZE}px`,
+                    height: ring ? STEP_RING_SIZE : STEP_SIZE,
+                    sign,
+                    ring
+                };
+            };
+
+            const waiting = ringed
+                ? { colour: 'transparent', edge: '', width: `${STEP_RING_SIZE}px`, height: STEP_RING_SIZE, ring: true }
+                : { colour: palette.stepIdle, edge: '', width: `${STEP_SIZE}px`, height: STEP_SIZE };
+
+            // The hairline of a lit dot, or the ring of an empty one: both drawn
+            // as shadows, which take nothing from the dot's size -- see below
+            const stepShadow = (look) => look.edge ? `0 0 0 0.5px ${look.edge}`
+                : look.ring ? `inset 0 0 0 ${STEP_RING}px ${fade(palette.hint, STEP_LOCK_INK)}`
+                : '';
+
+            /*
+             * Nothing here eases. A segment arrives at its state the moment
+             * its turn comes, whole.
+             *
+             * The shape did not ease when it was a height -- four pixels to
+             * eleven is seven pixels of change, and a screen can only show it
+             * seven ways, so half a second of it was a strip climbing a
+             * staircase -- and a dot drawing out into a bar keeps the same
+             * snap, so a row read at a glance has nothing half-made in it.
+             * Colour could —
+             * two hundred and fifty-six levels a channel is smooth enough —
+             * and it was fading for a while, but a fade under a snap reads as
+             * the segment arriving twice. The wave below is the animation;
+             * each segment is one beat of it.
+             */
+            // The hairline is a shadow rather than a border: a border would eat
+            // into a dot nine pixels across, and half a pixel of one is not a
+            // thing the box model can hold. A spread shadow sits outside the
+            // box, follows the rounding and costs the layout nothing.
+            //
+            // Each segment is a share of the row with the dot or the bar in
+            // the middle of it -- see SEGMENTS.
+            const stepStyle = (look) => `flex: none; display: flex; align-items: center; justify-content: center; width: ${look.width}; height: ${look.height}px; border-radius: ${look.height / 2}px;`
+                + ` background-color: ${look.colour};`
+                + (stepShadow(look) ? ` box-shadow: ${stepShadow(look)};` : '');
+
+            // Drawn empty and coloured in a frame later, so the boxes light up
+            // when the catalog opens rather than being found already lit. The
+            // redraws the screen does to itself skip that and draw the end
+            // state — see the timeout below.
+            const grows = intro;
+
+            // The tiles plain at first, to grow what the set has won -- see
+            // growTiles.
+            const growsTiles = grows && !stillMotion();
+
+            $(card, `
+                <div class="set-card-header" style="display: flex; gap:4.3px; justify-content: space-between; align-items: center; margin: -${HEAD_LIFT}px 0 6.8px;">
+                    <div class="set-title-group" style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">
+                        <h4 class="set-title" style="margin: 0; padding: ${TITLE_AIR}px 0; min-width: 0; line-height: ${TITLE_LINE}px; font-size: 15.4px; color: ${palette.title}; font-weight: 700; overflow-wrap: anywhere;">${set.title}</h4>
+                        <span class="set-progress-text" style="flex-shrink: 0; background: ${palette.progressPlate}; color: ${palette.barText}; font-size: 10.8px; font-weight: 800; padding: 2.6px 6.8px; border-radius: 999px; line-height: 1; display: inline-block;">${totalWords}${progress === 0 ? '' : ` · ${progress}%`}</span>
+                    </div>
+                    <div class="set-btn-group" style="display: flex; align-items: center; gap: 1.7px; flex: none;">
+                        ${buttons}
+                    </div>
+                </div>
+
+                <div class="set-progress-bar" style="display: flex; align-items: center; gap: 3.4px; height: ${STEP_SIZE}px; margin-bottom: ${BUBBLE_ROOM}px;">
+                    ${Array.from({ length: SEGMENTS }, (_, i) => `<div style="flex: 1; display: flex; justify-content: center;"><div class="set-progress-step"
+                        style="${stepStyle(grows && !stepLook(i).sign ? waiting : stepLook(i))}">${stepLook(i).sign ? signSvg(stepLook(i).sign, STEP_LOCK, palette.hint, STEP_LOCK_INK) : ''}</div></div>`).join('')}
+                </div>
+
+                <div class="set-words-frame" style="margin: 0 -${BUBBLE_ROOM + WORDS_REACH}px; --words-shade: ${palette.cardBg};">
+                    <div class="set-words-bubbles" style="padding: ${BUBBLE_ROOM + HEAD_LIFT}px ${BUBBLE_ROOM}px ${BUBBLE_ROOM}px; display: flex; flex-wrap: wrap; gap: 5.1px; justify-content: center; ${WORDS_CAP}"></div>
+                </div>
+
+                <div class="set-actions-group" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10.2px ${ROW_GAP}px; padding-top: ${15.4 - BUBBLE_ROOM + TILES_SINK}px; margin-bottom: -${TILES_SINK}px;">
+                    ${ROW_GAMES.map(g => {
+                        const locked = !g.soon && lockedBy(g, ladder);
+                        const cls = g.soon ? 'set-soon-btn' : locked ? 'set-locked-btn' : 'set-play-btn';
+
+                        // A locked game has no way back in either, and does not say so
+                        return tileBtn(cls, '', g.title, `data-game="${g.id}" title="${tr('pitch_' + g.id, null, g.pitch)}"`, !locked && unfinished(g), locked);
+                    }).join('')}
+                </div>
+            `);
+
+            // Render bubbles into the container
+            const bubblesContainer = card.querySelector('.set-words-bubbles');
+            if (totalWords === 0) {
+                $(bubblesContainer, `<p class="set-empty-msg" style="margin: 3.4px 0; color: #94a3b8; font-size: 13.3px; font-style: ${tr.italic()};">${tr('setEmpty')}</p>`);
+            } else {
+                set.words.forEach((w, order) => {
+                    const bubbleData = buildBubbleData(w, set.originalLang, view);
+                    createBubble(bubbleData, bubblesContainer, order);
+                });
+            }
+
+            /*
+             * The first frame lands as a row of waiting strips, and then the
+             * real state runs in — one segment at a time, left to right.
+             *
+             * All thirteen at once was the first go, and thirteen strips
+             * growing in lockstep reads as one block changing height: the row
+             * is the thing that moves and the segments are not visible as
+             * parts of it. Started one after another it is a wave running down
+             * the ladder, which is both nicer to watch and truer — that is the
+             * order a word climbs the rungs in.
+             *
+             * The step is short enough that the wave is one motion rather
+             * than a queue: the segments snap 60ms apart, which is close to
+             * the rate the eye stops counting at, and the whole run is over
+             * in under a second.
+             *
+             * Every segment gets its turn, including the ones that have
+             * nothing to change. The wave passes down the whole bar and simply
+             * stops being visible where the colour runs out, which is what
+             * makes the end of the colour look like the end of something
+             * rather than like a bar that is half drawn.
+             */
+            const STEP_WAVE_MS = 60;
+
+            if (grows) {
+                card.querySelectorAll('.set-progress-step').forEach((step, i) => {
+                    setTimeout(() => {
+                        const look = stepLook(i);
+
+                        step.style.backgroundColor = look.colour;
+                        step.style.boxShadow = stepShadow(look);
+                        step.style.width = look.width;
+                        step.style.height = `${look.height}px`;
+                        step.style.borderRadius = `${look.height / 2}px`;
+                    }, 150 + i * STEP_WAVE_MS);
+                });
+            }
+
+            card.querySelectorAll('.set-play-btn, .set-locked-btn').forEach(btn => {
+                const game = GAMES.find(g => g.id === btn.dataset.game);
+
+                // Its face, drawn by the game into the box the row left for it
+                const tile = btn.querySelector('.set-tile');
+                const log = logOf(game, set);
+
+                game.show(tile, tileSpec(), log, { actual: !growsTiles, animate: false });
+                if (growsTiles) growing.push({ el: tile, game, log });
+
+                // The marked tile goes back into the session rather than asking
+                // for a new one: resume keeps the pool, the dots and the place
+                // in it, and starting over would throw away the half that was
+                // played. Everything else on the row is an ordinary start.
+                //
+                // A locked one starts nothing: its lock gives a shake, which is
+                // all a press on it can be answered with until the dot is lit.
+                btn.addEventListener('click', () => {
+                    if (btn.classList.contains('set-locked-btn')) {
+                        if (!stillMotion()) shakeLock(btn.querySelector('.set-tile-lock svg'));
+                        return;
+                    }
+
+                    if (unfinished(game)) nav.resume(game, set.id);
+                    else launch(game, set.id);
+                });
+            });
+
+            /*
+             * The game still to come -- see `soon` in core/icons.js: its tile
+             * an outline in the card's muted ink, and a press that starts
+             * nothing but says so. "Coming soon" goes on the tile over the
+             * drawing, always there and always in English, whatever the language
+             * of the interface: it belongs with the game's name, which is English
+             * too (the owner, 4 November 2026). Until then it could also take the
+             * place of the name, where the row had room for the words.
+             *
+             * Written down as `set-soon-btn` all the same: a press on a game
+             * that is not there yet is the one measure of how much it is
+             * wanted -- see docs/ANALYTICS.md.
+             */
+            card.querySelectorAll('.set-soon-btn').forEach(btn => {
+                const game = GAMES.find(g => g.id === btn.dataset.game);
+                const tile = btn.querySelector('.set-tile');
+
+                tile.style.color = palette.hint;
+                game.show(tile, tileSpec(), [], { actual: true, animate: false });
+
+                let said = false;
+
+                btn.addEventListener('click', () => {
+                    if (said) return;
+                    said = true;
+
+                    $(tile, `<span class="set-tile-soon" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: grid; place-items: center; text-align: center; border-radius: ${TILE_RADIUS}px; background: ${palette.cardBg}d9; color: ${palette.title}; font-size: 10.2px; font-weight: 800; line-height: 1.15;">Coming<br>soon</span>`);
+                });
+            });
+
+            card.querySelector('.set-view-btn').addEventListener('click', () => {
+                viewFor = String(set.id);
+                viewMenu(true);
+            });
+
+            card.querySelector('.set-edit-btn').addEventListener('click', () => {
+                editing.add(set.id);
+                rememberForm(set.id, setAsText(set));
+                redrawEased(set.id, FOLD_OPEN);
+            });
+        }
+    }
+
+    /*
+     * The first press, pointed at.
+     *
+     * A set of words and a row of coloured buttons under it is not obviously a
+     * thing to press — the words are what the eye goes to, and they can be
+     * tapped to be heard, which is enough to look like the whole of it. So the
+     * hand stands under the first game, from the moment the screen is drawn and
+     * every time it is drawn again.
+     *
+     * Nothing is held back — not a wait, not a panel being open, not a form
+     * being written. The hand belongs to the screen the way the buttons do, and
+     * a hint that comes and goes by rules of its own is a hint that has to be
+     * caught. It is behind the settings overlay while that is up, which is what
+     * being behind it means, and clear again when it closes.
+     *
+     * What takes it down is the press it is asking for, and only that; the hand
+     * arranges it itself, on whatever it is hung in — see pointingHand.
+     *
+     * What stops it for good is the question it is asked of: has anything ever
+     * been answered. That is put to the words rather than kept as a flag, so it
+     * answers itself — the first repetition ever recorded is the last time this
+     * runs, and clearing the data brings it back, which is right, because the
+     * screen after a reset is the screen a new player sees.
+     */
+    function neverPlayed() {
+        return store.sets().every(set =>
+            (set.words || []).every(w => !w.repetitions || w.repetitions.length === 0));
+    }
+
+    function showHint() {
+        // A session that exists is a game that was started, whether or not it was
+        // answered: someone who opened a game and came straight back has been
+        // where the hand was pointing, and does not need telling again.
+        if (session || !neverPlayed()) return;
+
+        // Flashcards where the set still has it, the first game on the row
+        // where somebody took it off.
+        pointingHand.at(container.querySelector('.set-play-btn[data-game="flashcards"]')
+            || container.querySelector('.set-play-btn'));
+    }
+
+    /*
+     * The foot of the list, where the app asks for something back. In the
+     * extension it starts as five stars; everywhere else, and in the extension
+     * once a star has been pressed, it is a box to write in.
+     *
+     * Four and five stars lead to the store, one to three straight to the box.
+     * The two kinds of reader do not turn up in the same numbers. Somebody the
+     * app suits has no reason to go anywhere and say so; somebody it has failed
+     * has every reason, and a listing left to itself fills with the second kind
+     * until that is what the app looks like from outside. The stars are the ask
+     * the first kind never gets, and the box is somewhere for the second to say
+     * what went wrong instead of filing it under a rating.
+     *
+     * The stars are asked once on a device, whichever one was pressed: the owner's
+     * call, 4 November 2026, when the box replaced a Google form. Either answer
+     * has been given by then, and the box stays for whatever comes up later.
+     *
+     * Both keys are in localStorage, for the reason catalog-place is: the store
+     * opening closes the popup with no warning, and the answer has to be down
+     * before the press is over. A write to settings starts by reading them, and
+     * would be a promise still in flight as the page goes.
+     */
+    const STORE_REVIEWS = 'https://chromewebstore.google.com/detail/spaced-repetition-app/lpklkkakejhmfbckgonadkbcdpdfohfj/reviews';
+
+    const RATED_KEY = 'rated';
+    const FEEDBACK_DRAFT_KEY = 'feedback-draft';
+
+    // The server keeps 2000 characters of an event (see events.php), and the
+    // name and the stars are part of those. Past that the end of what somebody
+    // wrote would be cut off, with nothing to say it had been.
+    const FEEDBACK_MAX = 1900;
+
+    // The question at the foot of the list, in the box. The other one answers a
+    // press of one to three stars and is seen only right after it:
+    // anywhere else nobody has said anything yet for it to be thanks for. The
+    // owner's call, 4 November 2026.
+    const ASK_WISHES = 'askWishes';
+    const ASK_AFTER_LOW_STARS = 'askLow';
+
+    // The question a star has just asked of the box, and null otherwise. On purpose
+    // not written down: it answers that press, and the next opening of the popup
+    // asks the usual one.
+    let feedbackAsks = null;
+
+    const kept = (key) => {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const keep = (key, value) => {
+        try {
+            if (value) localStorage.setItem(key, value);
+            else localStorage.removeItem(key);
+        } catch (e) {
+            // Storage switched off: this much lasts as long as the page does.
+        }
+    };
+
+    function rateUs(parent) {
+        const stars = kept(RATED_KEY);
+
+        if (remote.platform() === 'e' && !stars) {
+            rateStars(parent);
+            return;
+        }
+
+        // Nothing where nothing can be sent: a device without storage never starts
+        // a visit, and a box that swallows what is written is worse than no box.
+        if (!remote.enabled()) return;
+
+        feedbackBox(parent);
+    }
+
+    /*
+     * The stars themselves, and the one build that gets them.
+     *
+     * Only the extension. It is an extension the page behind the stars rates,
+     * and the other two readers of this same screen -- the site, and this folder
+     * opened from disk -- may never have installed one: for them the stars lead
+     * to a page that has nothing to do with what they are looking at.
+     *
+     * The stars run backwards in the markup -- five first -- and the row is
+     * turned round again in the CSS, because lighting them up to the cursor
+     * means lighting the ones to its left and CSS can only reach siblings that
+     * follow. See .dict-rate-star in app.css.
+     */
+    function rateStars(parent) {
+        // Drawn filled rather than outlined: at 17px an outlined star is four
+        // hairlines around a hole, and what it reads as is a smudge.
+        const star = `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" style="display: block; fill: currentColor;">
+            <path d="M12 2.4 14.16 9.03 21.13 9.03 15.49 13.13 17.64 19.77 12 15.67 6.36 19.77 8.51 13.13 2.87 9.03 9.84 9.03Z" />
+        </svg>`;
+
+        // The number goes on the press for the analytics: five stars with one
+        // class were five presses nobody could tell apart, and how many stars
+        // somebody gave is the whole of what the press says.
+        //
+        // A link where a star goes somewhere, and a button where it does not.
+        const starPress = (stars) => {
+            const said = `class="dict-rate-star" data-press="${stars}" title="${tr('starsOf', { n: stars })}" aria-label="${tr('rateStars', { n: stars })}"`;
+
+            return stars > 3
+                ? `<a ${said} href="${STORE_REVIEWS}" target="_blank" rel="noopener noreferrer" style="display: block;">${star}</a>`
+                : `<button ${said} style="display: block; padding: 0; background: none; border: none; cursor: pointer;">${star}</button>`;
+        };
+
+        // Air above it and no rule across the page. A line there is read as the
+        // end of the list -- it is the only full-width line on the screen -- and
+        // what stands under it is two words and five stars, which is not a second
+        // half of anything.
+        const row = $(parent, `<div class="dict-rate" style="--star-idle: ${palette.softBorder}; display: flex; align-items: center; justify-content: center; gap: 8.5px; margin: 20.4px 0 15.3px;">
+            <span style="font-size: 12.8px; font-weight: 600; color: ${palette.hint};">${tr('rateUs')}</span>
+            <div style="display: flex; flex-direction: row-reverse; gap: 2.6px;">${[5, 4, 3, 2, 1].map(starPress).join('')}</div>
+        </div>`);
+
+        row.addEventListener('click', (e) => {
+            const pressed = e.target.closest('.dict-rate-star');
+            if (!pressed) return;
+
+            const stars = Number(pressed.dataset.press);
+            keep(RATED_KEY, String(stars));
+
+            // On the next turn, so that a link has done what a link does before
+            // it stops being on the page.
+            setTimeout(() => {
+                if (!remote.enabled()) {
+                    row.remove();
+                    return;
+                }
+
+                const low = stars < 4;
+                const text = openFeedback(row, parent, low ? ASK_AFTER_LOW_STARS : ASK_WISHES);
+
+                // Three or fewer came here to write. Five has gone to the store.
+                if (low) text.focus();
+            });
+        });
+    }
+
+    // The stars give way to the box. Answers with the field, which the caller decides
+    // whether to put the caret in.
+    function openFeedback(spot, parent, question) {
+        feedbackAsks = question;
+
+        const box = feedbackBox(parent);
+        spot.replaceWith(box);
+
+        return box.querySelector('.dict-feedback-text');
+    }
+
+    /*
+     * The box. What is written goes out as an event of the visit, which is what
+     * ties it to the device, and travels the way every event does: kept until the
+     * server has it, whatever happens to the network or the popup. See `feedback`
+     * in ANALYTICS.md, and track.said for why this is the one event with somebody's
+     * words in it.
+     *
+     * At rest the field is exactly as tall as the button beside it, the owner's
+     * call, and it grows with what is written: see .dict-feedback-text in app.css.
+     * Both heights are stated, because the button's own comes from the line height
+     * of whichever font this machine falls back on, and would part from the field's
+     * by a pixel somewhere.
+     *
+     * The direction follows what is written, because nobody knows in advance what
+     * language that is: without dir="auto" Arabic or Hebrew shows the right letters
+     * pressed against the wrong side of the field.
+     *
+     * It is always there, the owner's call, 4 November 2026: for a few hours it stood
+     * folded into a line of text that opened it, and that was one press too many
+     * between somebody and saying what they think.
+     *
+     * What is being written is kept as it is typed. A press anywhere outside the
+     * popup closes it, a redraw of the catalog empties this column, and neither
+     * should cost somebody their sentence -- the same promise an open form of a
+     * set makes.
+     */
+    // A paper plane rather than the word, the owner's call, 4 November 2026: one
+    // word less to translate, in a place everybody knows what the button does.
+    const SEND_PLANE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block;"><path d="M21.5 2.5 10.8 13.2" /><path d="M21.5 2.5 15 21.5l-4.2-8.3L2.5 9z" /></svg>`;
+
+    function feedbackBox(parent) {
+        const prompt = tr(feedbackAsks || ASK_WISHES);
+        const HEIGHT = 27.7;
+        const LINE = 16.5;
+
+        const box = $(parent, `<div class="dict-rate" style="display: flex; align-items: flex-end; gap: 6.8px; margin: 20.4px 0 15.3px;">
+            <textarea class="dict-feedback-text" rows="1" dir="auto" maxlength="${FEEDBACK_MAX}" placeholder="${prompt}" aria-label="${prompt}" style="flex: 1; min-width: 0; box-sizing: border-box; min-height: ${HEIGHT}px; max-height: 120px; padding: ${(HEIGHT - LINE - 2) / 2}px 6.8px; background: ${palette.inputBg}; color: ${palette.inputText}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-family: inherit; font-size: 12.8px; line-height: ${LINE}px; outline: none;"></textarea>
+            <button class="dict-feedback-send" title="${tr('send')}" aria-label="${tr('send')}" style="flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: ${HEIGHT + 6.8}px; height: ${HEIGHT}px; padding: 0; background: transparent; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px;">${SEND_PLANE}</button>
+        </div>`);
+
+        const text = box.querySelector('.dict-feedback-text');
+        const send = box.querySelector('.dict-feedback-send');
+
+        let thanking = 0;
+
+        const settle = () => {
+            send.disabled = !text.value.trim();
+            send.style.opacity = send.disabled ? 0.4 : 1;
+            send.style.cursor = send.disabled ? 'default' : 'pointer';
+        };
+
+        text.value = kept(FEEDBACK_DRAFT_KEY) || '';
+        settle();
+
+        text.addEventListener('input', () => {
+            // Spaces alone are no words to come back for.
+            keep(FEEDBACK_DRAFT_KEY, text.value.trim() ? text.value : '');
+            settle();
+        });
+
+        send.addEventListener('click', () => {
+            const words = text.value.trim();
+            if (!words) return;
+
+            track.said('feedback', [kept(RATED_KEY) || ''], words);
+
+            text.value = '';
+            keep(FEEDBACK_DRAFT_KEY, '');
+            settle();
+
+            // That question has been answered, and a redraw in the next few seconds
+            // should ask the usual one.
+            feedbackAsks = null;
+
+            // In the field, where the words just were and where the eye still is.
+            text.placeholder = tr('thanks');
+
+            clearTimeout(thanking);
+            thanking = setTimeout(() => { text.placeholder = tr(ASK_WISHES); }, 3000);
+        });
+
+        return box;
+    }
+
+    catalog.render = () => {
+        introduce = true;
+        render();
+    };
+
+    catalog.setTheme = (isDark) => {
+        const t = tokens.of(isDark);
+
+        palette = {
+            heading: t.ink,
+            title: t.ink,
+            // The moon while the dark theme is on: the icon stands next to the
+            // word "Dark" and has to agree with it. As a bare button in the
+            // header it meant the opposite — where the press would take you —
+            // and a picture that has to be pressed to be understood is what the
+            // row replaced.
+            themeIcon: isDark ? MOON : SUN,
+
+            // The logo takes the Flashcards tile's own coral rather than the
+            // accent. The game colours do not follow the theme, the accent
+            // does, so in the light theme the two would sit side by side as a
+            // pair of near-identical corals — which reads as a mistake rather
+            // than as a pair. It is the one warm thing in the header now that
+            // the New Set button has given the colour up.
+            //
+            // Written out here, the same value as in flashcards/icon.js and in
+            // the store icon (see docs/PROMO.md): since 28 October 2026 a
+            // game's colour is its own and is not said to anybody, so there is
+            // nothing to read it from.
+            logo: '#ef6f5a',
+            softBg: t.soft,
+            softColor: t.muted,
+            softBorder: t.border,
+
+            // The page's own colour, which the sticky Explore heading wears so
+            // that what scrolls under it is covered rather than shown through.
+            pageBg: t.ground,
+
+            // The outline of the three header buttons, which stand on the page
+            // and not on a card — see tokens, where the colour and the reason
+            // for it live, and the games, which outline their own two the same.
+            chromeBorder: t.chrome,
+            cardBg: t.surface,
+            cardBorder: t.border,
+            hint: t.muted,
+            inputBg: t.soft,
+            inputText: t.ink,
+
+            /*
+             * What a segment of the ladder is before anything has happened to
+             * it, and the two themes answer differently.
+             *
+             * On the light theme it is stage 0's own colour — the stone a
+             * bubble wears when nothing has happened to it either. The bar is
+             * a legend for the shelf, and its resting state saying the same
+             * thing as a resting bubble is the whole idea; the warm neutral it
+             * used is the colour of chips and tracks, which on paper reads as
+             * part of the page rather than as the bottom of a scale.
+             *
+             * On the dark theme that stone is near-white and a row of it would
+             * be the brightest thing on the card — an empty bar shouting. The
+             * dark theme keeps the quiet one it had.
+             */
+            stepIdle: isDark ? t.soft : stageRamp[0].fill,
+
+            /*
+             * The plate the percentage sits on beside a set's name. On the
+             * light theme it is the page's own colour, so the plate reads as
+             * a hole cut in the card rather than as another chip laid on it.
+             *
+             * It used to be `soft`, the colour of chips and tracks — one step
+             * below the page and a shade warmer. Close enough to the page to
+             * look like it was meant to be the page and missed by a hair,
+             * which is the worst thing a neutral can do.
+             *
+             * The dark theme keeps `soft`: there it is a step up from the
+             * card rather than a tint of it, and it reads as a plate on the
+             * card instead of a hole through it.
+             */
+            progressPlate: isDark ? t.soft : t.ground,
+
+            /*
+             * How much darker a lit segment's hairline is than the segment,
+             * and zero for no hairline at all — see shade. At 0.78 the edge
+             * keeps 57% of the light of its own fill and stands 1.65 against
+             * it, which is a line you see without looking for it; the first
+             * try at 0.88 was 75% and 1.30, and that is a line you find only
+             * once you know it is there.
+             *
+             * Only the light theme has one. On the dark theme a pastel on the
+             * card is 4.6 to 8.8 and already an object; ringing it would be
+             * outlining something that is not in any danger of being missed.
+             */
+            stepEdge: isDark ? 0 : 0.78,
+
+
+            // The timer badge -- see timerBadge. Its paper is a bubble's at stage 0,
+            // a word not yet begun, in both themes as the bubbles are (the owner,
+            // 26 November 2026; the cabinet's cream in flashcards.js until then).
+            // The ink and the line are still the cabinet's, by day and at night.
+            timerPaper: stageRamp[0].fill,
+            timerInk: isDark ? '#2a1f16' : '#4a3628',
+            timerEdge: isDark ? '#46311f' : '#4a3323',
+
+            // The percent beside the title is a quiet readout, and mint text on
+            // the light theme's white card is 2.1:1. The bar under it is the
+            // thing that is meant to be mint.
+            barText: t.muted,
+            accent: t.accent,
+            onAccent: t.onAccent,
+            dialogBg: t.surface,
+            dialogText: t.ink,
+            dialogBorder: t.border,
+            dialogBody: t.muted
+        };
+
+        /*
+         * And the strip at the top of the list, which is not a card in that list
+         * and must not be read as one.
+         *
+         * It stands where the sets stand, at the width they have and with their
+         * corners, so the one thing left to tell them apart by is colour. In the
+         * surface the sets wear it was a set whose words had not loaded; in blue
+         * it is the app talking, which is what it is.
+         *
+         * Blue because the app had one: the last tile on every card, the one
+         * that was not a game, was blue until 28 October 2026 -- the last card
+         * of the strip said what the dialog behind that tile did, word for
+         * word. The tile went mint when the snake took the blue, and went
+         * altogether with its dialog on 29 October 2026; the strip kept the
+         * blue -- see STRIP_TINT.
+         *
+         * A third of the way to it in the dark theme and a fifth in the light,
+         * which is where each stops being a tinted surface and becomes a colour.
+         * Further in either and the pale bubbles the colours card is made of
+         * start to sit on it as cut-outs rather than as words.
+         *
+         * And the text goes to full ink on both. The muted grey the catalog
+         * writes its asides in is tuned for the surface under it -- on this
+         * ground it drops to 3.3, which is under the floor for an eleven-pixel
+         * line, and the strip is nothing but eleven-pixel lines.
+         *
+         * The rest is handed over rather than worked out there: every value is a
+         * decision this file has already made, the two colours of a word that
+         * went wrong and the tempo of the hop included -- the colours card is a
+         * legend for bubbles, and those are defined beside the bubbles.
+         */
+        const onbBg = blend(t.surface, STRIP_TINT, isDark ? 0.34 : 0.2);
+        const onbEdge = blend(t.surface, STRIP_TINT, isDark ? 0.62 : 0.46);
+
+        onboarding.setLook({
+            cardBg: onbBg,
+            cardBorder: onbEdge,
+            heading: t.ink,
+            body: t.ink,
+            softBorder: onbEdge,
+            softColor: t.ink,
+
+            /*
+             * Mint, which is this app's colour for what went well, and the
+             * strip has one word that is about something going well -- see the
+             * promise card.
+             *
+             * The one value here that is not the same in both themes, and it
+             * has to be: the ground under it moves while the mint does not.
+             * Pale mint is an object on the dark strip and 2.1 on the light
+             * one, which is not a word anybody reads; the deep mint the timer
+             * badge is filled with is far too dark to find on the navy. One
+             * each, and they are the same colour taken to two depths rather
+             * than two colours.
+             *
+             * Which lands at 3.3 on the dark strip and 3.7 on the light one,
+             * under the 4.5 this app holds its text to, and it is allowed here
+             * for one reason: nothing is carried by the colour. The word is one
+             * of five in a heading whose other four are at 11, it is bold, and
+             * the sentence under it says "free" again in the body's own ink.
+             * Clearing 4.5 would take a third depth of mint on each theme --
+             * two new colours invented for one word, in a file where every
+             * colour is a decision made once and used everywhere.
+             */
+            ok: isDark ? t.ok : t.progressFill,
+
+            ramp: stageRamp
+        });
+    };
+
+    /*
+     * One colour laid over another at the given strength, as an opaque value.
+     *
+     * A translucent colour cannot be the background of something that scrolls
+     * under other things, and it cannot be handed to a file that only knows how
+     * to paint. Mixed in the
+     * channels as they are written, which is not how light mixes -- it is how
+     * every colour in this app was chosen by eye, and the eye is what this is
+     * for.
+     */
+    function blend(from, to, strength) {
+        const a = parseInt(from.slice(1), 16);
+        const b = parseInt(to.slice(1), 16);
+
+        const part = (shift) => {
+            const one = (a >> shift) & 255;
+            const two = (b >> shift) & 255;
+
+            return Math.round(one + (two - one) * strength).toString(16).padStart(2, '0');
+        };
+
+        return `#${part(16)}${part(8)}${part(0)}`;
+    }
+
+    // Handed on, because one of the onboarding cards is about the corner of the
+    // window and a game that was opened is somebody who has seen a game drawn at
+    // the width the corner sets -- see onboarding.js.
+    catalog.setSession = (value) => {
+        session = value;
+        onboarding.setSession(value);
+    };
+
+    /*
+     * A language the app no longer offers is read back as no choice at all.
+     *
+     * What is stored was picked from a list, and the list is the table's: a tag
+     * that is not in it now is one nothing can be built from, and a stored answer
+     * that cannot be honoured is worse than no answer, which at least asks again.
+     */
+    const chosen = (tag) => (vocab.has(tag) ? tag : null);
+
+    catalog.setLangs = (value) => {
+        myLang = chosen(value && value.myLang);
+        learnLangs = ((value && value.learnLangs) || []).filter(tag => vocab.has(tag) && tag !== myLang);
+        langsAsked = !!(value && value.langsAsked);
+
+        // The guess goes in before the screen is drawn, so the dropdown opens
+        // with an answer in it rather than filling itself in as it appears.
+        picking = { mine: systemLang(), learn: [] };
+
+        uiChosen = value && tr.has(value.uiLang) ? value.uiLang : null;
+        tr.use(uiNow());
+    };
+
+    /*
+     * The forms that were open when this screen was last looked at.
+     *
+     * Authoritative, which is why editing and the draft are emptied first: what
+     * is handed in is what is open. It runs again every time the catalog comes
+     * back from a game, and what it reads is the record every change wrote to,
+     * so there is nothing of its own to carry across the call.
+     */
+    // Whether any form is open -- see keepPlace.
+    catalog.formsOpen = () => editing.size > 0;
+
+    catalog.setOpenForms = (list) => {
+        editing.clear();
+        openForms.clear();
+        draft = null;
+
+        (list || []).forEach(entry => {
+            // A form whose set is gone has nothing left to edit: deleted from
+            // another form, or taken by "Clear data" along with everything else.
+            if (!entry.isDraft && !store.sets().some(s => s.id === entry.id)) return;
+
+            // Rebuilt rather than kept: the draft is a set-shaped thing for the
+            // form to write into, and all of it that outlives a window is its id
+            // and the text, which is in the record beside it.
+            if (entry.isDraft) draft = { id: entry.id, title: '', words: [] };
+
+            editing.add(entry.id);
+            openForms.set(entry.id, {
+                text: entry.text || '',
+                choice: entry.choice || { originalLang: null, translationLang: null }
+            });
+        });
+    };
+
+    /*
+     * Which sets came off the shelf rather than out of somebody's own typing.
+     *
+     * Read off the id, which the catalogue builds out of the pair and the level
+     * -- vocab-es-ru-intermediate -- rather than kept as a field on the set. A field
+     * would have to be written when the set is taken, read back when it is
+     * loaded, and defended against every set that was saved before it existed;
+     * the id is already there, already unique, and already says where the thing
+     * came from.
+     */
+    const CATALOG_ID = 'vocab-';
+
+    /*
+     * The set the app used to ship with, told apart the same way: by its id.
+     * Written on every first run from before there was a first screen, and made
+     * for nobody since 6 November 2026 (the owner's call, seed.js went): the first
+     * screen brings a set for whatever it is told, and this one was on show only
+     * to somebody who had deleted all the others, which is the wrong moment to
+     * hand them a set they did not ask for.
+     *
+     * Every database from before that has one, and the server has copies. Nobody
+     * has touched most of them, and those stay out of sight the way the old levels
+     * do -- see onShelf -- rather than being taken out of the list: one can arrive
+     * from a device on an older version at any time, and a set taken out comes back
+     * from the next device that still has it (see store.archive). With answers or
+     * a date on it, it is a set like any other. `adopted` is what typing into it
+     * wrote, before sets had dates.
+     */
+    const isOldSample = (set) => String(set.id) === '1' && !set.adopted;
+
+    /*
+     * The one set a pair of languages gets, the owner's call, 5 November 2026: the ten
+     * rows of the table in vocab.js, "Starter Set" in the reader's language. It was
+     * three, a level each.
+     *
+     * The title takes the word each language's interface already has for a set, and
+     * not its word for a deck of cards: "колода" is what one plays cards with, and this
+     * is a set of cards to revise with (the owner).
+     *
+     * The id keeps the level, because the sets of the old three that are already out
+     * there have those ids, and this one of them should go on being the same set.
+     * With its history, if it has one.
+     */
+    const FIRST_LEVEL = 'intermediate';
+
+    const isFirstSet = (set) => String(set.id).endsWith(`-${FIRST_LEVEL}`);
+
+    /*
+     * What somebody who skipped the question is learning until they say otherwise,
+     * and what they get a set in: Spanish, the owner's call, 5 November 2026. Until
+     * then Skip left the set the app ships with, which stopped being shown the moment
+     * anything else was on the list -- and so a first set of one's own took away the
+     * only thing on the screen.
+     *
+     * English for somebody whose own language is Spanish: a pair is two languages.
+     */
+    const defaultLearn = (mine) => (mine === 'es' ? 'en' : 'es');
+
+    /*
+     * The order of the list: whatever happened last is on top.
+     *
+     * For a set that has been answered in, that is its last answer, read off the
+     * repetitions rather than kept as a field. A set's last play is the last
+     * answer in it, and that is already written on the words -- a date beside it
+     * would be a second copy of the same fact, to be kept in step by somebody
+     * remembering to.
+     *
+     * For a set nobody has answered in yet, it is the moment it was added, which
+     * store.addSet writes on it. It used to be neither, and then a set somebody
+     * had just typed stood below every set they had ever played: nothing had
+     * happened in it, so it sorted with everything else nothing had happened in
+     * -- at the bottom, while the only reason it existed was that they had made
+     * it a minute ago.
+     *
+     * And a game that is running is a third thing that can have happened to a
+     * set. It happened when that game was started: a set opened and left without
+     * a single answer is still the one being played, and coming back to the
+     * catalogue to find it third from the top would be the screen arguing with
+     * what just happened.
+     *
+     * When it was started, and not "now", which is what it was and what made the
+     * date above useless. Reckoned as now, the set with a game open on it was
+     * dated afresh on every drawing of the screen, so nothing could ever come
+     * above it -- and a session lives until its game is played out, which means
+     * one round abandoned a week ago held the top of the list for a week, and a
+     * set made a minute ago arrived underneath it.
+     *
+     * Sets older than that date have none -- see store.addSet -- and sort by
+     * their answers alone, which is the order their readers already see. The
+     * order the store holds them in is the last tie-breaker, and that is what
+     * keeps the sets of the languages named together in the order they were
+     * named: makeSets adds them backwards so that the first comes out on top, and
+     * two sets written in the same millisecond have nothing else to tell them
+     * apart.
+     */
+    function recent(sets) {
+        const lastAnswer = (set) => (set.words || []).reduce((latest, word) => {
+            const reps = word.repetitions || [];
+            const last = reps.length ? reps[reps.length - 1].timestamp : 0;
+
+            return Math.max(latest, last || 0);
+        }, 0);
+
+        const open = session && session.setId;
+
+        return sets
+            .map((set, order) => ({
+                set: set,
+                order: order,
+                touched: Math.max(
+                    lastAnswer(set),
+                    set.createdAt || 0,
+                    String(set.id) === String(open) ? session.startedAt : 0
+                )
+            }))
+            .sort((a, b) => (b.touched - a.touched) || (a.order - b.order))
+            .map(row => row.set);
+    }
+
+    /*
+     * The sets the two answers imply: one for every language being learned, read
+     * in the language the reader already has -- see FIRST_LEVEL.
+     *
+     * Made once and then owned. They are ordinary sets from the moment they are
+     * written -- editable, deletable, no different from one typed by hand --
+     * which is the whole point of asking the questions first: there is no shelf
+     * to visit and nothing to take off it.
+     *
+     * A set that is already there is left alone. The questions can be answered
+     * again in the settings, and answering them again must not undo whatever has
+     * been learned in the meantime.
+     *
+     * Already there includes deleted: a deleted set is archived rather than
+     * gone (see store.archive), and building a second one beside it under the
+     * same id would leave two sets with one name in the list sync sends. So it
+     * is taken back out of the archive instead, with its history -- the same
+     * thing building it fresh used to do, minus the forgetting. That is a
+     * change a person caused, and dated as one; a set built here is not, so
+     * that an untouched copy loses to any copy that was played -- see
+     * store.touch.
+     *
+     * Only for the language somebody has just named, which is `named`. Everything
+     * else that comes through here -- another language added, a change of the
+     * reader's own, a sync -- says nothing about this set, and it used to bring back
+     * whatever had been deleted in the meantime. Deleting by hand is how a set with
+     * answers in it leaves the list (see onShelf), so it has to stay deleted.
+     *
+     * Nor is anything built for a language somebody wrote their own set in and never
+     * asked for, the owner's call, 5 November 2026 -- see writtenOnly. Until then the
+     * next change of languages built it after all, so that a card nobody had asked for
+     * turned up on the list on the day somebody added German, or on another device.
+     */
+    function makeSets(named) {
+        // Nothing to read a set in. Somebody who skipped the question can still
+        // name a language they are learning, and the sets for it are written
+        // when the other half of the pair arrives.
+        if (!myLang) return Promise.resolve();
+
+        const made = [];
+
+        learnLangs.filter(learn => learn === named || !writtenOnly(learn)).forEach(learn => {
+            const words = vocab.starter(learn, myLang);
+
+            if (!words) return;
+
+            const id = `${CATALOG_ID}${learn}-${myLang}-${FIRST_LEVEL}`;
+
+            const saved = store.allSets().find(s => s.id === id);
+            if (saved) {
+                if (saved.archived && learn === named) {
+                    store.restore(id);
+                    track('set_restore', id);
+                }
+                return;
+            }
+
+            // Both languages written on the set. The pair is known here, and a
+            // ready-made set has no business leaving it to a detector to work out
+            // that these ten lines are Greek.
+            //
+            // And its title in the language it is read in, once and for good. Titles
+            // were translated on the way to the screen for a while, into the language
+            // of the interface, which was wrong twice over (the owner, 4 November
+            // 2026): the box of the form still said the English title, and the
+            // interface has no business in the contents of a set.
+            made.push({
+                id: id,
+                title: tr.of(myLang, 'firstSet'),
+                originalLang: learn,
+                translationLang: myLang,
+                words: words
+            });
+
+            track('set_add', 'vocab', '', words.length, [], [learn, myLang]);
+        });
+
+        // Backwards into a store that puts each new set at the front, so what
+        // comes out is the order they were built in: the first language first.
+        //
+        // And a millisecond apart, so the order is written on the sets and not
+        // only in where the store holds them. The store's order is this
+        // device's: another device that joins the profile gets the sets in the
+        // server's order, which is by id -- measured, on the three levels a
+        // language used to bring: Advanced came before Intermediate there, where
+        // every set made in one go had the same moment and nothing else to sort
+        // them by. See `recent`.
+        made.reverse().forEach((set, i) => {
+            store.addSet(set);
+            set.createdAt += i;
+        });
+
+        return store.save().then(syncCatalog);
+    }
+
+    catalog.makeSets = makeSets;
+
+    /*
+     * A language on the list only because somebody wrote a set in it: there are sets
+     * in it, deleted ones included, and none of them came off the shelf. Asked of the
+     * sets rather than kept as a mark on the language, so that it reaches another
+     * device with them and there is nothing new in the record of the languages.
+     *
+     * The old sample is nobody's writing.
+     */
+    function writtenOnly(tag) {
+        const sets = store.allSets().filter(set => set.originalLang === tag && !isOldSample(set));
+
+        return sets.length > 0 && sets.every(set => !String(set.id).startsWith(CATALOG_ID));
+    }
+
+    /*
+     * The pair of languages, changed in the settings by somebody: a change the
+     * other devices of the profile take on, so it is dated -- the date sync.js
+     * compares -- and sent.
+     *
+     * Only changes made here. The first screen's answer is not dated: a device
+     * that is connected to a profile afterwards takes the profile's pair
+     * whatever it is, and before that there is nobody to tell.
+     */
+    async function langsChanged(how) {
+        await saveSetting('langsChangedAt', Date.now());
+
+        // Nothing to say when it was the interface that changed and not the pair:
+        // that is an event of its own, see setUiLang.
+        if (how) track('langs', how, myLang, learnedReally());
+
+        syncCatalog();
+    }
+
+    /*
+     * A language met for the first time joins the list in the settings.
+     *
+     * Somebody who writes a set in Greek is learning Greek, whatever they
+     * answered on the first screen, and the settings are meant to say what they
+     * are learning. Nothing is made for it, now or later -- the set they just wrote
+     * is what they wanted, see writtenOnly -- so this only widens the answer.
+     */
+    // Which languages each side of a set is likely to be in, the owner's call,
+    // 5 November 2026: the words in what this person is learning, the translations in
+    // what they read, their own language and then the interface's. See
+    // speech.languageOfAll.
+    function preferredLangs() {
+        return {
+            originalLang: learnLangs,
+            translationLang: [...new Set([shownMyLang(), tr.now].filter(Boolean))]
+        };
+    }
+
+    function noteLearnLang(tag) {
+        if (!tag || tag === myLang || learnLangs.includes(tag)) return null;
+
+        learnLangs = learnLangs.concat(tag);
+
+        return saveSetting('learnLangs', learnLangs).then(() => langsChanged('set'));
+    }
+
+    /*
+     * The language the browser says the reader has.
+     *
+     * Asked of navigator.languages rather than of one locale: a browser carries
+     * the whole preference list, and the first entry is often the interface's
+     * language rather than the person's -- an English Chrome on a Russian
+     * machine lists en first and ru second. Both are taken in order, and the
+     * first one this app can do anything with wins.
+     *
+     * Region is cut off. "en-GB" and "en-US" are the same column here, and a
+     * table of ten words a side has nothing to say about the difference.
+     *
+     * A guess, and it is pre-filled rather than accepted: it stands in the
+     * dropdown where it can be seen and changed with one press, which is what a
+     * guess has earned. Nothing is built until Start or Skip.
+     *
+     * English where the browser names nothing the app can use: the dropdown always
+     * holds a language, the owner's call, 5 November 2026. It used to be able to hold
+     * "Pick one", and then there was a person with no language at all to read a set in.
+     */
+    function systemLang() {
+        const wanted = (navigator.languages || [navigator.language || ''])
+            .map(tag => String(tag).split('-')[0].toLowerCase())
+            .filter(Boolean);
+
+        return wanted.find(tag => vocab.has(tag))
+            || wanted.find(tag => languageName(tag) !== tag)
+            || 'en';
+    }
+
+    /*
+     * The list of languages, plus the reader's own if the table has never heard
+     * of it.
+     *
+     * A list that cannot name the language somebody actually speaks is a list
+     * that calls them wrong, so it is added and it is chosen. What it cannot do
+     * is make sets: those are built out of two columns of the table, and one of
+     * the two would be missing. Nothing is then written, the app opens on the
+     * set it ships with, and the answer is kept for the day the column exists.
+     */
+    const extra = (tag) => (tag && !vocab.has(tag) && languageName(tag) !== tag)
+        ? [{ tag: tag, name: languageName(tag) }]
+        : [];
+
+    // What the first screen has been told so far, which is not the answer until
+    // the button at the bottom is pressed.
+    let picking = { mine: null, learn: [] };
+
+    // Whether the person moved the first dropdown, or answered with what it
+    // was standing on -- the browser's guess, see systemLang. The analytics
+    // need the difference: somebody whose language is not in the list skips,
+    // and what is saved is the guess, which reads as an answer -- measured: a
+    // reader looking for Kazakh came out as an English speaker.
+    let mineChosen = false;
+
+    /*
+     * The reader's language as a row has to show it: the saved answer if there
+     * is one, and otherwise whatever the first screen was standing on, which is always
+     * a language -- see systemLang. There is no saved answer for somebody who skipped
+     * the first screen back when it could stand on nothing.
+     */
+    const shownMyLang = () => myLang || picking.mine;
+
+    /*
+     * The language the catalog is read in: what somebody chose, and until they do,
+     * the one their own language leads to.
+     *
+     * `settings.uiLang` is written only when something decided it -- the dropdown,
+     * or the first dropdown moving, see setUiLang -- and absent until then. So a
+     * reader who has never touched either, a reader from before this existed
+     * included, follows their language wherever it comes from: the browser's guess
+     * on the first screen, or a profile they connect to afterwards.
+     */
+    let uiChosen = null;
+
+    const uiNow = () => uiChosen || tr.forLang(shownMyLang());
+
+    /*
+     * The screen changes at the press, and the caller draws it. A choice goes with
+     * the pair of languages to the other devices of the profile -- see langsOf in
+     * sync.js -- but the date that sends it is the caller's: in the settings, not on
+     * the first screen, the same as the pair itself. See langsChanged.
+     */
+    function setUiLang(tag, how) {
+        const moved = tag !== tr.now;
+
+        uiChosen = tag;
+        tr.use(tag);
+
+        if (moved) track('ui_lang', how, tag);
+
+        return saveSetting('uiLang', tag);
+    }
+
+    /*
+     * The first screen: two dropdowns on one line, and nothing else to read.
+     *
+     * It had a heading and a paragraph explaining what a set is made of. Both
+     * were true and neither was needed -- the two captions say the same thing in
+     * four words, and a screen that explains itself before showing itself is a
+     * screen somebody has to get past.
+     *
+     * One under the other, because the second one grows. A chosen language turns
+     * into a chip under its dropdown, and a column that gets taller as it is
+     * answered drags its neighbour's dropdown around with it; stacked, the chips
+     * push down what is already below them and nothing moves sideways.
+     *
+     * The second dropdown empties itself into a row of chips rather than being a
+     * list of checkboxes. Forty-nine checkboxes is a screen nobody reads to the
+     * end; a chip is the answer already given, and the × on it is the only other
+     * thing that can be done with it.
+     *
+     * One line of text under it after all, and only one, because the lists are
+     * finite and the reader may not be in them. Somebody whose language is not
+     * among the forty-nine reaches the bottom of the list with nothing to pick,
+     * and Start stays greyed out; what to do then is Skip, which on its own
+     * reads as giving up on the app. So the line says it in words -- skip this
+     * -- and says why that costs nothing: the sets are words the reader can
+     * write in, whatever the dropdowns said. Muted and small, so the screen is
+     * still two questions and a button.
+     */
+    function askLanguages(parent) {
+        // The reader's own language among those to learn does not count -- see
+        // blinkSame
+        const learning = picking.learn.filter(t => t !== picking.mine);
+        const ready = learning.length > 0;
+
+        const options = (label, skip, chosenTag) => (label ? `<option value="">${label}</option>` : '')
+            + CATALOG_CHOICES.concat(extra(picking.mine))
+                .filter(c => !skip.includes(c.tag))
+                .map(c => `<option value="${c.tag}"${c.tag === chosenTag ? ' selected' : ''}>${c.name}</option>`)
+                .join('');
+
+        const field = `width: 100%; box-sizing: border-box; background: ${palette.softBg}; color: ${palette.softColor};`
+            + ` border: 1px solid ${palette.softBorder}; border-radius: 10.2px; padding: 10.2px;`
+            + ` text-overflow: ellipsis;`
+            + ` font-family: inherit; font-size: 13.3px; font-weight: 600; cursor: pointer; outline: none;`;
+
+        /*
+         * Where the writing in this column starts, and the same number for
+         * everything in it.
+         *
+         * A select puts its text a border plus a padding in from its own box; a
+         * caption and a bare button have no border and are given the sum by
+         * hand. Carried as one value because it was three: the captions sat on
+         * 9.5 from when the fields had a smaller padding, the fields moved to
+         * 10.2 and the captions did not, and Skip had a padding chosen for the
+         * press rather than for the edge -- three left edges inside four pixels
+         * of each other, which is the kind of ragged a reader feels without
+         * being able to say what is wrong.
+         */
+        const textEdge = '11.2px';
+
+        const caption = (text) => `<div style="font-size: 12.8px; font-weight: 700; letter-spacing: 0.04em; color: ${palette.hint}; margin: 0 0 6.8px; padding-left: ${textEdge}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</div>`;
+
+        const chip = (tag) => `<span class="dict-start-chip" data-tag="${tag}" style="display: inline-flex; align-items: center; gap: 5.1px; padding: 5.1px 6.8px 5.1px 10.2px; background: ${palette.cardBg}; color: ${palette.title}; border: 1px solid ${palette.cardBorder}; border-radius: 999px; font-size: 12.3px; font-weight: 600;">
+                ${languageName(tag)}
+                <button class="dict-start-drop" data-tag="${tag}" title="${tr('remove')}" style="display: inline-flex; align-items: center; justify-content: center; width: 15.4px; height: 15.4px; padding: 0; background: transparent; color: ${palette.hint}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; line-height: 1; cursor: pointer;">×</button>
+            </span>`;
+
+        /*
+         * The same air on all four sides, so the screen is a block sitting in
+         * the window rather than something hanging off the top of it.
+         *
+         * The sides are wide on purpose. Two fields stretched to the window's
+         * edges, one over the other, with a coloured button under them, is the
+         * shape of a login form -- and being asked to log in before being shown
+         * anything is the one thing this screen must not look like. Pulled in,
+         * the same two fields read as a question with room around it.
+         */
+        const panel = $(parent, `<div class="dict-start" style="margin-top: 27.3px; padding: 0 27.3px 27.3px;">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6.8px;">
+                <div>
+                    ${caption(tr('yourLanguage'))}
+                    <select class="dict-start-mine" style="${field}">${options(null, [], picking.mine)}</select>
+                </div>
+                <div>
+                    ${caption(tr('interface'))}
+                    <select class="dict-start-ui" style="${field}">${uiOptions()}</select>
+                </div>
+            </div>
+
+            <div style="margin-top: 27.3px;">${caption(tr('languagesToLearn'))}</div>
+            <div class="dict-start-chips" style="display: flex; flex-wrap: wrap; gap: 6.8px; margin-bottom: ${picking.learn.length ? '6.8px' : '0'};">${picking.learn.map(chip).join('')}</div>
+            <select class="dict-start-learn" style="${field}">${options(tr('addOne'), picking.learn, null)}</select>
+
+            <div class="dict-start-note" style="margin-top: 8.5px; padding-left: ${textEdge}; font-size: 11.3px; font-weight: 600; line-height: 1.35; color: ${palette.hint};">${tr('startNote')}</div>
+
+            <div style="display: flex; align-items: center; gap: 6.8px; margin-top: 27.3px;">
+                <button class="dict-start-skip" style="flex: none; padding: 11.9px ${textEdge}; background: transparent; color: ${palette.hint}; border: none; font-family: inherit; font-size: 12.8px; font-weight: 700; cursor: pointer;">${tr('skip')}</button>
+                <button class="dict-start-go" ${ready ? '' : 'disabled'} style="flex: 1; padding: 11.9px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 999px; font-family: inherit; font-size: 13.3px; font-weight: 700; opacity: ${ready ? 1 : 0.4}; cursor: ${ready ? 'pointer' : 'default'};">${tr('start')}</button>
+            </div>
+        </div>`);
+
+        // Naming a language takes the interface along, to English where there is
+        // none of it. Clearing the answer names nothing, and leaves the screen as it
+        // is -- which has to be said, because a reader who never chose was following
+        // the answer that just went.
+        panel.querySelector('.dict-start-mine').addEventListener('change', (e) => {
+            setUiLang(tr.forLang(e.target.value), 'follow');
+
+            picking = { mine: e.target.value, learn: picking.learn };
+            mineChosen = true;
+            render();
+        });
+
+        panel.querySelector('.dict-start-ui').addEventListener('change', (e) => {
+            setUiLang(e.target.value, 'pick');
+            render();
+        });
+
+        blinkSame(panel, '.dict-start-mine', `.dict-start-chip[data-tag="${picking.mine}"]`);
+
+        panel.querySelector('.dict-start-learn').addEventListener('change', (e) => {
+            if (!e.target.value) return;
+
+            picking = { mine: picking.mine, learn: picking.learn.concat(e.target.value) };
+            render();
+        });
+
+        panel.querySelectorAll('.dict-start-drop').forEach(button => {
+            button.addEventListener('click', () => {
+                picking = { mine: picking.mine, learn: picking.learn.filter(t => t !== button.dataset.tag) };
+                render();
+            });
+        });
+
+        /*
+         * Skipped, and that is written down as firmly as an answer would be.
+         *
+         * The language being learned is then the default one, standing in the
+         * settings like any other and with its set made the same way -- see
+         * defaultLearn. The questions are in the settings from now on, where
+         * somebody who has seen the thing can answer them having a reason to.
+         *
+         * In the analytics the answer stays empty, because that is what it was. The
+         * language put in its place is in the state of the visit.
+         *
+         * What the first dropdown is standing on is kept, though. Skip answers
+         * "which languages are you learning", and is not an instruction to
+         * forget the one already named.
+         */
+        panel.querySelector('.dict-start-skip').addEventListener('click', async () => {
+            myLang = picking.mine;
+            learnLangs = [defaultLearn(myLang)];
+            langsAsked = true;
+
+            await saveSetting('myLang', myLang);
+            await saveSetting('learnLangs', learnLangs);
+            await saveSetting('langsAsked', true);
+
+            track('langs', 'skip', myLang, [], mineChosen ? 1 : 0);
+            await makeSets();
+
+            // The same first screen with something on it as Start's, below.
+            catalog.render();
+        });
+
+        panel.querySelector('.dict-start-go').addEventListener('click', async () => {
+            if (!ready) return;
+
+            myLang = picking.mine;
+            learnLangs = learning;
+            langsAsked = true;
+
+            await saveSetting('myLang', myLang);
+            await saveSetting('learnLangs', learnLangs);
+            await saveSetting('langsAsked', true);
+
+            track('langs', 'start', myLang, learnLangs, mineChosen ? 1 : 0);
+            await makeSets();
+
+            // The sets were just written, so the bars grow out of nothing: this
+            // is the first screen anybody sees with anything on it.
+            catalog.render();
+        });
+    }
+
+
+    // Starting a session. Whether anything is due is a property of the set and of
+    // the algorithm, not of any game, so the catalog answers it itself — and asking
+    // here means Cancel costs nothing, since no page has been loaded yet.
+    function launch(game, setId) {
+        if (store.wordsOf(setId).length === 0) return;
+
+        if (store.duePool(setId, false).length === 0) {
+            confirmEarly(setId, () => beginSession(game, setId, true));
+            return;
+        }
+        beginSession(game, setId, false);
+    }
+
+    async function beginSession(game, setId, allowEarly) {
+        // Any game, not just the one the hand was on: it is asking for a game to
+        // be played, and any of them answers it. The hand over Flashcards comes
+        // down by itself when Flashcards is pressed; this is what takes it down
+        // when the press went to one of the others.
+        pointingHand.clear();
+
+        await storage.set('active_session', {
+            game: game.id,
+            setId: setId,
+            startedAt: Date.now()
+        });
+        await nav.game(game, setId, allowEarly);
+    }
+
+    /*
+     * How long until the first word of the selection is ready.
+     *
+     * The earliest timer in it, which is the only honest number here: the
+     * dialog is shown because every word is still counting down, and what
+     * somebody turned away wants to know is when to come back -- that is when
+     * the first of them is ready, not when the last one is.
+     *
+     * Asked of the whole selection rather than of the pool, because the pool is
+     * empty: that is what put this dialog on the screen.
+     *
+     * Written in the bubbles' own notation, by the bubbles' own function, since
+     * what is drawn around it is the bubbles' own badge.
+     */
+    function soonestTimer(setId) {
+        const times = store.wordsOf(setId)
+            .map(item => spacedRepetitions.getWordProgress(item.word).nextRepetition)
+            .filter(at => at > Date.now());
+
+        return times.length ? getCompactTimerText(Math.min(...times)) : null;
+    }
+
+    // Modal shown when every word of the selection is still waiting for its timer
+    function confirmEarly(setId, onPlayAnyway) {
+        /*
+         * The heading wears the badge itself, where an hourglass used to stand.
+         *
+         * An emoji is a picture of the idea; this is the thing. The reader has
+         * just come off a screen of bubbles with these plates on them, and the
+         * one sentence under the heading is about those plates -- so the
+         * heading hands back the object being talked about rather than a second
+         * drawing of the concept. It also says, in the two characters it is
+         * made of, the thing the sentence does not: how long.
+         *
+         * After the words and not before them, which is the order the two are
+         * read in: the heading says there is nothing to do yet, and the plate
+         * answers the question that raises. Leading with it put a number in
+         * front of the question it is the answer to, and left the sentence
+         * starting a line in from the edge the rest of the dialog starts at.
+         *
+         * Twice the size it is on a bubble, which is what makes it the
+         * heading's own mark rather than a bubble's badge that wandered into a
+         * line of type. `zoom` and not a second set of numbers: every length on
+         * it doubles at once -- the type, the padding, the corner, the line
+         * round it -- and the one place the badge is described stays the one
+         * place it is described.
+         *
+         * Breathing, so that it is read as a thing still running and not as a
+         * decoration on the title -- see timer-pulse in app.css, which is where
+         * the choice of that motion over the bubbles' hop is argued, and
+         * EARLY_PULSE_MS for the tempo.
+         *
+         * Nothing at all if the selection has no timer to show, which cannot
+         * happen from here: a word with no repetitions is due, and a due word
+         * would have kept this dialog off the screen. It is guarded because the
+         * heading is built before that is checked, and a heading reading
+         * "undefined" is a worse answer to an impossible case than no badge.
+         */
+        const soonest = soonestTimer(setId);
+        const badge = soonest
+            ? timerBadge(soonest, `flex: none; zoom: 2; animation: timer-pulse ${EARLY_PULSE_MS}ms ease-in-out infinite;`)
+            : '';
+
+        const overlay = $(`<div class="early-dialog-overlay" style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 13.7px; z-index: 100;">
+            <div class="early-dialog" style="background: ${palette.dialogBg}; color: ${palette.dialogText}; border: 1px solid ${palette.dialogBorder}; border-radius: 17.1px; padding: 17.1px; max-width: 273.2px; width: 100%;">
+                <div class="early-dialog-title" style="display: flex; align-items: center; gap: 6.8px; font-size: 14.3px; font-weight: 700; margin-bottom: 5.1px;">${tr('nothingYet')}${badge}</div>
+                <div class="early-dialog-text" style="font-size: 12.8px; line-height: 1.35; color: ${palette.dialogBody}; margin-bottom: 12px;">${tr('earlyText')}</div>
+                <div class="early-dialog-actions" style="display: flex; gap: 6.8px;">
+                    <button class="early-dialog-cancel" style="flex: 1; padding: 7.7px; background: ${palette.softBg}; color: ${palette.softColor}; border: 1px solid ${palette.softBorder}; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('cancel')}</button>
+                    <button class="early-dialog-play" style="flex: 1; padding: 7.7px; background: ${palette.accent}; color: ${palette.onAccent}; border: none; border-radius: 10.2px; font-weight: 700; font-size: 12.8px; cursor: pointer;">${tr('playAnyway')}</button>
+                </div>
+            </div>
+        </div>`);
+
+        const close = () => overlay.remove();
+        overlay.querySelector('.early-dialog-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('.early-dialog-play').addEventListener('click', () => {
+            close();
+            onPlayAnyway();
+        });
+    }
+}
+
+/*
+ * The catalog opens at its top, wherever it was left.
+ *
+ * Coming back from a game, the browser puts the page back where it was: that is
+ * what it does for a reload, for a history move and for a page it serves out of
+ * the bfcache. It made sense while the list stood still. It does not now — the
+ * set just played rises to the top of it, and so does one just made — so the
+ * remembered offset shows whatever has slid into that place halfway down, and
+ * the thing the player came back to look at is above the fold.
+ *
+ * Both scrollers, because which one moves depends on where the app is running:
+ * the document on the web, the body in the popup — see .in-popup in app.css.
+ */
+function showFromTop() {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+}
+
+/*
+ * Except where a form was left open: then the catalog comes back where it was
+ * left.
+ *
+ * What it is for: a set being edited, and the next word looked up in another
+ * tab. That closes the popup -- a popup goes as soon as it loses focus -- and
+ * the form outlives it (see saveForms), but it came back at the top of the
+ * list, and the set being edited had to be looked for. The reason for the
+ * top does not hold here: nothing has been played, so nothing has moved up.
+ *
+ * The place is a card and where it stood on the screen -- the first card
+ * still in sight -- rather than an offset. What stands above the list is not
+ * the same on every opening: the banner of an unfinished game comes and goes,
+ * and so does the strip of help cards. An offset would come back close to the
+ * set, a card comes back on it.
+ *
+ * Written to localStorage, which is synchronous, as the screen is left: the
+ * popup gives no warning, and a write still under way when it goes may never
+ * land. Not on the way to another page of the app -- pagehide comes first
+ * then -- because coming back from a game is what the top is for. Taken away by
+ * the next opening, used or not, and by the page coming back to the screen
+ * alive, where the place never went anywhere.
+ */
+const PLACE_KEY = 'catalog-place';
+
+// pagehide has fired: this document is being replaced, not left.
+let replacing = false;
+
+function keepPlace() {
+    try {
+        localStorage.removeItem(PLACE_KEY);
+        if (replacing || !catalog.formsOpen()) return;
+
+        const card = Array.from(document.querySelectorAll('.set-card'))
+            .find(c => c.getBoundingClientRect().bottom > 0);
+        if (!card) return;
+
+        localStorage.setItem(PLACE_KEY, JSON.stringify({
+            id: card.dataset.setId,
+            top: Math.round(card.getBoundingClientRect().top)
+        }));
+    } catch (e) {
+        // Storage switched off: the catalog opens at the top, as before.
+    }
+}
+
+function takePlace() {
+    try {
+        const place = JSON.parse(localStorage.getItem(PLACE_KEY) || 'null');
+        localStorage.removeItem(PLACE_KEY);
+        return place;
+    } catch (e) {
+        return null;
+    }
+}
+
+/*
+ * The card back where it stood. Both scrollers, the way showFromTop does it:
+ * only one of them moves.
+ *
+ * Each in its own pixels. The distance is measured on the screen, and the
+ * document's pixels are the screen's; the body's are the app's, inside its
+ * zoom (see appScale). The body is what scrolls in the popup, and scrolled
+ * by the screen's figure it went a zoom's worth too far -- the card came back
+ * a little higher every time the popup opened, and the list crept up (found
+ * by the owner, 3 November 2026).
+ */
+function returnTo(place) {
+    if (!place || !catalog.formsOpen()) return false;
+
+    const card = document.querySelector(`.set-card[data-set-id="${place.id}"]`);
+    if (!card) return false;
+
+    const by = card.getBoundingClientRect().top - place.top;
+    const page = document.scrollingElement || document.documentElement;
+
+    page.scrollTop += by;
+    document.body.scrollTop += by / appScale();
+    return true;
+}
+
+// Everything the catalog shows comes from storage, and all of it can have moved
+// on while a game was in front: progress, timers, and whether a session is still
+// unfinished. Kept separate from boot so it can be run again without setting the
+// modules up a second time.
+//
+// `afterSync` for a redraw because a sync brought something. The open round is
+// not handed in again then: handing it in is also what makes the help strip
+// choose its card afresh (onboarding.setSession), which is right once per
+// arrival at this screen and wrong under somebody reading it -- the strip
+// jumped to another card the moment the other device's sets arrived. A sync
+// never changes the open round here anyway; the one that does, joining a
+// profile, reloads the page.
+async function refreshCatalog(afterSync) {
+    await store.load();
+    if (!afterSync) catalog.setSession(await storage.get('active_session'));
+
+    // After store.load(), which is what decides whether a form still has a set
+    // to edit.
+    catalog.setOpenForms(await storage.get('open_forms'));
+
+    catalog.render();
+}
+
+/*
+ * A sync from the catalog, and the screen drawn again when it brought
+ * anything: sets changed on another device, or the pair of languages.
+ *
+ * Never awaited by what draws the screen -- the catalog is up out of IndexedDB
+ * before the request has left, and offline it simply stays as it is. Called on
+ * every load of this page, which in the popup is also the way back from every
+ * game, and after every change made here.
+ */
+async function syncCatalog() {
+    const done = await sync.run();
+    if (!done || (!done.replaced.length && !done.langs)) return;
+
+    /*
+     * A language another device started learning brings its sets with it,
+     * built here the way the settings would have built them. Safe to build
+     * twice: a set made by the app carries no date and loses to any copy that
+     * was played, and two untouched copies are the same copy -- see
+     * store.touch. Built rather than waited for, because the other device may
+     * not have sent them yet.
+     */
+    if (done.langs) {
+        catalog.setLangs(await storage.get('settings'));
+        await catalog.makeSets();
+    }
+
+    await refreshCatalog(true);
+}
+
+/*
+ * Each game's icon.js laid onto its line of the list, so that the catalog
+ * reads `game.title` where it reads `game.pitch` -- see GAME_FACES in
+ * core/icons.js.
+ *
+ * A game whose file did not come is taken off the list rather than left on it
+ * nameless: a tile with no face and no title is worse than a game missing
+ * from a row, and the rest of the catalog has to go on working either way.
+ * The service worker holds every one of these files (see sw.js), so on the
+ * site this is a broken build and not a bad connection.
+ */
+function takeFaces() {
+    for (let i = GAMES.length - 1; i >= 0; i--) {
+        const face = GAME_FACES[GAMES[i].id];
+
+        if (face) {
+            Object.assign(GAMES[i], face);
+            continue;
+        }
+
+        console.error(`${GAMES[i].id}/icon.js did not load`);
+        GAMES.splice(i, 1);
+    }
+}
+
+async function bootCatalog() {
+    // Said before anything is drawn, because the browser restores the offset as
+    // soon as the page is tall enough to carry it — see showFromTop.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+    // Each game's name and tile, from its own folder -- see loadFaces in
+    // core/icons.js. Asked for first and waited for last, so the files arrive
+    // while the database is being read.
+    const faces = loadFaces(GAMES.map(game => game.id));
+
+    spacedRepetitions();
+    storage();
+    store();
+
+    await storage.init();
+
+    // Before the first read of anything saved: a 0.2.3 database has to become a
+    // 0.2.4 one while nobody is looking at it. A no-op on every other database,
+    // and on every run after the first — see migrate.js.
+    await migrate.run();
+
+    const settings = await storage.get('settings');
+
+    // The ids first, then the visit they are written on -- see track.js.
+    await remote.init();
+    await track.start('catalog', settings);
+
+    // The ladder the player is on, if they have changed it. Absent means the
+    // defaults, which is what the algorithm starts with anyway — see srs.js.
+    if (settings && settings.intervals) spacedRepetitions.setIntervals(settings.intervals);
+
+    /*
+     * Dark unless the player has chosen otherwise; there is no first-run prompt
+     * and no system sniffing, so an absent setting simply means the default.
+     *
+     * Absent is the word that matters. This used to ask whether the record
+     * existed, which was the same question while the record could only be
+     * written by choosing a theme — and stopped being it the moment anything
+     * else was saved beside it. Turning the sound on inside a game wrote the
+     * record with no theme in it, and the catalog came back in the light one.
+     */
+    const isDark = settings ? settings.isDark !== false : true;
+
+
+    // Speaking unless the player has turned the sound off. An absent setting
+    // means the default, and the default is on -- see speech.js.
+    speech.mute(!!(settings && settings.muted));
+
+    // Before the catalog is made: which games a set's row starts with is
+    // worked out when it is, from what the games say about themselves.
+    await faces;
+    takeFaces();
+
+    const container = $(`<div class="app-main-content"></div>`);
+    catalog(container);
+
+    // The player is here, so this is where the popup should reopen.
+    nav.setEntryPoint('index.html');
+
+    theme.apply(isDark);
+    catalog.setTheme(isDark);
+
+    // Absent means nothing has been read and nobody has sent the strip away,
+    // which is what a first run is -- see onboarding.js.
+    onboarding.setSaved(settings);
+
+    catalog.setLangs(settings);
+
+    await refreshCatalog();
+    if (!returnTo(takePlace())) showFromTop();
+    popupHeight.release();
+
+    syncCatalog();
+
+    // An installed app brought back from the background is the same page, not
+    // a new one: nothing above runs again, and the other devices may have
+    // moved on meanwhile.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            keepPlace();
+            return;
+        }
+
+        takePlace();
+        syncCatalog();
+    });
+
+    window.addEventListener('pagehide', () => { replacing = true; });
+}
+
+// The browser's own Back button can restore this page from the bfcache: the
+// document comes back alive exactly as it was left, so nothing above re-runs.
+// Without this the catalog would still be showing the state it had before the
+// game started — the old progress, and a play mark on a tile whose session may
+// well have finished.
+//
+// Only the catalog needs it. A game page rewrites its own address to carry
+// resume=1 as soon as its session exists, so every way back into that entry
+// continues the session whether the bfcache served it or not.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+
+    replacing = false;
+    refreshCatalog().then(syncCatalog);
+
+    // A page out of the bfcache comes back scrolled where it was left, and
+    // scrollRestoration has nothing to say about that: the offset is part of the
+    // document that was frozen, not something the browser restores afterwards.
+    showFromTop();
+});
+
+bootCatalog();

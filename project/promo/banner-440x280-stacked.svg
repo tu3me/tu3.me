@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+    <!--
+        Small promo tile, 440x280 — the stacked take.
+
+        The logo stands over the name instead of beside it, and under both is
+        what the app is for, in mint. Three things down the middle rather than
+        two across, which is the arrangement that leaves room for a line of
+        plain language.
+
+        The name is set smaller than it would be on its own — 62 and 50 against
+        70 and 56 — because the slogan needs the bottom of the tile and the two
+        lines above it need air more than they need width. At these sizes SPACED
+        is 330 wide and REPETITION 322, both well inside the 380 between the
+        margins, so the block reads as a column rather than as a line stretched
+        to the edges.
+
+        Each line is shifted right by half its own tracking. text-anchor centres
+        a line on its advance width, and that width carries the letter-space
+        after the last glyph as well as the ones between — so the ink of a
+        tracked line hangs left of where it was asked to sit. Scanned off the
+        rendered pixels, SPACED sat at 212.5 and REPETITION at 217.5 against a
+        true middle of 219.5, which is half of 14.57 and half of 3.75 exactly.
+
+        The same scan is what the spacing below was set from, the ink and not
+        the boxes around it.
+    -->
+    <defs>
+        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1b4a63" />
+            <stop offset="0.55" stop-color="#11374c" />
+            <stop offset="1" stop-color="#0a2130" />
+        </linearGradient>
+
+        <radialGradient id="glow" cx="0.5" cy="0.22" r="0.6">
+            <stop offset="0" stop-color="#56c4a6" stop-opacity="0.2" />
+            <stop offset="1" stop-color="#56c4a6" stop-opacity="0" />
+        </radialGradient>
+    </defs>
+
+    <rect width="440" height="280" fill="url(#ground)" />
+    <rect width="440" height="280" fill="url(#glow)" />
+
+    <g transform="translate(174.9 12.3) scale(2.85)">
+        <g transform="rotate(-7 16 16)">
+            <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a" />
+            <circle cx="11.37" cy="16" r="4.86" fill="none" stroke="#ffffff" stroke-width="2.83" />
+            <circle cx="23.02" cy="16" r="3.01" fill="none" stroke="#ffffff" stroke-width="1.75" />
+        </g>
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" text-anchor="middle">
+        <text x="226.8" y="164" font-size="62" font-weight="800" letter-spacing="14.57" fill="#eef6f7">SPACED</text>
+        <text x="221.4" y="212" font-size="50" font-weight="700" letter-spacing="3.75" fill="#eef6f7">REPETITION</text>
+        <text x="219.5" y="254" font-size="26" font-weight="700" fill="#72dcbe">Remember words</text>
+    </g>
+</svg>

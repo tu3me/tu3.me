@@ -1,0 +1,38 @@
+# One page, one address: https, and no www.
+#
+# The site answers on four addresses — apex and www, http and https — and served
+# the same bytes on every one of them with no redirect anywhere. Two identical
+# addresses for a search engine to choose between, and two hosts as far as
+# Yandex.Metrika is concerned. The apex over https is the canonical one: it is
+# what background.js opens after the extension is installed, and what the
+# counter is registered for.
+#
+# WHY THE SCHEME COMES FROM A HEADER AND NOT FROM %{HTTPS}
+#
+# TLS is terminated in front of Apache here, so Apache never sees the request as
+# an https one. Measured on this host by asking mod_rewrite itself, rather than
+# assumed:
+#
+#                       over http    over https
+#   %{HTTPS}            off          off          <- always off, tells nothing
+#   %{SERVER_PORT}      not 443      not 443      <- same
+#   X-Forwarded-Proto   absent       https        <- the only honest one
+#
+# So the usual recipe, RewriteCond %{HTTPS} off, would match on an https request
+# as well and send it to https again, and again, for ever. Only the header can
+# be trusted here.
+#
+# The test is "not https" rather than "= http" because on a plain request the
+# header is not set to anything — it simply is not there.
+#
+# ORDER MATTERS: the www rule comes first and writes out https itself, so
+# http://www reaches the canonical address in one hop rather than two.
+RewriteEngine On
+
+# www -> apex, always https
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+# http -> https
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -30 480 480" width="480" height="480"><defs>
+<linearGradient id="goldSv35" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset=".55" stop-color="#f6c232"/><stop offset="1" stop-color="#d9921a"/></linearGradient>
+<linearGradient id="tailSv35" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2b92e"/><stop offset="1" stop-color="#c98414"/></linearGradient>
+</defs><rect x="30" y="30" width="340" height="355" rx="64" fill="#56c4a6" stroke="#c9a54a" stroke-width="7"/><g transform="matrix(1.4 0 0 1.4 -89 -345.2)">
+<path d="M144.45 463.23C150.48 460.8 157.48 466.72 164.65 467.46C173.18 468.34 218.94 465.23 225 462.66C228.65 461.11 232.2 458.04 233.79 454.33C239.87 440.21 228.66 428.97 217 423.13C192.75 411 165.18 398.43 161.13 368C158.94 351.5 155.26 313.07 170.29 303.17C177.78 298.23 201.54 300.99 211 300.99C219.58 300.99 235.01 298.02 242.4 303.17C256.58 313.04 258.03 358.57 241.17 364.85C232.09 368.23 200.42 361.79 201.47 375.5C202.41 387.8 225.49 394.29 234.51 399C262.17 413.45 275.8 451.51 252.67 476.48C232.46 498.28 195.61 490.31 170.57 481.99C161.9 479.11 142.99 473.67 144.45 463.23Z" fill="#fff" stroke="#fff" stroke-width=".5" stroke-linejoin="round"/>
+<circle cx="228.8" cy="331.7" r="17.5" fill="#56c4a6"/><circle cx="192.4" cy="332.4" r="9.1" fill="#56c4a6"/>
+</g></svg>

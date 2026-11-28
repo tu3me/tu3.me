@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+    <!--
+        Small promo tile, 440x280 — the one that shows the idea rather than
+        naming it. Built by promo/make-cards-banner.py.
+
+        Three cards and two arrows: a word arrives, goes away, comes back, and
+        comes back again. That is the whole of spaced repetition, and it is
+        worth more at this size than any sentence about intervals.
+
+        The three wear the colours the games wear on their buttons in the
+        catalog — gold, coral, mint from registry.js — so the row is the app's
+        own palette rather than a picture of it. Coral falls in the middle
+        because coral is the logo: the middle card is the logo itself, at the
+        geometry catalog.js draws it in the header — tilt, and eyes with a
+        pupil inside the ring rather than the hollow ones this file drew once.
+
+        The arrows are computed from the curve they sit on, not drawn by eye:
+        the head is built on the tangent at the end of its own arc, and the arc
+        stops short of the tip so the stroke does not show through the point.
+
+        Each line of the name is shifted right by half its own tracking.
+        text-anchor centres a line on its advance width, and that width carries
+        the letter-space after the last glyph as well as the ones between, so
+        the ink of a tracked line hangs left of where it was asked to sit.
+        Scanned off the rendered pixels, SPACED sat at 213.0 and REPETITION at
+        218.0 against a true middle of 219.5 — half of 13.63 and half of 3.53.
+    -->
+    <defs>
+        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1b4a63" />
+            <stop offset="0.55" stop-color="#11374c" />
+            <stop offset="1" stop-color="#0a2130" />
+        </linearGradient>
+
+        <radialGradient id="glow" cx="0.5" cy="0.22" r="0.6">
+            <stop offset="0" stop-color="#56c4a6" stop-opacity="0.2" />
+            <stop offset="1" stop-color="#56c4a6" stop-opacity="0" />
+        </radialGradient>
+    </defs>
+
+    <rect width="440" height="280" fill="url(#ground)" />
+    <rect width="440" height="280" fill="url(#glow)" />
+
+    <rect x="39.0" y="38.0" width="78" height="64" rx="14" fill="#d9a520" />
+    <rect x="323.0" y="38.0" width="78" height="64" rx="14" fill="#56c4a6" />
+
+    <g transform="translate(175.6 25.6) scale(2.777)">
+        <g transform="rotate(-7 16 16)">
+            <rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a" />
+            <circle cx="11.37" cy="16" r="4.405" fill="#0f2b3c" stroke="#ffffff" stroke-width="2.41" />
+            <circle cx="23.02" cy="16" r="3.01" fill="#0f2b3c" stroke="#ffffff" stroke-width="1.5" />
+        </g>
+    </g>
+
+    <g stroke="#ffffff" stroke-width="4.5" fill="none" stroke-linecap="round">
+        <path d="M109.0 34.0 Q149.0 0.0 180.5 26.8" />
+        <path d="M251.0 34.0 Q291.0 0.0 322.5 26.8" />
+    </g>
+    <g fill="#ffffff">
+        <path d="M169.5 29.2 L189.0 34.0 L181.1 15.5 Z" />
+        <path d="M311.5 29.2 L331.0 34.0 L323.1 15.5 Z" />
+    </g>
+
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" text-anchor="middle">
+        <text x="226.3" y="172" font-size="58" font-weight="800" letter-spacing="13.63" fill="#eef6f7">SPACED</text>
+        <text x="221.3" y="216" font-size="47" font-weight="700" letter-spacing="3.53" fill="#eef6f7">REPETITION</text>
+        <text x="219.5" y="256" font-size="25" font-weight="700" fill="#72dcbe">Remember words</text>
+    </g>
+</svg>

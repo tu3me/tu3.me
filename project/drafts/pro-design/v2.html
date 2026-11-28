@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Каталог и Flashcards: вторая версия</title>
+<!--
+  The second designer's pass, after the owner's answer to the first one
+  (28 November 2026): keep the cards as they are now, and build from the
+  catalog's dark theme. So the word cards are the app's own, shape for shape
+  and colour for colour (the uneven edges of app.css, the stage ramp of
+  core/tokens.js), the index card is the Flashcards one, and the palette is
+  tokens.js DARK with nothing new in it. A draft: nothing in app/ reads it.
+  Page numbers are those of Best in Class iOS, Book Two: Design.
+-->
+<style>
+/* ---------- the page around the phones ---------- */
+:root {
+    --page: #08161f;
+    --page-ink: #e3edf0;
+    --page-muted: #93a9b4;
+    --page-line: rgba(227, 237, 240, 0.1);
+    --page-card: #0f2533;
+    --phone-zoom: 0.86;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--page);
+    color: var(--page-ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: #f5b9a8; }
+.intro, .screen, .guide { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
+.intro { padding-top: 28px; }
+.intro h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.2; }
+.intro .lede { margin: 0 0 18px; max-width: 900px; color: var(--page-muted); }
+.principles { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+.principles li { padding: 12px 14px; border-radius: 12px; background: var(--page-card); }
+.principles b { display: block; margin-bottom: 2px; }
+.principles span { color: var(--page-muted); font-size: 14px; }
+.ref { color: var(--page-muted); font-size: 12.5px; white-space: nowrap; }
+
+/* Not sticky, by the owner's choice: the whole page scrolls as one. */
+.switches {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center;
+    max-width: 1280px; margin: 0 auto; padding: 10px 28px;
+    border-bottom: 1px solid var(--page-line);
+}
+.switch { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.switch button {
+    padding: 5px 11px; border: 1px solid var(--page-line); border-radius: 99px;
+    background: transparent; color: var(--page-ink); font: inherit; cursor: pointer;
+}
+.switch button[aria-pressed="true"] { background: var(--page-ink); color: var(--page); border-color: var(--page-ink); }
+
+.screen { padding-top: 34px; padding-bottom: 6px; border-bottom: 1px solid var(--page-line); }
+.screen h2 { margin: 0 0 2px; font-size: 21px; }
+.screen .sub { margin: 0 0 16px; color: var(--page-muted); max-width: 900px; }
+.row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; padding-bottom: 28px; }
+.before { margin: 0; width: 250px; flex: none; }
+.before img { display: block; width: 100%; border-radius: 22px; box-shadow: 0 0 0 1px var(--page-line); }
+.before figcaption { margin-top: 6px; font-size: 13px; color: var(--page-muted); }
+.before .none {
+    display: grid; place-items: center; height: 300px; padding: 20px; border-radius: 22px;
+    border: 1.5px dashed var(--page-line); color: var(--page-muted); text-align: center; font-size: 14px;
+}
+.notes { flex: 1 1 320px; max-width: 520px; margin: 0; padding: 0; list-style: none; }
+.notes li { position: relative; margin: 0 0 10px; padding-left: 16px; font-size: 14.5px; line-height: 1.45; }
+.notes li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 3px; background: #ef6f5a; }
+.notes b { font-weight: 650; }
+body[data-before="off"] .before { display: none; }
+
+.guide { padding-top: 34px; padding-bottom: 60px; }
+.guide h2 { margin: 0 0 14px; font-size: 21px; }
+
+/* ---------- the phone ---------- */
+.phone { flex: none; zoom: var(--phone-zoom); }
+.device {
+    width: 410px; height: 864px; padding: 10px;
+    border-radius: 56px; background: #050d12;
+    box-shadow: 0 0 0 1.5px #22323b inset, 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- the app's UI: tokens.js DARK, nothing added ---------- */
+.ui {
+    --ground: #0f2b3c;
+    --surface: #1a4154;
+    --soft: #16384a;
+    --border: #2a5568;
+    --plate: #24526a;        /* the "Flashcards and more" plate the owner kept */
+    --edge: #0d2735;
+    --ink: #eef6f7;
+    --muted: #9bb4c1;
+    /* "and more" on the plate: muted is 3.9:1 there, this is 5:1 */
+    --plate-muted: #bccfd8;
+    --accent: #ef6f5a;
+    /* Navy on coral rather than white: white on #ef6f5a is 3:1, navy 5:1,
+       and the coral itself stays the one the app has in both themes. */
+    --on-accent: #0f2b3c;
+    --accent-edge: #b9503e;
+    --mint: #56c4a6;
+    --mint-edge: #2f8f75;
+    /* The index card, as flashcards.js paints it at night */
+    --paper: #e6d7b8;
+    --paper-ink: #3a2a1c;
+    --paper-muted: #7a654c;
+    --paper-line: #241a13;
+    --kraft-band: #dcc39b;
+    --say: #a08868;
+
+    position: relative; width: 390px; height: 844px; overflow: hidden;
+    border-radius: 46px;
+    background: var(--ground); color: var(--ink);
+    font-family: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.ui button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ui svg { display: block; }
+
+.status {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3; height: 50px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 30px 0 40px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+}
+.status .sys { display: flex; gap: 6px; align-items: center; }
+.island { position: absolute; top: 11px; left: 50%; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; z-index: 4; }
+.content {
+    position: absolute; top: 50px; left: 0; right: 0; bottom: 0;
+    overflow-y: auto; scrollbar-width: none;
+}
+.content::-webkit-scrollbar { display: none; }
+.home { position: absolute; bottom: 8px; left: 50%; z-index: 5; width: 136px; height: 5px; margin-left: -68px; border-radius: 3px; background: var(--ink); }
+
+/* ---------- shared controls ---------- */
+.muted { color: var(--muted); }
+.navbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 56px; padding: 0 12px 0 14px; }
+/* The app's outlined header buttons, kept as drawn, with the 44 pt a finger
+   needs added round them invisibly (book p. 924). */
+.hit { display: grid; place-items: center; min-width: 44px; height: 44px; padding: 0; border: 0; background: none; flex: none; }
+.outlined {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    min-width: 36px; height: 36px; padding: 0 11px; border: 1px solid var(--border); border-radius: 12px;
+    color: var(--muted); font-size: 14px; font-weight: 600;
+}
+.outlined.square { width: 36px; padding: 0; }
+.btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 52px; padding: 0 16px; border: 0; border-radius: 16px;
+    font-size: 17px !important; font-weight: 750 !important; letter-spacing: -0.01em;
+}
+.btn.primary { background: var(--accent); color: var(--on-accent) !important; box-shadow: 0 3px 0 var(--accent-edge); }
+.btn.plate { background: var(--plate); color: var(--ink) !important; box-shadow: 0 3px 0 var(--edge); }
+kbd { display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 5px; background: var(--soft); box-shadow: inset 0 0 0 1px var(--border); font-family: inherit; font-size: 12px; font-weight: 700; line-height: 18px; color: var(--muted); text-align: center; }
+.hint { margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+
+/* ---------- catalog ---------- */
+.brand { display: flex; align-items: center; gap: 8px; }
+.wm { display: block; line-height: 1.06; }
+.wm b { display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em; }
+.wm span { display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em; }
+.head-actions { display: flex; align-items: center; margin-right: -4px; }
+
+.set { margin: 4px 12px 12px; padding: 12px 14px 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); }
+.set-head { display: flex; align-items: center; gap: 8px; min-height: 34px; margin: -4px -8px 6px 0; }
+.set-head h3 { margin: 0; min-width: 0; font-size: 18px; line-height: 1.25; font-weight: 750; overflow-wrap: anywhere; }
+.pill { flex: none; padding: 3px 8px; border-radius: 99px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 800; line-height: 1.2; }
+.set-head .hit { margin-left: auto; color: var(--muted); }
+
+/* The ladder above the words, as catalog.js draws it: thirteen shares, a
+   dot lit in its stage's colour up to the best word, a bar up to the worst. */
+.ladder { display: flex; align-items: center; gap: 3.4px; height: 10px; margin: 2px 0 4px; }
+.ladder > span { flex: 1; display: flex; justify-content: center; }
+.ladder i { display: block; width: 10px; height: 10px; border-radius: 5px; }
+.ladder i.bar { width: 100%; }
+.ladder i.ring { width: 9px; height: 9px; box-shadow: inset 0 0 0 1.3px rgba(155, 180, 193, 0.6); }
+.ladder svg { opacity: 0.6; }
+
+/* The word cards: the app's, one for one. */
+.words { display: flex; flex-wrap: wrap; justify-content: center; gap: 5.5px; margin: 0 -6px; padding: 10px 0 8px; }
+.note {
+    position: relative; isolation: isolate;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 0 1 auto; min-width: 44px; max-width: 100%; padding: 5.5px 9px; text-align: center;
+}
+.note::before {
+    content: ''; position: absolute; inset: -0.4px; z-index: -1;
+    border-radius: 6px; background: var(--bubble); clip-path: var(--bubble-edge);
+}
+.note b { font-size: 14.5px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.note small { font-size: 14.5px; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+.note .dots { margin: 3px; }
+.note .timer {
+    position: absolute; bottom: -6px; right: -5px; z-index: 3;
+    padding: 1.5px 4.5px; border-radius: 10px; border: 1px solid #46311f; background: #ebedef; color: #2a1f16;
+    font-size: 11px; font-weight: 800; line-height: 1; letter-spacing: -0.2px; white-space: nowrap;
+}
+/* A word whose time has come hops, a ripening one breathes (app.css) */
+.note.due { animation: bounce 650ms ease-in-out infinite; animation-delay: var(--d, 0ms); }
+.note.ripe { animation: bounce 3250ms ease-in-out infinite; animation-delay: var(--d, 0ms); }
+@keyframes bounce {
+    0%, 25%, 50%, 75%, 100% { transform-origin: 50% 100%; }
+    0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+    25% { scale: 1.0022 1.0333; transform: skew(1.111deg, 0deg); }
+    50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.222deg; }
+    75% { scale: 1.0022 1.0556; transform: skew(-0.222deg, 0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .note.due, .note.ripe { animation: none; } }
+body[data-motion="off"] .note.due, body[data-motion="off"] .note.ripe { animation: none; }
+
+/* The seven uneven edges of app.css, taken in turn along a row */
+.note:nth-child(7n+1) {
+    --bubble-edge: shape(from 5.1px 0.63px, curve to 43% 0.24px with 24% 0.59px, curve to calc(100% - 5.3px) 0.77px with 68% 0.12px, curve to calc(100% - 0.38px) 5.3px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.11px) 43% with calc(100% - 0.74px) 30%, curve to calc(100% - 1.21px) calc(100% - 6.2px) with calc(100% - 0.82px) 72%, curve to calc(100% - 6.2px) calc(100% - 0.78px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.08px) with 76% calc(100% - 0.24px), curve to 5.1px calc(100% - 0.3px) with 22% calc(100% - 0.97px), curve to 0.41px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.74px 48% with 0.65px 74%, curve to 0.62px 5.1px with 0.83px 27%, curve to 5.1px 0.82px with 0.5px 0.5px);
+}
+.note:nth-child(7n+2) {
+    --bubble-edge: shape(from 5.1px 0.01px, curve to 39% 0.6px with 23% 0.86px, curve to calc(100% - 5.6px) 0.75px with 74% 0px, curve to calc(100% - 0.78px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.22px) 53% with calc(100% - 0.2px) 27%, curve to calc(100% - 0.07px) calc(100% - 5.6px) with calc(100% - 1.02px) 71%, curve to calc(100% - 5.6px) calc(100% - 0.64px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 55% calc(100% - 0.85px) with 77% calc(100% - 0.02px), curve to 4.3px calc(100% - 0.08px) with 32% calc(100% - 0.64px), curve to 0.11px calc(100% - 4.3px) with 0.5px calc(100% - 0.5px), curve to 1.23px 56% with 0.14px 76%, curve to 1.21px 5.1px with 0.67px 28%, curve to 5.1px 0.7px with 0.5px 0.5px);
+}
+.note:nth-child(7n+3) {
+    --bubble-edge: shape(from 4.6px 0.23px, curve to 37% 0.83px with 19% 0.8px, curve to calc(100% - 5.6px) 0.23px with 67% 0.66px, curve to calc(100% - 0.27px) 5.6px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.37px) 55% with calc(100% - 0.16px) 24%, curve to calc(100% - 1.24px) calc(100% - 5.6px) with calc(100% - 1.04px) 71%, curve to calc(100% - 5.6px) calc(100% - 1.09px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 62% calc(100% - 1.11px) with 80% calc(100% - 1.03px), curve to 6px calc(100% - 0.93px) with 24% calc(100% - 0.99px), curve to 0.32px calc(100% - 6px) with 0.5px calc(100% - 0.5px), curve to 1.06px 57% with 1.12px 78%, curve to 0.71px 4.6px with 0.54px 26%, curve to 4.6px 1.11px with 0.5px 0.5px);
+}
+.note:nth-child(7n+4) {
+    --bubble-edge: shape(from 4.3px 0.34px, curve to 38% 0.36px with 17% 0.82px, curve to calc(100% - 5.7px) 0.38px with 76% 1.09px, curve to calc(100% - 0.49px) 5.7px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.14px) 50% with calc(100% - 0.28px) 29%, curve to calc(100% - 0.45px) calc(100% - 5.6px) with calc(100% - 0.33px) 78%, curve to calc(100% - 5.6px) calc(100% - 0.19px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 58% calc(100% - 0.83px) with 80% calc(100% - 0.21px), curve to 6.3px calc(100% - 0.81px) with 23% calc(100% - 0.74px), curve to 0.03px calc(100% - 6.3px) with 0.5px calc(100% - 0.5px), curve to 0.34px 54% with 0.5px 77%, curve to 1.12px 4.3px with 0.12px 29%, curve to 4.3px 0.86px with 0.5px 0.5px);
+}
+.note:nth-child(7n+5) {
+    --bubble-edge: shape(from 6.3px 1.23px, curve to 34% 0.07px with 18% 1.07px, curve to calc(100% - 4px) 1.25px with 69% 0.15px, curve to calc(100% - 0.58px) 4px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 0.44px) 54% with calc(100% - 0.33px) 27%, curve to calc(100% - 1.17px) calc(100% - 5.8px) with calc(100% - 0.26px) 75%, curve to calc(100% - 5.8px) calc(100% - 1px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.38px) with 84% calc(100% - 0.53px), curve to 4.4px calc(100% - 0.72px) with 28% calc(100% - 0.61px), curve to 0.58px calc(100% - 4.4px) with 0.5px calc(100% - 0.5px), curve to 1px 56% with 0.71px 77%, curve to 0.51px 6.3px with 1.08px 24%, curve to 6.3px 0.61px with 0.5px 0.5px);
+}
+.note:nth-child(7n+6) {
+    --bubble-edge: shape(from 4.9px 0.51px, curve to 44% 0.89px with 19% 0.79px, curve to calc(100% - 5.2px) 0.01px with 70% 1.02px, curve to calc(100% - 0.83px) 5.2px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.19px) 51% with calc(100% - 0.03px) 27%, curve to calc(100% - 1.2px) calc(100% - 5px) with calc(100% - 0.32px) 72%, curve to calc(100% - 5px) calc(100% - 1.01px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 60% calc(100% - 0.79px) with 83% calc(100% - 0.57px), curve to 5.1px calc(100% - 0.78px) with 26% calc(100% - 1.23px), curve to 0.98px calc(100% - 5.1px) with 0.5px calc(100% - 0.5px), curve to 0.45px 55% with 0.98px 75%, curve to 0.62px 4.9px with 0.65px 25%, curve to 4.9px 1.19px with 0.5px 0.5px);
+}
+.note:nth-child(7n+7) {
+    --bubble-edge: shape(from 5.3px 0.96px, curve to 45% 0.68px with 20% 0.14px, curve to calc(100% - 5.9px) 0.03px with 72% 1.02px, curve to calc(100% - 0.52px) 5.9px with calc(100% - 0.5px) 0.5px, curve to calc(100% - 1.07px) 52% with calc(100% - 0.8px) 30%, curve to calc(100% - 0.17px) calc(100% - 6.3px) with calc(100% - 0.69px) 72%, curve to calc(100% - 6.3px) calc(100% - 1.02px) with calc(100% - 0.5px) calc(100% - 0.5px), curve to 53% calc(100% - 0.19px) with 84% calc(100% - 0.7px), curve to 4.7px calc(100% - 1.19px) with 25% calc(100% - 0.41px), curve to 0.15px calc(100% - 4.7px) with 0.5px calc(100% - 0.5px), curve to 0.89px 44% with 0.39px 71%, curve to 0.63px 5.3px with 1.07px 29%, curve to 5.3px 1.25px with 0.5px 0.5px);
+}
+
+/* The one button the owner kept (drafts/catalog-button, layout 2) */
+.one {
+    display: flex; align-items: center; gap: 11px; width: 100%; margin-top: 8px;
+    padding: 7px 12px 7px 7px; border: 0; border-radius: 24px;
+    background: var(--plate); box-shadow: 0 2.6px 0 var(--edge); color: var(--ink); text-align: left;
+}
+.one-tile { position: relative; flex: none; width: 50px; height: 50px; }
+.count {
+    position: absolute; top: -6px; right: -7px;
+    min-width: 23px; height: 23px; padding: 0 6px; border-radius: 12px;
+    background: var(--accent); color: var(--on-accent);
+    font-size: 13px; font-weight: 800; line-height: 23px; text-align: center;
+    box-shadow: 0 0 0 2.5px var(--plate);
+}
+.one-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.one-text b { font-size: 17px; font-weight: 800; line-height: 1.15; white-space: nowrap; }
+.one-text small { font-size: 13px; font-weight: 700; line-height: 1.2; color: var(--plate-muted); white-space: nowrap; }
+.one-wins { display: flex; align-items: center; gap: 5px; flex: none; margin-left: auto; }
+
+/* ---------- flashcards: the boxes ---------- */
+.title-plate {
+    display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 12px 0 14px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+    font-size: 16px !important; font-weight: 700 !important;
+}
+.title-plate svg { color: var(--muted); }
+.summary { margin: 4px 12px 0; padding: 16px 16px 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); }
+.summary .big { display: flex; align-items: baseline; gap: 10px; }
+.summary .big strong { font-size: 50px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; }
+.summary .big span { font-size: 18px; font-weight: 700; }
+.summary p { margin: 6px 0 14px; font-size: 15px; line-height: 1.35; }
+.section { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 20px 2px; }
+.section b { font-size: 20px; font-weight: 750; }
+.explain { margin: 0; padding: 0 20px 12px; font-size: 13.5px; line-height: 1.4; }
+.boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 12px 40px; }
+.box {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    min-height: 94px; padding: 7px 2px 6px; border: 1px solid var(--border); border-radius: 15px;
+    background: var(--surface);
+}
+.box svg { margin-bottom: 3px; }
+.box .int { font-size: 13px; line-height: 1.25; font-weight: 700; }
+.box .cnt { font-size: 12px; line-height: 1.3; color: var(--muted); }
+.box .count { top: -6px; right: -5px; box-shadow: 0 0 0 2.5px var(--ground); }
+.box.empty { background: transparent; border-style: dashed; }
+.box.empty svg { opacity: 0.5; }
+
+/* ---------- flashcards: the index card ---------- */
+.session { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.session-bar { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px 0 10px; }
+.pbar { flex: 1; height: 10px; border-radius: 5px; background: var(--soft); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
+.pbar > i { display: block; height: 100%; border-radius: 5px; background: var(--mint); }
+.pcount { font-size: 15px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.table { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 20px; }
+/* flashcards.js faceStyle at a phone's width: cream paper drawn round in
+   ink, a band in the stage's colour (kraft on the back), a red rule under
+   the band and blue ones down the rest, put down a little askew. */
+.icard {
+    --band: var(--kraft-band);
+    position: relative; width: 100%; aspect-ratio: 268 / 158;
+    border-radius: 14px; border: 1.5px solid var(--paper-line);
+    background:
+        linear-gradient(180deg, var(--band) 0, var(--band) 34px, var(--paper-line) 34px, var(--paper-line) 35px, rgba(214, 120, 100, 0.45) 35px, rgba(214, 120, 100, 0.45) 36.5px, transparent 36.5px),
+        repeating-linear-gradient(180deg, transparent 0 27px, rgba(110, 145, 170, 0.22) 27px 28px),
+        var(--paper);
+    box-shadow: 0 0 30px rgba(255, 196, 120, 0.16), 0 14px 28px rgba(0, 0, 0, 0.5);
+    transform: rotate(-1.2deg);
+    color: var(--paper-ink);
+}
+.band { position: absolute; left: 14px; right: 4px; top: 0; height: 34px; display: flex; align-items: center; justify-content: space-between; }
+.band > span:first-child { font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em; }
+.band .nav { display: flex; }
+.band .hit { width: 40px; min-width: 40px; height: 34px; color: var(--paper-muted); }
+.face { position: absolute; left: 0; right: 0; top: 36px; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 18px 6px; text-align: center; }
+.say-row { display: flex; align-items: center; gap: 12px; }
+.say-row .hit { color: var(--say); margin-left: -14px; }
+.word-big { font-size: 42px; line-height: 1.1; font-weight: 750; letter-spacing: -0.01em; }
+.word-small { font-size: 18px; line-height: 1.2; font-weight: 650; color: var(--paper-muted); }
+.face .rule { width: 46px; height: 2px; margin: 8px 0 6px; border-radius: 1px; background: rgba(58, 42, 28, 0.25); }
+.under { margin: 16px 0 0; font-size: 13.5px; text-align: center; }
+.actions { padding: 0 16px 40px; }
+.grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grade button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    height: 74px; border: 0; border-radius: 18px; color: var(--on-accent) !important;
+}
+.grade button span { display: inline-flex; align-items: center; gap: 6px; font-size: 17px; font-weight: 800; }
+.grade small { font-size: 13px; font-weight: 650; opacity: 0.88; }
+.grade .dunno { background: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); }
+.grade .know { background: var(--mint); box-shadow: 0 3px 0 var(--mint-edge); }
+
+/* quiz */
+.icard.compact { width: 300px; }
+.prompt { margin: 14px 0 0; font-size: 15px; text-align: center; }
+.options { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+.opt {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-height: 54px; padding: 0 12px 0 18px; border: 1px solid var(--border); border-radius: 16px;
+    background: var(--surface); font-size: 17px !important; font-weight: 700 !important; text-align: left;
+}
+.opt .mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 14px; color: var(--on-accent); }
+.opt.wrong { border-color: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.opt.wrong .mark { background: var(--accent); }
+.opt.right { border-color: transparent; box-shadow: inset 0 0 0 2px var(--mint); }
+.opt.right .mark { background: var(--mint); }
+.opt.dim { opacity: 0.42; }
+.sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 16px 40px;
+    border-radius: 28px 28px 0 0; background: var(--surface);
+    box-shadow: 0 -1px 0 var(--border), 0 -14px 34px rgba(0, 0, 0, 0.35);
+}
+.sheet-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+.sheet-row .disc { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 16px; background: var(--accent); color: var(--on-accent); }
+.sheet-row b { display: block; font-size: 17px; line-height: 1.3; }
+.sheet-row p { margin: 2px 0 0; font-size: 15px; line-height: 1.4; }
+
+/* done */
+.done-body { padding: 0 16px; text-align: center; }
+.done-body .words { margin: 0 0 6px; padding: 6px 4px 10px; }
+.done-body h1 { margin: 6px 0 0; font-size: 26px; line-height: 1.2; font-weight: 800; }
+.done-body > p { margin: 4px 0 16px; font-size: 16px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat { padding: 10px 6px 9px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.stat strong { display: block; font-size: 24px; line-height: 1.1; font-weight: 800; }
+.stat span { font-size: 13px; color: var(--muted); }
+.list { border-radius: 16px; background: var(--surface); border: 1px solid var(--border); text-align: left; overflow: hidden; }
+.list-head { padding: 10px 14px 2px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.li { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 14px; }
+.li + .li { box-shadow: 0 -1px 0 var(--border); }
+.li i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.li b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.li span { flex: none; font-size: 14px; color: var(--muted); }
+.done-actions { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px 38px; }
+
+/* ---------- style guide ---------- */
+.guide-row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.ui.flat { width: 520px; max-width: 100%; height: auto; border-radius: 18px; padding: 18px; }
+.sw-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.sw { font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+.sw i { display: block; height: 40px; margin-bottom: 5px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--border); }
+.ramp { display: flex; height: 28px; margin: 16px 0 4px; border-radius: 8px; overflow: hidden; }
+.ramp i { flex: 1; }
+</style>
+</head>
+<body data-before="on" data-motion="on">
+
+<header class="intro">
+    <h1>Каталог и Flashcards: вторая версия</h1>
+    <p class="lede">
+        По ответу на <a href="index.html">первую версию</a>: карточки остаются как сейчас, основа — тёмная тема каталога. Карточки слов здесь
+        те же, что в приложении, — неровные края из <code>app.css</code>, цвета стадий из <code>core/tokens.js</code>, точки ответов, таймеры, прыжок
+        слов, которым пора; индекс-карточка — та, что во Flashcards; цвета — <code>tokens.js</code> DARK, и ни одного нового. Меняется то, что вокруг
+        карточек: порядок, подписи, касаемые места, контраст, и Flashcards переезжают из деревянного шкафа в синеву каталога. Данные настоящие,
+        из снимка каталога, и сходятся между экранами: 17 слов, 10 готовы, цвет слова — номер его коробки.
+    </p>
+    <ul class="principles">
+        <li><b>Карточки — это и есть лицо приложения</b><span>Пастельные неровные карточки слов и бумажная индекс-карточка узнаются с первого взгляда. Дизайнер их не трогает, а строит экран вокруг них.</span> <span class="ref">с. 438, 551</span></li>
+        <li><b>Один цвет — одно значение</b><span>Цвет стадии — это коробка: слово в каталоге, коробка на полке и полоса на карточке одного цвета. Коралл — то, что ждёт тебя (кнопка, число готовых), мята — прогресс и «знаю».</span> <span class="ref">с. 520</span></li>
+        <li><b>Одна синева на всё</b><span>Flashcards берут фон, поверхности и рамки каталога. Переход из каталога в игру перестаёт быть переходом в другое приложение.</span> <span class="ref">с. 585, 1102</span></li>
+        <li><b>Текст, который читается</b><span>Не мельче 11 px даже на таймере, тёмный текст на коралле (5:1 вместо 3:1), подписи словами, ничего не обрезается, касаемое — 44 pt.</span> <span class="ref">с. 541, 924</span></li>
+    </ul>
+</header>
+
+<nav class="switches" aria-label="Переключатели">
+    <div class="switch" data-switch="before">Было:
+        <button data-v="on" aria-pressed="true">показать</button>
+        <button data-v="off" aria-pressed="false">скрыть</button>
+    </div>
+    <div class="switch" data-switch="motion">Прыжок слов:
+        <button data-v="on" aria-pressed="true">есть</button>
+        <button data-v="off" aria-pressed="false">нет</button>
+    </div>
+</nav>
+
+<main id="screens"></main>
+
+<section class="guide">
+    <h2>Токены</h2>
+    <div class="guide-row" id="guide"></div>
+</section>
+
+<script src="icons.js"></script>
+<script>
+// ---------- small drawings ----------
+const stroke = (d, size = 22, w = 2.2) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+    chevL: (s = 20) => stroke('<path d="M15 5l-7 7 7 7"/>', s, 2.6),
+    chevR: (s = 20) => stroke('<path d="M9 5l7 7-7 7"/>', s, 2.6),
+    chevD: (s = 16) => stroke('<path d="m6 9.5 6 6 6-6"/>', s, 2.6),
+    more: (s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
+    close: (s = 20) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, 2.4),
+    speaker: (s = 26) => stroke('<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>', s, 2),
+    check: (s = 18, w = 2.8) => stroke('<path d="M5 12.5l4.5 4.5L19 7.5"/>', s, w),
+    x: (s = 18, w = 2.8) => stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', s, w),
+    gear: (s = 18) => stroke(`<path d="${ICONS.gear}"/><circle cx="12" cy="12" r="3"/>`, s, 2),
+    cards: (s = 22) => stroke('<g transform="rotate(-8 12 12)"><path d="M6 9.4V6.6a2 2 0 0 1 2-2h9.4" transform="rotate(16 10.5 6.4)"/><rect x="3" y="8.8" width="17.4" height="11" rx="2.6"/></g>', s, 2.2),
+};
+// The dark header's logo, from the catalog snapshot
+const LOGO = `<svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><g transform="rotate(-7 16 16)"><rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a"/><circle cx="11.37" cy="16" r="4.405" fill="#0f2b3c" stroke="#ffffff" stroke-width="2.41"/><circle cx="23.02" cy="16" r="3.01" fill="#0f2b3c" stroke="#ffffff" stroke-width="1.5"/></g></svg>`;
+// The Flashcards tile of the one-button draft the owner kept
+const FC_TILE = `<svg width="50" height="50" viewBox="0 0 48 48" aria-hidden="true" style="display: block;"><defs><linearGradient id="fc-c" x2="0" y2="1"><stop offset="0" stop-color="#ffdca0" stop-opacity="0"/><stop offset="1" stop-color="#ffdca0" stop-opacity=".33"/></linearGradient><radialGradient id="fc-g"><stop offset="0" stop-color="#ffe2a6" stop-opacity=".6"/><stop offset="1" stop-color="#ffe2a6" stop-opacity="0"/></radialGradient></defs><rect width="48" height="48" rx="13" fill="#172c44"/><path d="M7.3 26.7H40.7L47.2 0H.8Z" fill="url(#fc-c)"/><path d="M5.8 26.7L24 21.1V32.2Z" fill="#4b3725"/><path d="M24 21.1L42.2 26.7L24 32.2Z" fill="#6b4e36"/><g stroke="#1e140c" stroke-opacity=".4" stroke-width=".5"><path d="M31.9 29.4Q31.6 31 33.2 31.5L38.5 33.1Q40 33.6 40.2 32L41.2 25.2Q41.4 23.6 39.9 23.1L34.6 21.5Q33.1 21.1 32.9 22.6Z" fill="#d8bc64"/><path d="M23.9 31.1Q24.2 32.6 25.7 33.1L32.1 35.1Q33.6 35.5 33.4 34L32.4 28.1Q32.2 26.5 30.6 26L24.3 24.1Q22.7 23.6 23 25.2Z" fill="#9a64d8"/><path d="M16.5 29.9Q16.4 31.5 17.9 32L24.3 33.9Q25.8 34.4 26 32.8L26.7 26.2Q26.9 24.6 25.4 24.1L19 22.1Q17.5 21.7 17.3 23.3Z" fill="#6492d8"/><path d="M8.7 31.6Q8.9 33.1 10.4 33.6L15.8 35.2Q17.3 35.7 17.1 34.1L16.2 28.2Q16 26.6 14.5 26.1L9.2 24.5Q7.7 24 7.9 25.6Z" fill="#64d8a9"/></g><g stroke="#6e5038" stroke-width=".7" stroke-linejoin="round"><path d="M5.8 38.1L24 43.6V32.2L5.8 26.7Z" fill="#bf9a71"/><path d="M42.2 38.1L24 43.6V32.2L42.2 26.7Z" fill="#957152"/></g><path d="M5.8 26.7L24 32.2L42.2 26.7" fill="none" stroke="#e6cba4" stroke-width=".9" stroke-linejoin="round"/><ellipse cx="23.3" cy="15.8" rx="14.4" ry="10.5" fill="url(#fc-g)"/><path d="M16.2 17.3Q16.4 19.1 18.2 19.3L29.5 20.4Q31.3 20.6 31 18.8L30.4 14.2Q30.1 12.4 28.3 12.2L17.1 11.2Q15.3 11 15.5 12.8Z" fill="#ece3cf"/><g fill="#fff1cf" opacity=".6"><circle cx="8.5" cy="12" r=".6"/><circle cx="14" cy="4" r=".45"/><circle cx="41" cy="17" r=".55"/><circle cx="33" cy="3.5" r=".45"/></g><circle cx="39" cy="8" r="2.7" fill="url(#fc-g)"/><path d="M39 6.1Q39.4 7.6 40.9 8Q39.4 8.4 39 9.9Q38.6 8.4 37.1 8Q38.6 7.6 39 6.1Z" fill="#fff8dc"/></svg>`;
+
+// The achievement marks the owner kept (set 1: filled, with a sign)
+const BLUE = '#3d8bd4', VIOLET = '#9b72d4', GOLD = '#d9a520';
+const hexPts = (r) => [0, 60, 120, 180, 240, 300].map(a => `${(12 + r * Math.cos(a * Math.PI / 180)).toFixed(2)},${(12 + r * Math.sin(a * Math.PI / 180)).toFixed(2)}`).join(' ');
+const letters = (t, size, y) => `<text x="12" y="${y}" text-anchor="middle" font-size="${size}" font-weight="800" fill="#fff" font-family="system-ui, sans-serif">${t}</text>`;
+const MEDALS = [
+    ['Honeycomb', `<polygon points="${hexPts(10.6)}" fill="${BLUE}" stroke="${BLUE}" stroke-width="2.4" stroke-linejoin="round"/>${letters('a', 13.5, 16.4)}`],
+    ['Spell', `<rect x="0.6" y="4.4" width="22.8" height="15.2" rx="4.6" fill="${VIOLET}"/>${letters('ab', 11, 15.9)}`],
+    ['Quiz', `<circle cx="12" cy="12" r="11" fill="${GOLD}"/><path d="M7.2 12.3l3.2 3.2 6.4-6.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`],
+];
+const medal = ([title, d]) => `<svg width="28" height="28" viewBox="0 0 24 24" role="img" aria-label="${title} won" style="overflow:visible">${d}</svg>`;
+
+// ---------- the stage ramp, core/tokens.js STAGES ----------
+const STAGES = [
+    ['#ebedef', '#4a4f55', '#6d737a'], ['#fbedc3', '#605024', '#857447'], ['#f8eabf', '#605124', '#857647'],
+    ['#ebf1bb', '#596024', '#7d8547'], ['#d4efb9', '#426024', '#668547'], ['#c0edb9', '#2c6024', '#508547'],
+    ['#bdefc8', '#246032', '#478556'], ['#bff0dc', '#246048', '#47856c'], ['#bcf0f0', '#246060', '#478585'],
+    ['#b8dff0', '#244e60', '#477285'], ['#b4ccf0', '#243c60', '#476085'], ['#b1b1f0', '#242460', '#474785'],
+    ['#c6adf1', '#3a2460', '#5e4785'], ['#c7a2f1', '#402460', '#644785'], ['#cb91f2', '#482460', '#6c4785'],
+];
+// A word whose last answer was wrong: the app's red taken deeper, so that it
+// reads on the pastels such a word is on (#ff1744 there is 2 to 3.3:1, this
+// one 5 to 5.7:1 on the yellows, greens and blues; a miss costs three stages,
+// so a red word is never above indigo, where it is still 3.3).
+const FAIL = '#b8102f';
+
+// Stage 1 is only ever reached by a miss, and catalog.js paints it in the
+// stone of stage 0 (DAMAGED_FILL), with the red text saying why
+const paintOf = (stage) => (stage === 1 ? 0 : stage);
+
+const hex2rgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, t) => '#' + hex2rgb(a).map((v, i) => Math.round(v + (hex2rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+
+// ---------- the data, from the catalog snapshot of 27 November ----------
+// [word, translation, stage, answers ('.' right, 'x' wrong), state, timer]
+// state: 'due' hops, 'ripe' breathes, '' waits with a timer; stage = box.
+const SET1 = [
+    ['wonder', 'чудо', 2, '.x.', 'due'], ['brave', 'смелый', 5, '....', 'due'], ['journey', 'путешествие', 8, '.......', 'due'],
+    ['forest', 'лес', 4, '...', 'due'], ['spark', 'искра', 5, '....', 'due'], ['adventure', 'приключение', 9, '........', '', '5d'],
+    ['mist', 'туман', 3, '.....x', 'ripe', '', true], ['cozy', 'уютный', 2, '..xx.', 'due'], ['apple', 'яблоко', 3, '..', 'due'],
+    ['heart', 'сердце', 3, '....x.', 'due'], ['story', 'история', 7, '.........x', '', '4h', true], ['star', 'звезда', 7, '......', 'due'],
+    ['book', 'книга', 12, '...........', '', '58d'], ['focus', 'сосредоточенность', 8, '..........x', '', '2d', true], ['sky', 'небо', 4, '...', 'due'],
+    ['dream', 'мечта', 14, '.............', '', '239d'], ['to pull oneself together', 'взять себя в руки', 14, '.............', '', '238d'],
+];
+const EARLY = [['one', '1', 2, '.', 'due']];
+const SPANISH = [['la casa', 'дом', 0, ''], ['el agua', 'вода', 0, ''], ['gracias', 'спасибо', 0, ''], ['hola', 'привет', 0, ''], ['por favor', 'пожалуйста', 0, '']];
+const INTERVALS = ['now', '5 min', '15 min', '45 min', '2 hours', '6 hours', '1 day', '3 days', '1 week', '2 weeks', '1 month', '2 months', '4 months', '8 months'];
+// Box n holds the words on stage n
+const BOXES = INTERVALS.map((_, i) => {
+    const inBox = SET1.filter(w => w[2] === i + 1);
+    return [inBox.filter(w => w[4] === 'due').length, inBox.length];
+});
+const READY = BOXES.reduce((s, [r]) => s + r, 0);   // 10
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// ---------- pieces ----------
+function statusBar() {
+    return `<div class="island"></div><div class="status"><span>9:41</span><span class="sys">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.4 0 4.6.9 6.2 2.5l1.2-1.2A10.4 10.4 0 0 0 8 .5 10.4 10.4 0 0 0 .6 3.5l1.2 1.2A8.7 8.7 0 0 1 8 2.2Zm0 3.4c1.5 0 2.8.6 3.8 1.5L13 5.9A7 7 0 0 0 8 3.9a7 7 0 0 0-5 2l1.2 1.2c1-.9 2.3-1.5 3.8-1.5Zm0 3.4c.6 0 1.1.2 1.5.6L8 11.1 6.5 9.6c.4-.4.9-.6 1.5-.6Z"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity="0.45"/></svg>
+    </span></div>`;
+}
+
+function dots(marks) {
+    if (!marks) return '';
+    const n = marks.length, w = n * 4.6 - 0.6;
+    const c = [...marks].map((m, i) => `<circle cx="${2 + i * 4.6}" cy="2" r="2" fill="${m === 'x' ? '#ff1744' : '#52525bcc'}"/>`).join('');
+    return `<svg class="dots" width="${w.toFixed(1)}" height="4" viewBox="0 0 ${w.toFixed(1)} 4" aria-hidden="true">${c}</svg>`;
+}
+
+function note([w, t, stage, marks, state, timer, failed], i = 0, override) {
+    const s = override != null ? override : stage;
+    const [fill, ink, sub] = STAGES[paintOf(s)];
+    const delay = state === 'ripe' ? -1020 : -170 * i;
+    return `<span class="note ${state || ''}" style="--bubble:${fill}; --d:${delay}ms">
+        <b style="color:${failed ? FAIL : ink}">${w}</b>${dots(marks)}<small style="color:${failed ? FAIL : sub}">${t}</small>
+        ${timer ? `<span class="timer">${timer}</span>` : ''}</span>`;
+}
+
+const LOCK = `<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3" fill="none" stroke="#9bb4c1" stroke-width="2.8" stroke-linecap="round"/><rect x="4.5" y="10.5" width="15" height="11" rx="2.5" fill="#9bb4c1"/></svg>`;
+const FIRE = `<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c1.2 3.6 6 6 6 11.5a6 6 0 0 1-12 0c0-2.6 1.4-4.3 2.6-5.4.2 1.9 1.1 3 2.3 3.5 0-3.6.3-6.6 1.1-9.6z" fill="#9bb4c1"/></svg>`;
+const HEART = `<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-4.9-8-11a4.4 4.4 0 0 1 8-2.6A4.4 4.4 0 0 1 20 10c0 6.1-8 11-8 11z" fill="#9bb4c1"/></svg>`;
+const SIGNS = { 3: LOCK, 5: LOCK, 7: LOCK, 9: LOCK, 11: FIRE, 13: HEART };
+
+// lit: up to the best word's stage, grown: up to the worst's (catalog.js)
+function ladder(words) {
+    const stages = words.map(w => w[2]);
+    const best = Math.max(...stages), worst = Math.min(...stages);
+    const anything = best > 0;
+    return `<div class="ladder" aria-hidden="true">${Array.from({ length: 13 }, (_, i) => {
+        const stage = i + 2, dot = i + 1;
+        if (!anything) return `<span><i style="background:var(--soft)"></i></span>`;
+        if (stage <= best) return `<span><i class="${stage <= worst ? 'bar' : ''}" style="background:${STAGES[stage][0]}"></i></span>`;
+        return `<span>${SIGNS[dot] || '<i class="ring"></i>'}</span>`;
+    }).join('')}</div>`;
+}
+
+function setCard(o) {
+    return `<article class="set">
+        <div class="set-head"><h3>${o.title}</h3><span class="pill">${o.pill}</span>
+            <button class="hit" aria-label="Set options">${I.more()}</button></div>
+        ${ladder(o.words)}
+        <div class="words">${o.words.map((w, i) => note(w, i)).join('')}</div>
+        <button class="one" aria-label="Flashcards and more, ${o.count}">
+            <span class="one-tile">${FC_TILE}${o.ready ? `<span class="count">${o.ready}</span>` : ''}</span>
+            <span class="one-text"><b>Flashcards</b><small>and more</small></span>
+            <span class="one-wins">${o.wins ? MEDALS.map(medal).join('') : ''}</span>
+        </button>
+    </article>`;
+}
+
+function catalog() {
+    return `<div class="content">
+        <div class="navbar">
+            <div class="brand">${LOGO}<span class="wm"><b>SPACED</b><span>REPETITION</span></span></div>
+            <div class="head-actions">
+                <button class="hit" aria-label="New set"><span class="outlined">+ New set</span></button>
+                <button class="hit" aria-label="Settings"><span class="outlined square">${I.gear(18)}</span></button>
+            </div>
+        </div>
+        ${setCard({ title: 'Слова набора', pill: '17 · 46%', words: SET1, ready: READY, count: `${READY} cards ready`, wins: true })}
+        ${setCard({ title: 'Early', pill: '1 · 14%', words: EARLY, ready: 1, count: '1 card ready' })}
+        ${setCard({ title: 'Español A1', pill: '5', words: SPANISH, ready: 0, count: '5 new words' })}
+        <div style="height:34px"></div>
+    </div>`;
+}
+
+// A box of the shelf in the catalog's navy: the front in its stage's colour,
+// the cards in it are index cards with that colour on the band.
+function boxArt(n, total) {
+    const [fill, ink] = STAGES[paintOf(n)];
+    const back = mix(fill, '#0f2b3c', 0.62);
+    let slips = '';
+    for (let k = 0; k < Math.min(total, 3); k++) {
+        const x = 13 + k * 1.6, y = 11.5 - k * 3.4, w = 38 - k * 3.2;
+        slips += `<rect x="${x}" y="${y}" width="${w}" height="20" rx="2" fill="#e6d7b8" stroke="#241a13" stroke-opacity="0.55" stroke-width="0.7"/><rect x="${x + 0.35}" y="${y + 0.35}" width="${w - 0.7}" height="3.2" rx="1.6" fill="${fill}"/>`;
+    }
+    return `<svg width="62" height="46" viewBox="0 0 64 48" aria-hidden="true">
+        <rect x="7" y="13" width="50" height="18" rx="3" fill="${back}"/>
+        ${slips}
+        <rect x="4" y="20" width="56" height="27" rx="6" fill="${fill}"/>
+        <text x="32" y="38.6" text-anchor="middle" font-size="14" font-weight="800" fill="${ink}" font-family="system-ui, sans-serif">${n}</text>
+    </svg>`;
+}
+
+function flashNav() {
+    return `<div class="navbar">
+        <button class="hit" aria-label="Back to sets"><span class="outlined square">${I.chevL(18)}</span></button>
+        <button class="title-plate">Слова набора ${I.chevD(15)}</button>
+        <button class="hit" aria-label="Settings"><span class="outlined square">${I.gear(18)}</span></button>
+    </div>`;
+}
+
+function shelf() {
+    const tiles = BOXES.map(([ready, total], i) => {
+        const n = i + 1;
+        const cnt = total === 0 ? 'Empty' : plural(total, 'card', 'cards');
+        const label = `Box ${n}, ${INTERVALS[i]}, ${cnt}${ready ? `, ${ready} ready` : ''}`;
+        return `<button class="box ${total ? '' : 'empty'}" aria-label="${label}">${boxArt(n, total)}
+            <span class="int">${INTERVALS[i][0].toUpperCase() + INTERVALS[i].slice(1)}</span><span class="cnt">${cnt}</span>
+            ${ready ? `<span class="count">${ready}</span>` : ''}</button>`;
+    }).join('');
+    return `<div class="content">
+        ${flashNav()}
+        <div class="summary">
+            <div class="big"><strong>${READY}</strong><span>cards ready</span></div>
+            <p class="muted">About 3 minutes. 7 more come back later.</p>
+            <button class="btn primary">${I.cards(22)}Start review</button>
+        </div>
+        <div class="section"><b>Boxes</b></div>
+        <p class="explain muted">Know a card and it moves one box right, to wait longer. Miss it and it drops three boxes back.</p>
+        <div class="boxes">${tiles}</div>
+    </div>`;
+}
+
+function sessionBar(done, all) {
+    return `<div class="session-bar">
+        <button class="hit" aria-label="End review"><span class="outlined square">${I.close(18)}</span></button>
+        <div class="pbar"><i style="width:${(done / all * 100).toFixed(1)}%"></i></div>
+        <span class="pcount">${done + 1} / ${all}</span>
+    </div>`;
+}
+
+const band = (label, ink, back = true) => `<div class="band"><span style="color:${ink}">${label}</span>
+    <span class="nav"><button class="hit" aria-label="Previous card" ${back ? '' : 'disabled style="opacity:.3"'}>${I.chevL(16)}</button><button class="hit" aria-label="Next card" disabled style="opacity:.3">${I.chevR(16)}</button></span></div>`;
+
+function cardFront() {
+    const [fill, ink] = STAGES[2];
+    return `<div class="content"><div class="session">
+        ${sessionBar(2, READY)}
+        <div class="table">
+            <div class="icard" style="--band:${fill}">${band('Box 2', ink)}
+                <div class="face"><div class="say-row"><button class="hit" aria-label="Say it">${I.speaker()}</button><span class="word-big">чудо</span></div></div>
+            </div>
+            <p class="under muted">Say it to yourself, then turn the card over</p>
+        </div>
+        <div class="actions">
+            <button class="btn plate">Show answer</button>
+            <p class="hint">or tap the card · <kbd>Space</kbd></p>
+        </div>
+    </div></div>`;
+}
+
+function cardBack() {
+    return `<div class="content"><div class="session">
+        ${sessionBar(2, READY)}
+        <div class="table">
+            <div class="icard">${band('Box 2', '#4a3628')}
+                <div class="face"><span class="word-small">чудо</span><span class="rule"></span>
+                    <div class="say-row"><button class="hit" aria-label="Say it">${I.speaker()}</button><span class="word-big">wonder</span></div></div>
+            </div>
+            <p class="under muted">Did you remember it?</p>
+        </div>
+        <div class="actions">
+            <div class="grade">
+                <button class="dunno"><span>${I.x(18)}Don’t know</span><small>To box 1 · now</small></button>
+                <button class="know"><span>${I.check(18)}Know</span><small>To box 3 · in 15 min</small></button>
+            </div>
+            <p class="hint"><kbd>←</kbd> and <kbd>→</kbd> work too</p>
+        </div>
+    </div></div>`;
+}
+
+function quizWrong() {
+    const [fill, ink] = STAGES[7];
+    return `<div class="content"><div class="session">
+        ${sessionBar(5, READY)}
+        <div class="table" style="flex:none; padding-top:8px">
+            <div class="icard compact" style="--band:${fill}">${band('Box 7', ink)}
+                <div class="face"><div class="say-row"><button class="hit" aria-label="Say it">${I.speaker(24)}</button><span class="word-big" style="font-size:38px">star</span></div></div>
+            </div>
+            <p class="prompt muted">Pick the translation</p>
+        </div>
+        <div class="options" style="margin-top:14px">
+            <button class="opt wrong">сердце <span class="mark">${I.x(16, 3)}</span></button>
+            <button class="opt right">звезда <span class="mark">${I.check(16, 3)}</span></button>
+            <button class="opt dim">туман</button>
+            <button class="opt dim">небо</button>
+        </div>
+        <div class="sheet">
+            <div class="sheet-row"><span class="disc">${I.x(16, 3)}</span>
+                <div><b>Not quite</b><p class="muted">“star” is “звезда”. The card drops to box&nbsp;4 and comes back in 45&nbsp;min.</p></div></div>
+            <button class="btn primary">Continue</button>
+        </div>
+    </div></div>`;
+}
+
+function sessionDone() {
+    // The ten cards of the session, each in the colour of the box it went to
+    const went = [['wonder', 3], ['brave', 6], ['journey', 9], ['forest', 5], ['spark', 6], ['cozy', 3], ['apple', 4], ['heart', 1], ['star', 4], ['sky', 5]];
+    const byWord = Object.fromEntries(SET1.map(w => [w[0], w]));
+    const missed = new Set(['heart', 'star']);
+    const notes = went.map(([w, to], i) => {
+        const src = byWord[w];
+        return note([src[0], src[1], to, src[3] + (missed.has(w) ? 'x' : '.'), '', '', missed.has(w)], i, to);
+    }).join('');
+    const rows = [[1, 'heart', 'now'], [3, 'wonder, cozy', 'in 15 min'], [4, 'apple, star', 'in 45 min'], [5, 'forest, sky', 'in 2 hours'], [6, 'brave, spark', 'in 6 hours'], [9, 'journey', 'in 1 week']];
+    return `<div class="content"><div class="session">
+        <div class="navbar" style="justify-content:flex-start; padding-left:10px">
+            <button class="hit" aria-label="Close"><span class="outlined square">${I.close(18)}</span></button></div>
+        <div class="done-body">
+            <div class="words">${notes}</div>
+            <h1>Nice work!</h1>
+            <p class="muted">${READY} cards in 3 minutes</p>
+            <div class="stats">
+                <div class="stat"><strong style="color:var(--mint)">8</strong><span>Knew</span></div>
+                <div class="stat"><strong style="color:var(--accent)">2</strong><span>Missed</span></div>
+                <div class="stat"><strong>47%</strong><span>Learned, +1</span></div>
+            </div>
+            <div class="list">
+                <div class="list-head">Coming back</div>
+                ${rows.map(([n, w, when]) => `<div class="li"><i style="background:${STAGES[paintOf(n)][0]}"></i><b>${w}</b><span>${when}</span></div>`).join('')}
+            </div>
+        </div>
+        <div class="done-actions">
+            <button class="btn plate">Go over 2 missed</button>
+            <button class="btn primary">Done</button>
+        </div>
+    </div></div>`;
+}
+
+const SCREENS = [
+    {
+        title: '1. Каталог',
+        sub: 'Карточки слов и рамка набора — как сейчас. Пять плиток игр с обрезанными подписями заменила кнопка «Flashcards and more», которую ты выбрал, с числом готовых карточек.',
+        before: 'before/catalog-dark.jpg',
+        render: catalog,
+        notes: [
+            '<b>Карточки слов не тронуты:</b> неровные края (семь форм по кругу), пастель стадии, точки ответов, таймеры, прыжок тех, кому пора. Это лицо приложения, и оно уже хорошее. <span class="ref">с. 438, 551</span>',
+            '<b>Пять плиток → одна кнопка «Flashcards and more»</b> из твоего черновика, с медалями. Подписи сейчас режутся («earch», «Wor»), а пять одинаково ярких плиток не говорят, с чего начать. <span class="ref">с. 398, 924</span>',
+            '<b>Коралловое число на плитке — сколько карточек готово:</b> 10 и 1. Ответ на вопрос, ради которого открывают каталог, виден, не вчитываясь в слова. У Español числа нет: там новые слова, а не повторение. <span class="ref">с. 505, informational</span>',
+            '<b>Тёмный текст на коралле:</b> белый на #ef6f5a — 3:1, тёмно-синий — 5:1. Сам коралл тот же, что в приложении, обе темы. <span class="ref">с. 520</span>',
+            '<b>Карандаш и глаз → «•••»,</b> кнопки шапки — те же, но касаемая область 44 pt. Название набора 18 px вместо 15, цифры в плашке 12 px вместо 10,8. <span class="ref">с. 831, 924</span>',
+            '<b>Таймеры — 11 px вместо 9,2,</b> красный строки с ошибкой глубже: #ff1744 на пастелях даёт 2–3,3:1, #b8102f — около 5:1. Лестница прогресса над словами — та же, с замками, огнём и сердцем.',
+        ],
+    },
+    {
+        title: '2. Flashcards: коробки',
+        sub: 'Шкаф уходит, коробки остаются. Фон, поверхности и рамки — каталога; передняя стенка коробки — цвет её стадии, тот же, что у слов в каталоге.',
+        before: 'before/shelf.jpg',
+        render: shelf,
+        notes: [
+            '<b>Одна синева с каталогом.</b> Сейчас Flashcards — другое приложение: голубой фон, дерево, гирлянда, лампа. Здесь переход из каталога — просто следующий экран. <span class="ref">с. 585, 1102</span>',
+            '<b>Цвет коробки = цвет слова.</b> «wonder» и «cozy» в каталоге жёлтые — и коробка 2 жёлтая; «dream» фиолетовая — и коробка 14. Карточки в коробке — те же индекс-карточки с полосой этого цвета. <span class="ref">с. 520</span>',
+            '<b>Наверху — «10 cards ready» и «Start review».</b> Готовые коробки отмечены тем же коралловым числом, что плитка в каталоге: одно значение — один знак везде. <span class="ref">с. 505</span>',
+            '<b>Подписи словами:</b> «5 min», «1 week», «2 cards», «Empty» вместо «5m», «7d», «2/2», «0/0». <span class="ref">с. 541</span>',
+            '<b>Одна строка объясняет правило,</b> и оно настоящее, из <code>srs.js</code>: знаешь — на коробку вправо, ошибся — на три назад (не ниже первой).',
+        ],
+    },
+    {
+        title: '3. Карточка: вопрос',
+        sub: 'Индекс-карточка как сейчас — кремовая бумага, полоса цвета коробки, красная линия, голубые строки, чуть наискосок, ‹ › в полосе. Только крупнее и на чистом столе.',
+        before: 'before/card.jpg',
+        render: cardFront,
+        notes: [
+            '<b>Форма карточки — та же,</b> в пропорции 268 × 158, с наклоном −1,2° «положили рукой». Ширина — почти весь экран: слово 42 px вместо 26.',
+            '<b>Ничего за карточкой.</b> Сейчас она лежит поверх полки, а соты закрывают коробки. Глубина — тёплое свечение и одна тень, как у неё уже есть. <span class="ref">с. 585</span>',
+            '<b>Прогресс «3 / 10» мятой</b> — мята в приложении и есть прогресс. Крестик — выход в любой момент. <span class="ref">с. 505</span>',
+            '<b>Сначала вспомнить, потом оценить:</b> под карточкой одна кнопка «Show answer», пробел и касание карточки делают то же.',
+        ],
+    },
+    {
+        title: '4. Карточка: ответ',
+        sub: 'Оборот с крафтовой полосой, как сейчас. Кнопки оценки — коралл и мята приложения, с подписью и тем, куда уйдёт карточка.',
+        before: null,
+        render: cardBack,
+        notes: [
+            '<b>Текст и знак, а не только цвет:</b> «✕ Don’t know», «✓ Know». <span class="ref">с. 520</span>',
+            '<b>Последствие видно до нажатия:</b> «To box 1 · now», «To box 3 · in 15 min». Числа настоящие: «wonder» в коробке 2, ошибка отнимает три коробки. <span class="ref">с. 505</span>',
+            '<b>Обе кнопки одного веса</b> и с тем же объёмным краем, что у кнопок приложения.',
+            '<b>Свайп влево и вправо</b> — ускоритель поверх кнопок и стрелок; на телефоне — короткая вибрация на ответ. <span class="ref">с. 563, 802</span>',
+        ],
+    },
+    {
+        title: '5. Quiz: ошибка',
+        sub: 'Та же карточка сверху, варианты — плашки каталога. Ответ остаётся на месте до «Continue», как в 06d4986.',
+        before: null,
+        render: quizWrong,
+        notes: [
+            '<b>Три состояния:</b> выбранный неверный — коралловая рамка и ✕, верный — мятная и ✓, остальные гаснут.',
+            '<b>Объяснение в листе снизу:</b> «Not quite — “star” is “звезда”», и что будет с карточкой: коробка 7 → 4, вернётся через 45 минут. <span class="ref">с. 492, 505</span>',
+            '<b>Заголовок листа — белым, знак — кораллом:</b> коралловый текст на синей плашке — 3,7:1, мало для 17 px.',
+        ],
+    },
+    {
+        title: '6. Конец сессии',
+        sub: 'Нового экрана в приложении нет. Наверху — те же карточки слов, уже в цвете коробок, куда они ушли.',
+        before: null,
+        render: sessionDone,
+        notes: [
+            '<b>Итог показан карточками слов:</b> восемь посветлели на шаг по шкале, «heart» и «star» с красной строкой — ошиблись. Не нужен отдельный значок успеха: успех видно по цветам. <span class="ref">с. 505, confirmational</span>',
+            '<b>«Coming back» — когда вернутся,</b> с квадратиком цвета коробки и временем словами. <span class="ref">с. 541</span>',
+            '<b>47%, +1 — честное число:</b> восемь шагов вверх и пять вниз (3 → 1 и 7 → 4) по формуле <code>calculateSetProgress</code>.',
+        ],
+    },
+];
+
+function phone(html) {
+    return `<div class="phone"><div class="device"><div class="ui">${statusBar()}${html}<div class="home"></div></div></div></div>`;
+}
+
+function before(src) {
+    if (!src) return `<figure class="before"><div class="none">В приложении этого состояния нет или оно не снято</div></figure>`;
+    return `<figure class="before"><img src="${src}" alt="Было"><figcaption>Было, снимок приложения</figcaption></figure>`;
+}
+
+document.getElementById('screens').innerHTML = SCREENS.map(s => `<section class="screen">
+    <h2>${s.title}</h2><p class="sub">${s.sub}</p>
+    <div class="row">${before(s.before)}${phone(s.render())}
+        <ul class="notes">${s.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
+</section>`).join('');
+
+// ---------- tokens ----------
+const TOKENS = [['--ground', 'ground'], ['--surface', 'surface'], ['--soft', 'soft'], ['--border', 'border'], ['--plate', 'plate'],
+    ['--ink', 'ink'], ['--muted', 'muted'], ['--accent', 'accent'], ['--mint', 'mint'], ['--paper', 'paper']];
+document.getElementById('guide').innerHTML = `<div class="ui flat">
+    <div class="sw-grid">${TOKENS.map(([v, n]) => `<div class="sw"><i style="background:var(${v})"></i>${n}</div>`).join('')}</div>
+    <div class="ramp">${STAGES.map(([c]) => `<i style="background:${c}"></i>`).join('')}</div>
+    <div class="muted" style="font-size:12px; margin-bottom:14px">Стадии 0–14 = коробки: слово, коробка и полоса карточки одного цвета</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <button class="btn primary">${I.cards(22)}Start review</button>
+        <button class="btn plate">Show answer</button>
+    </div>
+</div>`;
+
+// ?zoom=1 shows the phones at their own size (0.86 by default, to fit three
+// columns on a laptop screen)
+const zoom = new URLSearchParams(location.search).get('zoom');
+if (zoom) document.documentElement.style.setProperty('--phone-zoom', zoom);
+
+// ---------- switches ----------
+document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    document.body.dataset[sw.dataset.switch] = b.dataset.v;
+}));
+</script>
+</body>
+</html>

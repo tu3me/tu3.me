@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+<meta charset="UTF-8">
+<!-- A screen of the draft and no more, so that on a phone it takes the whole width -->
+<meta name="viewport" content="width=380">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Каталог v5: бумага на одном CSS</title>
+<!--
+    A draft, not the app: the catalog's set card in the style of Flashcards --
+    the cabinet with no shelves in it (v1 has them, v4 has the games inside with
+    the cards), and the words as paper cards drawn round in dark brown (the
+    owner's picture, 25 November 2026). The name and the ladder are on one board
+    and the games on another, both higher than the walls of the box of cards
+    between them and as wide: a drawer, the games' board its front, that the chevron
+    slides in under the name's board and out again.
+    Only the style: where the
+    word, its marks and its translation stand on a card, the sizes of the type
+    and the paddings are the catalog's own (createBubble in app/catalog.js).
+
+    Opened as a file, it needs nothing but itself. The words, their stages and
+    their marks are made up.
+-->
+<style>
+    * { box-sizing: border-box; scrollbar-width: none; }
+    html, body { margin: 0; }
+    body { background: #1b1f24; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+    /* The draft's own controls, outside the app */
+    .tools { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; padding: 10px 14px; background: #1b1f24; color: #b9c1c9; font-size: 13px; }
+    .tools span { display: inline-flex; align-items: center; gap: 4px; }
+    .tools button { padding: 3px 9px; border: 1px solid #3a424b; border-radius: 7px; background: transparent; color: #b9c1c9; font: inherit; cursor: pointer; }
+    .tools button[aria-pressed="true"] { background: #39434e; color: #fff; border-color: #55616d; }
+
+    .screens { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 20px; padding: 6px 0 40px; }
+    .screen { width: 380px; min-height: 600px; border-radius: 10px; overflow: hidden; }
+    @media (max-width: 480px) {
+        .screens { padding-top: 0; }
+        .screen { border-radius: 0; }
+    }
+    .popup .screen { height: 600px; border-radius: 0; overflow-y: auto; }
+
+    /* The app's own page: 350 wide, shown at the default 380 -- see app.css */
+    .app { width: 350px; zoom: calc(380 / 350); padding: 6.8px; font-size: 14.3px; user-select: none; }
+    .app button { font-family: inherit; }
+
+    .words { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 6.5px 5.5px; padding: 27px 10.5px 17px; }
+
+    .card { position: relative; isolation: isolate; display: inline-flex; flex: 0 1 auto; flex-direction: column; align-items: center; justify-content: center; min-width: 41px; max-width: 100%; padding: 5.1px 8.5px; text-align: center; border-radius: 6px; cursor: pointer; }
+    .card { transform-origin: 50% 100%; }
+    .card .paper { position: absolute; inset: -0.6px; z-index: -1; border: 1px solid transparent; pointer-events: none; }
+
+    /* The paper in CSS alone: two shapes, the outline and the face in it */
+    .card { --line: color-mix(in srgb, var(--tone) 14%, #4a3323); }
+    .card::before, .card::after { content: ''; position: absolute; border-radius: 6px; pointer-events: none; }
+    .card::before { inset: -0.6px; z-index: -2; background: var(--line); clip-path: var(--outer); }
+    .card::after { inset: 0.6px; z-index: -1; background: var(--wear), var(--tone); clip-path: var(--inner); box-shadow: inset 0 0 4px rgba(74, 44, 18, 0.16); }
+    .card:nth-child(5n+1) { --outer: shape(from 4.7px 0.45px, curve to 41% 0.43px with 22% 0.71px, curve to calc(100% - 6.3px) 0.08px with 66% 0.8px, curve to calc(100% - 0.35px) 6.3px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.55px) 42% with calc(100% - 0.63px) 28%, curve to calc(100% - 0.65px) calc(100% - 6.1px) with calc(100% - 0.21px) 71%, curve to calc(100% - 6.1px) calc(100% - 0.81px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 50% calc(100% - 0.02px) with 84% calc(100% - 0.01px), curve to 5.0px calc(100% - 0.79px) with 32% calc(100% - 0.19px), curve to 0.38px calc(100% - 5.0px) with 0.4px calc(100% - 0.4px), curve to 0.03px 49% with 0.69px 77%, curve to 0.5px 4.7px with 0.31px 29%, curve to 4.7px 0.2px with 0.4px 0.4px); --inner: shape(from 6.5px 0.75px, curve to 45% 0.73px with 20% 0.23px, curve to calc(100% - 6.5px) 0.19px with 66% 0.52px, curve to calc(100% - 0.14px) 6.5px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.39px) 54% with calc(100% - 0.72px) 32%, curve to calc(100% - 0.85px) calc(100% - 4.5px) with calc(100% - 0.49px) 77%, curve to calc(100% - 4.5px) calc(100% - 0.45px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 50% calc(100% - 0.78px) with 81% calc(100% - 0.42px), curve to 4.6px calc(100% - 0.29px) with 28% calc(100% - 0.38px), curve to 0.8px calc(100% - 4.6px) with 0.4px calc(100% - 0.4px), curve to 0.15px 47% with 0.21px 70%, curve to 0.16px 6.5px with 0.16px 28%, curve to 6.5px 0.46px with 0.4px 0.4px); --wear: radial-gradient(circle at 3.2px 7.2px, var(--line) 0.5px, transparent 0.85px), radial-gradient(circle at 4px 4.2px, var(--line) 0.65px, transparent 1.0px), radial-gradient(circle at 7px 3.2px, var(--line) 0.45px, transparent 0.8px), repeating-linear-gradient(135deg, var(--line) 0 0.5px, transparent 0.5px 1.8px) right 2.4px bottom 2.4px / 6px 5px no-repeat; }
+    .card:nth-child(5n+2) { --outer: shape(from 4.9px 0.56px, curve to 35% 0.55px with 23% 0.23px, curve to calc(100% - 5.6px) 0.21px with 77% 0.42px, curve to calc(100% - 0.75px) 5.6px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.43px) 46% with calc(100% - 0.21px) 26%, curve to calc(100% - 0.78px) calc(100% - 5.2px) with calc(100% - 0.47px) 70%, curve to calc(100% - 5.2px) calc(100% - 0.6px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 51% calc(100% - 0.14px) with 76% calc(100% - 0.27px), curve to 5.7px calc(100% - 0.03px) with 26% calc(100% - 0.43px), curve to 0.65px calc(100% - 5.7px) with 0.4px calc(100% - 0.4px), curve to 0.79px 55% with 0.36px 77%, curve to 0.87px 4.9px with 0.12px 26%, curve to 4.9px 0.09px with 0.4px 0.4px); --inner: shape(from 4.9px 0.06px, curve to 40% 0.49px with 20% 0.72px, curve to calc(100% - 4.6px) 0.69px with 69% 0.47px, curve to calc(100% - 0.32px) 4.6px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.7px) 45% with calc(100% - 0.24px) 24%, curve to calc(100% - 0.75px) calc(100% - 5.3px) with calc(100% - 0.73px) 74%, curve to calc(100% - 5.3px) calc(100% - 0.17px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 54% calc(100% - 0.26px) with 81% calc(100% - 0.08px), curve to 4.7px calc(100% - 0.55px) with 32% calc(100% - 0.35px), curve to 0.22px calc(100% - 4.7px) with 0.4px calc(100% - 0.4px), curve to 0.22px 50% with 0.08px 78%, curve to 0.76px 4.9px with 0.01px 26%, curve to 4.9px 0.52px with 0.4px 0.4px); --wear: radial-gradient(circle at calc(100% - 3.4px) calc(100% - 6.6px), var(--line) 0.5px, transparent 0.85px), radial-gradient(circle at calc(100% - 4.2px) calc(100% - 3.8px), var(--line) 0.65px, transparent 1.0px), radial-gradient(circle at calc(100% - 7.4px) calc(100% - 3.2px), var(--line) 0.42px, transparent 0.77px); }
+    .card:nth-child(5n+3) { --outer: shape(from 5.8px 0.67px, curve to 42% 0.03px with 23% 0.7px, curve to calc(100% - 6.0px) 0.22px with 66% 0.81px, curve to calc(100% - 0.1px) 6.0px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.42px) 49% with calc(100% - 0.34px) 25%, curve to calc(100% - 0.52px) calc(100% - 6.1px) with calc(100% - 0.01px) 73%, curve to calc(100% - 6.1px) calc(100% - 0.37px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 52% calc(100% - 0.82px) with 82% calc(100% - 0.14px), curve to 6.5px calc(100% - 0.72px) with 24% calc(100% - 0.56px), curve to 0.4px calc(100% - 6.5px) with 0.4px calc(100% - 0.4px), curve to 0.12px 42% with 0.19px 73%, curve to 0.86px 5.8px with 0.15px 25%, curve to 5.8px 0.26px with 0.4px 0.4px); --inner: shape(from 6.1px 0.0px, curve to 44% 0.53px with 21% 0.29px, curve to calc(100% - 6.2px) 0.02px with 73% 0.72px, curve to calc(100% - 0.66px) 6.2px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.37px) 45% with calc(100% - 0.17px) 32%, curve to calc(100% - 0.63px) calc(100% - 5.5px) with calc(100% - 0.66px) 71%, curve to calc(100% - 5.5px) calc(100% - 0.76px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 55% calc(100% - 0.89px) with 81% calc(100% - 0.72px), curve to 5.0px calc(100% - 0.72px) with 29% calc(100% - 0.63px), curve to 0.68px calc(100% - 5.0px) with 0.4px calc(100% - 0.4px), curve to 0.63px 51% with 0.09px 70%, curve to 0.53px 6.1px with 0.18px 29%, curve to 6.1px 0.82px with 0.4px 0.4px); --wear: repeating-linear-gradient(135deg, var(--line) 0 0.5px, transparent 0.5px 1.8px) left 2.4px top 2.4px / 6px 5px no-repeat, radial-gradient(circle at calc(100% - 3.4px) calc(100% - 6.6px), var(--line) 0.5px, transparent 0.85px), radial-gradient(circle at calc(100% - 4.2px) calc(100% - 3.8px), var(--line) 0.65px, transparent 1.0px), radial-gradient(circle at calc(100% - 7.4px) calc(100% - 3.2px), var(--line) 0.42px, transparent 0.77px); }
+    .card:nth-child(5n+4) { --outer: shape(from 5.1px 0.48px, curve to 39% 0.52px with 24% 0.19px, curve to calc(100% - 4.7px) 0.08px with 72% 0.06px, curve to calc(100% - 0.08px) 4.7px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.38px) 45% with calc(100% - 0.85px) 24%, curve to calc(100% - 0.52px) calc(100% - 5.8px) with calc(100% - 0.36px) 73%, curve to calc(100% - 5.8px) calc(100% - 0.04px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 52% calc(100% - 0.26px) with 78% calc(100% - 0.49px), curve to 4.6px calc(100% - 0.51px) with 30% calc(100% - 0.73px), curve to 0.16px calc(100% - 4.6px) with 0.4px calc(100% - 0.4px), curve to 0.52px 48% with 0.34px 78%, curve to 0.64px 5.1px with 0.51px 28%, curve to 5.1px 0.19px with 0.4px 0.4px); --inner: shape(from 4.9px 0.08px, curve to 37% 0.73px with 24% 0.19px, curve to calc(100% - 6.5px) 0.58px with 73% 0.44px, curve to calc(100% - 0.35px) 6.5px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.52px) 54% with calc(100% - 0.08px) 27%, curve to calc(100% - 0.68px) calc(100% - 4.7px) with calc(100% - 0.63px) 78%, curve to calc(100% - 4.7px) calc(100% - 0.37px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 56% calc(100% - 0.65px) with 80% calc(100% - 0.09px), curve to 6.0px calc(100% - 0.73px) with 28% calc(100% - 0.56px), curve to 0.34px calc(100% - 6.0px) with 0.4px calc(100% - 0.4px), curve to 0.59px 52% with 0.21px 71%, curve to 0.45px 4.9px with 0.58px 25%, curve to 4.9px 0.52px with 0.4px 0.4px); --wear: linear-gradient(transparent, transparent); }
+    .card:nth-child(5n+5) { --outer: shape(from 5.4px 0.01px, curve to 42% 0.42px with 17% 0.3px, curve to calc(100% - 5.2px) 0.84px with 77% 0.04px, curve to calc(100% - 0.34px) 5.2px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.63px) 56% with calc(100% - 0.86px) 30%, curve to calc(100% - 0.14px) calc(100% - 4.7px) with calc(100% - 0.21px) 71%, curve to calc(100% - 4.7px) calc(100% - 0.12px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 59% calc(100% - 0.06px) with 82% calc(100% - 0.71px), curve to 6.3px calc(100% - 0.8px) with 26% calc(100% - 0.18px), curve to 0.2px calc(100% - 6.3px) with 0.4px calc(100% - 0.4px), curve to 0.71px 44% with 0.7px 73%, curve to 0.36px 5.4px with 0.31px 24%, curve to 5.4px 0.18px with 0.4px 0.4px); --inner: shape(from 5.7px 0.73px, curve to 38% 0.59px with 18% 0.03px, curve to calc(100% - 5.3px) 0.44px with 67% 0.22px, curve to calc(100% - 0.86px) 5.3px with calc(100% - 0.4px) 0.4px, curve to calc(100% - 0.9px) 43% with calc(100% - 0.38px) 26%, curve to calc(100% - 0.54px) calc(100% - 5.7px) with calc(100% - 0.34px) 74%, curve to calc(100% - 5.7px) calc(100% - 0.74px) with calc(100% - 0.4px) calc(100% - 0.4px), curve to 54% calc(100% - 0.41px) with 80% calc(100% - 0.6px), curve to 4.9px calc(100% - 0.12px) with 34% calc(100% - 0.77px), curve to 0.22px calc(100% - 4.9px) with 0.4px calc(100% - 0.4px), curve to 0.4px 54% with 0.04px 70%, curve to 0.21px 5.7px with 0.18px 26%, curve to 5.7px 0.48px with 0.4px 0.4px); --wear: radial-gradient(circle at 3.2px 7.2px, var(--line) 0.5px, transparent 0.85px), radial-gradient(circle at 4px 4.2px, var(--line) 0.65px, transparent 1.0px), radial-gradient(circle at 7px 3.2px, var(--line) 0.45px, transparent 0.8px), radial-gradient(circle at calc(100% - 3.4px) calc(100% - 6.6px), var(--line) 0.5px, transparent 0.85px), radial-gradient(circle at calc(100% - 4.2px) calc(100% - 3.8px), var(--line) 0.65px, transparent 1.0px), radial-gradient(circle at calc(100% - 7.4px) calc(100% - 3.2px), var(--line) 0.42px, transparent 0.77px); }
+    .card .word, .card .trans { max-width: 100%; word-break: break-word; overflow-wrap: anywhere; text-align: center; font-size: 13.3px; }
+    .card .word { font-weight: 700; line-height: 1.15; }
+    .card .trans { font-weight: 600; line-height: 1.1; }
+    .card .dots { display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 2.6px; font-size: 6px; line-height: 1; }
+
+    .hand .card .word, .hand .card .trans, .hand .title-face, .hand .tile-name { font-family: "Playpen Sans", "Segoe Print", "Comic Sans MS", cursive; }
+    .hand .tile-name { font-size: 10px !important; }
+    .hand .card .word { font-weight: 500; }
+    .hand .card .trans { font-weight: 400; }
+
+    /* The cards scroll inside the box; its walls and the shadows in it stay */
+    .scroll { overflow-x: hidden; overflow-y: auto; }
+    .scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+    /* As in app.css, but for the pivot, which is on the card: in the keyframes it
+       is one more thing animated */
+    @keyframes bounce {
+        0%, 100% { scale: 1; transform: skew(0deg, 0deg); }
+        25% { scale: 1.0022 1.0333; transform: skew(1.111deg, 0deg); }
+        50% { scale: 1; transform: skew(0deg, 0deg); rotate: -0.222deg; }
+        75% { scale: 1.0022 1.0556; transform: skew(-0.222deg, 0deg); }
+    }
+    @media (prefers-reduced-motion: reduce) { .card { animation: none !important; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playpen+Sans:wght@400;500;600;700&display=swap">
+</head>
+
+<body>
+<div class="tools">
+    <span>Тема:
+        <button data-set="theme" data-value="both">обе</button>
+        <button data-set="theme" data-value="dark">тёмная</button>
+        <button data-set="theme" data-value="light">светлая</button>
+    </span>
+    <span>Наборов:
+        <button data-set="sets" data-value="one">один</button>
+        <button data-set="sets" data-value="all">три</button>
+    </span>
+    <span>Потёртости:
+        <button data-set="scuffs" data-value="on">есть</button>
+        <button data-set="scuffs" data-value="off">нет</button>
+    </span>
+    <span>Шрифт:
+        <button data-set="font" data-value="app">как в игре</button>
+        <button data-set="font" data-value="hand">рукописный</button>
+    </span>
+</div>
+<main class="screens"></main>
+
+<script>
+(function () {
+    const options = { theme: 'both', sets: 'all', scuffs: 'on', font: 'hand' };
+
+    /* ---- colours ---- */
+
+    // The cabinet's are the game's own (flashcards.setTheme)
+    const DAY = {
+        ground: '#e8dfd0', ink: '#153040', muted: '#655b4f', chrome: '#b9a782',
+        line: '#54402f',
+        frame: '#9a7a60', frameLow: '#876850', rim: '#735540', rimLit: '#836450',
+        boardShadow: '1.5px 3px 0 rgba(45, 28, 14, 0.34), 0 7px 10px rgba(45, 28, 14, 0.24)', frontShade: 'rgba(38, 20, 8, 0.6)',
+        wall: '#6f5e4f', rowShade: 'rgba(40, 22, 10, 0.6)', sideShade: 'rgba(40, 22, 10, 0.45)',
+        sideLit: '#6b5546', sideNear: '#614c3e', sideFar: '#4e3d32', sideEdge: 'rgba(30, 18, 10, 0.45)',
+        // What falls into the box and over the cards in it, the light coming
+        // from the upper left as everywhere in the game: the edge of the
+        // shadow of the board above and of the left wall's, a softer shade
+        // past it, and a little from the two far sides. One layer of inset
+        // shadows, so that the two edges meet without doubling
+        wallDepth: 'inset 18px 24px 4px rgba(38, 20, 8, 0.36), inset 34px 46px 34px -22px rgba(38, 20, 8, 0.4), inset -9px -6px 9px rgba(38, 20, 8, 0.3)',
+        cast: 'rgba(30, 18, 10, 0.45)',
+        brass: '#caa57f', brassLight: '#dcbc96', labelPaper: '#f9f0dd', labelInk: '#4a3628',
+        tag: ['#f8edd4', '#ead9b6'], tagInk: '#5a4331', kraftMid: '#c4a179',
+        onWood: '#f6e6cb', groove: 'rgba(40, 22, 10, 0.42)', hole: 'rgba(30, 16, 6, 0.4)',
+        pill: '#f9f0dd', pillInk: '#4a3628',
+        cardInk: '#3a2416', cardSub: '#4d3524', fail: '#a31814', mark: '#4b3626', cardLine: '#4a3323',
+        cream: '#f8efdf', dim: 0
+    };
+
+    const NIGHT = {
+        ...DAY,
+        ground: '#0f2b3c', ink: '#eef6f7', muted: '#9bb4c1', chrome: '#2a5568',
+        line: '#241a13',
+        frame: '#443730', frameLow: '#372b25', rim: '#251c17', rimLit: '#2f241e',
+        boardShadow: '1.5px 3px 0 rgba(0, 0, 0, 0.42), 0 7px 11px rgba(0, 0, 0, 0.4)', frontShade: 'rgba(0, 0, 0, 0.75)',
+        wall: '#30261f', rowShade: 'rgba(0, 0, 0, 0.72)', sideShade: 'rgba(0, 0, 0, 0.6)',
+        sideLit: '#30271f', sideNear: '#2a221c', sideFar: '#1f1915', sideEdge: 'rgba(0, 0, 0, 0.5)',
+        wallDepth: 'inset 18px 24px 4px rgba(0, 0, 0, 0.46), inset 34px 46px 34px -22px rgba(0, 0, 0, 0.5), inset -9px -6px 9px rgba(0, 0, 0, 0.4)',
+        cast: 'rgba(0, 0, 0, 0.5)',
+        brass: '#6e5841', brassLight: '#806849', labelPaper: '#4a3b2f', labelInk: '#eadcc0',
+        tag: ['#a99879', '#968566'], tagInk: '#251a11', kraftMid: '#705b47',
+        onWood: '#d9c8a8', groove: 'rgba(0, 0, 0, 0.45)', hole: 'rgba(0, 0, 0, 0.5)',
+        pill: '#d6c7a6', pillInk: '#2a1f16',
+        cardInk: '#2c1b10', cardSub: '#452f1f', fail: '#9a1411', mark: '#3f2c1e', cardLine: '#46311f',
+        cream: '#ecdfc6', dim: 0.1
+    };
+
+    /*
+     * The stages' arc, the same hues in the same order, in the picture's
+     * paints: mustard, sage, a greyed sea and a greyed lilac in place of the
+     * pastels. A seed, and a word thrown back to the floor, is plain cream
+     * card -- the stone of the ramp in warm paper.
+     */
+    const ARC = [
+        null, null,
+        [42, 78, 69], [51, 56, 66], [66, 38, 65], [88, 27, 63], [116, 19, 66], [150, 19, 68],
+        [172, 20, 65], [195, 26, 68], [212, 28, 71], [236, 25, 72], [262, 22, 70], [285, 23, 67], [306, 24, 62]
+    ];
+
+    function hsl(h, s, l) {
+        s /= 100; l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        const rgb = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+        return '#' + rgb.map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('');
+    }
+
+    function mix(a, b, share) {
+        const x = parseInt(a.slice(1), 16);
+        const y = parseInt(b.slice(1), 16);
+        const ch = (v, s) => (v >> s) & 255;
+        return '#' + [16, 8, 0].map(s => Math.round(ch(x, s) + (ch(y, s) - ch(x, s)) * share).toString(16).padStart(2, '0')).join('');
+    }
+
+    const toneOf = (stage, p) => {
+        const c = ARC[stage];
+        return c ? mix(hsl(...c), '#2a2018', p.dim) : p.cream;
+    };
+
+    /* ---- the paper of a card ---- */
+
+    function seeded(n) {
+        let s = (n * 2654435761) >>> 0 || 1;
+        return () => {
+            s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0;
+            return s / 4294967296;
+        };
+    }
+
+    const hash = (text) => Array.from(text).reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7);
+
+    const VARIANTS = 7;
+    const sheets = new Map();
+
+    /*
+     * A card's face as one picture in nine slices (border-image): the corners
+     * stand as they are, with the scuffs in them, and only the edges and the
+     * middle stretch to the card's size -- so nothing is measured, and one
+     * picture does for every card of a colour and a shape. The outline is the
+     * gap between two wobbling paths, so it is a little thicker here and
+     * thinner there, as drawn by hand.
+     *
+     * Which of the shapes a card has comes out of its word, so it is the same
+     * at every draw with nothing kept.
+     *
+     * Drawn once into a bitmap, at the screen's own scale, and the bitmap is
+     * what the cards wear. As an SVG it was drawn over again for every card
+     * that came into sight -- two curves, a clip and three wide strokes, in
+     * nine pieces -- and scrolling fifty of them dropped a frame in ten and
+     * showed the bare box before the cards (measured 25 November 2026: 250-290
+     * ms of the GPU in a second and a half of scrolling, 10 with bitmaps).
+     */
+    const GRAIN = Math.max(2, Math.ceil(devicePixelRatio * 380 / 350));
+
+    const SLICE = 16;
+
+    function sheet(tone, p, variant, scuffs) {
+        const key = [tone, p.cardLine, variant, scuffs].join();
+        if (sheets.has(key)) return sheets.get(key);
+
+        const W = 84, H = 64;
+        const rnd = seeded(variant * 97 + 31);
+        const f = (v) => Math.round(v * 100) / 100;
+        const jig = (by) => (rnd() - 0.5) * 2 * by;
+
+        const x0 = 0.7, y0 = 0.7, x1 = W - 0.7, y1 = H - 0.7;
+        const r = [0, 1, 2, 3].map(() => 5 + rnd() * 1.8);
+
+        // Round the sheet, each point with the way inwards from it
+        const pts = [];
+        const corner = (cx, cy, rad, from) => [0, 45, 90].forEach(a => {
+            const t = (from + a) * Math.PI / 180;
+            const at = rad + (a === 45 ? jig(0.35) : 0);
+            pts.push({ x: cx + Math.cos(t) * at, y: cy + Math.sin(t) * at, nx: -Math.cos(t), ny: -Math.sin(t) });
+        });
+        const edge = (ax, ay, bx, by, nx, ny) => [0.3, 0.5, 0.72].forEach(t => {
+            const off = jig(0.4);
+            pts.push({ x: ax + (bx - ax) * t + nx * off, y: ay + (by - ay) * t + ny * off, nx, ny });
+        });
+
+        corner(x0 + r[0], y0 + r[0], r[0], 180);
+        edge(x0, y0, x1, y0, 0, 1);
+        corner(x1 - r[1], y0 + r[1], r[1], 270);
+        edge(x1, y0, x1, y1, -1, 0);
+        corner(x1 - r[2], y1 - r[2], r[2], 0);
+        edge(x1, y1, x0, y1, 0, -1);
+        corner(x0 + r[3], y1 - r[3], r[3], 90);
+        edge(x0, y1, x0, y0, 1, 0);
+
+        const inner = pts.map(q => {
+            const t = 1.1 + jig(0.3);
+            return { x: q.x + q.nx * t, y: q.y + q.ny * t };
+        });
+
+        const smooth = (list) => {
+            const n = list.length;
+            const at = (i) => list[(i + n) % n];
+            let d = `M${f(list[0].x)} ${f(list[0].y)}`;
+            for (let i = 0; i < n; i++) {
+                const a = at(i - 1), b = at(i), c = at(i + 1), e = at(i + 2);
+                d += `C${f(b.x + (c.x - a.x) / 6.5)} ${f(b.y + (c.y - a.y) / 6.5)} ${f(c.x - (e.x - b.x) / 6.5)} ${f(c.y - (e.y - b.y) / 6.5)} ${f(c.x)} ${f(c.y)}`;
+            }
+            return d + 'Z';
+        };
+
+        const line = mix(mix(tone, '#000000', 0.55), p.cardLine, 0.7);
+        const shade = mix(tone, '#4a2c12', 0.75);
+        const inside = smooth(inner);
+
+        // Specks along a corner, or two or three strokes of wear across it:
+        // in two corners of the four, opposite each other
+        let wear = '';
+        if (scuffs && variant !== VARIANTS - 1) {
+            const corners = variant % 2 ? [[1, 1], [-1, -1]] : [[-1, 1], [1, -1]];
+            corners.forEach(([sx, sy], i) => {
+                const px = (d) => (sx > 0 ? d : W - d);
+                const py = (d) => (sy > 0 ? d : H - d);
+
+                if ((variant + i) % 3) {
+                    // Dots: up the side and along the edge, thinning out
+                    const dots = [[3.6, 7.6, 0.62], [4.4, 4.6, 0.8], [7.2, 3.6, 0.55], [10.2, 3.9, 0.42]];
+                    dots.slice(0, 3 + (variant % 2)).forEach(([dx, dy, dr]) => {
+                        wear += `<ellipse cx="${f(px(dx + jig(0.5)))}" cy="${f(py(dy + jig(0.5)))}" rx="${f(dr * 1.15)}" ry="${f(dr * 0.85)}" fill="${line}" opacity="0.72"/>`;
+                    });
+                } else {
+                    // Strokes across the corner
+                    [0, 1, 2].slice(0, 2 + (variant % 2)).forEach(k => {
+                        const a = 4 + k * 1.9, b = 3.2 + k * 0.5;
+                        wear += `<path d="M${f(px(b))} ${f(py(a + 2.2))}L${f(px(a + 2 + jig(0.4)))} ${f(py(b + 0.2))}" stroke="${line}" stroke-width="0.65" stroke-linecap="round" opacity="0.6"/>`;
+                    });
+                }
+            });
+        }
+
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * GRAIN}" height="${H * GRAIN}" viewBox="0 0 ${W} ${H}">`
+            + `<defs><clipPath id="c"><path d="${inside}"/></clipPath></defs>`
+            + `<path d="${smooth(pts)}" fill="${line}"/><path d="${inside}" fill="${tone}"/>`
+            + `<g clip-path="url(#c)" fill="none" stroke="${shade}"><path d="${inside}" stroke-width="8" opacity="0.035"/><path d="${inside}" stroke-width="4.5" opacity="0.045"/><path d="${inside}" stroke-width="2" opacity="0.09"/></g>`
+            + wear + `</svg>`;
+
+        // The SVG until the bitmap is ready, a few frames later: both in the
+        // rule of one class, which the cards of this paper wear
+        //
+        // Its own colour under it: the nine pieces of a bitmap meet on
+        // fractions of a pixel, and the box showed through the joints
+        const src = `data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, '%27')}`;
+        const name = `paper-${sheets.size}`;
+        const rule = document.head.appendChild(document.createElement('style'));
+        const put = (url) => { rule.textContent = `.card .${name} { border-image: url("${url}") ${SLICE * GRAIN} fill / ${SLICE}px stretch; background: ${tone} content-box; padding: 2px; border-radius: 7px; }`; };
+        put(src);
+
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const c = document.createElement('canvas');
+                c.width = W * GRAIN;
+                c.height = H * GRAIN;
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                put(c.toDataURL('image/png'));
+            } catch (e) { /* the SVG, then */ }
+        };
+        img.src = src;
+
+        sheets.set(key, name);
+        return name;
+    }
+
+    /* ---- marks, as marksSvg draws them ---- */
+
+    // o right, x wrong, . missed, e early right, f early wrong
+    function marksSvg(marks, p) {
+        if (!marks) return '';
+
+        const GAP = 0.6, LINE = 4, WIDTH = 290;
+        const size = (m) => (m === '.' ? 2 : 4);
+        const lines = [];
+        Array.from(marks).forEach(m => {
+            const last = lines[lines.length - 1];
+            if (last && last.w + GAP + size(m) <= WIDTH) { last.items.push(m); last.w += GAP + size(m); }
+            else lines.push({ items: [m], w: size(m) });
+        });
+
+        const w = Math.max(...lines.map(l => l.w));
+        const h = lines.length * LINE + (lines.length - 1) * GAP;
+        const body = lines.map((l, n) => {
+            let x = (w - l.w) / 2;
+            const cy = n * (LINE + GAP) + LINE / 2;
+            return l.items.map(m => {
+                const s = size(m);
+                const cx = x + s / 2;
+                x += s + GAP;
+                const ink = m === 'x' || m === 'f' ? p.fail : p.mark;
+                return m === 'e' || m === 'f'
+                    ? `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="1.4" fill="none" stroke="${ink}" stroke-width="1.2"/>`
+                    : `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${s / 2}" fill="${ink}"${m === '.' ? ' opacity="0.8"' : ''}/>`;
+            }).join('');
+        }).join('');
+
+        return `<svg width="${w.toFixed(2)}" height="${h.toFixed(2)}" viewBox="0 0 ${w.toFixed(2)} ${h.toFixed(2)}" style="display:block;overflow:visible">${body}</svg>`;
+    }
+
+    /* ---- a card ---- */
+
+    function cardHtml(w, order, p) {
+        const [word, trans, stage, marks, timer] = w;
+        const failed = /[xf]$/.test((marks || '').replace(/\./g, ''));
+        const tone = toneOf(stage, p);
+        const variant = hash(word) % VARIANTS;
+        const hop = stage > 0 && !timer ? `animation: bounce ${failed ? 3250 : 650}ms ease-in-out ${-order * 170}ms infinite;` : '';
+        const badge = timer ? `<span style="position: absolute; bottom: -6.5px; right: -5px; z-index: 3; padding: 1.2px 4px; border-radius: 99px; background: ${p.pill}; border: 1px solid ${p.cardLine}; color: ${p.pillInk}; font-size: 8.6px; font-weight: 700; line-height: 1; white-space: nowrap;">${timer}</span>` : '';
+
+        return `<div class="card" style="${hop} --tone: ${tone}; box-shadow: 1.6px 2px 0 ${p.cast};">`
+            + `<span class="word" style="color: ${failed ? p.fail : p.cardInk}">${word}</span>`
+            + `<span class="dots">${marksSvg(marks, p)}</span>`
+            + `<span class="trans" style="color: ${failed ? p.fail : p.cardSub}">${trans}</span>`
+            + badge + `</div>`;
+    }
+
+    /* ---- the cabinet ---- */
+
+    const SIDE = 7;      // a side wall, seen from inside
+
+    const sideWall = (left, p) => `<span style="position: absolute; ${left ? 'left' : 'right'}: 0; top: 0; bottom: 0; width: ${SIDE}px; pointer-events: none; background: linear-gradient(${left ? 90 : 270}deg, ${left ? p.sideLit : p.sideNear}, ${p.sideFar}); box-shadow: inset ${left ? -1 : 1}px 0 0 ${p.sideEdge};"></span>`;
+
+    /* ---- the pieces of a set card ---- */
+
+    const ICON = (body) => `<svg width="15.4" height="15.4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">${body}</svg>`;
+
+    const PEN = ICON('<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>');
+    const EYE = ICON('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>');
+    const CHEVRON = ICON('<path d="M9 5l7 7-7 7"/>');
+
+    // The name on the label the game has it on in its header, in as many
+    // lines as it takes
+    function namePlate(text, p) {
+        const ear = (side) => `<span style="position: absolute; ${side}: 0; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: ${p.brass}; border: 1px solid ${p.line};"></span>`;
+        return `<span style="position: relative; display: inline-flex; min-width: 0; padding: 0 4px; filter: drop-shadow(0 1px 1px rgba(40, 24, 10, 0.3));">${ear('left')}${ear('right')}`
+            + `<span style="position: relative; display: flex; min-width: 0; padding: 1.6px; border-radius: 3px; background: linear-gradient(180deg, ${p.brassLight}, ${p.brass}); border: 1px solid ${p.line};">`
+            + `<span class="title-face" style="display: block; min-width: 0; padding: 2.2px 9px; border-radius: 1.6px; background: ${p.labelPaper}; box-shadow: inset 0 1px 1.5px rgba(84, 64, 47, 0.35); font-size: 13.6px; line-height: 17px; font-weight: 700; color: ${p.labelInk}; overflow-wrap: anywhere;">${text}</span>`
+            + `</span></span>`;
+    }
+
+    // The count as the paper tag the boxes have theirs on
+    function countTag(text, p) {
+        const tip = 5.5;
+        const cut = (point, shoulder) => `polygon(${shoulder}px 0, 100% 0, 100% 100%, ${shoulder}px 100%, ${point}px 50%)`;
+        return `<span style="display: inline-flex; flex: none; padding: 1px; background: ${p.line}; clip-path: ${cut(0, tip)}; transform: rotate(-1.2deg);">`
+            + `<span style="position: relative; display: inline-flex; padding: 2.4px 5px 2.2px ${tip + 4.6}px; background: linear-gradient(180deg, ${p.tag[0]}, ${p.tag[1]}); color: ${p.tagInk}; clip-path: ${cut(0.4, tip - 0.6)}; font-size: 10.2px; font-weight: 700; line-height: 1.1; white-space: nowrap; font-variant-numeric: tabular-nums;">`
+            + `<span style="position: absolute; left: ${tip - 1.2}px; top: 50%; width: 3.4px; height: 3.4px; margin-top: -1.7px; border-radius: 50%; background: ${p.kraftMid}; border: 0.8px solid ${p.line};"></span>${text}</span></span>`;
+    }
+
+    // The ladder: thirteen beads in a groove, the rungs not climbed yet holes
+    function ladder(words, p) {
+        const climbed = (s) => Math.max(0, Math.min(13, s - 1));
+        const stages = words.map(w => w[2]);
+        const lit = climbed(Math.max(...stages));
+        const grown = climbed(Math.min(...stages));
+        const beads = Array.from({ length: 13 }, (_, i) => {
+            const tone = toneOf(i + 2, p);
+            const look = i < lit
+                ? `background: ${tone}; border: 0.9px solid ${mix(mix(tone, '#000000', 0.5), p.cardLine, 0.7)};`
+                : `background: ${p.hole}; box-shadow: inset 0 1px 1.5px rgba(0, 0, 0, 0.4);`;
+            return `<span style="flex: 1; display: flex; justify-content: center;"><span style="width: ${i < grown ? '100%' : '9.4px'}; height: 9.4px; border-radius: 4.7px; ${look}"></span></span>`;
+        }).join('');
+        return `<div style="display: flex; align-items: center; gap: 3.4px; margin: 0 1px 7px; padding: 3px 6px; border-radius: 99px; background: ${p.groove}; box-shadow: inset 0 1px 2px rgba(20, 10, 4, 0.45), 0 1px 0 rgba(255, 236, 205, 0.12);">${beads}</div>`;
+    }
+
+    /*
+     * The games, their own drawings, on tiles in the same paints and with the
+     * same line and shadow as the cards
+     */
+    const svg24 = (body) => `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">${body}</svg>`;
+    const GAMES = [
+        { name: 'Flashcards', tone: '#d8765f', face: svg24('<g transform="rotate(-8 12 12)"><path d="M6 9.4V6.6a2 2 0 0 1 2-2h9.4" transform="rotate(16 10.5 6.4)"/><rect x="3" y="8.8" width="17.4" height="11" rx="2.6"/></g>') },
+        { name: 'Quiz', tone: '#cb9f42', face: svg24('<path d="M2.6 8.2 L5.2 10.8 L9.4 5"/><path d="M12.6 8h8.4"/><path d="M3.2 13.2 L8.8 18.8"/><path d="M8.8 13.2 L3.2 18.8"/><path d="M12.6 16h8.4"/>') },
+        { name: 'Wordcraft', tone: '#9179ad', face: svg24('<g fill="currentColor" stroke="none"><rect x="1.4" y="8.1" width="5.6" height="7.8" rx="1.4"/><rect x="9.2" y="8.1" width="5.6" height="7.8" rx="1.4"/><rect x="17" y="8.1" width="5.6" height="7.8" rx="1.4" fill-opacity="0.4"/></g>') },
+        { name: 'Snake', tone: '#6b8fb5', face: (tone) => `<svg width="50" height="50" viewBox="30 30 340 340" style="display:block"><g transform="matrix(1.4 0 0 1.4 -89 -345.2)"><path d="M137.17 489.59C137.38 485.68 141.01 482.26 141.03 477.67C141.07 468.74 134.95 461.53 134.12 452.67C133.2 442.86 137.51 432.75 145.17 426.69C191.95 389.66 199.67 487.31 229.74 459.67C239.63 450.58 235.34 437.01 226.5 429.21C188.26 395.49 160.35 412.87 160.35 344.33C160.35 330.58 155.94 307.77 172.83 302.05C188.09 296.88 248.13 296 251.88 316C254.49 329.92 256.11 354.71 243.5 363.67C235.06 369.66 199.52 360.17 201.5 375.81C203.07 388.18 308.14 423.8 249.5 479.53C242.36 486.31 232.01 489.56 222.33 490.13C177.72 492.78 179.06 435.44 157.93 442C143.08 446.61 161.76 495.45 137.17 489.59Z" fill="currentColor"/><g fill="${tone}"><circle cx="192.4" cy="331.7" r="17.5"/><circle cx="228.8" cy="332.4" r="9.1"/></g><g fill="currentColor"><circle cx="197.9" cy="330.2" r="6.5"/><circle cx="231.2" cy="331.8" r="3.2"/></g></g></svg>` },
+        { name: 'Word search 2', tone: '#b56a89', face: svg24('<g fill="currentColor" stroke-width="1.2"><path d="M15.3 19.45L13.65 22.31L10.35 22.31L8.7 19.45L10.35 16.59L13.65 16.59ZM8.85 15.72L7.2 18.58L3.9 18.58L2.25 15.72L3.9 12.87L7.2 12.87ZM15.3 12L13.65 14.86L10.35 14.86L8.7 12L10.35 9.14L13.65 9.14ZM21.75 8.28L20.1 11.13L16.8 11.13L15.15 8.28L16.8 5.42L20.1 5.42Z"/><path d="M15.3 4.55L13.65 7.41L10.35 7.41L8.7 4.55L10.35 1.69L13.65 1.69ZM8.85 8.28L7.2 11.13L3.9 11.13L2.25 8.28L3.9 5.42L7.2 5.42ZM21.75 15.72L20.1 18.58L16.8 18.58L15.15 15.72L16.8 12.87L20.1 12.87Z" opacity="0.45"/></g>') }
+    ];
+
+    function gamesHtml(p) {
+        const tiles = GAMES.map(g => {
+            const tone = mix(g.tone, '#2a2018', p.dim * 1.6);
+            const line = mix(mix(tone, '#000000', 0.5), p.cardLine, 0.6);
+            const face = typeof g.face === 'function' ? g.face(tone) : g.face;
+            return `<button style="flex: 0 0 calc((100% - 20.4px) / 5); min-width: 0; padding: 0; background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5.1px;">
+                <span style="display: grid; place-items: center; width: 50px; height: 50px; flex: none; overflow: hidden; border-radius: 13px 14.5px 13.5px 15px; background: ${tone}; border: 1.2px solid ${line}; color: #fbf3e3; box-shadow: 1.8px 2px 0 ${p.cast}, inset 0 0 5px ${mix(tone, '#3a2210', 0.35)}55;">${face}</span>
+                <span class="tile-name" style="width: max-content; font-size: 10.2px; font-weight: 600; line-height: 1.2; color: ${p.onWood}; white-space: nowrap;">${g.name}</span>
+            </button>`;
+        }).join('');
+
+        return `<div style="display: flex; justify-content: center; gap: 0 5.1px; padding: 11px 13px 6px;">${tiles}</div>`;
+    }
+
+    function setCard(set, p) {
+        const btn = (cls, icon, turn) => `<button class="${cls}" style="display: inline-flex; align-items: center; justify-content: center; width: 27.3px; height: 27.3px; padding: 0; background: transparent; border: none; border-radius: 10.2px; color: ${p.onWood}; cursor: pointer;"><span style="display: block; line-height: 0;${turn === undefined ? '' : ` transform: rotate(${turn}deg); transition: transform 0.18s ease-out;`}">${icon}</span></button>`;
+        const ends = `linear-gradient(90deg, ${p.sideShade} 0, transparent 34px, transparent calc(100% - 34px), ${p.sideShade} 100%)`;
+
+        // A board: higher than the box's walls and as wide, its lower edge its
+        // thickness; square where it meets them, round at the set's own ends
+        const board = (z, round, pad, body) => `<div class="board" style="position: relative; z-index: ${z}; padding: ${pad}; border-radius: ${round}; border: 1.2px solid ${p.line}; background: linear-gradient(180deg, ${p.frame}, ${p.frameLow}); box-shadow: inset 0 1.5px 0 rgba(255, 236, 205, 0.26), inset 0 -2.4px 0 rgba(30, 18, 8, 0.3), ${p.boardShadow};">${body}</div>`;
+
+        const head = `<div style="display: flex; gap: 4.3px; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 6.8px; min-width: 0;">${namePlate(set.title, p)}${countTag(`${set.words.length}${set.percent ? ` · ${set.percent}%` : ''}`, p)}</div>
+                <div style="display: flex; align-items: center; gap: 1.7px; flex: none;">${btn('pen', PEN)}${btn('eye', EYE)}${btn('fold', CHEVRON, set.folded ? 0 : 90)}</div>
+            </div>
+            ${ladder(set.words, p)}`;
+
+        /*
+         * The box. Its top TUCK pixels are always under the board above, for
+         * the overshoot when the drawer is pulled out to its stop; what falls
+         * into it stays where it is while the box slides under it, and while
+         * the cards scroll: the shade along the front is there at the end of
+         * the list too, as the one under the board above is at its head (the
+         * owner, 25 November 2026; until then it went at the end).
+         */
+        const drawer = `<div class="drawer" style="position: relative; z-index: 1; overflow: hidden;${set.folded ? ' display: none;' : ''}">
+                <div class="box" style="position: relative; left: 0; right: 0; margin-top: -${TUCK}px; padding: 0 8.2px; background: linear-gradient(90deg, ${p.rimLit}, ${p.rim}); box-shadow: inset 1.2px 0 0 ${p.line}, inset -1.2px 0 0 ${p.line};">
+                    <div style="position: relative; border: solid ${p.line}; border-width: 0 1px; background: ${ends}, ${p.wall};">
+                        ${sideWall(true, p)}${sideWall(false, p)}
+                        <div class="scroll"><div class="words">${set.words.map((w, i) => cardHtml(w, i, p)).join('')}</div></div>
+                    </div>
+                </div>
+                <span style="position: absolute; left: 9.2px; right: 9.2px; bottom: 0; height: 24px; z-index: 2; pointer-events: none; background: linear-gradient(0deg, ${p.frontShade}, transparent);"></span>
+                <span style="position: absolute; inset: 0 9.2px; z-index: 2; pointer-events: none; box-shadow: ${p.wallDepth};"></span>
+                <span style="position: absolute; left: 0; right: 0; top: 0; height: 9px; z-index: 2; pointer-events: none; background: linear-gradient(180deg, ${p.cast}, transparent); clip-path: polygon(0 0, 9.2px 0, 9.2px 100%, calc(100% - 9.2px) 100%, calc(100% - 9.2px) 0, 100% 0, 100% 100%, 0 100%);"></span>
+            </div>`;
+
+        return `<div class="set" style="position: relative;">${board(3, '10px 10px 0 0', '7px 8px 5px', head)}${drawer}${board(2, '0 0 10px 10px', '0 0 2px', gamesHtml(p))}</div>`;
+    }
+
+    /*
+     * How tall the box may be: as much as leaves the app with one set in it
+     * 600 of the screen's pixels -- the most Chrome gives a popup -- whatever
+     * the app's zoom, and however many lines the set's name takes. What is
+     * over that scrolls inside the box.
+     */
+    const POPUP = 600;
+    const APP_TOP = 6.8 + 34.1 + 6.8 + 6.8;  // the header and the air under it
+    const APP_FOOT = 6.8;
+
+    function capBox(set) {
+        const [head, games] = set.querySelectorAll('.board');
+        const scale = 380 / 350;
+        const room = POPUP / scale - APP_TOP - APP_FOOT - head.offsetHeight - games.offsetHeight;
+        const scroll = set.querySelector('.scroll');
+
+        // Less a pixel, for what the three heights were rounded by
+        scroll.style.maxHeight = `${Math.floor(room + TUCK - 1)}px`;
+    }
+
+    /* ---- the drawer's slide ---- */
+
+    const TUCK = 10;
+    const OPEN_MS = 520;
+    const SHUT_MS = 430;
+
+    // When the box comes to its stop, as a share of the run: the knock is then
+    const STOP = 0.74;
+
+    const still = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /*
+     * The box slides, it does not fold: it goes up whole under the board with
+     * the name, its foot held to the games' board, which is the front of the
+     * drawer. A little past its stop and back when it is pulled out; shut, it
+     * stops where it meets the board; the cards in it late to start. No more
+     * than that: the box swung past its place on the way back and the cards
+     * slid on after it, shut it sprang off the board, and the drawer seemed
+     * to jerk once more after it had stopped (the owner, 25 November 2026). A press during a run turns it round from where it is.
+     */
+    function slide(set, open) {
+        const drawer = set.querySelector('.drawer');
+        const box = drawer.querySelector('.box');
+        const words = drawer.querySelector('.words');
+        const from = drawer.style.display === 'none' ? 0 : drawer.offsetHeight;
+
+        drawer.getAnimations().forEach(a => a.cancel());
+        words.getAnimations().forEach(a => a.cancel());
+
+        drawer.style.display = '';
+        drawer.style.height = '';
+        box.style.position = 'relative';
+        box.style.bottom = '';
+
+        if (still()) {
+            if (!open) drawer.style.display = 'none';
+            return;
+        }
+
+        const full = drawer.offsetHeight;
+        const to = open ? full : 0;
+
+        drawer.style.height = `${to}px`;
+        box.style.position = 'absolute';
+        box.style.bottom = '0';
+
+        const run = drawer.animate(open
+            ? [{ height: `${from}px`, easing: 'cubic-bezier(0.3, 0.1, 0.35, 1)' }, { height: `${full + 4}px`, offset: STOP, easing: 'ease-out' }, { height: `${full}px` }]
+            : [{ height: `${from}px`, easing: 'cubic-bezier(0.45, 0.05, 0.75, 0.6)' }, { height: '0px' }],
+            { duration: open ? OPEN_MS : SHUT_MS * STOP });
+
+        words.animate(open
+            ? [{ transform: 'translateY(0)' }, { transform: 'translateY(-5px)', offset: 0.25 }, { transform: 'translateY(0)', offset: STOP }, { transform: 'translateY(0)' }]
+            : [{ transform: 'translateY(0)' }, { transform: 'translateY(5px)', offset: 0.34 }, { transform: 'translateY(0)' }],
+            { duration: open ? OPEN_MS : SHUT_MS * STOP });
+
+        // A press can come before the last run has said it is over
+        drawer.run = run;
+        run.onfinish = () => {
+            if (drawer.run !== run) return;
+            drawer.style.height = '';
+            box.style.position = 'relative';
+            box.style.bottom = '';
+            if (!open) drawer.style.display = 'none';
+        };
+    }
+
+    /*
+     * The slide heard: wood on wood, a breath of noise through a low band with
+     * a rumble under it, climbing as the drawer comes out and falling as it
+     * goes in, and the knock at the stop -- a soft one with the cards shifting
+     * in it, or a full one against the cabinet. Made as core/sfx.js makes its
+     * sounds (gust, pop, note), and of the same parts.
+     */
+    let audio = null;
+    let hiss = null;
+    let sounding = null;
+
+    function slideSound(open) {
+        try {
+            if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+            if (audio.state === 'suspended') audio.resume();
+        } catch (e) {
+            return;
+        }
+
+        const ctx = audio;
+        if (!hiss) {
+            hiss = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+            const data = hiss.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        }
+
+        const t = ctx.currentTime;
+        const d = (open ? OPEN_MS : SHUT_MS) * STOP / 1000;
+
+        // A drawer turned round half way stops sounding its first way
+        if (sounding) sounding.gain.setTargetAtTime(0, t, 0.02);
+        const all = ctx.createGain();
+        all.connect(ctx.destination);
+        sounding = all;
+
+        const swell = (at, peak, top, end) => {
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.0001, at);
+            g.gain.exponentialRampToValueAtTime(peak, at + top);
+            g.gain.exponentialRampToValueAtTime(0.0001, at + end);
+            g.connect(all);
+            return g;
+        };
+        const noise = (at, long, type, f0, f1, q, gain) => {
+            const src = ctx.createBufferSource();
+            src.buffer = hiss;
+            const band = ctx.createBiquadFilter();
+            band.type = type;
+            band.Q.value = q;
+            band.frequency.setValueAtTime(f0, at);
+            band.frequency.exponentialRampToValueAtTime(f1, at + long);
+            src.connect(band).connect(gain);
+            src.start(at);
+            src.stop(at + long + 0.05);
+        };
+        const tone = (at, f0, f1, long, loud) => {
+            const osc = ctx.createOscillator();
+            osc.frequency.setValueAtTime(f0, at);
+            osc.frequency.exponentialRampToValueAtTime(f1, at + long);
+            osc.connect(swell(at, loud, 0.006, long));
+            osc.start(at);
+            osc.stop(at + long + 0.05);
+        };
+
+        if (open) {
+            noise(t, d, 'bandpass', 420, 980, 1.1, swell(t, 0.1, d * 0.45, d * 1.02));
+            noise(t, d, 'lowpass', 150, 260, 0.7, swell(t, 0.16, d * 0.4, d * 1.02));
+            noise(t + d, 0.1, 'lowpass', 1100, 260, 0.7, swell(t + d, 0.13, 0.006, 0.1));
+            tone(t + d, 190, 115, 0.13, 0.09);
+            noise(t + d + 0.03, 0.11, 'highpass', 2600, 3400, 0.7, swell(t + d + 0.03, 0.018, 0.03, 0.11));
+        } else {
+            noise(t, d, 'bandpass', 900, 420, 1.1, swell(t, 0.1, d * 0.7, d * 1.02));
+            noise(t, d, 'lowpass', 240, 150, 0.7, swell(t, 0.17, d * 0.75, d * 1.02));
+            noise(t + d, 0.15, 'lowpass', 1400, 190, 0.7, swell(t + d, 0.26, 0.005, 0.15));
+            tone(t + d, 150, 68, 0.19, 0.16);
+        }
+    }
+
+    /* ---- the sets ---- */
+
+    // Words with a history each, made up the same at every opening
+    function made(text) {
+        const rnd = seeded(2026);
+        const TIMES = ['3m', '12m', '40m', '2h', '5h', '1d', '2d', '6d', '13d', '28d', '57d', '115d', '230d'];
+        return text.split('|').map(pair => {
+            const all = pair.trim().match(/^([a-z ]+?) ([а-яё ]+)$/i);
+            const stage = Math.floor(rnd() * 14.99);
+            if (!stage) return [all[1], all[2], 0, ''];
+
+            let marks = '';
+            for (let k = 0; k < Math.max(1, stage - 1); k++) marks += (k > 2 ? '.'.repeat(Math.floor(rnd() * (k > 7 ? 4 : 2))) : '') + (rnd() < 0.06 ? 'e' : 'o');
+            const failed = stage < 12 && rnd() < 0.13;
+            return [all[1], all[2], stage, marks + (failed ? 'x' : ''), rnd() < 0.38 ? TIMES[Math.max(0, stage - 2)] : undefined];
+        });
+    }
+
+    const SETS = [
+        {
+            title: 'Слова набора', percent: 46,
+            words: [
+                ['wonder', 'чудо', 2, 'o'],
+                ['brave', 'смелый', 3, 'oo', '12m'],
+                ['journey', 'путешествие', 8, 'o.oo..o..oo..o'],
+                ['forest', 'лес', 4, 'oo.o'],
+                ['spark', 'искра', 5, 'ooo.o', '2h'],
+                ['adventure', 'приключение', 9, 'o.oo...o.oo..o.o', '6d'],
+                ['mist', 'туман', 6, 'ooo.oo'],
+                ['cozy', 'уютный', 1, 'oox'],
+                ['apple', 'яблоко', 0, ''],
+                ['heart', 'сердце', 4, 'ooooox', '40m'],
+                ['story', 'история', 10, 'oo.o..oo..o...oo'],
+                ['star', 'звезда', 7, 'ooeo.oo', '1d'],
+                ['book', 'книга', 12, 'oooo.o..o...o...oo', '58d'],
+                ['focus', 'сосредоточенность', 11, 'oo.oo..o...o..oo'],
+                ['sky', 'небо', 0, ''],
+                ['dream', 'мечта', 13, 'ooo.oo..o..o....o.oo'],
+                ['to pull oneself together', 'взять себя в руки', 14, 'oooo.o..o...o....o....oo', '212d'],
+                ...made(`bridge мост|whisper шёпот|stubborn упрямый|harbor гавань|to wander бродить|lantern фонарь|gentle нежный|
+                    thunder гром|meadow луг|to forgive прощать|ancient древний|pebble галька|neighbor сосед|to borrow брать взаймы|
+                    curious любопытный|feather перо|shadow тень|to remember помнить|weather погода|island остров|quiet тихий|
+                    candle свеча|to hesitate колебаться|kindness доброта|wooden деревянный|breeze бриз|to overcome преодолевать|
+                    drawer ящик|paper бумага|shelf полка|to wonder удивляться|courage смелость|root корень|valley долина|
+                    cheerful весёлый|to gather собирать`)
+            ]
+        },
+        {
+            title: 'Español A1: первые слова', percent: 0,
+            words: [
+                ['la casa', 'дом', 0, ''], ['el agua', 'вода', 0, ''], ['gracias', 'спасибо', 0, ''],
+                ['hola', 'привет', 0, ''], ['el amigo', 'друг', 0, ''], ['por favor', 'пожалуйста', 0, ''],
+                ['comer', 'есть', 0, ''], ['dormir', 'спать', 0, ''], ['mañana', 'завтра', 0, ''],
+                ['la noche', 'ночь', 0, ''], ['el libro', 'книга', 0, ''], ['la puerta', 'дверь', 0, ''],
+                ['hablar', 'говорить', 0, ''], ['el perro', 'собака', 0, ''], ['la calle', 'улица', 0, ''],
+                ['beber', 'пить', 0, ''], ['el tiempo', 'время', 0, ''], ['la ciudad', 'город', 0, ''],
+                ['vivir', 'жить', 0, ''], ['el trabajo', 'работа', 0, ''], ['la mesa', 'стол', 0, ''],
+                ['siempre', 'всегда', 0, ''], ['el camino', 'дорога', 0, ''], ['pequeño', 'маленький', 0, '']
+            ]
+        },
+        {
+            title: 'Phrasal verbs, которые всё время забываются', percent: 81, folded: true,
+            words: [
+                ['give up', 'сдаваться', 7, 'ooo.o'], ['look for', 'искать', 9, 'oooo.o'], ['run out of', 'закончиться', 11, 'oooooo'],
+                ['put off', 'откладывать', 8, 'ooo.o.o'], ['get along', 'ладить', 10, 'oo.oo..o.o', '4d'], ['find out', 'выяснить', 7, 'ooeo.o']
+            ]
+        }
+    ];
+
+    /* ---- the page ---- */
+
+    function headerHtml(p) {
+        return `<div style="margin: -6.8px -6.8px 0; padding: 6.8px; display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0; min-height: 34.1px; display: flex; align-items: center; gap: 7.7px; color: ${p.ink};">
+                <svg width="34.1" height="34.1" viewBox="0 0 32 32" style="display: block; flex-shrink: 0;"><g transform="rotate(-7 16 16)"><rect x="1.95" y="4.34" width="28.09" height="23.31" rx="5.23" fill="#ef6f5a"/><circle cx="11.37" cy="16" r="4.405" fill="#0f2b3c" stroke="#fff" stroke-width="2.41"/><circle cx="23.02" cy="16" r="3.01" fill="#0f2b3c" stroke="#fff" stroke-width="1.5"/></g></svg>
+                <span style="display: block; line-height: 1.06;"><span style="display: block; font-size: 15.4px; font-weight: 800; letter-spacing: 0.235em;">SPACED</span><span style="display: block; font-size: 12.4px; font-weight: 700; letter-spacing: 0.075em;">REPETITION</span></span>
+            </h1>
+            <div style="display: flex; align-items: center; gap: 6.8px;">
+                <button style="height: 29px; padding: 0 10.2px; background: transparent; color: ${p.muted}; border: 1px solid ${p.chrome}; border-radius: 10.2px; font-weight: 600; font-size: 12.8px; cursor: pointer;">+ New set</button>
+                <button style="display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; background: transparent; border: 1px solid ${p.chrome}; border-radius: 10.2px; color: ${p.muted}; cursor: pointer;">${ICON('<path d="M21.60 12.00 C21.60 12.69 20.40 13.54 19.73 14.07 C19.05 14.60 17.89 14.60 17.54 15.20 C17.20 15.80 17.78 16.80 17.66 17.66 C17.53 18.51 17.40 19.97 16.80 20.31 C16.20 20.66 14.87 20.05 14.07 19.73 C13.27 19.41 12.69 18.40 12.00 18.40 C11.31 18.40 10.73 19.41 9.93 19.73 C9.13 20.05 7.80 20.66 7.20 20.31 C6.60 19.97 6.47 18.51 6.34 17.66 C6.22 16.80 6.80 15.80 6.46 15.20 C6.11 14.60 4.95 14.60 4.27 14.07 C3.60 13.54 2.40 12.69 2.40 12.00 C2.40 11.31 3.60 10.46 4.27 9.93 C4.95 9.40 6.11 9.40 6.46 8.80 C6.80 8.20 6.22 7.20 6.34 6.34 C6.47 5.49 6.60 4.03 7.20 3.69 C7.80 3.34 9.13 3.95 9.93 4.27 C10.73 4.59 11.31 5.60 12.00 5.60 C12.69 5.60 13.27 4.59 14.07 4.27 C14.87 3.95 16.20 3.34 16.80 3.69 C17.40 4.03 17.53 5.49 17.66 6.34 C17.78 7.20 17.20 8.20 17.54 8.80 C17.89 9.40 19.05 9.40 19.73 9.93 C20.40 10.46 21.60 11.31 21.60 12.00 Z"/><circle cx="12" cy="12" r="3"/>')}</button>
+            </div>
+        </div>`;
+    }
+
+    const screens = document.querySelector('.screens');
+
+    // Which drawers are shut, in each theme by itself, and kept through a
+    // press on the tools above
+    const start = () => SETS.map(s => !!s.folded);
+    const shut = { dark: start(), light: start() };
+
+    function render() {
+        document.querySelectorAll('.tools button').forEach(b => b.setAttribute('aria-pressed', options[b.dataset.set] === b.dataset.value));
+
+        // One set as the popup would have it, 600 pixels and no more
+        const shown = options.sets === 'one' ? SETS.slice(0, 1) : SETS;
+        screens.classList.toggle('popup', options.sets === 'one');
+
+        const themes = options.theme === 'both' ? ['dark', 'light'] : [options.theme];
+        screens.innerHTML = '';
+
+        themes.forEach(theme => {
+            const p = theme === 'dark' ? NIGHT : DAY;
+            const screen = document.createElement('section');
+            screen.className = 'screen';
+            screen.style.background = p.ground;
+            screen.innerHTML = `<div class="app ${options.font === 'hand' ? 'hand' : ''}">${headerHtml(p)}<div style="display: flex; flex-direction: column; gap: 14px; margin-top: 6.8px;">${shown.map((s, i) => setCard({ ...s, folded: shut[theme][i] }, p)).join('')}</div></div>`;
+            screens.appendChild(screen);
+
+            screen.querySelectorAll('.set').forEach(el => {
+                capBox(el);
+
+                // A name in a font that has just landed may take another line
+                new ResizeObserver(() => capBox(el)).observe(el.querySelector('.board'));
+            });
+
+            screen.querySelectorAll('.set').forEach((el, i) => el.querySelector('.fold').addEventListener('click', () => {
+                const open = shut[theme][i];
+                shut[theme][i] = !open;
+                slideSound(open);
+                slide(el, open);
+                el.querySelector('.fold span').style.transform = `rotate(${open ? 90 : 0}deg)`;
+            }));
+        });
+    }
+
+    document.querySelector('.tools').addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        options[b.dataset.set] = b.dataset.value;
+        render();
+    });
+
+    render();
+})();
+</script>
+</body>
+
+</html>
